@@ -8,6 +8,12 @@ ag_ensure_app
 echo "agentgate: http://localhost:${AG_PORT}  (mailpit http://localhost:8025)"
 AG_WORKDIR=/workspace/server ag_exec bash -c '
   set -e
+  # Server dev sebelumnya di container ini (mis. terminal ditutup tanpa Ctrl-C) dihentikan dulu,
+  # karena docker exec tanpa TTY tidak meneruskan sinyal ke proses di dalam container.
+  PIDS=/tmp/agentgate-dev.pids
+  if [ -f "$PIDS" ]; then kill $(cat "$PIDS") 2>/dev/null || true; sleep 1; fi
   /workspace/bin/tailwind --watch >/tmp/tailwind.log 2>&1 &
+  # $$ tetap PID yang sama setelah exec, jadi menjadi PID watchexec.
+  echo "$! $$" >"$PIDS"
   exec watchexec --restart --watch src --watch migration --watch config \
     --watch assets/icons --watch assets/i18n --watch Cargo.toml -- cargo loco start --binding 0.0.0.0'

@@ -1,0 +1,54 @@
+[package]
+name = "agentgate-server"
+description = "Server SaaS Agent Gate (aplikasi Loco)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+default-run = "agentgate-server"
+
+[lib]
+name = "agentgate_server"
+doctest = false
+
+[[bin]]
+name = "agentgate-server"
+path = "src/bin/main.rs"
+
+[dependencies]
+# Framework: routing, view Tera, queue Postgres, worker, mailer, CLI migrasi.
+loco-rs = { workspace = true, features = ["cli", "with-db", "cache_inmem", "worker", "db-postgres", "compression", "generators", "mailer"] }
+# Migrasi SeaORM milik server.
+migration = { path = "migration" }
+# Type dan versi bersama dengan CLI.
+agentgate-core = { path = "../core" }
+# ORM (entity, query) untuk Postgres.
+sea-orm = { version = "2.0", default-features = false, features = ["sqlx-postgres", "runtime-tokio-rustls", "macros", "with-uuid", "with-chrono", "with-json"] }
+# Serialisasi config, form, dan data view.
+serde = { version = "1", features = ["derive"] }
+# Data view (`data!`) dan settings dari config.
+serde_json = "1"
+# Runtime async.
+tokio = { version = "1.45", default-features = false, features = ["rt-multi-thread", "macros"] }
+# Trait async untuk Hooks dan Initializer Loco.
+async-trait = "0.1"
+# Router, extractor, dan middleware HTTP.
+axum = "0.8"
+# Logging terstruktur.
+tracing = "0.1"
+# i18n: file Fluent dimuat saat runtime dan fungsi `t()` untuk Tera.
+fluent-templates = { version = "0.15", features = ["tera"] }
+# Identifier bahasa untuk Fluent.
+unic-langid = { version = "0.9", features = ["macros"] }
+# Error domain bertipe.
+thiserror = "2"
+
+[dev-dependencies]
+# Helper tes request/boot dan assertion selector HTML (`assert_css_*`).
+loco-rs = { workspace = true, features = ["testing"] }
+# Membaca config YAML hasil render di tes kontrak config.
+serde_yaml_ng = "0.10"
+
+[lints]
+workspace = true

@@ -1,0 +1,68 @@
+# Config Agent Gate: production. Secret hanya dari env var (tanpa default di staging/production).
+
+logger:
+  enable: true
+  pretty_backtrace: false
+  level: <%= get_env(name="LOG_LEVEL", default="info") %>
+  format: json
+
+server:
+  # PORT di-set wrapper bin/* (dev/test) atau orkestrator (staging/production); tanpa default.
+  port: <%= get_env(name="PORT") %>
+  binding: <%= get_env(name="BINDING", default="0.0.0.0") %>
+  host: <%= get_env(name="APP_URL") %>
+  middlewares:
+    static:
+      enable: true
+      must_exist: true
+      precompressed: false
+      folder:
+        uri: "/static"
+        path: "assets/static"
+      fallback: "assets/static/404.html"
+    request_id:
+      enable: true
+    remote_ip:
+      enable: true
+      # Di belakang reverse proxy (Caddy) yang men-set X-Forwarded-For; port app tidak terbuka selain ke proxy.
+      source: RightmostXForwardedFor
+    secure_headers:
+      enable: true
+      preset: github
+      overrides:
+        Content-Security-Policy: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+
+workers:
+  mode: BackgroundQueue
+
+queue:
+  kind: Postgres
+  # Queue selalu di database yang sama dengan aplikasi (per checkout/worktree), tanpa default.
+  uri: <%= get_env(name="DATABASE_URL") %>
+  dangerously_flush: false
+
+mailer:
+  smtp:
+    enable: true
+    host: <%= get_env(name="SMTP_HOST") %>
+    port: <%= get_env(name="SMTP_PORT") %>
+    secure: <%= get_env(name="SMTP_SECURE", default="true") %>
+    auth:
+      user: <%= get_env(name="SMTP_USER") %>
+      password: <%= get_env(name="SMTP_PASSWORD") %>
+
+database:
+  # DATABASE_URL tanpa default: tanpa wrapper bin/*, aplikasi gagal boot alih-alih
+  # memakai database yang salah (mis. database checkout utama dari dalam worktree).
+  uri: <%= get_env(name="DATABASE_URL") %>
+  enable_logging: false
+  connect_timeout: <%= get_env(name="DB_CONNECT_TIMEOUT", default="500") %>
+  idle_timeout: <%= get_env(name="DB_IDLE_TIMEOUT", default="500") %>
+  min_connections: <%= get_env(name="DB_MIN_CONNECTIONS", default="1") %>
+  max_connections: <%= get_env(name="DB_MAX_CONNECTIONS", default="10") %>
+  auto_migrate: false
+  dangerously_truncate: false
+  dangerously_recreate: false
+
+settings:
+  app_name: Agent Gate
