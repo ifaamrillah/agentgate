@@ -37,7 +37,7 @@ dependencies = [
  "sea-orm",
  "serde",
  "serde_json",
- "serde_yaml_ng",
+ "tera",
  "thiserror 2.0.21",
  "tokio",
  "tracing",

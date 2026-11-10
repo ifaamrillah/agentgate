@@ -1,0 +1,15 @@
+{#- Komponen tombol.
+    Parameter:
+      label: string             teks tombol (sudah diterjemahkan pemanggil)
+      variant: primary|secondary|outline|ghost|destructive|link   (default primary)
+      size: sm|default|lg       (default "default")
+      type: button|submit       (default button)
+      icon: nama ikon Tabler    (default "" = tanpa ikon)
+      class: hanya untuk layout (margin, lebar), bukan warna/ukuran -#}
+{% component button(label: string, variant: string = "primary", size: string = "default", type: string = "button", icon: string = "", class: string = "") %}
+{%- if variant not in ["primary", "secondary", "outline", "ghost", "destructive", "link"] %}{{ throw(message="button: variant tidak dikenal: " ~ variant) }}{% endif -%}
+{%- if size not in ["sm", "default", "lg"] %}{{ throw(message="button: size tidak dikenal: " ~ size) }}{% endif -%}
+<button type="{{ type }}" class="btn {{ class }}" data-variant="{{ variant }}" data-size="{{ size }}">
+  {%- if icon %}{{ icon(name=icon, class="size-4") }}{% endif %}{{ label -}}
+</button>
+{%- endcomponent button %}

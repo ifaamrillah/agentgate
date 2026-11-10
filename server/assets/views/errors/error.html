@@ -1,0 +1,19 @@
+{#- Halaman error lengkap. Variabel: status (angka), key (kunci Fluent: error-403, error-404,
+    error-422, error-429, error-500, error-4xx), request_id (string, boleh kosong). -#}
+{% extends "layouts/public.html" %}
+{% block title %}{{ t(key=key ~ "-title", lang="id") }}{% endblock title %}
+{% block content %}
+<section class="card" role="alert">
+  <header>
+    <p class="text-sm text-muted-foreground">{{ status }}</p>
+    <h1 class="text-xl font-semibold">{{ t(key=key ~ "-title", lang="id") }}</h1>
+  </header>
+  <section>
+    <p>{{ t(key=key ~ "-body", lang="id") }}</p>
+    {% if request_id %}<p class="mt-4 text-xs text-muted-foreground">{{ t(key="error-code", lang="id") }}: <code>{{ request_id }}</code></p>{% endif %}
+  </section>
+  <footer>
+    <a href="/" class="btn" data-variant="outline">{{ icon(name="arrow-left", class="size-4") }}{{ t(key="error-back-home", lang="id") }}</a>
+  </footer>
+</section>
+{% endblock content %}

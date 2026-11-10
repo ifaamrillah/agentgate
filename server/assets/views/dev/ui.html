@@ -1,0 +1,21 @@
+{#- Katalog komponen /_dev/ui: setiap komponen di assets/views/components dengan semua variannya. -#}
+{% extends "layouts/app.html" %}
+{% block title %}Katalog UI{% endblock title %}
+{% block content %}
+<h1 class="text-2xl font-semibold">Katalog UI</h1>
+
+<section class="mt-8" id="button">
+  <h2 class="text-lg font-semibold">button</h2>
+  <div class="mt-4 flex flex-wrap items-center gap-3">
+    {% for variant in ["primary", "secondary", "outline", "ghost", "destructive", "link"] %}
+      {{ <button label={variant} variant={variant}/> }}
+    {% endfor %}
+  </div>
+  <div class="mt-4 flex flex-wrap items-center gap-3">
+    {% for size in ["sm", "default", "lg"] %}
+      {{ <button label={size} size={size} icon="plus"/> }}
+    {% endfor %}
+    {{ <button label="submit" type="submit" icon="check"/> }}
+  </div>
+</section>
+{% endblock content %}

@@ -1,0 +1,20 @@
+{#- Layout aplikasi (setelah login): sidebar navigasi + konten. Block: title, content.
+    Menu dan data user diisi mulai M1. -#}
+{% extends "layouts/base.html" %}
+{% block body %}
+<div class="flex min-h-screen">
+  <aside class="hidden w-60 shrink-0 border-r border-border bg-sidebar p-4 md:block">
+    <a href="/" class="mb-6 flex items-center gap-2 font-semibold">
+      {{ icon(name="robot", class="size-5") }}<span>{{ t(key="app-name", lang="id") }}</span>
+    </a>
+    <nav class="flex flex-col gap-1 text-sm" hx-preload:inherited="mouseover">
+      <a href="/" class="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent">
+        {{ icon(name="home", class="size-4") }}{{ t(key="nav-home", lang="id") }}
+      </a>
+    </nav>
+  </aside>
+  <main class="min-w-0 flex-1 p-4 md:p-8">
+    {% block content %}{% endblock content %}
+  </main>
+</div>
+{% endblock body %}

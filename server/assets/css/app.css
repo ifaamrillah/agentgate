@@ -1,0 +1,13 @@
+/* Satu-satunya entry CSS: Tailwind + Basecoat (vendor, tidak pernah diedit) + token tema + components/. */
+@import "tailwindcss";
+@import "./vendor/basecoat-1.1.0/basecoat.css";
+
+@source "../views";
+@source "../../src";
+
+/* Token tema (lapisan 2). Tanpa dark mode: token .dark sengaja tidak didefinisikan. */
+:root {
+  --font-sans: ui-sans-serif, system-ui, sans-serif;
+}
+
+/* CSS komponen (lapisan 3): satu file per komponen di components/. */

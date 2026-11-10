@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use async_trait::async_trait;
+use axum::Router as AxumRouter;
 use loco_rs::{
     Result,
     app::{AppContext, Hooks, Initializer},
@@ -51,6 +52,20 @@ impl Hooks for App {
 
     fn routes(ctx: &AppContext) -> AppRoutes {
         controllers::routes(ctx)
+    }
+
+    async fn before_routes(_ctx: &AppContext) -> Result<AxumRouter<AppContext>> {
+        // Fallback dipasang di sini (sebelum middleware Loco diterapkan) supaya respons 404
+        // ikut membawa CSP, request id, dan header keamanan lain.
+        Ok(AxumRouter::new().fallback(controllers::middleware::html_errors::not_found))
+    }
+
+    async fn after_routes(router: AxumRouter, _ctx: &AppContext) -> Result<AxumRouter> {
+        // CSRF membungkus semua route; penolakannya dirender sebagai halaman HTML oleh
+        // layer html_errors yang dipasang view engine di luar layer ini.
+        Ok(router.layer(axum::middleware::from_fn(
+            controllers::middleware::csrf::layer,
+        )))
     }
 
     async fn connect_workers(_ctx: &AppContext, _queue: &Queue) -> Result<()> {

@@ -20,6 +20,10 @@ server:
         uri: "/static"
         path: "assets/static"
       fallback: "assets/static/404.html"
+    # Fallback bawaan Loco (halaman Inggris) dimatikan: 404 dirender aplikasi lewat fallback
+    # router di App::before_routes dan layer html_errors.
+    fallback:
+      enable: false
     request_id:
       enable: true
     remote_ip:

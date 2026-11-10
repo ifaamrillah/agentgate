@@ -44,6 +44,7 @@ fn every_environment_config_has_required_sections() {
             assert!(config.queue.is_some(), "{env}: queue");
             assert!(config.mailer.is_some(), "{env}: mailer");
             let mw = &config.server.middlewares;
+            assert!(mw.fallback.as_ref().is_some_and(|m| !m.enable), "{env}: fallback Loco harus mati");
             assert!(mw.request_id.as_ref().is_some_and(|m| m.enable), "{env}: request_id");
             assert!(mw.remote_ip.as_ref().is_some_and(|m| m.enable), "{env}: remote_ip");
             let headers = mw.secure_headers.as_ref().expect("secure_headers");

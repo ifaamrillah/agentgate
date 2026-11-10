@@ -41,14 +41,16 @@ tracing = "0.1"
 fluent-templates = { version = "0.15", features = ["tera"] }
 # Identifier bahasa untuk Fluent.
 unic-langid = { version = "0.9", features = ["macros"] }
+# Tera 2 langsung (versi sama dengan Loco) untuk mendaftarkan fungsi template sendiri (`icon`).
+tera = "2.4"
 # Error domain bertipe.
 thiserror = "2"
 
 [dev-dependencies]
 # Helper tes request/boot dan assertion selector HTML (`assert_css_*`).
 loco-rs = { workspace = true, features = ["testing"] }
-# Membaca config YAML hasil render di tes kontrak config.
-serde_yaml_ng = "0.10"
+# Tes view engine mendaftarkan fungsi template langsung.
+tera = "2.4"
 
 [lints]
 workspace = true
