@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Pemeriksaan lengkap sebelum merge. CI remote (GitHub Actions) memanggil script ini,
+# bukan mendefinisikan ulang langkahnya.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+. bin/_lib.sh
+ag_load_env
+
+step() { printf '\n==> %s\n' "$*"; }
+
+step "tes script bin/"
+for t in bin/tests/*_test.sh; do bash "$t"; done
+
+step "arah dependensi antar-layer"
+bin/check-layers
+
+step "cargo fmt / clippy / deny"
+ag_exec bash -c '
+  set -e
+  cargo fmt --all --check
+  cargo clippy --workspace --all-targets --locked -- -D warnings
+  cargo deny --log-level error check'
+
+step "build CSS"
+bin/tailwind --minify
+
+step "tes"
+bin/test
+
+printf '\nbin/ci: semua hijau\n'

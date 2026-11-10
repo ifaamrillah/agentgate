@@ -24,27 +24,42 @@ async fn status(method: Method, headers: &[(&'static str, &'static str)]) -> u16
 
 #[tokio::test]
 async fn cross_site_post_is_rejected() {
-    assert_eq!(status(Method::POST, &[("sec-fetch-site", "cross-site")]).await, 403);
+    assert_eq!(
+        status(Method::POST, &[("sec-fetch-site", "cross-site")]).await,
+        403
+    );
 }
 
 #[tokio::test]
 async fn same_site_post_is_rejected() {
-    assert_eq!(status(Method::POST, &[("sec-fetch-site", "same-site")]).await, 403);
+    assert_eq!(
+        status(Method::POST, &[("sec-fetch-site", "same-site")]).await,
+        403
+    );
 }
 
 #[tokio::test]
 async fn foreign_origin_without_fetch_metadata_is_rejected() {
-    assert_eq!(status(Method::POST, &[("origin", "http://evil.test")]).await, 403);
+    assert_eq!(
+        status(Method::POST, &[("origin", "http://evil.test")]).await,
+        403
+    );
 }
 
 #[tokio::test]
 async fn cross_site_delete_is_rejected() {
-    assert_eq!(status(Method::DELETE, &[("sec-fetch-site", "cross-site")]).await, 403);
+    assert_eq!(
+        status(Method::DELETE, &[("sec-fetch-site", "cross-site")]).await,
+        403
+    );
 }
 
 #[tokio::test]
 async fn same_origin_post_is_allowed() {
-    assert_eq!(status(Method::POST, &[("sec-fetch-site", "same-origin")]).await, 200);
+    assert_eq!(
+        status(Method::POST, &[("sec-fetch-site", "same-origin")]).await,
+        200
+    );
 }
 
 #[tokio::test]

@@ -10,7 +10,14 @@ pub const FALLBACK_HTML: &str = "<!doctype html><html lang=\"id\"><head><meta ch
 
 /// Semua kunci yang bisa dikembalikan `message_key`; masing-masing punya `-title` dan `-body`
 /// di Fluent (dijaga tes i18n).
-pub const MESSAGE_KEYS: &[&str] = &["error-403", "error-404", "error-422", "error-429", "error-500", "error-4xx"];
+pub const MESSAGE_KEYS: &[&str] = &[
+    "error-403",
+    "error-404",
+    "error-422",
+    "error-429",
+    "error-500",
+    "error-4xx",
+];
 
 /// Kunci Fluent untuk satu status. Status tanpa teks khusus memakai teks umum 4xx/5xx.
 fn message_key(status: StatusCode) -> &'static str {

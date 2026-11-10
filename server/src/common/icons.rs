@@ -46,7 +46,8 @@ impl IconSet {
                 continue;
             };
             let source = std::fs::read_to_string(&path).map_err(io)?;
-            let icon = parse_svg(&source).ok_or_else(|| IconError::NotSvg(path.display().to_string()))?;
+            let icon =
+                parse_svg(&source).ok_or_else(|| IconError::NotSvg(path.display().to_string()))?;
             icons.insert(name.to_string(), icon);
         }
         Ok(Self { icons })

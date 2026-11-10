@@ -1,7 +1,6 @@
 //! Kontrak config: setiap environment yang di-deploy ter-parse dan punya bagian wajib.
 //! Mengecek keberadaan dan bentuk, bukan nilai, kecuali CSP dan pengaturan keamanan.
 
-
 use std::{path::Path, str::FromStr};
 
 use agentgate_server::common::settings::Settings;
@@ -19,10 +18,7 @@ const DEPLOY_ENV: &[(&str, &str)] = &[
 ];
 
 fn load(env: &str) -> loco_rs::Result<Config> {
-    Config::from_folder(
-        &Environment::from_str(env).unwrap(),
-        Path::new("config"),
-    )
+    Config::from_folder(&Environment::from_str(env).unwrap(), Path::new("config"))
 }
 
 fn with_deploy_env<T>(f: impl FnOnce() -> T) -> T {
@@ -44,13 +40,26 @@ fn every_environment_config_has_required_sections() {
             assert!(config.queue.is_some(), "{env}: queue");
             assert!(config.mailer.is_some(), "{env}: mailer");
             let mw = &config.server.middlewares;
-            assert!(mw.fallback.as_ref().is_some_and(|m| !m.enable), "{env}: fallback Loco harus mati");
-            assert!(mw.request_id.as_ref().is_some_and(|m| m.enable), "{env}: request_id");
-            assert!(mw.remote_ip.as_ref().is_some_and(|m| m.enable), "{env}: remote_ip");
+            assert!(
+                mw.fallback.as_ref().is_some_and(|m| !m.enable),
+                "{env}: fallback Loco harus mati"
+            );
+            assert!(
+                mw.request_id.as_ref().is_some_and(|m| m.enable),
+                "{env}: request_id"
+            );
+            assert!(
+                mw.remote_ip.as_ref().is_some_and(|m| m.enable),
+                "{env}: remote_ip"
+            );
             let headers = mw.secure_headers.as_ref().expect("secure_headers");
             assert!(headers.enable, "{env}: secure_headers");
             let overrides = headers.overrides.as_ref().expect("overrides");
-            assert_eq!(overrides.get("Content-Security-Policy").map(String::as_str), Some(CSP), "{env}: CSP");
+            assert_eq!(
+                overrides.get("Content-Security-Policy").map(String::as_str),
+                Some(CSP),
+                "{env}: CSP"
+            );
             Settings::from_json(config.settings.as_ref()).unwrap_or_else(|e| panic!("{env}: {e}"));
         }
     });
@@ -62,11 +71,26 @@ fn deployed_environments_are_locked_down() {
         for env in ["staging", "production"] {
             let config = load(env).unwrap();
             assert!(!config.database.auto_migrate, "{env}: auto_migrate");
-            assert!(!config.database.dangerously_truncate, "{env}: dangerously_truncate");
-            assert!(!config.database.dangerously_recreate, "{env}: dangerously_recreate");
+            assert!(
+                !config.database.dangerously_truncate,
+                "{env}: dangerously_truncate"
+            );
+            assert!(
+                !config.database.dangerously_recreate,
+                "{env}: dangerously_recreate"
+            );
             assert!(!config.logger.pretty_backtrace, "{env}: pretty_backtrace");
-            let overrides = config.server.middlewares.secure_headers.unwrap().overrides.unwrap();
-            assert!(!overrides.contains_key("Strict-Transport-Security"), "{env}: HSTS dari preset");
+            let overrides = config
+                .server
+                .middlewares
+                .secure_headers
+                .unwrap()
+                .overrides
+                .unwrap();
+            assert!(
+                !overrides.contains_key("Strict-Transport-Security"),
+                "{env}: HSTS dari preset"
+            );
         }
     });
 }
@@ -79,5 +103,8 @@ fn development_config_without_database_url_fails_to_load() {
     if let Some(v) = saved {
         unsafe { std::env::set_var("DATABASE_URL", v) };
     }
-    assert!(result.is_err(), "development.yaml harus gagal tanpa DATABASE_URL");
+    assert!(
+        result.is_err(),
+        "development.yaml harus gagal tanpa DATABASE_URL"
+    );
 }

@@ -51,7 +51,8 @@ pub fn build_view_engine() -> Result<TeraView> {
             .map_err(|e| Error::string(&e.to_string()))?,
     );
     let icons = Arc::new(
-        IconSet::load(std::path::Path::new(ICONS_DIR)).map_err(|e| Error::string(&e.to_string()))?,
+        IconSet::load(std::path::Path::new(ICONS_DIR))
+            .map_err(|e| Error::string(&e.to_string()))?,
     );
     TeraView::build_with_post_process(move |tera| {
         tera.register_function("t", FluentLoader::new(locales.clone()));

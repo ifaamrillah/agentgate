@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Cek arah dependensi antar-layer di server/src (rules §3). Berbasis pencarian teks:
+# path `crate::<layer>` atau `super::...::<layer>` di baris kode (bukan komentar).
+#   controllers/ -> boleh semua
+#   services/, workers/, tasks/, mailers/ -> tidak boleh controllers, views
+#   views/ -> tidak boleh controllers, services
+#   models/ -> tidak boleh controllers, services, views
+#   common/ -> tidak boleh controllers, services, views, models
+# Pemakaian: bin/check-layers [root_src]   (default: server/src)
+set -euo pipefail
+ROOT="${1:-$(cd "$(dirname "$0")/.." && pwd)/server/src}"
+status=0
+
+check() {
+  local dir="$1"; shift
+  [ -d "$ROOT/$dir" ] || return 0
+  local forbidden
+  for forbidden in "$@"; do
+    # Baris komentar (//, ///, //!) diabaikan; path absolut crate:: atau relatif lewat super::.
+    local hits
+    hits="$(grep -rnE --include='*.rs' "(crate|super)(::super)*::${forbidden}\b" "$ROOT/$dir" \
+      | grep -vE '^[^:]+:[0-9]+:[[:space:]]*//' || true)"
+    if [ -n "$hits" ]; then
+      echo "check-layers: $dir/ tidak boleh memakai $forbidden/:" >&2
+      echo "$hits" >&2
+      status=1
+    fi
+  done
+}
+
+check services controllers views
+check workers controllers views
+check tasks controllers views
+check mailers controllers views
+check views controllers services
+check models controllers services views
+check common controllers services views models
+
+exit $status

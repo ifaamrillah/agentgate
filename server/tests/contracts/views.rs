@@ -14,7 +14,9 @@ fn unknown_icon_name_is_a_render_error() {
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::write(dir.join("x.html"), r#"{{ icon(name="tidak-ada") }}"#).unwrap();
     let view = loco_rs::controller::views::engines::TeraView::from_custom_dir(&dir, |tera| {
-        let icons = agentgate_server::common::icons::IconSet::load(std::path::Path::new("assets/icons")).unwrap();
+        let icons =
+            agentgate_server::common::icons::IconSet::load(std::path::Path::new("assets/icons"))
+                .unwrap();
         tera.register_function("icon", IconFn(std::sync::Arc::new(icons)));
         Ok(())
     })

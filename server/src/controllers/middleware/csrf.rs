@@ -82,13 +82,19 @@ mod tests {
 
     #[test]
     fn same_origin_by_origin_header_is_allowed() {
-        let headers = h(&[("origin", "http://app.test:5150"), ("host", "app.test:5150")]);
+        let headers = h(&[
+            ("origin", "http://app.test:5150"),
+            ("host", "app.test:5150"),
+        ]);
         assert!(is_allowed(&Method::POST, "/x", &headers));
     }
 
     #[test]
     fn origin_with_different_port_is_rejected() {
-        let headers = h(&[("origin", "http://app.test:9999"), ("host", "app.test:5150")]);
+        let headers = h(&[
+            ("origin", "http://app.test:9999"),
+            ("host", "app.test:5150"),
+        ]);
         assert!(!is_allowed(&Method::POST, "/x", &headers));
     }
 }
