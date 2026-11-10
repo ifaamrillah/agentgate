@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Tailwind CSS standalone CLI dengan versi dan checksum dipin (satu tempat). Binary di-cache di
+# ~/.cache/agentgate/tailwind-<versi> di dalam container, jadi semua checkout memakai binary yang sama.
+#   bin/tailwind            -> build sekali
+#   bin/tailwind --minify   -> build produksi
+#   bin/tailwind --watch    -> mode watch (dipakai bin/dev)
+set -euo pipefail
+VERSION="4.3.5"
+SHA_X64="e47695cee3f0d90623a91f3939b08bdee610eb5ad99340adff9d4145b284d6cc"
+SHA_ARM64="ffcd0d21dbd7c605dc12743ff0c0b47debc963c86b399674084c1c8f2c96ecad"
+
+if [ ! -f /.dockerenv ] && [ -z "${AG_IN_CONTAINER:-}" ]; then
+  . "$(dirname "$0")/_lib.sh"
+  ag_load_env
+  ag_exec /workspace/bin/tailwind "$@"
+  exit $?
+fi
+
+case "$(uname -m)" in
+  x86_64) ASSET="tailwindcss-linux-x64"; SHA="$SHA_X64" ;;
+  aarch64 | arm64) ASSET="tailwindcss-linux-arm64"; SHA="$SHA_ARM64" ;;
+  *) echo "tailwind: arsitektur $(uname -m) tidak didukung" >&2; exit 1 ;;
+esac
+CACHE="${HOME}/.cache/agentgate"
+BIN="${CACHE}/tailwind-${VERSION}-${ASSET}"
+if [ ! -x "$BIN" ]; then
+  mkdir -p "$CACHE"
+  TMP="$(mktemp "${CACHE}/tw.XXXXXX")"
+  curl -fsSL -o "$TMP" "https://github.com/tailwindlabs/tailwindcss/releases/download/v${VERSION}/${ASSET}"
+  echo "${SHA}  ${TMP}" | sha256sum -c --quiet - || { rm -f "$TMP"; echo "tailwind: checksum tidak cocok" >&2; exit 1; }
+  chmod +x "$TMP"
+  mv "$TMP" "$BIN"
+fi
+cd /workspace/server
+exec "$BIN" -i assets/css/app.css -o assets/static/css/app.css "$@"

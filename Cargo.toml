@@ -1,0 +1,35 @@
+[workspace]
+resolver = "3"
+members = ["core", "graph", "cli"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+license = "UNLICENSED"
+publish = false
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+# panic di request handler = 500 tanpa konteks; di runner = job mati tanpa laporan.
+unwrap_used = "deny"
+expect_used = "deny"
+
+[profile.dev]
+# Info debug penuh memperbesar target/ berkali lipat dan memperlambat link.
+# line-tables-only tetap memberi nomor baris di backtrace.
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+# Dependency tidak di-debug baris per baris; tanpa info debug, link lebih cepat dan target/ lebih kecil.
+debug = false
+
+[profile.dev.package.argon2]
+# Tanpa optimasi, satu hash baseline OWASP ~440 ms di build debug; dengan ini ~26 ms.
+opt-level = 3
+
+[profile.dev.package.blake2]
+# Dipakai argon2 secara internal; ikut dioptimasi supaya angka di atas tercapai.
+opt-level = 3

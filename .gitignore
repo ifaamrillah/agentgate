@@ -1,0 +1,8 @@
+/target/
+/server/assets/static/css/
+/server/storage/
+.env
+*.local.yaml
+.worktree
+/worktrees/
+/tmp/

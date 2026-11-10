@@ -62,7 +62,7 @@ Komponen lokal (`agentgate` CLI):
 | MCP | `rmcp` (SDK Rust resmi), transport streamable HTTP, di-mount ke router Axum |
 | Database | Postgres 18 + pgvector |
 | Queue & realtime | Queue Postgres bawaan Loco, realtime lewat `LISTEN/NOTIFY` Postgres. Tanpa Redis |
-| Penyimpanan file | Storage kompatibel S3 lewat `ctx.storage` Loco (MinIO untuk self-host) |
+| Penyimpanan file | Storage kompatibel S3 lewat `ctx.storage` Loco (SeaweedFS untuk self-host) |
 | Parsing kode | Crate `tree-sitter` (server + CLI), indexer SCIP (CLI) |
 | Embedding | `fastembed-rs` (ONNX lokal di server) |
 | Binary | `agentgate-server` (server Loco), `agentgate` (CLI/runner untuk user), single binary untuk Windows, macOS, Linux |
@@ -493,7 +493,7 @@ Keamanan web mengikuti konvensi Loco tim: CSP ketat (`script-src 'self'`, tanpa 
 
 - Container `web` dan `worker` (plus scheduler) dari image yang sama.
 - Postgres 18 + pgvector.
-- Storage S3-compatible: MinIO di VPS, atau layanan S3-compatible eksternal.
+- Storage S3-compatible: SeaweedFS di VPS, atau layanan S3-compatible eksternal.
 - Reverse proxy dengan TLS otomatis dan dukungan WebSocket/SSE.
 - Domain terpisah untuk preview mockup.
 - Migrasi dijalankan sebagai langkah terpisah sebelum container baru naik.
@@ -515,7 +515,7 @@ Scoop/winget ditambahkan nanti. `cargo install` tidak dijadikan jalur utama. Cod
 
 - `app`: toolchain Rust sesuai `rust-toolchain.toml`, `watchexec`, `sccache`, Tailwind standalone, `sea-orm-cli`, `cargo-deny`, `cargo-insta`.
 - `db`: `pgvector/pgvector:pg18`.
-- `minio`: storage S3.
+- `s3`: storage S3 (SeaweedFS; image MinIO komunitas sudah tidak dirilis, diputuskan 2026-11-11).
 - `mailpit`: penampung email lokal.
 - Volume terpisah untuk cargo registry, `target/`, dan cache `sccache`.
 - Container berjalan dengan UID/GID user host, supaya file hasil build tidak dimiliki root.
