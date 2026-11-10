@@ -1,0 +1,11 @@
+{
+  "identities": [
+    {
+      "name": "agentgate-dev",
+      "credentials": [
+        { "accessKey": "agentgate", "secretKey": "agentgate-dev-secret" }
+      ],
+      "actions": ["Admin", "Read", "Write", "List", "Tagging"]
+    }
+  ]
+}

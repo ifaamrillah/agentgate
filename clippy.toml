@@ -1,0 +1,3 @@
+# unwrap/expect boleh di tes (rules §2); di kode non-test tetap deny lewat [workspace.lints].
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true

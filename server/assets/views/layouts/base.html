@@ -1,0 +1,18 @@
+{#- Kerangka HTML untuk semua halaman. Halaman tidak extends file ini langsung,
+    melainkan layouts/app.html atau layouts/public.html.
+    Block: title (wajib, diisi halaman), body. -#}
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{% endblock title %} · {{ t(key="app-name", lang="id") }}</title>
+  <link rel="stylesheet" href="/static/css/app.css">
+  <script src="/static/vendor/htmx-4.0.1.min.js" defer></script>
+  <script src="/static/vendor/hx-preload-4.0.1.min.js" defer></script>
+  <script src="/static/vendor/basecoat-1.1.0/all.min.js" defer></script>
+</head>
+<body class="min-h-screen bg-background text-foreground antialiased" hx-boost:inherited="true">
+{% block body %}{% endblock body %}
+</body>
+</html>

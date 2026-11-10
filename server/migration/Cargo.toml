@@ -1,0 +1,28 @@
+[package]
+name = "migration"
+description = "Migrasi database Agent Gate"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "migration"
+path = "src/lib.rs"
+doctest = false
+
+[dependencies]
+# Integrasi migrasi dengan CLI Loco.
+loco-rs = { workspace = true, features = ["with-db", "db-postgres"] }
+# Async trait untuk MigratorTrait.
+async-trait = "0.1"
+
+[dependencies.sea-orm-migration]
+# DSL migrasi SeaORM.
+version = "2.0"
+default-features = false
+features = ["runtime-tokio-rustls", "sqlx-postgres"]
+
+[lints]
+workspace = true

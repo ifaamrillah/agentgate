@@ -1,0 +1,3 @@
+[alias]
+# `cargo loco <perintah>` dari folder server/ (dipanggil lewat bin/loco).
+loco = "run --bin agentgate-server --"

@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Identitas worktree dari nama branch: satu-satunya tempat aturan ini ditulis.
+#   bin/worktree-id <branch>          -> id   ([a-z0-9_], maks 38 karakter)
+#   bin/worktree-id --folder <branch> -> nama folder di worktrees/
+# Exit 1 untuk branch terlarang (staging, release, main, production) dan ref tidak valid.
+# Batas 38: nama database terpanjang "agentgate_test_<id>" (15 + 38 = 53) di bawah batas 63 byte Postgres.
+set -euo pipefail
+MAX=38
+mode=id
+if [ "${1:-}" = "--folder" ]; then mode=folder; shift; fi
+branch="${1:-}"
+[ -n "$branch" ] || { echo "pemakaian: bin/worktree-id [--folder] <branch>" >&2; exit 1; }
+
+case "$branch" in
+  staging | release | main | production)
+    echo "worktree-id: branch '$branch' tidak boleh dipakai untuk worktree" >&2; exit 1 ;;
+esac
+git check-ref-format --branch "$branch" >/dev/null 2>&1 || {
+  echo "worktree-id: '$branch' bukan nama branch yang valid" >&2; exit 1; }
+
+if [ "$mode" = folder ]; then
+  printf '%s\n' "$branch" | tr '/' '-'
+  exit 0
+fi
+
+id="$(printf '%s' "$branch" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9_]/_/g')"
+if [ "${#id}" -gt "$MAX" ]; then
+  if command -v sha1sum >/dev/null 2>&1; then h="$(printf '%s' "$branch" | sha1sum)"; else h="$(printf '%s' "$branch" | shasum -a 1)"; fi
+  id="${id:0:$((MAX - 7))}_${h:0:6}"
+fi
+printf '%s\n' "$id"

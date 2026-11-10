@@ -1,0 +1,5 @@
+[toolchain]
+# Sama dengan versi di docker/dev/Dockerfile. Minimal 1.94 (MSRV Loco 1.x).
+channel = "1.99.1"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

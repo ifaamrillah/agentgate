@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Jalankan perintah (atau shell interaktif) di container app checkout ini.
+#   bin/sh                 -> bash interaktif
+#   bin/sh cargo --version -> satu perintah
+set -euo pipefail
+. "$(dirname "$0")/_lib.sh"
+ag_load_env
+if [ "$#" -eq 0 ]; then set -- bash; fi
+ag_exec "$@"

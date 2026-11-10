@@ -1,0 +1,76 @@
+# Config Agent Gate: test. Secret hanya dari env var (tanpa default di staging/production).
+
+logger:
+  enable: false
+  pretty_backtrace: true
+  level: <%= get_env(name="LOG_LEVEL", default="debug") %>
+  format: compact
+
+server:
+  # PORT di-set wrapper bin/* (dev/test) atau orkestrator (staging/production); tanpa default.
+  port: <%= get_env(name="PORT") %>
+  binding: <%= get_env(name="BINDING", default="localhost") %>
+  host: http://localhost:<%= get_env(name="PORT") %>
+  middlewares:
+    static:
+      enable: true
+      # Loco melayani `fallback` dengan status 200 untuk file statis yang tidak ada, sehingga
+      # aset rusak tidak terlihat. Fallback sengaja menunjuk file yang tidak ada: ServeFile
+      # membalas 404 dan layer html_errors merender halaman 404.
+      must_exist: false
+      precompressed: false
+      folder:
+        uri: "/static"
+        path: "assets/static"
+      fallback: "assets/static/.missing"
+    # Fallback bawaan Loco (halaman Inggris) dimatikan: 404 dirender aplikasi lewat fallback
+    # router di App::before_routes dan layer html_errors.
+    fallback:
+      enable: false
+    request_id:
+      enable: true
+    remote_ip:
+      enable: true
+      # Dev/test diakses langsung, tanpa proxy.
+      source: ConnectInfo
+    secure_headers:
+      enable: true
+      preset: github
+      overrides:
+        Content-Security-Policy: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+        # HSTS hanya di staging/production (development memakai http).
+        Strict-Transport-Security: "max-age=0"
+
+workers:
+  mode: ForegroundBlocking
+
+queue:
+  kind: Postgres
+  # Database TEST, bukan DATABASE_URL: perintah tes yang lupa wrapper bin/test (mis.
+  # `bin/sh cargo test`) tidak boleh menyentuh database dev. Tanpa default.
+  uri: <%= get_env(name="TEST_DATABASE_URL") %>
+  dangerously_flush: false
+
+mailer:
+  stub: true
+  smtp:
+    enable: true
+    # Nama host sengaja tidak resolve: tes yang menyentuh jaringan langsung gagal.
+    host: smtp.agentgate.test
+    port: 1025
+    secure: false
+
+database:
+  # TEST_DATABASE_URL tanpa default (lihat queue di atas).
+  uri: <%= get_env(name="TEST_DATABASE_URL") %>
+  enable_logging: false
+  connect_timeout: <%= get_env(name="DB_CONNECT_TIMEOUT", default="500") %>
+  idle_timeout: <%= get_env(name="DB_IDLE_TIMEOUT", default="500") %>
+  min_connections: <%= get_env(name="DB_MIN_CONNECTIONS", default="1") %>
+  max_connections: <%= get_env(name="DB_MAX_CONNECTIONS", default="10") %>
+  auto_migrate: true
+  dangerously_truncate: true
+  dangerously_recreate: false
+
+settings:
+  app_name: Agent Gate

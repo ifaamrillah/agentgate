@@ -1,0 +1,50 @@
+# Layanan bersama untuk semua checkout dan worktree (project: agentgate-rs-shared).
+# Nama berawalan agentgate-rs supaya tidak bentrok dengan volume agentgate_* lama di host.
+name: agentgate-rs-shared
+
+services:
+  db:
+    image: pgvector/pgvector:pg18
+    environment:
+      POSTGRES_USER: agentgate
+      POSTGRES_PASSWORD: agentgate
+      POSTGRES_DB: postgres
+    ports:
+      - "127.0.0.1:54329:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql
+      - ./db-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agentgate -d postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    networks: [agentgate-rs]
+
+  s3:
+    # SeaweedFS sebagai storage S3-compatible (MinIO tidak lagi merilis image komunitas).
+    image: chrislusf/seaweedfs:4.53
+    command: server -dir=/data -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3.json -master.volumeSizeLimitMB=256
+    ports:
+      - "127.0.0.1:8333:8333"
+    volumes:
+      - s3-data:/data
+      - ./seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
+    networks: [agentgate-rs]
+
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports:
+      - "127.0.0.1:8025:8025"
+      - "127.0.0.1:1025:1025"
+    networks: [agentgate-rs]
+
+volumes:
+  pg-data:
+    name: agentgate-rs-pg-data
+  s3-data:
+    name: agentgate-rs-s3-data
+
+networks:
+  agentgate-rs:
+    name: agentgate-rs

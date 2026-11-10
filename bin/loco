@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Pintu masuk resmi untuk perintah Loco (cargo loco <argumen>) di database dev checkout ini.
+set -euo pipefail
+. "$(dirname "$0")/_lib.sh"
+ag_load_env
+AG_WORKDIR=/workspace/server ag_exec cargo loco "$@"

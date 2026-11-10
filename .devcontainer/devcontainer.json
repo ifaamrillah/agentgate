@@ -1,0 +1,21 @@
+{
+  "name": "Agent Gate",
+  "initializeCommand": "bin/devcontainer-init",
+  "dockerComposeFile": ["../docker/compose.app.yaml"],
+  "service": "app",
+  "workspaceFolder": "/workspace",
+  "remoteUser": "dev",
+  "shutdownAction": "none",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "tamasfe.even-better-toml",
+        "bradlc.vscode-tailwindcss"
+      ],
+      "settings": {
+        "rust-analyzer.cargo.targetDir": true
+      }
+    }
+  }
+}

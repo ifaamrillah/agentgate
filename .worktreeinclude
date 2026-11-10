@@ -1,0 +1,4 @@
+# File gitignored yang disalin ke worktree baru (satu path per baris, relatif ke root repo).
+.env
+server/config/development.local.yaml
+server/config/test.local.yaml

@@ -1,0 +1,84 @@
+use std::path::Path;
+
+use async_trait::async_trait;
+use axum::Router as AxumRouter;
+use loco_rs::{
+    Result,
+    app::{AppContext, Hooks, Initializer},
+    bgworker::Queue,
+    boot::{BootResult, StartMode, create_app},
+    config::Config,
+    controller::AppRoutes,
+    environment::Environment,
+    task::Tasks,
+};
+use migration::Migrator;
+
+use crate::{common::settings::Settings, controllers, initializers};
+
+pub struct App;
+
+#[async_trait]
+impl Hooks for App {
+    fn app_name() -> &'static str {
+        "agentgate"
+    }
+
+    fn app_version() -> String {
+        format!(
+            "{} ({})",
+            agentgate_core::VERSION,
+            option_env!("BUILD_SHA")
+                .or(option_env!("GITHUB_SHA"))
+                .unwrap_or("dev")
+        )
+    }
+
+    async fn boot(
+        mode: StartMode,
+        environment: &Environment,
+        config: Config,
+    ) -> Result<BootResult> {
+        // Settings divalidasi sebelum apa pun jalan, supaya config rusak gagal saat boot.
+        Settings::from_json(config.settings.as_ref())?;
+        create_app::<Self, Migrator>(mode, environment, config).await
+    }
+
+    async fn initializers(_ctx: &AppContext) -> Result<Vec<Box<dyn Initializer>>> {
+        Ok(vec![Box::new(
+            initializers::view_engine::ViewEngineInitializer,
+        )])
+    }
+
+    fn routes(ctx: &AppContext) -> AppRoutes {
+        controllers::routes(ctx)
+    }
+
+    async fn before_routes(_ctx: &AppContext) -> Result<AxumRouter<AppContext>> {
+        // Fallback dipasang di sini (sebelum middleware Loco diterapkan) supaya respons 404
+        // ikut membawa CSP, request id, dan header keamanan lain.
+        Ok(AxumRouter::new().fallback(controllers::middleware::html_errors::not_found))
+    }
+
+    async fn after_routes(router: AxumRouter, _ctx: &AppContext) -> Result<AxumRouter> {
+        // CSRF membungkus semua route; penolakannya dirender sebagai halaman HTML oleh
+        // layer html_errors yang dipasang view engine di luar layer ini.
+        Ok(router.layer(axum::middleware::from_fn(
+            controllers::middleware::csrf::layer,
+        )))
+    }
+
+    async fn connect_workers(_ctx: &AppContext, _queue: &Queue) -> Result<()> {
+        Ok(())
+    }
+
+    fn register_tasks(_tasks: &mut Tasks) {}
+
+    async fn truncate(_ctx: &AppContext) -> Result<()> {
+        Ok(())
+    }
+
+    async fn seed(_ctx: &AppContext, _base: &Path) -> Result<()> {
+        Ok(())
+    }
+}
