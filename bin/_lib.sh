@@ -114,6 +114,9 @@ ag_ensure_app() {
     && [ "$(docker inspect -f '{{.Config.Image}}' "$cid")" = "agentgate-rs-dev:$AG_IMAGE_TAG" ]; then
     AG_PORT="$(docker inspect -f '{{index .Config.Labels "agentgate.port"}}' "$cid")"
   else
+    # Container lama (berhenti, atau image-nya usang) dihentikan dulu supaya port-nya bebas
+    # sebelum port baru dipilih. Volume tidak dihapus.
+    [ -n "$cid" ] && ag_compose_app stop app >/dev/null 2>&1
     AG_PORT="$(ag_free_port "$AG_PREFERRED_PORT")"
     export AG_PORT
     # Mountpoint volume target/ dibuat lebih dulu oleh user host; kalau tidak, Docker
