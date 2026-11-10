@@ -7,7 +7,7 @@ siklus pengembangan produk. Spesifikasi produk: [`docs/spec.md`](docs/spec.md). 
 
 ## Prasyarat
 
-Cukup **Docker** (dengan Compose v2), `git`, `bash`, dan `curl` di host. Rust, Tailwind, `sea-orm-cli`,
+Cukup **Docker** (dengan Compose v2), `git`, `bash`, `curl`, `perl`, dan `python3` (untuk tes skrip `bin/`) di host. Rust, Tailwind, `sea-orm-cli`,
 dan tool lain berjalan di container `app`; skrip `bin/*` meneruskan perintah ke sana.
 
 ## Perintah sehari-hari

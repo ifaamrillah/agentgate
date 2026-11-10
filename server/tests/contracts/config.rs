@@ -108,3 +108,17 @@ fn development_config_without_database_url_fails_to_load() {
         "development.yaml harus gagal tanpa DATABASE_URL"
     );
 }
+
+#[test]
+fn test_config_never_reads_the_dev_database_url() {
+    let raw = std::fs::read_to_string("config/test.yaml").unwrap();
+    assert!(
+        !raw.contains(r#"name="DATABASE_URL""#),
+        "test.yaml harus memakai TEST_DATABASE_URL supaya tes tanpa bin/test tidak menyentuh database dev"
+    );
+    let config = load("test").unwrap();
+    assert!(
+        !config.database.dangerously_recreate,
+        "recreate menghapus skema setiap boot"
+    );
+}

@@ -26,9 +26,23 @@ usage() { sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; }
 die1() { echo "worktree: $*" >&2; exit 1; }
 die2() { echo "worktree: $*" >&2; exit 2; }
 
-in_main_checkout() {
-  case "$MAIN_DIR" in */worktrees/*) return 1 ;; esac
-  return 0
+in_main_checkout() { ! ag_is_linked_worktree; }
+require_main() { in_main_checkout || die1 "jalankan dari checkout utama, bukan dari dalam worktree"; }
+
+# Semua linked worktree yang diketahui git (selain checkout utama), satu path per baris.
+# Kepemilikan database dan port dinilai dari daftar ini, bukan dari isi folder worktrees/,
+# supaya worktree yang dibuat tool lain di tempat lain ikut terhitung.
+worktree_paths() {
+  local main line
+  main="$(cd "$MAIN_DIR" && pwd -P)"
+  git -C "$MAIN_DIR" worktree list --porcelain | while IFS= read -r line; do
+    case "$line" in
+      "worktree "*)
+        line="${line#worktree }"
+        [ "$(cd "$line" 2>/dev/null && pwd -P)" = "$main" ] || echo "$line"
+        ;;
+    esac
+  done
 }
 
 has_origin() { git -C "$MAIN_DIR" remote get-url origin >/dev/null 2>&1; }
@@ -50,9 +64,9 @@ read_worktree_file() {
 
 used_ports() {
   local d
-  for d in "$WT_DIR"/*/; do
-    [ -f "$d.worktree" ] || continue
-    (. "$d.worktree"; echo "${WORKTREE_PORT:-}")
+  worktree_paths | while IFS= read -r d; do
+    [ -f "$d/.worktree" ] || continue
+    (. "$d/.worktree"; echo "${WORKTREE_PORT:-}")
   done
 }
 
@@ -67,15 +81,13 @@ pick_port() {
 
 # Cegah dua branch berbeda berbagi id atau folder (mis. feature/a dan feature-a).
 check_collision() {
-  local branch="$1" id="$2" folder="$3" d
-  for d in "$WT_DIR"/*/; do
-    [ -d "$d" ] || continue
+  local branch="$1" id="$2" folder="$3" d clash=""
+  clash="$(worktree_paths | while IFS= read -r d; do
     read_worktree_file "$d" || continue
     [ "$WT_BRANCH" = "$branch" ] && continue
-    if [ "$WT_ID" = "$id" ] || [ "$(basename "$d")" = "$folder" ]; then
-      die1 "branch '$branch' bentrok dengan worktree branch '$WT_BRANCH' (id/folder sama); pakai nama lain"
-    fi
-  done
+    if [ "$WT_ID" = "$id" ] || [ "$(basename "$d")" = "$folder" ]; then echo "$WT_BRANCH"; fi
+  done)"
+  [ -z "$clash" ] || die1 "branch '$branch' bentrok dengan worktree branch '$clash' (id/folder sama); pakai nama lain"
 }
 
 prepare_databases() {
@@ -140,7 +152,7 @@ cmd_new() {
     esac
   done
   [ -n "$branch" ] || die1 "pemakaian: bin/worktree new <branch> [--base <branch>] [--no-server]"
-  in_main_checkout || die1 "jalankan dari checkout utama, bukan dari dalam worktree"
+  require_main
   local id folder path
   id="$("$BIN_DIR/worktree-id" "$branch")" || exit 1
   folder="$("$BIN_DIR/worktree-id" --folder "$branch")"
@@ -183,10 +195,11 @@ EOF
   fi
 }
 
+# $1 = ref atau commit (branch, atau HEAD sebuah worktree lewat rev-parse).
 branch_is_merged() {
-  local branch="$1" target="staging"
+  local ref="$1" target="staging"
   has_origin && target="origin/staging"
-  git -C "$MAIN_DIR" merge-base --is-ancestor "$branch" "$target" 2>/dev/null
+  git -C "$MAIN_DIR" merge-base --is-ancestor "$ref" "$target" 2>/dev/null
 }
 
 cmd_close() {
@@ -202,12 +215,22 @@ cmd_close() {
     esac
   done
   [ -n "$branch" ] || die1 "pemakaian: bin/worktree close <branch> [--force] [--keep-db]"
-  in_main_checkout || die1 "jalankan dari checkout utama, bukan dari dalam worktree"
+  require_main
   local id folder path
   id="$("$BIN_DIR/worktree-id" "$branch")" || exit 1
   folder="$("$BIN_DIR/worktree-id" --folder "$branch")"
   path="$WT_DIR/$folder"
   case "$PWD/" in "$path/"*) die1 "jangan menutup worktree dari dalam foldernya sendiri" ;; esac
+
+  # Folder harus benar-benar milik branch yang disebut, walaupun --force: --force membuang
+  # pekerjaan di branch itu, bukan di worktree lain yang kebetulan bernama mirip.
+  if [ -d "$path" ]; then
+    read_worktree_file "$path" || die1 "$path tidak punya .worktree; periksa manual"
+    [ "$WT_BRANCH" = "$branch" ] || die1 "$path milik branch '$WT_BRANCH', bukan '$branch'"
+    local head
+    head="$(git -C "$path" symbolic-ref --quiet --short HEAD || echo "(detached)")"
+    [ "$head" = "$branch" ] || die1 "$path sedang di '$head', bukan '$branch'; periksa manual"
+  fi
 
   if [ -d "$path" ] && [ "$force" = 0 ]; then
     [ -z "$(git -C "$path" status --porcelain)" ] || die1 "ada perubahan belum di-commit di $path (pakai --force untuk membuang)"
@@ -215,10 +238,10 @@ cmd_close() {
       git -C "$MAIN_DIR" fetch -q --prune origin || true
       if git -C "$MAIN_DIR" show-ref --verify --quiet "refs/remotes/origin/$branch"; then
         [ -z "$(git -C "$path" log --oneline "origin/$branch..HEAD")" ] || die1 "ada commit yang belum di-push ke origin/$branch"
-      elif ! branch_is_merged "$branch"; then
+      elif ! branch_is_merged "$(git -C "$path" rev-parse HEAD)"; then
         die1 "branch belum pernah di-push dan belum di-merge ke staging"
       fi
-    elif ! branch_is_merged "$branch"; then
+    elif ! branch_is_merged "$(git -C "$path" rev-parse HEAD)"; then
       die1 "branch belum di-merge ke staging lokal (pakai --force untuk membuang)"
     fi
   fi
@@ -256,10 +279,10 @@ cmd_close() {
 }
 
 cmd_list() {
+  require_main
   local d status running
   printf '%-32s %-7s %-22s %-10s %s\n' BRANCH PORT STATUS DB PATH
-  for d in "$WT_DIR"/*/; do
-    [ -d "$d" ] || continue
+  worktree_paths | while IFS= read -r d; do
     read_worktree_file "$d" || continue
     if [ -n "$(git -C "$d" status --porcelain 2>/dev/null)" ]; then
       status="perubahan"
@@ -275,7 +298,7 @@ cmd_list() {
     running=""
     # Port selalu terbuka oleh Docker selama container hidup; server dianggap jalan bila /_ping menjawab.
     curl -sf -m 1 "http://localhost:$WT_PORT/_ping" >/dev/null 2>&1 && running="*"
-    printf '%-32s %-7s %-22s %-10s %s\n' "$WT_BRANCH" "$WT_PORT$running" "$status" "$(db_size "agentgate_dev_$WT_ID")" "${d%/}"
+    printf '%-32s %-7s %-22s %-10s %s\n' "$WT_BRANCH" "$WT_PORT$running" "$status" "$(db_size "agentgate_dev_$WT_ID" </dev/null)" "$d"
   done
 }
 
@@ -314,18 +337,15 @@ cmd_doctor() {
 }
 
 cmd_prune() {
-  local dry=0 db id d found
+  require_main
+  local dry=0 db id owned
   [ "${1:-}" = "--dry-run" ] && dry=1
   git -C "$MAIN_DIR" worktree prune
   ag_ensure_shared
+  owned=" $(worktree_paths | while IFS= read -r d; do read_worktree_file "$d" && echo "$WT_ID"; done | tr '\n' ' ') "
   for db in $(db_psql -tAc "SELECT datname FROM pg_database WHERE datname ~ '^agentgate_(dev|test)_'"); do
     id="${db#agentgate_dev_}"; id="${id#agentgate_test_}"
-    found=0
-    for d in "$WT_DIR"/*/; do
-      read_worktree_file "$d" 2>/dev/null || continue
-      [ "$WT_ID" = "$id" ] && found=1
-    done
-    [ "$found" = 1 ] && continue
+    case "$owned" in *" $id "*) continue ;; esac
     if [ "$(db_psql -tAc "SELECT count(*) FROM pg_stat_activity WHERE datname = '$db'")" != 0 ]; then
       echo "lewati $db (masih ada koneksi)"; continue
     fi
@@ -336,7 +356,8 @@ cmd_prune() {
 cmd_setup() {
   local path="${1:-}" branch id
   [ -d "$path" ] || die1 "pemakaian: bin/worktree _setup <path>"
-  branch="$(git -C "$path" rev-parse --abbrev-ref HEAD)"
+  require_main
+  branch="$(git -C "$path" symbolic-ref --quiet --short HEAD)" || die1 "$path dalam detached HEAD; checkout sebuah branch dulu"
   id="$("$BIN_DIR/worktree-id" "$branch")" || exit 1
   if [ ! -f "$path/.worktree" ]; then
     check_collision "$branch" "$id" "$(basename "$path")"
@@ -350,6 +371,7 @@ cmd_setup() {
 cmd_release() {
   local path="${1:-}"
   [ -d "$path" ] || die1 "pemakaian: bin/worktree _release <path>"
+  require_main
   read_worktree_file "$path" || die1 ".worktree tidak ada di $path"
   app_down "$path" "$WT_ID"
   ag_ensure_shared

@@ -5,8 +5,7 @@
 set -euo pipefail
 . "$(dirname "$0")/_lib.sh"
 ag_load_env
-DATABASE_URL="$TEST_DATABASE_URL"
-export DATABASE_URL
+# config/test.yaml membaca TEST_DATABASE_URL (diteruskan ag_exec), bukan DATABASE_URL.
 AG_WORKDIR=/workspace/server ag_exec bash -c '
   set -e
   if [ -d migration ]; then cargo loco db migrate -e test >/dev/null 2>&1 || cargo loco db migrate -e test; fi

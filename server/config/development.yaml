@@ -14,12 +14,15 @@ server:
   middlewares:
     static:
       enable: true
-      must_exist: true
+      # Loco melayani `fallback` dengan status 200 untuk file statis yang tidak ada, sehingga
+      # aset rusak tidak terlihat. Fallback sengaja menunjuk file yang tidak ada: ServeFile
+      # membalas 404 dan layer html_errors merender halaman 404.
+      must_exist: false
       precompressed: false
       folder:
         uri: "/static"
         path: "assets/static"
-      fallback: "assets/static/404.html"
+      fallback: "assets/static/.missing"
     # Fallback bawaan Loco (halaman Inggris) dimatikan: 404 dirender aplikasi lewat fallback
     # router di App::before_routes dan layer html_errors.
     fallback:

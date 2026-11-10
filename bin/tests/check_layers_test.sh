@@ -22,4 +22,16 @@ rm "$TMP/src/views/d.rs"
 
 echo 'fn f() { crate::services::auth::x(); }' >"$TMP/src/views/e.rs"
 if "$ROOT/bin/check-layers" "$TMP/src" 2>/dev/null; then fail "path di dalam ekspresi lolos"; fi
+rm "$TMP/src/views/e.rs"
+
+echo 'use crate::{common::x, controllers::home};' >"$TMP/src/models/f.rs"
+if "$ROOT/bin/check-layers" "$TMP/src" 2>/dev/null; then fail "import bergrup lolos"; fi
+rm "$TMP/src/models/f.rs"
+
+printf 'use crate::{\n    common::x,\n    views,\n};\n' >"$TMP/src/models/g.rs"
+if "$ROOT/bin/check-layers" "$TMP/src" 2>/dev/null; then fail "import bergrup multi-baris lolos"; fi
+rm "$TMP/src/models/g.rs"
+
+printf 'use crate::{\n    common::{views_helper, x},\n};\n' >"$TMP/src/models/h.rs"
+"$ROOT/bin/check-layers" "$TMP/src" 2>/dev/null || fail "nama mirip (views_helper) dianggap melanggar"
 echo "check_layers_test: ok"

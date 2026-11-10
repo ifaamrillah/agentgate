@@ -20,6 +20,18 @@ check() {
     local hits
     hits="$(grep -rnE --include='*.rs' "(crate|super)(::super)*::${forbidden}\b" "$ROOT/$dir" \
       | grep -vE '^[^:]+:[0-9]+:[[:space:]]*//' || true)"
+    # Import bergrup (`use crate::{common::x, controllers::y};`, juga multi-baris): setiap
+    # pernyataan `use` diratakan jadi satu baris dulu, lalu dicari segmen terlarang di dalam {}.
+    local grouped
+    grouped="$(find "$ROOT/$dir" -name '*.rs' -print0 | xargs -0 perl -0777 -ne '
+      my $f = $ARGV; my $src = $_;
+      $src =~ s{^\s*//[^\n]*}{}mg;
+      while ($src =~ /\b(?:pub(?:\([^)]*\))?\s+)?use\s+(?:crate|super(?:::super)*)::\{([^;]*)\};/sg) {
+        my $body = $1;
+        print "$f: use crate::{...$1...}\n" if $body =~ /(?:^|[{,\s])('"$forbidden"')\s*(?:::|,|\}|$)/;
+      }' 2>/dev/null || true)"
+    hits="$hits${grouped:+$'\n'$grouped}"
+    hits="$(printf '%s' "$hits" | sed '/^$/d')"
     if [ -n "$hits" ]; then
       echo "check-layers: $dir/ tidak boleh memakai $forbidden/:" >&2
       echo "$hits" >&2

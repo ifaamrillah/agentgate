@@ -14,12 +14,15 @@ server:
   middlewares:
     static:
       enable: true
-      must_exist: true
+      # Loco melayani `fallback` dengan status 200 untuk file statis yang tidak ada, sehingga
+      # aset rusak tidak terlihat. Fallback sengaja menunjuk file yang tidak ada: ServeFile
+      # membalas 404 dan layer html_errors merender halaman 404.
+      must_exist: false
       precompressed: false
       folder:
         uri: "/static"
         path: "assets/static"
-      fallback: "assets/static/404.html"
+      fallback: "assets/static/.missing"
     # Fallback bawaan Loco (halaman Inggris) dimatikan: 404 dirender aplikasi lewat fallback
     # router di App::before_routes dan layer html_errors.
     fallback:
@@ -43,8 +46,9 @@ workers:
 
 queue:
   kind: Postgres
-  # Queue selalu di database yang sama dengan aplikasi (per checkout/worktree), tanpa default.
-  uri: <%= get_env(name="DATABASE_URL") %>
+  # Database TEST, bukan DATABASE_URL: perintah tes yang lupa wrapper bin/test (mis.
+  # `bin/sh cargo test`) tidak boleh menyentuh database dev. Tanpa default.
+  uri: <%= get_env(name="TEST_DATABASE_URL") %>
   dangerously_flush: false
 
 mailer:
@@ -57,9 +61,8 @@ mailer:
     secure: false
 
 database:
-  # DATABASE_URL tanpa default: tanpa wrapper bin/*, aplikasi gagal boot alih-alih
-  # memakai database yang salah (mis. database checkout utama dari dalam worktree).
-  uri: <%= get_env(name="DATABASE_URL") %>
+  # TEST_DATABASE_URL tanpa default (lihat queue di atas).
+  uri: <%= get_env(name="TEST_DATABASE_URL") %>
   enable_logging: false
   connect_timeout: <%= get_env(name="DB_CONNECT_TIMEOUT", default="500") %>
   idle_timeout: <%= get_env(name="DB_IDLE_TIMEOUT", default="500") %>
@@ -67,7 +70,7 @@ database:
   max_connections: <%= get_env(name="DB_MAX_CONNECTIONS", default="10") %>
   auto_migrate: true
   dangerously_truncate: true
-  dangerously_recreate: true
+  dangerously_recreate: false
 
 settings:
   app_name: Agent Gate

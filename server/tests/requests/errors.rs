@@ -31,3 +31,12 @@ async fn boosted_htmx_request_to_unknown_path_also_gets_full_page() {
     })
     .await;
 }
+
+#[tokio::test]
+async fn missing_static_file_is_a_404_not_a_200_fallback() {
+    request::<App, _, _>(|request, _ctx| async move {
+        let res = request.get("/static/tidak-ada.js").await;
+        assert_eq!(res.status_code(), 404);
+    })
+    .await;
+}

@@ -38,10 +38,12 @@ pub async fn layer(State(view): State<TeraView>, req: Request, next: Next) -> Re
             (status, Html(views::errors::FALLBACK_HTML)).into_response()
         }
     };
-    // Header keamanan dan request id dari respons asli tetap dibawa.
+    // Header keamanan, request id, dan cookie dari respons asli tetap dibawa. `append`, bukan
+    // `insert`: header bernilai banyak (Set-Cookie) tidak boleh menyusut jadi satu. Header yang
+    // menggambarkan body lama tidak dibawa karena body-nya sudah diganti.
     for (name, value) in res.headers() {
-        if name != header::CONTENT_TYPE && name != header::CONTENT_LENGTH {
-            page.headers_mut().insert(name.clone(), value.clone());
+        if !describes_body(name) {
+            page.headers_mut().append(name.clone(), value.clone());
         }
     }
     page.headers_mut().insert(
@@ -49,6 +51,18 @@ pub async fn layer(State(view): State<TeraView>, req: Request, next: Next) -> Re
         HeaderValue::from_static("text/html; charset=utf-8"),
     );
     page
+}
+
+fn describes_body(name: &header::HeaderName) -> bool {
+    [
+        header::CONTENT_TYPE,
+        header::CONTENT_LENGTH,
+        header::CONTENT_ENCODING,
+        header::CONTENT_RANGE,
+        header::TRANSFER_ENCODING,
+        header::ETAG,
+    ]
+    .contains(name)
 }
 
 fn is_html(res: &Response) -> bool {

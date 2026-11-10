@@ -5,7 +5,8 @@
 set -euo pipefail
 . "$(dirname "$0")/_lib.sh"
 ag_load_env
-ag_ensure_shared
+# Pakai container yang sudah jalan (port tetap); devcontainer lalu menempel tanpa membuat ulang.
+ag_ensure_app
 cat >"$AG_ROOT_DIR/docker/.env" <<ENV
 COMPOSE_PROJECT_NAME=$COMPOSE_PROJECT_NAME
 AG_ROOT=$AG_ROOT_DIR
@@ -13,5 +14,6 @@ AG_ID=$AG_ID
 AG_ID_OR_MAIN=$AG_ID_OR_MAIN
 AG_UID=$AG_UID
 AG_GID=$AG_GID
-AG_PORT=$(ag_free_port "$AG_PREFERRED_PORT")
+AG_PORT=$AG_PORT
+AG_IMAGE_TAG=$AG_IMAGE_TAG
 ENV

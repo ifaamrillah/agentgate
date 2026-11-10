@@ -26,16 +26,24 @@ ag_free_port() {
   echo "$port"
 }
 
-# Set environment untuk checkout ini. Gagal tertutup: di dalam worktrees/ tanpa .worktree
-# berarti identitas tidak diketahui, dan kita berhenti alih-alih memakai database utama.
+# Checkout ini linked git worktree (bukan checkout utama)? Dinilai dari git, bukan dari letak
+# folder: worktree yang dibuat tool lain di luar worktrees/ juga harus dikenali.
+ag_is_linked_worktree() {
+  case "$AG_ROOT_DIR" in */worktrees/*) return 0 ;; esac
+  local git_dir common_dir
+  git_dir="$(git -C "$AG_ROOT_DIR" rev-parse --absolute-git-dir 2>/dev/null)" || return 1
+  common_dir="$(cd "$AG_ROOT_DIR" && cd "$(git rev-parse --git-common-dir 2>/dev/null)" 2>/dev/null && pwd -P)" || return 1
+  [ "$(cd "$git_dir" && pwd -P)" != "$common_dir" ]
+}
+
+# Set environment untuk checkout ini. Gagal tertutup: worktree tanpa .worktree berarti
+# identitas tidak diketahui, dan kita berhenti alih-alih memakai database utama.
 ag_load_env() {
   AG_ID=""
   AG_PREFERRED_PORT="$AG_MAIN_PORT"
-  case "$AG_ROOT_DIR" in
-    */worktrees/*)
-      [ -f "$AG_ROOT_DIR/.worktree" ] || ag_die "file .worktree tidak ada di $AG_ROOT_DIR; jalankan bin/worktree new dari checkout utama"
-      ;;
-  esac
+  if ag_is_linked_worktree && [ ! -f "$AG_ROOT_DIR/.worktree" ]; then
+    ag_die "file .worktree tidak ada di $AG_ROOT_DIR; siapkan dengan bin/worktree _setup dari checkout utama"
+  fi
   if [ -f "$AG_ROOT_DIR/.worktree" ]; then
     # shellcheck disable=SC1091
     . "$AG_ROOT_DIR/.worktree"
@@ -59,10 +67,18 @@ ag_load_env() {
   # Host db di dalam network Docker; dari host sendiri pakai 127.0.0.1:$AG_DB_HOST_PORT.
   DATABASE_URL="postgres://agentgate:agentgate@db:5432/${AG_DB_DEV}"
   TEST_DATABASE_URL="postgres://agentgate:agentgate@db:5432/${AG_DB_TEST}"
+  # Tag image dev = hash Dockerfile: branch yang mengubah Dockerfile otomatis memakai image baru.
+  if [ ! -f "$AG_ROOT_DIR/docker/dev/Dockerfile" ]; then
+    AG_IMAGE_TAG="latest"
+  elif command -v sha256sum >/dev/null 2>&1; then
+    AG_IMAGE_TAG="$(sha256sum "$AG_ROOT_DIR/docker/dev/Dockerfile" | cut -c1-12)"
+  else
+    AG_IMAGE_TAG="$(shasum -a 256 "$AG_ROOT_DIR/docker/dev/Dockerfile" | cut -c1-12)"
+  fi
   AG_UID="$(id -u)"
   AG_GID="$(id -g)"
   export AG_ID AG_ID_OR_MAIN AG_DB_DEV AG_DB_TEST SESSION_COOKIE_SUFFIX COMPOSE_PROJECT_NAME \
-    DATABASE_URL TEST_DATABASE_URL AG_UID AG_GID AG_PREFERRED_PORT
+    DATABASE_URL TEST_DATABASE_URL AG_UID AG_GID AG_PREFERRED_PORT AG_IMAGE_TAG
   export AG_ROOT="$AG_ROOT_DIR"
 }
 
@@ -74,7 +90,15 @@ ag_compose_app() {
   docker compose -p "$COMPOSE_PROJECT_NAME" -f "$AG_ROOT_DIR/docker/compose.app.yaml" "$@"
 }
 
+# Volume cache yang dibagi semua checkout dibuat di sini (bukan oleh project compose app),
+# supaya `down --volumes` saat menutup worktree tidak ikut menghapusnya.
+AG_SHARED_VOLUMES="agentgate-rs-cargo-registry agentgate-rs-cargo-git agentgate-rs-dev-cache"
+
 ag_ensure_shared() {
+  local v
+  for v in $AG_SHARED_VOLUMES; do
+    docker volume inspect "$v" >/dev/null 2>&1 || docker volume create "$v" >/dev/null
+  done
   if ! ag_compose_shared ps --status running --services 2>/dev/null | grep -qx db; then
     ag_compose_shared --progress quiet up -d --wait >&2 || ag_die "gagal menyalakan layanan bersama (db, s3, mailpit)"
   fi
@@ -86,7 +110,8 @@ ag_ensure_app() {
   ag_ensure_shared
   local cid
   cid="$(ag_compose_app ps -q app 2>/dev/null)"
-  if [ -n "$cid" ] && [ "$(docker inspect -f '{{.State.Running}}' "$cid" 2>/dev/null)" = "true" ]; then
+  if [ -n "$cid" ] && [ "$(docker inspect -f '{{.State.Running}}' "$cid" 2>/dev/null)" = "true" ] \
+    && [ "$(docker inspect -f '{{.Config.Image}}' "$cid")" = "agentgate-rs-dev:$AG_IMAGE_TAG" ]; then
     AG_PORT="$(docker inspect -f '{{index .Config.Labels "agentgate.port"}}' "$cid")"
   else
     AG_PORT="$(ag_free_port "$AG_PREFERRED_PORT")"

@@ -79,3 +79,26 @@ async fn rejection_is_a_full_html_page() {
     })
     .await;
 }
+
+#[tokio::test]
+async fn cross_site_get_is_allowed() {
+    let code = Arc::new(AtomicU16::new(0));
+    let out = code.clone();
+    request::<App, _, _>(|request, _ctx| async move {
+        let res = request
+            .get("/")
+            .add_header("sec-fetch-site", "cross-site")
+            .await;
+        out.store(res.status_code().as_u16(), Ordering::SeqCst);
+    })
+    .await;
+    assert_eq!(code.load(Ordering::SeqCst), 200);
+}
+
+#[tokio::test]
+async fn user_initiated_navigation_post_is_allowed() {
+    assert_eq!(
+        status(Method::POST, &[("sec-fetch-site", "none")]).await,
+        200
+    );
+}

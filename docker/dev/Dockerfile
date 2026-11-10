@@ -15,7 +15,7 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 
 # Tool dev prebuilt lewat cargo-binstall (tanpa compile dari source).
-RUN curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash \
+RUN curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/v1.26.2/install-from-binstall-release.sh | bash \
  && cargo binstall -y --locked \
       watchexec-cli@2.8.0 sccache@0.19.0 cargo-deny@0.20.2 cargo-insta@1.49.0 cargo-chef@0.1.78 loco@1.3.1 \
  && rustup component add rustfmt clippy \

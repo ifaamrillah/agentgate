@@ -1,4 +1,0 @@
-8482e44072e45ac497d2b9e9821cbf4be197e1cc605013a35c1e2c5c893a24bd  ./basecoat-1.1.0/all.min.js
-a0abb04f2f45a1f89d1d4844023245537e5e6014c87b144553e0607b4cc32130  ./htmx-4.0.1.min.js
-6526defdf2cafd6a6b9f09fe39136e7af7611d103f05cc7068489ef83993f244  ./hx-preload-4.0.1.min.js
-# Sumber: npm htmx.org@4.0.1 (dist/), basecoat-css@1.1.0 (dist/js/). Verifikasi: sha256sum -c CHECKSUMS
