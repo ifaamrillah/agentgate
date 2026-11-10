@@ -273,7 +273,8 @@ cmd_list() {
       status="belum di-merge"
     fi
     running=""
-    ag_port_in_use "$WT_PORT" && running="*"
+    # Port selalu terbuka oleh Docker selama container hidup; server dianggap jalan bila /_ping menjawab.
+    curl -sf -m 1 "http://localhost:$WT_PORT/_ping" >/dev/null 2>&1 && running="*"
     printf '%-32s %-7s %-22s %-10s %s\n' "$WT_BRANCH" "$WT_PORT$running" "$status" "$(db_size "agentgate_dev_$WT_ID")" "${d%/}"
   done
 }

@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# initializeCommand devcontainer (jalan di host): nyalakan layanan bersama dan tulis docker/.env
+# supaya editor menempel ke container app yang SAMA dengan yang dipakai bin/* (project
+# compose, port, dan volume target identik).
+set -euo pipefail
+. "$(dirname "$0")/_lib.sh"
+ag_load_env
+ag_ensure_shared
+cat >"$AG_ROOT_DIR/docker/.env" <<ENV
+COMPOSE_PROJECT_NAME=$COMPOSE_PROJECT_NAME
+AG_ROOT=$AG_ROOT_DIR
+AG_ID=$AG_ID
+AG_ID_OR_MAIN=$AG_ID_OR_MAIN
+AG_UID=$AG_UID
+AG_GID=$AG_GID
+AG_PORT=$(ag_free_port "$AG_PREFERRED_PORT")
+ENV

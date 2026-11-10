@@ -1,0 +1,6 @@
+{
+  "rust-analyzer.cargo.targetDir": true,
+  "files.associations": {
+    "*.html": "jinja-html"
+  }
+}

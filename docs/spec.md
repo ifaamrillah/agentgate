@@ -272,7 +272,7 @@ Aturan di repo dibuat setipis mungkin. Isi aturan disajikan dari server lewat MC
 
 - `AGENTS.md` adalah satu-satunya file utama, berisi pembuka singkat: project memakai Agent Gate, dan AI wajib memanggil `ag_context` sebelum mulai kerja. File ini dibaca langsung oleh Codex, OpenCode, Cursor, dan Copilot.
 - `CLAUDE.md` hanya berisi satu baris `@AGENTS.md`.
-- Gemini CLI diarahkan ke `AGENTS.md` lewat setting `contextFileName`.
+- Gemini CLI diarahkan ke `AGENTS.md` lewat setting `context.fileName` (dulu `contextFileName`).
 - Konfigurasi koneksi MCP dan hooks per client tetap diperlukan (`.mcp.json`, `.codex/`, `.gemini/settings.json`, `.cursor/`, dan sejenisnya). Isinya kecil, di-generate otomatis, dan tanpa logika: hooks hanya memanggil `agentgate hook ...` supaya jalan di semua OS.
 - Instruksi per stage, prompt persona, dan skills diambil dari server lewat MCP, tidak disimpan sebagai file.
 - Di Claude Code, hook `SessionStart` menyuntikkan konteks Agent Gate secara otomatis.
@@ -573,7 +573,7 @@ Panah menunjukkan milestone mana yang harus selesai lebih dulu. M8 dan M10 butuh
 
 - [ ] Dukungan hooks di tiap client selain Claude Code (Codex, Gemini CLI, Cursor, OpenCode, Copilot CLI). Ini menentukan kekuatan penegakan lokal dan integrasi RTK.
 - [ ] Flag isolasi config global untuk mode headless tiap client.
-- [ ] Dukungan `AGENTS.md` dan `contextFileName` di tiap client.
+- [ ] Dukungan `AGENTS.md` dan `context.fileName` (Gemini) di tiap client.
 - [ ] Cara membuka terminal interaktif dengan sesi client di Windows, macOS, dan Linux.
 - [ ] Dukungan RTK di Windows dan di client selain Claude Code.
 - [ ] Ketersediaan indexer SCIP untuk bahasa prioritas.

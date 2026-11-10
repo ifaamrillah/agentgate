@@ -6,3 +6,4 @@
 .worktree
 /worktrees/
 /tmp/
+/docker/.env
