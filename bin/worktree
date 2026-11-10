@@ -1,0 +1,372 @@
+#!/usr/bin/env bash
+# Kerja paralel dengan git worktree: satu worktree = satu branch = satu lingkungan lengkap
+# (folder, database dev/test, container app, port). Lihat docs/reference/loco-project-rules.md §11.
+#
+#   bin/worktree new <branch> [--base <branch>] [--no-server]
+#   bin/worktree close <branch> [--force] [--keep-db] [--yes]
+#   bin/worktree list
+#   bin/worktree reset-db
+#   bin/worktree doctor [--quiet]
+#   bin/worktree prune [--dry-run]
+#   bin/worktree _setup <path>      (hook tool lain: siapkan worktree yang sudah dibuat)
+#   bin/worktree _release <path>    (hook tool lain: bersihkan sebelum worktree dihapus)
+#
+# Exit code: 0 berhasil; 1 salah pakai/prasyarat gagal (tidak ada yang berubah);
+# 2 gagal di tengah (aman diulang dengan perintah yang sama).
+# Penyesuaian Agent Gate: bila remote `origin` tidak ada, branch baru dibuat dari branch lokal
+# (`staging` atau --base) dan cek "sudah di-push" diganti "sudah di-merge ke staging lokal".
+set -euo pipefail
+
+BIN_DIR="$(cd "$(dirname "$0")" && pwd)"
+. "$BIN_DIR/_lib.sh"
+MAIN_DIR="$AG_ROOT_DIR"
+WT_DIR="$MAIN_DIR/worktrees"
+
+usage() { sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; }
+die1() { echo "worktree: $*" >&2; exit 1; }
+die2() { echo "worktree: $*" >&2; exit 2; }
+
+in_main_checkout() {
+  case "$MAIN_DIR" in */worktrees/*) return 1 ;; esac
+  return 0
+}
+
+has_origin() { git -C "$MAIN_DIR" remote get-url origin >/dev/null 2>&1; }
+
+# psql di container db bersama. Argumen diteruskan ke psql.
+db_psql() { ag_compose_shared exec -T db psql -U agentgate -d postgres -v ON_ERROR_STOP=1 "$@"; }
+db_exists() { [ "$(db_psql -tAc "SELECT 1 FROM pg_database WHERE datname = '$1'")" = "1" ]; }
+db_size() { db_psql -tAc "SELECT pg_size_pretty(pg_database_size('$1'))" 2>/dev/null || echo "-"; }
+
+# Baca .worktree milik folder $1 ke variabel WT_ID/WT_PORT/WT_BRANCH.
+read_worktree_file() {
+  WT_ID="" WT_PORT="" WT_BRANCH=""
+  [ -f "$1/.worktree" ] || return 1
+  # shellcheck disable=SC1090
+  WT_ID="$(. "$1/.worktree"; echo "${WORKTREE_ID:-}")"
+  WT_PORT="$(. "$1/.worktree"; echo "${WORKTREE_PORT:-}")"
+  WT_BRANCH="$(. "$1/.worktree"; echo "${WORKTREE_BRANCH:-}")"
+}
+
+used_ports() {
+  local d
+  for d in "$WT_DIR"/*/; do
+    [ -f "$d.worktree" ] || continue
+    (. "$d.worktree"; echo "${WORKTREE_PORT:-}")
+  done
+}
+
+pick_port() {
+  local port=$((AG_MAIN_PORT + 1)) used
+  used=" $(used_ports | tr '\n' ' ') "
+  while case "$used" in *" $port "*) true ;; *) false ;; esac || ag_port_in_use "$port"; do
+    port=$((port + 1))
+  done
+  echo "$port"
+}
+
+# Cegah dua branch berbeda berbagi id atau folder (mis. feature/a dan feature-a).
+check_collision() {
+  local branch="$1" id="$2" folder="$3" d
+  for d in "$WT_DIR"/*/; do
+    [ -d "$d" ] || continue
+    read_worktree_file "$d" || continue
+    [ "$WT_BRANCH" = "$branch" ] && continue
+    if [ "$WT_ID" = "$id" ] || [ "$(basename "$d")" = "$folder" ]; then
+      die1 "branch '$branch' bentrok dengan worktree branch '$WT_BRANCH' (id/folder sama); pakai nama lain"
+    fi
+  done
+}
+
+prepare_databases() {
+  local id="$1" dev="agentgate_dev_$1" test="agentgate_test_$1"
+  ag_ensure_shared
+  if ! db_exists "$dev"; then
+    echo "worktree: clone database $dev dari agentgate_dev"
+    if ! db_psql -c "CREATE DATABASE \"$dev\" TEMPLATE agentgate_dev" >/dev/null 2>&1; then
+      # Database utama sedang dipakai (server jalan): clone lewat dump.
+      db_psql -c "CREATE DATABASE \"$dev\"" >/dev/null || die2 "gagal membuat $dev"
+      ag_compose_shared exec -T db bash -c "pg_dump -U agentgate agentgate_dev | psql -q -U agentgate -d '$dev'" >/dev/null \
+        || die2 "gagal meng-clone agentgate_dev ke $dev"
+    fi
+  fi
+  if ! db_exists "$test"; then
+    echo "worktree: buat database $test (kosong)"
+    db_psql -c "CREATE DATABASE \"$test\"" >/dev/null || die2 "gagal membuat $test"
+  fi
+}
+
+migrate_worktree() {
+  local path="$1"
+  if [ -n "${AG_WORKTREE_SKIP_MIGRATE:-}" ]; then return 0; fi
+  (cd "$path" && bin/loco db migrate) || die2 "migrasi database dev gagal di $path"
+}
+
+# Hentikan container app satu worktree dan hapus volume target-nya. Env diset eksplisit karena
+# _lib.sh di sini milik checkout utama, bukan milik worktree.
+app_down() {
+  local path="$1" id="$2"
+  AG_ROOT="$path" AG_ID="$id" AG_ID_OR_MAIN="$id" \
+    docker compose -p "agentgate-rs-$(printf '%s' "$id" | tr '_' '-')" -f "$MAIN_DIR/docker/compose.app.yaml" \
+    down --volumes >/dev/null 2>&1 || true
+}
+
+write_worktree_file() {
+  local path="$1" id="$2" port="$3" branch="$4"
+  printf 'WORKTREE_ID=%s\nWORKTREE_PORT=%s\nWORKTREE_BRANCH=%s\n' "$id" "$port" "$branch" >"$path/.worktree"
+}
+
+copy_includes() {
+  local path="$1" entry
+  [ -f "$MAIN_DIR/.worktreeinclude" ] || return 0
+  while IFS= read -r entry || [ -n "$entry" ]; do
+    case "$entry" in '' | \#*) continue ;; esac
+    [ -e "$MAIN_DIR/$entry" ] || continue
+    [ -e "$path/$entry" ] && continue
+    mkdir -p "$(dirname "$path/$entry")"
+    cp -R "$MAIN_DIR/$entry" "$path/$entry"
+  done <"$MAIN_DIR/.worktreeinclude"
+}
+
+cmd_new() {
+  local branch="" base="staging" server=1
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --base) base="${2:-}"; shift 2 ;;
+      --no-server) server=0; shift ;;
+      -h | --help) usage; exit 0 ;;
+      -*) die1 "opsi tidak dikenal: $1" ;;
+      *) branch="$1"; shift ;;
+    esac
+  done
+  [ -n "$branch" ] || die1 "pemakaian: bin/worktree new <branch> [--base <branch>] [--no-server]"
+  in_main_checkout || die1 "jalankan dari checkout utama, bukan dari dalam worktree"
+  local id folder path
+  id="$("$BIN_DIR/worktree-id" "$branch")" || exit 1
+  folder="$("$BIN_DIR/worktree-id" --folder "$branch")"
+  path="$WT_DIR/$folder"
+  cmd_doctor --quiet || die1 "prasyarat belum lengkap (lihat bin/worktree doctor)"
+  check_collision "$branch" "$id" "$folder"
+
+  if [ ! -d "$path" ]; then
+    mkdir -p "$WT_DIR"
+    if git -C "$MAIN_DIR" show-ref --verify --quiet "refs/heads/$branch"; then
+      git -C "$MAIN_DIR" worktree add "$path" "$branch" >/dev/null || die2 "git worktree add gagal"
+    elif has_origin && git -C "$MAIN_DIR" ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+      git -C "$MAIN_DIR" fetch -q origin "$branch"
+      git -C "$MAIN_DIR" worktree add --track -b "$branch" "$path" "origin/$branch" >/dev/null || die2 "git worktree add gagal"
+    else
+      local start="$base"
+      if has_origin; then
+        git -C "$MAIN_DIR" fetch -q origin "$base" || die1 "origin tidak terjangkau; berhenti supaya tidak menabrak branch remote"
+        start="origin/$base"
+      fi
+      git -C "$MAIN_DIR" worktree add --no-track -b "$branch" "$path" "$start" >/dev/null || die2 "git worktree add gagal"
+    fi
+    write_worktree_file "$path" "$id" "$(pick_port)" "$branch"
+    copy_includes "$path"
+  fi
+  read_worktree_file "$path"
+  prepare_databases "$id"
+  migrate_worktree "$path"
+
+  cat <<EOF
+worktree siap
+  branch    : $branch
+  folder    : $path
+  url       : http://localhost:$WT_PORT (port pilihan)
+  database  : agentgate_dev_$id, agentgate_test_$id
+  tutup     : bin/worktree close $branch
+EOF
+  if [ "$server" = 1 ]; then
+    cd "$path" && exec bin/dev
+  fi
+}
+
+branch_is_merged() {
+  local branch="$1" target="staging"
+  has_origin && target="origin/staging"
+  git -C "$MAIN_DIR" merge-base --is-ancestor "$branch" "$target" 2>/dev/null
+}
+
+cmd_close() {
+  local branch="" force=0 keep_db=0 yes=0
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --force) force=1; shift ;;
+      --keep-db) keep_db=1; shift ;;
+      --yes) yes=1; shift ;;
+      -h | --help) usage; exit 0 ;;
+      -*) die1 "opsi tidak dikenal: $1" ;;
+      *) branch="$1"; shift ;;
+    esac
+  done
+  [ -n "$branch" ] || die1 "pemakaian: bin/worktree close <branch> [--force] [--keep-db]"
+  in_main_checkout || die1 "jalankan dari checkout utama, bukan dari dalam worktree"
+  local id folder path
+  id="$("$BIN_DIR/worktree-id" "$branch")" || exit 1
+  folder="$("$BIN_DIR/worktree-id" --folder "$branch")"
+  path="$WT_DIR/$folder"
+  case "$PWD/" in "$path/"*) die1 "jangan menutup worktree dari dalam foldernya sendiri" ;; esac
+
+  if [ -d "$path" ] && [ "$force" = 0 ]; then
+    [ -z "$(git -C "$path" status --porcelain)" ] || die1 "ada perubahan belum di-commit di $path (pakai --force untuk membuang)"
+    if has_origin; then
+      git -C "$MAIN_DIR" fetch -q --prune origin || true
+      if git -C "$MAIN_DIR" show-ref --verify --quiet "refs/remotes/origin/$branch"; then
+        [ -z "$(git -C "$path" log --oneline "origin/$branch..HEAD")" ] || die1 "ada commit yang belum di-push ke origin/$branch"
+      elif ! branch_is_merged "$branch"; then
+        die1 "branch belum pernah di-push dan belum di-merge ke staging"
+      fi
+    elif ! branch_is_merged "$branch"; then
+      die1 "branch belum di-merge ke staging lokal (pakai --force untuk membuang)"
+    fi
+  fi
+
+  echo "rencana:"
+  [ -d "$path" ] && echo "  - hentikan container app agentgate-rs-$(printf '%s' "$id" | tr '_' '-') dan hapus volume target-nya"
+  [ "$keep_db" = 0 ] && echo "  - drop database agentgate_dev_$id dan agentgate_test_$id"
+  [ -d "$path" ] && echo "  - hapus folder $path"
+  echo "  - hapus branch lokal $branch (git branch -d)"
+  if [ "$yes" = 0 ]; then
+    printf 'lanjut? [y/N] '
+    read -r answer
+    [ "$answer" = y ] || [ "$answer" = Y ] || die1 "dibatalkan"
+  fi
+
+  [ -d "$path" ] && app_down "$path" "$id"
+  if [ "$keep_db" = 0 ]; then
+    ag_ensure_shared
+    db_psql -c "DROP DATABASE IF EXISTS \"agentgate_dev_$id\" WITH (FORCE)" >/dev/null || die2 "gagal drop agentgate_dev_$id; worktree dibiarkan"
+    db_psql -c "DROP DATABASE IF EXISTS \"agentgate_test_$id\" WITH (FORCE)" >/dev/null || die2 "gagal drop agentgate_test_$id; worktree dibiarkan"
+  fi
+  if [ -d "$path" ]; then
+    git -C "$MAIN_DIR" worktree remove --force "$path" || die2 "git worktree remove gagal"
+  fi
+  git -C "$MAIN_DIR" worktree prune
+  if git -C "$MAIN_DIR" show-ref --verify --quiet "refs/heads/$branch"; then
+    if [ "$force" = 1 ]; then
+      git -C "$MAIN_DIR" branch -D "$branch" >/dev/null
+    else
+      git -C "$MAIN_DIR" branch -d "$branch" >/dev/null 2>&1 \
+        || echo "worktree: branch $branch tidak dihapus (belum di-merge biasa); hapus manual: git branch -D $branch"
+    fi
+  fi
+  echo "worktree $branch ditutup"
+}
+
+cmd_list() {
+  local d status running
+  printf '%-32s %-7s %-22s %-10s %s\n' BRANCH PORT STATUS DB PATH
+  for d in "$WT_DIR"/*/; do
+    [ -d "$d" ] || continue
+    read_worktree_file "$d" || continue
+    if [ -n "$(git -C "$d" status --porcelain 2>/dev/null)" ]; then
+      status="perubahan"
+    elif has_origin && git -C "$MAIN_DIR" show-ref --verify --quiet "refs/remotes/origin/$WT_BRANCH"; then
+      local ahead
+      ahead="$(git -C "$d" rev-list --count "origin/$WT_BRANCH..HEAD" 2>/dev/null || echo 0)"
+      if [ "$ahead" = 0 ]; then status="ter-push"; else status="$ahead ahead"; fi
+    elif branch_is_merged "$WT_BRANCH"; then
+      status="di-merge"
+    else
+      status="belum di-merge"
+    fi
+    running=""
+    ag_port_in_use "$WT_PORT" && running="*"
+    printf '%-32s %-7s %-22s %-10s %s\n' "$WT_BRANCH" "$WT_PORT$running" "$status" "$(db_size "agentgate_dev_$WT_ID")" "${d%/}"
+  done
+}
+
+cmd_reset_db() {
+  in_main_checkout && die1 "reset-db hanya dari dalam worktree"
+  read_worktree_file "$MAIN_DIR" || die1 ".worktree tidak ada"
+  ag_ensure_shared
+  db_psql -c "DROP DATABASE IF EXISTS \"agentgate_dev_$WT_ID\" WITH (FORCE)" >/dev/null || die2 "gagal drop"
+  prepare_databases "$WT_ID"
+  migrate_worktree "$MAIN_DIR"
+  echo "database agentgate_dev_$WT_ID di-clone ulang dan dimigrasi"
+}
+
+cmd_doctor() {
+  local quiet=0 ok=0
+  [ "${1:-}" = "--quiet" ] && quiet=1
+  report() { [ "$quiet" = 1 ] || echo "$@"; }
+  bad() { echo "doctor: $*" >&2; ok=1; }
+  command -v git >/dev/null || bad "git tidak terpasang"
+  command -v docker >/dev/null || bad "docker tidak terpasang"
+  docker compose version >/dev/null 2>&1 || bad "docker compose v2 tidak tersedia"
+  if has_origin && ! git -C "$MAIN_DIR" ls-remote origin >/dev/null 2>&1; then bad "origin tidak terjangkau"; fi
+  if [ "$ok" = 0 ]; then
+    ag_ensure_shared
+    db_psql -tAc "SELECT 1" >/dev/null 2>&1 || bad "tidak bisa konek ke Postgres bersama"
+    [ "$(db_psql -tAc "SELECT 1 FROM pg_available_extensions WHERE name = 'vector'" 2>/dev/null)" = 1 ] || bad "extension vector tidak tersedia"
+    db_exists agentgate_dev || bad "database agentgate_dev belum ada"
+  fi
+  local f
+  for f in "$BIN_DIR"/*; do
+    [ -f "$f" ] || continue
+    if grep -q $'\r' "$f"; then bad "$f berakhiran CRLF (harus LF)"; fi
+  done
+  [ "$ok" = 0 ] && report "doctor: semua prasyarat terpenuhi"
+  return "$ok"
+}
+
+cmd_prune() {
+  local dry=0 db id d found
+  [ "${1:-}" = "--dry-run" ] && dry=1
+  git -C "$MAIN_DIR" worktree prune
+  ag_ensure_shared
+  for db in $(db_psql -tAc "SELECT datname FROM pg_database WHERE datname ~ '^agentgate_(dev|test)_'"); do
+    id="${db#agentgate_dev_}"; id="${id#agentgate_test_}"
+    found=0
+    for d in "$WT_DIR"/*/; do
+      read_worktree_file "$d" 2>/dev/null || continue
+      [ "$WT_ID" = "$id" ] && found=1
+    done
+    [ "$found" = 1 ] && continue
+    if [ "$(db_psql -tAc "SELECT count(*) FROM pg_stat_activity WHERE datname = '$db'")" != 0 ]; then
+      echo "lewati $db (masih ada koneksi)"; continue
+    fi
+    if [ "$dry" = 1 ]; then echo "akan drop $db"; else db_psql -c "DROP DATABASE \"$db\"" >/dev/null && echo "drop $db"; fi
+  done
+}
+
+cmd_setup() {
+  local path="${1:-}" branch id
+  [ -d "$path" ] || die1 "pemakaian: bin/worktree _setup <path>"
+  branch="$(git -C "$path" rev-parse --abbrev-ref HEAD)"
+  id="$("$BIN_DIR/worktree-id" "$branch")" || exit 1
+  if [ ! -f "$path/.worktree" ]; then
+    check_collision "$branch" "$id" "$(basename "$path")"
+    write_worktree_file "$path" "$id" "$(pick_port)" "$branch"
+    copy_includes "$path"
+  fi
+  prepare_databases "$id"
+  migrate_worktree "$path"
+}
+
+cmd_release() {
+  local path="${1:-}"
+  [ -d "$path" ] || die1 "pemakaian: bin/worktree _release <path>"
+  read_worktree_file "$path" || die1 ".worktree tidak ada di $path"
+  app_down "$path" "$WT_ID"
+  ag_ensure_shared
+  db_psql -c "DROP DATABASE IF EXISTS \"agentgate_dev_$WT_ID\" WITH (FORCE)" >/dev/null || die2 "gagal drop database dev"
+  db_psql -c "DROP DATABASE IF EXISTS \"agentgate_test_$WT_ID\" WITH (FORCE)" >/dev/null || die2 "gagal drop database test"
+}
+
+sub="${1:-}"
+[ $# -gt 0 ] && shift
+case "$sub" in
+  new) cmd_new "$@" ;;
+  close) cmd_close "$@" ;;
+  list) cmd_list ;;
+  reset-db) cmd_reset_db ;;
+  doctor) cmd_doctor "$@" ;;
+  prune) cmd_prune "$@" ;;
+  _setup) cmd_setup "$@" ;;
+  _release) cmd_release "$@" ;;
+  "" | -h | --help | help) usage; [ -n "$sub" ] || exit 1 ;;
+  *) die1 "subcommand tidak dikenal: $sub" ;;
+esac
