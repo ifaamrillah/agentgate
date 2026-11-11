@@ -17,7 +17,7 @@
 - Setiap migrasi diawali `SET lock_timeout = '5s'`; `down` selalu ada.
 - Password: argon2id, 12–128 karakter (konstanta `PASSWORD_MIN_LEN`/`PASSWORD_MAX_LEN` di `services/auth/password.rs`), dev = production (m=19456, t=2, p=1), test m=8, t=1, p=1; hash di `spawn_blocking` dibatasi `Semaphore` (`max_concurrent_hashes`), tunggu > `hash_wait_seconds` → 503.
 - Token email: 32 byte `OsRng`, DB hanya simpan SHA-256 hex; reset 30 menit, verifikasi 24 jam, undangan 7 hari; sekali pakai lewat claim bersyarat.
-- Gagal login apa pun → status 422 + satu pesan `auth-invalid-credentials`; email tak dikenal tetap memverifikasi hash dummy.
+- Gagal login apa pun → status 422 + satu pesan `auth-invalid-credentials`; email tak dikenal tetap memverifikasi hash dummy. Terkunci rate limit → 429 + `auth-too-many-attempts` (sama untuk email terdaftar atau tidak).
 - Rate limit: 5 gagal / 15 menit / email dan 20 gagal / 15 menit / IP → kunci 15 menit (angka di `settings.auth`).
 - Cookie sesi: dev `agentgate_session<SESSION_COOKIE_SUFFIX>`, staging/production `__Host-agentgate_session` + `secure: true`; idle `ttl` 86400 detik; umur mutlak 720 jam; remember-me mati.
 - Rahasia hanya dari env: `SESSION_SECRET`, `ENCRYPTION_KEY` (32 byte base64, untuk secret TOTP), `GOOGLE_CLIENT_ID/SECRET`, `GITHUB_CLIENT_ID/SECRET`. Dev/test punya default di yaml; staging/production tanpa default.
