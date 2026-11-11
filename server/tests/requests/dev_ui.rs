@@ -47,33 +47,60 @@ async fn component_catalog_renders_shared_components() {
         let res = request.get("/_dev/ui").await;
         assert_eq!(res.status_code(), 200, "{}", res.text());
         let html = res.text();
-        // card: ukuran default dan sm, judul + deskripsi + isi.
-        assert_css_exists(&html, "#card section.card:not([data-size]) > header > h2");
-        assert_css_exists(&html, "#card section.card[data-size=\"sm\"] > section");
-        // badge: setiap varian.
-        for variant in ["primary", "secondary", "outline", "destructive"] {
-            assert_css_exists(&html, &format!("#badge .badge[data-variant=\"{variant}\"]"));
-        }
-        // empty_state: varian polos dan bergaris, aksi lewat body.
-        assert_css_exists(&html, "#empty_state .empty:not(.border) figure svg");
+        // Kerangka halaman: breadcrumb, kepala (judul, aksi), tab dari views::nav.
+        assert_css_exists(&html, ".app-topbar [data-crumbs] a");
+        assert_css_eq(&html, ".app-page-head h1", "Katalog UI");
+        assert_css_exists(&html, ".app-page-actions .btn");
         assert_css_exists(
             &html,
-            "#empty_state .empty.border.border-dashed footer .btn",
+            "[data-tabs] a[data-nav=\"overview\"][aria-current=\"page\"]",
         );
-        // table: header dari array, baris dari body.
-        assert_count(&html, "#table .table-container table.table thead th", 3);
-        assert_css_exists(&html, "#table table.table tbody tr td");
-        // page_header: judul, deskripsi, dan aksi.
-        assert_css_eq(&html, "#page_header .app-page-header h1", "Project");
-        assert_css_exists(&html, "#page_header .app-page-header .btn");
-        // avatar: inisial, semua ukuran.
-        for size in ["sm", "default", "lg"] {
+        assert_css_exists(
+            &html,
+            "[data-tabs] a[data-nav=\"board\"][aria-disabled=\"true\"]:not([href])",
+        );
+        // subnav: item aktif ditandai dari data.
+        assert_css_exists(
+            &html,
+            "#layout [data-subnav] a[data-nav=\"password\"][aria-current=\"page\"]",
+        );
+        // panel: judul, deskripsi, tautan aksi, varian, flush.
+        assert_css_exists(
+            &html,
+            "#table .app-panel[data-flush] .app-panel-header .app-panel-action",
+        );
+        assert_css_exists(&html, ".app-panel[data-variant=\"danger\"]");
+        assert_css_exists(&html, ".app-panel[data-variant=\"tint\"]");
+        // table: header objek, kolom tersembunyi, kolom aksi dengan action_menu.
+        assert_count(&html, "#table table.table thead th", 5);
+        assert_css_exists(&html, "#table th[data-hide=\"md\"]");
+        assert_css_exists(
+            &html,
+            "#table td[data-actions] .popover [data-popover] form",
+        );
+        // setting_row, disclosure, stat, key_tile, meta_list, person.
+        assert_count(&html, "#form .app-setting-row", 2);
+        assert_css_exists(&html, "#disclosure details.app-disclosure summary");
+        assert_count(&html, "#stat .app-stat", 4);
+        assert_css_exists(&html, ".app-key-tile[data-size=\"lg\"]");
+        assert_css_exists(&html, "#tokens dl.app-meta-list dd.app-code");
+        assert_css_exists(&html, ".app-person .avatar");
+        // field berpasangan: select dan textarea.
+        assert_css_exists(&html, "#catalog-select option[value=\"2\"][selected]");
+        assert_css_exists(&html, "textarea#catalog-textarea");
+        // badge: setiap varian.
+        for variant in ["primary", "secondary", "outline", "destructive"] {
             assert_css_exists(
                 &html,
-                &format!("#avatar .avatar[data-size=\"{size}\"] > span"),
+                &format!("#tokens .badge[data-variant=\"{variant}\"]"),
             );
         }
-        assert!(html.contains(">AN</span>"), "inisial avatar");
+        // empty_state bergaris dengan aksi.
+        assert_css_exists(&html, "#feedback .empty.border-dashed footer .btn");
+        // avatar: semua ukuran.
+        for size in ["sm", "default", "lg"] {
+            assert_css_exists(&html, &format!(".avatar[data-size=\"{size}\"] > span"));
+        }
         // sidebar_nav: halaman ini, bagian aktif, nonaktif "segera", dan sub-menu.
         assert_css_exists(&html, "#sidebar_nav li > a[aria-current=\"page\"][href]");
         assert_css_exists(&html, "#sidebar_nav li > a[data-active=\"true\"]");
@@ -82,7 +109,6 @@ async fn component_catalog_renders_shared_components() {
             "#sidebar_nav li > a[aria-disabled=\"true\"]:not([href])",
         );
         assert_css_exists(&html, "#sidebar_nav li > ul > li > a");
-        assert!(html.contains("segera"));
     })
     .await;
 }

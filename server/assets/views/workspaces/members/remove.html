@@ -3,16 +3,18 @@
     halaman anggota). -#}
 {% extends "layouts/settings.html" %}
 {% block title %}{{ t(key="member-remove-title", lang="id") }}{% endblock title %}
-{% block settings_content %}
-<div class="grid max-w-3xl gap-6" data-member-remove>
-  {% <card title={t(key="member-remove-title", lang="id")}> %}
-    <p class="text-sm">{{ t(key="member-remove-body", lang="id", name=member.name, email=member.email) }}</p>
-    <div class="mt-6 flex flex-wrap gap-2">
+{% block page_attrs %}data-member-remove{% endblock page_attrs %}
+{% block heading %}{{ t(key="member-remove-title", lang="id") }}{% endblock heading %}
+{% block main %}
+  {% <panel variant="danger"> %}
+    <div class="app-stack">
+    <p>{{ t(key="member-remove-body", lang="id", name=member.name, email=member.email) }}</p>
+    <div class="app-button-row">
       <form method="post" action="{{ member.remove_href }}">
         {{ <button label={t(key="member-remove", lang="id")} variant="destructive" type="submit"/> }}
       </form>
       <a href="{{ back }}" class="btn" data-variant="outline">{{ t(key="member-cancel", lang="id") }}</a>
     </div>
-  {% </card> %}
-</div>
-{% endblock settings_content %}
+    </div>
+  {% </panel> %}
+{% endblock main %}

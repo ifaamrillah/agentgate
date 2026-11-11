@@ -6,6 +6,7 @@
 //! utuh yang sampai ke template.
 use serde::Serialize;
 
+use super::nav::{self, NavItem};
 use crate::models::users;
 
 /// User yang login, seperlunya untuk menu profil.
@@ -28,7 +29,7 @@ impl UserView {
     }
 }
 
-fn initials(name: &str, email: &str) -> String {
+pub(crate) fn initials(name: &str, email: &str) -> String {
     let from_name: String = name
         .split_whitespace()
         .take(2)
@@ -169,10 +170,14 @@ pub struct AppShell {
     /// Menu kiri Pengaturan workspace: halaman yang boleh dibuka role (`None` bila role tidak
     /// punya izin Pengaturan atau di luar workspace). Bagian Umum = `current_workspace.settings_href`.
     pub settings: Option<SettingsLinks>,
-    /// Bagian halaman yang sedang dibuka, untuk menandai menu kiri (Pengaturan workspace, Akun):
-    /// `general`, `members`, `teams`, `job_titles`, `roles`, `audit`, `profile`, `password`,
-    /// `two_factor`; `""` = tidak ada.
+    /// Bagian halaman yang sedang dibuka (`views::nav::SETTINGS_SECTIONS` atau
+    /// `ACCOUNT_SECTIONS`); `""` = tidak ada.
     pub section: &'static str,
+    /// Kelompok bagian untuk breadcrumb: `settings`, `account`, atau `""`.
+    pub area: &'static str,
+    /// Menu kiri halaman ini (Pengaturan workspace atau Akun), item `section` ditandai aktif;
+    /// kosong = halaman tanpa menu kiri.
+    pub subnav: Vec<NavItem>,
 }
 
 /// Tautan halaman Pengaturan workspace; `None` bila role tidak membuka halaman itu.
@@ -198,6 +203,8 @@ impl AppShell {
             can_manage_workspace: false,
             settings: None,
             section: "",
+            area: "",
+            subnav: Vec::new(),
         }
     }
 
@@ -242,10 +249,20 @@ impl AppShell {
         self
     }
 
-    /// Tandai bagian halaman yang sedang dibuka (lihat [`AppShell::section`]).
+    /// Tandai bagian halaman yang sedang dibuka dan pasang menu kirinya: bagian Akun → menu
+    /// Akun; bagian Pengaturan (di workspace, dengan izin Pengaturan) → menu Pengaturan.
     #[must_use]
     pub fn at(mut self, section: &'static str) -> Self {
         self.section = section;
+        if nav::ACCOUNT_SECTIONS.contains(&section) {
+            self.area = "account";
+            self.subnav = nav::mark(nav::account_nav(), section);
+        } else if nav::SETTINGS_SECTIONS.contains(&section) {
+            self.area = "settings";
+            if let (Some(links), Some(ws)) = (&self.settings, &self.current_workspace) {
+                self.subnav = nav::mark(nav::settings_nav(&ws.settings_href, links), section);
+            }
+        }
         self
     }
 }

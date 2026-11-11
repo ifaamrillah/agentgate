@@ -10,6 +10,7 @@ pub mod invitations;
 pub mod job_titles;
 pub mod layout;
 pub mod members;
+pub mod nav;
 pub mod projects;
 pub mod roles;
 pub mod teams;

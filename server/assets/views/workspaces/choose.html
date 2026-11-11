@@ -1,27 +1,23 @@
 {#- Pilih workspace (`/`, user dengan lebih dari satu workspace).
     Variabel: choices ([{name, slug, href}]). -#}
-{% extends "layouts/app.html" %}
+{% extends "layouts/page.html" %}
 {% block title %}{{ t(key="workspace-choose-title", lang="id") }}{% endblock title %}
-{% block content %}
-<div class="mx-auto grid max-w-xl gap-6">
-  {% <page_header title={t(key="workspace-choose-title", lang="id")} description={t(key="workspace-choose-description", lang="id")}> %}
-    <a href="/w/new" class="btn" data-variant="outline">{{ icon(name="plus", class="size-4") }}{{ t(key="nav-create-workspace", lang="id") }}</a>
-  {% </page_header> %}
-  <ul class="grid gap-3" hx-preload:inherited="mouseover">
-    {%- for choice in choices %}
-    <li>
-      <a href="{{ choice.href }}" data-workspace-choice class="card flex-row items-center gap-3 px-6 hover:bg-accent">
-        <span class="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground" aria-hidden="true">
+{% block width %}narrow{% endblock width %}
+{% block heading %}{{ t(key="workspace-choose-title", lang="id") }}{% endblock heading %}
+{% block description %}{{ t(key="workspace-choose-description", lang="id") }}{% endblock description %}
+{% block actions %}<a href="/w/new" class="btn" data-variant="outline">{{ icon(name="plus", class="size-4") }}{{ t(key="nav-create-workspace", lang="id") }}</a>{% endblock actions %}
+{% block main %}
+  {% <panel flush={true}> %}
+    <ul class="app-list" hx-preload:inherited="mouseover">
+      {%- for choice in choices %}
+      <li>
+        <a href="{{ choice.href }}" data-workspace-choice>
           {{- icon(name="building-skyscraper", class="size-4") -}}
-        </span>
-        <span class="grid min-w-0 flex-1 leading-tight">
-          <span class="truncate font-semibold">{{ choice.name }}</span>
-          <span class="truncate font-mono text-xs text-muted-foreground">/w/{{ choice.slug }}</span>
-        </span>
-        {{- icon(name="chevron-right", class="size-4 text-muted-foreground") -}}
-      </a>
-    </li>
-    {%- endfor %}
-  </ul>
-</div>
-{% endblock content %}
+          <span class="app-subject"><span><span>{{ choice.name }}</span><span class="app-code">/w/{{ choice.slug }}</span></span></span>
+          {{- icon(name="chevron-right", class="size-4") -}}
+        </a>
+      </li>
+      {%- endfor %}
+    </ul>
+  {% </panel> %}
+{% endblock main %}

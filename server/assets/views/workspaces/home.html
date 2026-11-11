@@ -3,77 +3,41 @@
     stats (views::workspaces::HomeStats: active_projects, archived_projects, members, teams); daftar project = shell.projects
     (project yang bisa dibuka user, sama dengan sidebar: {name, key, href, archived,
     description}). Statistik tiket menyusul di M2. -#}
-{% extends "layouts/app.html" %}
+{% extends "layouts/page.html" %}
 {% block title %}{{ workspace_name }}{% endblock title %}
-{% block content %}
-<div class="grid gap-6">
-  {% <page_header title={workspace_name} description={t(key="workspace-home-description", lang="id")}> %}
-    {%- if create_href %}
-    <a href="{{ create_href }}" class="btn" data-create-project>{{ icon(name="plus", class="size-4") }}{{ t(key="workspace-create-project", lang="id") }}</a>
-    {%- endif %}
-  {% </page_header> %}
-
-  <div class="grid grid-cols-2 gap-4 lg:grid-cols-4" data-home-stats>
-    <div class="card" data-size="sm">
-      <section class="grid gap-1">
-        <span class="flex items-center gap-2 text-sm text-muted-foreground">{{ icon(name="folder", class="size-4") }}{{ t(key="workspace-stat-projects", lang="id") }}</span>
-        <strong class="text-2xl font-bold">{{ stats.active_projects }}</strong>
-      </section>
-    </div>
-    <div class="card" data-size="sm">
-      <section class="grid gap-1">
-        <span class="flex items-center gap-2 text-sm text-muted-foreground">{{ icon(name="archive", class="size-4") }}{{ t(key="workspace-stat-archived", lang="id") }}</span>
-        <strong class="text-2xl font-bold">{{ stats.archived_projects }}</strong>
-      </section>
-    </div>
-    <div class="card" data-size="sm">
-      <section class="grid gap-1">
-        <span class="flex items-center gap-2 text-sm text-muted-foreground">{{ icon(name="users", class="size-4") }}{{ t(key="workspace-stat-members", lang="id") }}</span>
-        <strong class="text-2xl font-bold">{{ stats.members }}</strong>
-      </section>
-    </div>
-    <div class="card" data-size="sm">
-      <section class="grid gap-1">
-        <span class="flex items-center gap-2 text-sm text-muted-foreground">{{ icon(name="users-group", class="size-4") }}{{ t(key="workspace-stat-teams", lang="id") }}</span>
-        <strong class="text-2xl font-bold">{{ stats.teams }}</strong>
-      </section>
-    </div>
+{% block heading %}{{ workspace_name }}{% endblock heading %}
+{% block description %}{{ t(key="workspace-home-description", lang="id") }}{% endblock description %}
+{% block actions %}
+  {%- if create_href %}<a href="{{ create_href }}" class="btn" data-create-project>{{ icon(name="plus", class="size-4") }}{{ t(key="workspace-create-project", lang="id") }}</a>{% endif -%}
+{% endblock actions %}
+{% block main %}
+  <div class="app-stats" data-home-stats>
+    {{ <stat label={t(key="workspace-stat-projects", lang="id")} value={stats.active_projects ~ ""} icon="folder"/> }}
+    {{ <stat label={t(key="workspace-stat-archived", lang="id")} value={stats.archived_projects ~ ""} icon="archive"/> }}
+    {{ <stat label={t(key="workspace-stat-members", lang="id")} value={stats.members ~ ""} icon="users"/> }}
+    {{ <stat label={t(key="workspace-stat-teams", lang="id")} value={stats.teams ~ ""} icon="users-group"/> }}
   </div>
 
   {%- if shell.projects %}
-  <section class="card py-0" data-projects>
-    <div class="table-container">
-      <table class="table">
-        <thead>
-          <tr>
-            <th scope="col">{{ t(key="workspace-column-project", lang="id") }}</th>
-            <th scope="col" class="hidden md:table-cell">{{ t(key="project-description", lang="id") }}</th>
-            <th scope="col">{{ t(key="workspace-column-status", lang="id") }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {%- for project in shell.projects %}
-          <tr data-project="{{ project.key }}">
-            <td>
-              <a href="{{ project.href }}" class="flex items-center gap-3 hover:underline">
-                {{ <badge label={project.key} variant="outline" code={true}/> }}
-                <span class="font-medium">{{ project.name }}</span>
-              </a>
-            </td>
-            <td class="hidden max-w-md truncate text-muted-foreground md:table-cell">{% if project.description %}{{ project.description }}{% else %}—{% endif %}</td>
-            <td>
-              {%- if project.archived %}
-              <span data-project-archived>{{ <badge label={t(key="project-archived", lang="id")} variant="neutral"/> }}</span>
-              {%- else %}
-              {{ <badge label={t(key="project-active", lang="id")} variant="success"/> }}
-              {%- endif %}
-            </td>
-          </tr>
-          {%- endfor %}
-        </tbody>
-      </table>
-    </div>
-  </section>
+  <div data-projects>
+  {% <panel title={t(key="nav-projects", lang="id")} flush={true}> %}
+    {% <table headers={[{"label": t(key="workspace-column-project", lang="id")}, {"label": t(key="project-description", lang="id"), "hide": "md"}, {"label": t(key="workspace-column-status", lang="id")}]}> %}
+      {%- for project in shell.projects %}
+      <tr data-project="{{ project.key }}">
+        <td><a href="{{ project.href }}" class="app-project-link">{{ <key_tile key={project.key}/> }}<span>{{ project.name }}</span></a></td>
+        <td data-hide="md"><span class="app-muted">{% if project.description %}{{ project.description }}{% else %}—{% endif %}</span></td>
+        <td>
+          {%- if project.archived %}
+          <span data-project-archived>{{ <badge label={t(key="project-archived", lang="id")} variant="neutral"/> }}</span>
+          {%- else %}
+          {{ <badge label={t(key="project-active", lang="id")} variant="success"/> }}
+          {%- endif %}
+        </td>
+      </tr>
+      {%- endfor %}
+    {% </table> %}
+  {% </panel> %}
+  </div>
   {%- elif create_href %}
   {% <empty_state title={t(key="workspace-no-projects-title", lang="id")} description={t(key="workspace-no-projects-description", lang="id")} variant="dashed"> %}
     <a href="{{ create_href }}" class="btn" data-variant="outline">{{ icon(name="plus", class="size-4") }}{{ t(key="workspace-create-project", lang="id") }}</a>
@@ -81,5 +45,4 @@
   {%- else %}
   {{ <empty_state title={t(key="workspace-no-projects-title", lang="id")} description={t(key="workspace-no-projects-member-description", lang="id")} variant="dashed"/> }}
   {%- endif %}
-</div>
-{% endblock content %}
+{% endblock main %}

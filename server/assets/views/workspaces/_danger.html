@@ -2,48 +2,30 @@
     (views::workspaces::DangerZoneView): require_2fa ({action, enabled} atau null bila role tidak
     memegang ManageWorkspace), delete ({action, slug, error} atau null bila bukan Owner atau
     workspace sudah terjadwal hapus). -#}
-<div class="grid gap-6" data-settings-danger>
+<div class="app-page-main" data-settings-danger>
   {%- if danger.require_2fa %}
-  <section class="card">
-    <section>
-      <form method="post" action="{{ danger.require_2fa.action }}" class="flex flex-wrap items-center gap-4" data-require-2fa>
-        <div class="grid min-w-60 flex-1 gap-1">
-          <div class="flex flex-wrap items-center gap-2">
-            <h2 class="font-semibold">{{ t(key="workspace-require-2fa-title", lang="id") }}</h2>
-            {%- if danger.require_2fa.enabled %}
-            {{ <badge label={t(key="workspace-require-2fa-on", lang="id")} variant="success"/> }}
-            {%- else %}
-            {{ <badge label={t(key="workspace-require-2fa-off", lang="id")} variant="neutral"/> }}
-            {%- endif %}
-          </div>
-          <p class="text-sm text-muted-foreground">{{ t(key="workspace-require-2fa-description", lang="id") }}</p>
-        </div>
+  {% <panel title={t(key="workspace-security-title", lang="id")}> %}
+    {% <setting_row title={t(key="workspace-require-2fa-title", lang="id")} description={t(key="workspace-require-2fa-description", lang="id")}> %}
+      <form method="post" action="{{ danger.require_2fa.action }}" class="app-control-row" data-require-2fa>
         {%- if danger.require_2fa.enabled %}
+        {{ <badge label={t(key="workspace-require-2fa-on", lang="id")} variant="success"/> }}
         <input type="hidden" name="enabled" value="false">
-        {{ <button label={t(key="workspace-require-2fa-disable", lang="id")} type="submit" variant="outline"/> }}
+        {{ <button label={t(key="workspace-require-2fa-disable", lang="id")} type="submit" variant="outline" size="sm"/> }}
         {%- else %}
+        {{ <badge label={t(key="workspace-require-2fa-off", lang="id")} variant="neutral"/> }}
         <input type="hidden" name="enabled" value="true">
-        {{ <button label={t(key="workspace-require-2fa-enable", lang="id")} type="submit"/> }}
+        {{ <button label={t(key="workspace-require-2fa-enable", lang="id")} type="submit" size="sm"/> }}
         {%- endif %}
       </form>
-    </section>
-  </section>
+    {% </setting_row> %}
+  {% </panel> %}
   {%- endif %}
   {%- if danger.delete %}
-  <section class="card ag-card-danger">
-    <header>
-      <h2>{{ t(key="workspace-delete-title", lang="id") }}</h2>
-      <p>{{ t(key="workspace-delete-description", lang="id") }}</p>
-    </header>
-    <section>
-      <form method="post" action="{{ danger.delete.action }}" class="form flex flex-wrap items-start gap-3" data-delete-workspace>
-        {{ <field id="delete-confirm" name="confirm_slug" label={t(key="workspace-delete-confirm", lang="id", slug=danger.delete.slug)} error={danger.delete.error} autocomplete="off" required={true} class="min-w-60 flex-1"/> }}
-        <div class="field">
-          <span aria-hidden="true">&nbsp;</span>
-          {{ <button label={t(key="workspace-delete-submit", lang="id")} type="submit" variant="destructive"/> }}
-        </div>
-      </form>
-    </section>
-  </section>
+  {% <panel title={t(key="workspace-delete-title", lang="id")} description={t(key="workspace-delete-description", lang="id")} variant="danger"> %}
+    <form method="post" action="{{ danger.delete.action }}" class="app-inline-form" data-delete-workspace>
+      {{ <field id="delete-confirm" name="confirm_slug" label={t(key="workspace-delete-confirm", lang="id", slug=danger.delete.slug)} error={danger.delete.error} autocomplete="off" required={true}/> }}
+      {{ <button label={t(key="workspace-delete-submit", lang="id")} type="submit" variant="destructive"/> }}
+    </form>
+  {% </panel> %}
   {%- endif %}
 </div>

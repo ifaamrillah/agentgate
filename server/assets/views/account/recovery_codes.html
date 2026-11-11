@@ -2,21 +2,15 @@
     string `xxxxx-xxxxx`). -#}
 {% extends "layouts/account.html" %}
 {% block title %}{{ t(key="totp-codes-title", lang="id") }}{% endblock title %}
-{% block account_content %}
-<div class="grid max-w-xl gap-6">
-  {{ <page_header title={t(key="totp-codes-title", lang="id")}/> }}
-  <section class="card">
-    <header>
-      <p class="text-sm text-muted-foreground">{{ t(key="totp-codes-description", lang="id") }}</p>
-    </header>
-    <section>
-      <ul class="grid grid-cols-2 gap-2 font-mono text-sm">
-        {%- for code in codes %}
-        <li><code data-recovery-code>{{ code }}</code></li>
-        {%- endfor %}
-      </ul>
-    </section>
-  </section>
-  <a href="/account" class="btn" data-variant="primary">{{ t(key="totp-codes-done", lang="id") }}</a>
-</div>
-{% endblock account_content %}
+{% block heading %}{{ t(key="totp-codes-title", lang="id") }}{% endblock heading %}
+{% block description %}{{ t(key="totp-codes-description", lang="id") }}{% endblock description %}
+{% block actions %}<a href="/account" class="btn" data-variant="primary">{{ t(key="totp-codes-done", lang="id") }}</a>{% endblock actions %}
+{% block main %}
+  {% <panel> %}
+    <ul class="app-code-grid">
+      {%- for code in codes %}
+      <li><code data-recovery-code>{{ code }}</code></li>
+      {%- endfor %}
+    </ul>
+  {% </panel> %}
+{% endblock main %}

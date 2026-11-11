@@ -280,7 +280,7 @@ async fn member_cannot_see_audit_log_gets_404() {
             .text();
         assert_css_exists(
             &html,
-            "a[data-settings-audit][href=\"/w/acme/settings/audit\"]",
+            "a[data-nav=\"audit\"][href=\"/w/acme/settings/audit\"]",
         );
         assert_eq!(
             request.get(AUDIT).add_cookie(cookie).await.status_code(),
@@ -297,7 +297,7 @@ async fn member_cannot_see_audit_log_gets_404() {
             .text();
         assert_css_exists(
             &html,
-            "a[data-settings-audit][href=\"/w/acme/settings/audit\"]",
+            "a[data-nav=\"audit\"][href=\"/w/acme/settings/audit\"]",
         );
         assert_css_not_exists(&html, "[data-settings-danger]");
         assert_eq!(

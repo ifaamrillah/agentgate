@@ -86,6 +86,7 @@ pub struct TeamMemberRow {
     pub user_id: String,
     pub name: String,
     pub email: String,
+    pub initials: String,
 }
 
 impl TeamMemberRow {
@@ -95,6 +96,7 @@ impl TeamMemberRow {
             user_id: user.id.to_string(),
             name: user.name.clone(),
             email: user.email.clone(),
+            initials: super::layout::initials(&user.name, &user.email),
         }
     }
 }

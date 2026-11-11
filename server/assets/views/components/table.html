@@ -1,17 +1,25 @@
 {#- Komponen tabel. Dipanggil sebagai blok; body = baris `<tr><td>…</td></tr>` untuk tbody.
-      {% <table headers={["Nama", "Email"]}> %}{% for u in users %}<tr>…</tr>{% endfor %}{% </table> %}
+    Letakkan di `panel` dengan flush={true} supaya tepi sejajar panel.
+      {% <table headers={[{"label": "Nama"}, {"label": "Jabatan", "hide": "md"}]}> %}…{% </table> %}
+    Kolom yang disembunyikan di layar kecil: header `hide` "md"|"lg", dan td-nya diberi
+    data-hide yang sama. Kolom aksi: header `sr` true (label hanya untuk pembaca layar), td
+    diberi data-actions.
     Parameter:
-      headers: array            judul kolom (string, sudah diterjemahkan pemanggil)
-      caption: string           keterangan tabel untuk pembaca layar dan di bawah tabel
-                                (default "")
-      class: hanya untuk layout (margin, lebar), bukan warna/ukuran -#}
-{% component table(headers: array, caption: string = "", class: string = "") %}
-<div class="table-container {{ class }}">
-  <table class="table">
-    {%- if caption %}<caption>{{ caption }}</caption>{% endif %}
+      headers: array            [{label, hide (opsional "md"|"lg"), sr (opsional bool)}];
+                                label sudah diterjemahkan
+      caption: string           keterangan untuk pembaca layar (default "")
+      attrs: string             penanda tes pada <table> (default "") -#}
+{% component table(headers: array, caption: string = "", attrs: string = "") %}
+<div class="table-container">
+  <table class="table" {{ attrs }}>
+    {%- if caption %}<caption class="sr-only">{{ caption }}</caption>{% endif %}
     <thead>
       <tr>
-        {%- for header in headers %}<th scope="col">{{ header }}</th>{% endfor %}
+        {%- for header in headers %}
+        <th scope="col"{% if header.hide is defined %} data-hide="{{ header.hide }}"{% endif %}>
+          {%- if header.sr is defined and header.sr %}<span class="sr-only">{{ header.label }}</span>{% else %}{{ header.label }}{% endif -%}
+        </th>
+        {%- endfor %}
       </tr>
     </thead>
     <tbody>

@@ -1,0 +1,19 @@
+/* Halaman autentikasi (auth/_layout_card.html): panel merek indigo gelap di kiri. */
+@layer components {
+  .app-auth-brand {
+    background: var(--ag-indigo-900);
+    color: #ffffff;
+  }
+
+  .app-auth-brand p {
+    color: rgb(255 255 255 / 0.82);
+  }
+
+  .app-auth-mark {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    background: rgb(255 255 255 / 0.14);
+  }
+}

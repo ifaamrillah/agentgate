@@ -1,0 +1,16 @@
+{#- Komponen orang: avatar inisial + nama + baris kedua (email/jabatan). Untuk sel tabel dan
+    daftar anggota.
+    Parameter:
+      name: string              nama tampilan
+      initials: string          1–2 huruf
+      detail: string            baris kedua, mis. email (default "")
+      mono: bool                baris kedua berupa kode/email (default false) -#}
+{% component person(name: string, initials: string, detail: string = "", mono: bool = false) %}
+<span class="app-person">
+  {{ <avatar initials={initials}/> }}
+  <span>
+    <span>{{ name }}</span>
+    {%- if detail %}<span{% if mono %} class="app-code"{% endif %}>{{ detail }}</span>{% endif %}
+  </span>
+</span>
+{%- endcomponent person %}

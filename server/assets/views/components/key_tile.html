@@ -1,0 +1,8 @@
+{#- Komponen kotak kunci project (mono, tint indigo).
+    Parameter:
+      key: string               kunci project, mis. KSR
+      size: md|lg               (default md; lg = kepala halaman project) -#}
+{% component key_tile(key: string, size: string = "md") %}
+{%- if size not in ["md", "lg"] %}{{ throw(message="key_tile: size tidak dikenal: " ~ size) }}{% endif -%}
+<span class="app-key-tile" data-size="{{ size }}" aria-hidden="true">{{ key }}</span>
+{%- endcomponent key_tile %}

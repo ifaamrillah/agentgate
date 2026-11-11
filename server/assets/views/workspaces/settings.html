@@ -1,21 +1,22 @@
-{#- Pengaturan workspace → Umum (role dengan salah satu izin Pengaturan). Menu kiri ke bagian
-    lain datang dari layouts/settings.html (shell.settings). Variabel: action (path POST bagian
-    Umum), form (views::workspaces::WorkspaceFormView, atau null bila role tidak memegang
-    ManageWorkspace), danger (views::workspaces::DangerZoneView: require_2fa dan delete,
-    masing-masing null bila role tidak boleh), flash (dirender layout). -#}
+{#- Pengaturan workspace → Umum (role dengan salah satu izin Pengaturan). Menu kiri dari
+    layouts/settings.html. Variabel: action (path POST bagian Umum), form
+    (views::workspaces::WorkspaceFormView, atau null bila role tidak memegang ManageWorkspace),
+    danger (views::workspaces::DangerZoneView: require_2fa dan delete, masing-masing null bila
+    role tidak boleh), flash (dirender layout). -#}
 {% extends "layouts/settings.html" %}
 {% block title %}{{ t(key="workspace-settings-title", lang="id") }}{% endblock title %}
-{% block settings_attrs %}data-settings-index{% endblock settings_attrs %}
-{% block settings_content %}
-  {{ <page_header title={t(key="workspace-settings-general", lang="id")} description={t(key="workspace-settings-general-description", lang="id")}/> }}
+{% block page_attrs %}data-settings-index{% endblock page_attrs %}
+{% block heading %}{{ t(key="workspace-settings-general", lang="id") }}{% endblock heading %}
+{% block description %}{{ t(key="workspace-settings-intro", lang="id") }}{% endblock description %}
+{% block main %}
   {%- if form %}
   <div data-settings-general>
-    {% <card> %}
-      <form method="post" action="{{ action }}" class="form grid max-w-xl gap-6">
+    {% <panel title={t(key="workspace-settings-profile", lang="id")} description={t(key="workspace-settings-general-description", lang="id")}> %}
+      <form method="post" action="{{ action }}" class="app-form">
         {% include "workspaces/_form.html" %}
-        <div>{{ <button label={t(key="workspace-settings-save", lang="id")} type="submit"/> }}</div>
+        <div class="app-form-actions">{{ <button label={t(key="workspace-settings-save", lang="id")} type="submit"/> }}</div>
       </form>
-    {% </card> %}
+    {% </panel> %}
   </div>
   {%- endif %}
   {%- if danger.require_2fa or danger.delete %}
@@ -24,4 +25,4 @@
   {%- if not form and not danger.require_2fa and not danger.delete %}
   {{ <empty_state title={t(key="workspace-settings-pick-title", lang="id")} description={t(key="workspace-settings-pick-description", lang="id")} icon="settings" variant="dashed"/> }}
   {%- endif %}
-{% endblock settings_content %}
+{% endblock main %}

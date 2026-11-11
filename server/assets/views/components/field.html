@@ -11,8 +11,9 @@
       required, autofocus: bool (default false)
       hide_label: bool          label hanya untuk pembaca layar (default false; mis. di baris
                                 pengaturan yang judulnya sudah tampil di kiri)
+      hint: string              teks bantuan di bawah kontrol (default "")
       class: hanya untuk layout (margin, lebar), bukan warna/ukuran -#}
-{% component field(id: string, name: string, label: string, type: string = "text", value: string = "", error: string = "", error_min: integer = 0, error_max: integer = 0, autocomplete: string = "", required: bool = false, autofocus: bool = false, hide_label: bool = false, class: string = "") %}
+{% component field(id: string, name: string, label: string, type: string = "text", value: string = "", error: string = "", error_min: integer = 0, error_max: integer = 0, autocomplete: string = "", required: bool = false, autofocus: bool = false, hide_label: bool = false, hint: string = "", class: string = "") %}
 {%- if type not in ["text", "email", "password"] %}{{ throw(message="field: type tidak dikenal: " ~ type) }}{% endif -%}
 <div class="field {{ class }}"{% if error %} data-invalid="true"{% endif %}>
   <label for="{{ id }}"{% if hide_label %} class="sr-only"{% endif %}>{{ label }}</label>
@@ -22,6 +23,9 @@
     {%- if required %} required{% endif %}
     {%- if autofocus %} autofocus{% endif %}
     {%- if error %} aria-invalid="true" aria-describedby="{{ id }}-error"{% endif %}>
+  {%- if hint %}
+  <p class="app-hint" id="{{ id }}-hint">{{ hint }}</p>
+  {%- endif %}
   {%- if error %}
   <p role="alert" id="{{ id }}-error">{{ t(key=error, lang="id", min=error_min, max=error_max) }}</p>
   {%- endif %}

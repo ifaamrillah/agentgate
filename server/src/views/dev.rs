@@ -2,7 +2,10 @@
 //! workspace dan project supaya sidebar lengkap ikut terlihat.
 use loco_rs::prelude::*;
 
-use super::layout::{AppShell, ProjectLink, UserView, WorkspaceLink, WorkspaceView, app_page};
+use super::{
+    layout::{AppShell, ProjectLink, UserView, WorkspaceLink, WorkspaceView, app_page},
+    nav,
+};
 
 fn sample_shell() -> AppShell {
     AppShell::new(UserView::new("Ana Nugraha", "ana@agentgate.test"))
@@ -20,5 +23,15 @@ fn sample_shell() -> AppShell {
 }
 
 pub fn ui(v: &impl ViewRenderer) -> Result<Response> {
-    format::render().view(v, "dev/ui.html", app_page(&sample_shell(), data!({})))
+    format::render().view(
+        v,
+        "dev/ui.html",
+        app_page(
+            &sample_shell(),
+            data!({
+                "tabs": nav::project_tabs("/_dev/ui", Some("/_dev/ui#tabs"), "overview"),
+                "subnav": nav::mark(nav::account_nav(), "password"),
+            }),
+        ),
+    )
 }

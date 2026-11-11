@@ -1,7 +1,4 @@
 {#- Field nama dan slug workspace, dipakai halaman buat workspace dan Pengaturan.
     Variabel: form ({name, slug, errors: field name/slug → {code, min, max}}). -#}
 {{ <field id="workspace-name" name="name" label={t(key="workspace-name", lang="id")} value={form.name} error={form.errors.name.code} error_min={form.errors.name.min} error_max={form.errors.name.max} required={true} autofocus={true}/> }}
-<div class="grid gap-2">
-  {{ <field id="workspace-slug" name="slug" label={t(key="workspace-slug", lang="id")} value={form.slug} error={form.errors.slug.code} error_min={form.errors.slug.min} error_max={form.errors.slug.max} autocomplete="off"/> }}
-  <p class="text-sm text-muted-foreground">{{ t(key="workspace-slug-hint", lang="id") }}</p>
-</div>
+{{ <field id="workspace-slug" name="slug" label={t(key="workspace-slug", lang="id")} value={form.slug} error={form.errors.slug.code} error_min={form.errors.slug.min} error_max={form.errors.slug.max} autocomplete="off" hint={t(key="workspace-slug-hint", lang="id")}/> }}

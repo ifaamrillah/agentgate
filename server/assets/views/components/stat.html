@@ -1,0 +1,12 @@
+{#- Komponen statistik: label kecil + angka besar.
+    Parameter:
+      label: string             label (sudah diterjemahkan)
+      value: string             nilai (angka diformat pemanggil)
+      icon: nama ikon Tabler    (default "" = tanpa ikon)
+      href: string              tautan seluruh kotak (default "" = bukan tautan) -#}
+{% component stat(label: string, value: string, icon: string = "", href: string = "") %}
+{%- if href %}<a class="app-stat" href="{{ href }}">{% else %}<div class="app-stat">{% endif %}
+  <span>{% if icon %}{{ icon(name=icon, class="size-4") }}{% endif %}{{ label }}</span>
+  <strong>{{ value }}</strong>
+{%- if href %}</a>{% else %}</div>{% endif %}
+{%- endcomponent stat %}

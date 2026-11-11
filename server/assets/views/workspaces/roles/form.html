@@ -3,16 +3,13 @@
     ubah). -#}
 {% extends "layouts/settings.html" %}
 {% block title %}{{ t(key=title_key, lang="id") }}{% endblock title %}
-{% block settings_content %}
-<div class="grid max-w-3xl gap-6">
-  {% <page_header title={t(key=title_key, lang="id")}> %}
-    <a href="{{ back_href }}" class="btn" data-variant="ghost">{{ t(key="role-back", lang="id") }}</a>
-  {% </page_header> %}
-  {% <card> %}
-    <form method="post" action="{{ action }}" class="form grid gap-6">
+{% block heading %}{{ t(key=title_key, lang="id") }}{% endblock heading %}
+{% block actions %}<a href="{{ back_href }}" class="btn" data-variant="ghost">{{ icon(name="arrow-left", class="size-4") }}{{ t(key="role-back", lang="id") }}</a>{% endblock actions %}
+{% block main %}
+  {% <panel> %}
+    <form method="post" action="{{ action }}" class="app-form">
       {% include "workspaces/roles/_form.html" %}
-      <div>{{ <button label={t(key=submit_key, lang="id")} type="submit"/> }}</div>
+      <div class="app-form-actions">{{ <button label={t(key=submit_key, lang="id")} type="submit"/> }}</div>
     </form>
-  {% </card> %}
-</div>
-{% endblock settings_content %}
+  {% </panel> %}
+{% endblock main %}

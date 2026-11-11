@@ -2,25 +2,25 @@
     tambah: name, errors.name), action (POST tambah), flash (dirender layout). -#}
 {% extends "layouts/settings.html" %}
 {% block title %}{{ t(key="settings-teams-title", lang="id") }}{% endblock title %}
-{% block settings_content %}
-<div class="grid max-w-3xl gap-6" data-teams-index>
-  {{ <page_header title={t(key="settings-teams-title", lang="id")} description={t(key="settings-teams-description", lang="id")}/> }}
-  {% <card title={t(key="team-add", lang="id")}> %}
-    <form method="post" action="{{ action }}" class="form flex flex-wrap items-end gap-3">
-      {{ <field id="team-name" name="name" label={t(key="team-name", lang="id")} value={create.name} error={create.errors.name.code} error_min={create.errors.name.min} error_max={create.errors.name.max} required={true} class="min-w-48 flex-1"/> }}
+{% block page_attrs %}data-teams-index{% endblock page_attrs %}
+{% block heading %}{{ t(key="settings-teams-title", lang="id") }}{% endblock heading %}
+{% block description %}{{ t(key="settings-teams-description", lang="id") }}{% endblock description %}
+{% block main %}
+  {% <panel title={t(key="team-add", lang="id")}> %}
+    <form method="post" action="{{ action }}" class="app-inline-form">
+      {{ <field id="team-name" name="name" label={t(key="team-name", lang="id")} value={create.name} error={create.errors.name.code} error_min={create.errors.name.min} error_max={create.errors.name.max} required={true}/> }}
       {{ <button label={t(key="team-add", lang="id")} type="submit" icon="plus"/> }}
     </form>
-  {% </card> %}
+  {% </panel> %}
   {%- if teams %}
-  {% <card> %}
-    <ul class="grid gap-2">
+  {% <panel title={t(key="settings-teams-title", lang="id")} flush={true}> %}
+    <ul class="app-list">
       {%- for team in teams %}
-      <li data-team><a href="{{ team.href }}" class="btn w-full justify-start" data-variant="ghost">{{ icon(name="users", class="size-4") }}{{ team.name }}</a></li>
+      <li data-team><a href="{{ team.href }}">{{ icon(name="users-group", class="size-4") }}<span>{{ team.name }}</span>{{ icon(name="chevron-right", class="size-4") }}</a></li>
       {%- endfor %}
     </ul>
-  {% </card> %}
+  {% </panel> %}
   {%- else %}
   {{ <empty_state title={t(key="teams-empty-title", lang="id")} description={t(key="teams-empty-description", lang="id")} icon="users" variant="dashed"/> }}
   {%- endif %}
-</div>
-{% endblock settings_content %}
+{% endblock main %}

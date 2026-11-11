@@ -1,10 +1,12 @@
-{#- Layout aplikasi (setelah login): sidebar kiri Basecoat + konten setinggi layar. Block: title,
-    content.
+{#- Layout aplikasi (setelah login): sidebar kiri Basecoat, topbar (breadcrumb) dan konten.
+    Halaman aplikasi tidak memakai layout ini langsung: pakai layouts/page.html (atau turunannya)
+    supaya anatominya sama. Block: title, content.
     Variabel:
       shell (wajib, views::layout::AppShell dari controllers::shell::app_shell): user {name,
         email, initials}, workspaces [{name, slug, href}], current_workspace ({name, slug, href,
         settings_href, leave_href, deletion ({purge_at, cancel_action} atau null)} atau null), projects [{name, key, href}], current_project ({name, key,
-        href} atau null), can_manage_workspace (bool).
+        href} atau null), can_manage_workspace (bool), area ("settings" | "account" | "":
+        breadcrumb), subnav ([views::nav::NavItem]: menu kiri Pengaturan/Akun).
       flash (opsional, {kind, key}: pesan sekali tampil dari controllers::flash).
     Mobile (< md): sidebar tersembunyi dan dibuka tombol menu (static/js/sidebar-toggle.js).
     Dropdown di sidebar diberi data-keep-mobile-sidebar-open: tanpa itu Basecoat menutup
@@ -137,18 +139,35 @@
     </footer>
   </nav>
 </aside>
-<main class="app-main flex min-h-screen min-w-0 flex-col">
-  <header class="flex h-14 shrink-0 items-center gap-2 border-b border-border bg-background px-4 md:hidden">
-    <button type="button" class="btn" data-variant="ghost" data-size="icon"
+<main class="app-main">
+  <header class="app-topbar">
+    <button type="button" class="btn md:hidden" data-variant="ghost" data-size="icon"
       data-sidebar-toggle="app-sidebar" aria-controls="app-sidebar" aria-label="{{ t(key="nav-open-menu", lang="id") }}">
       {{- icon(name="menu-2", class="size-5") -}}
     </button>
-    <span class="font-semibold">{{ t(key="app-name", lang="id") }}</span>
+    {#- Breadcrumb: Workspace › Project › Bagian (Pengaturan/Akun), dari shell. -#}
+    <nav class="app-crumbs" aria-label="{{ t(key="nav-breadcrumb", lang="id") }}" data-crumbs>
+      {%- if shell.area == "account" %}
+      <span>{{ t(key="account-title", lang="id") }}</span>
+      {%- elif shell.current_workspace %}
+      <a href="{{ shell.current_workspace.href }}">{{ shell.current_workspace.name }}</a>
+      {%- if shell.current_project %}
+      <span class="app-crumb-sep" aria-hidden="true">/</span>
+      <a href="{{ shell.current_project.href }}">{{ shell.current_project.name }}</a>
+      {%- endif %}
+      {%- if shell.area == "settings" %}
+      <span class="app-crumb-sep" aria-hidden="true">/</span>
+      <a href="{{ shell.current_workspace.settings_href }}">{{ t(key="nav-settings", lang="id") }}</a>
+      {%- endif %}
+      {%- else %}
+      <span>{{ t(key="app-name", lang="id") }}</span>
+      {%- endif %}
+    </nav>
   </header>
-  <div class="flex-1 p-4 md:p-8">
+  <div class="app-content">
     {%- if shell.current_workspace and shell.current_workspace.deletion %}
     {#- Workspace terjadwal hapus (hanya Owner yang bisa membukanya): di setiap halamannya. -#}
-    <div class="alert mb-6" data-variant="destructive" role="alert" data-deletion-banner>
+    <div class="alert" data-variant="destructive" role="alert" data-deletion-banner>
       {{ icon(name="alert-triangle", class="size-4") }}
       <h2>{{ t(key="workspace-deletion-banner-title", lang="id") }}</h2>
       <section>
@@ -160,7 +179,7 @@
     </div>
     {%- endif %}
     {%- if flash is defined and flash %}
-    <div class="mb-6">{{ <flash kind={flash.kind} message={t(key=flash.key, lang="id")}/> }}</div>
+    {{ <flash kind={flash.kind} message={t(key=flash.key, lang="id")}/> }}
     {%- endif %}
     {% block content %}{% endblock content %}
   </div>

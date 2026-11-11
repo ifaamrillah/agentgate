@@ -1,0 +1,770 @@
+/* Panel (pengganti card di halaman aplikasi): putih, garis slate-200, tanpa bayangan. */
+@layer components {
+  .app-panel {
+    min-width: 0;
+    border: 1px solid var(--ag-card-border);
+    border-radius: var(--radius);
+    background: var(--card);
+  }
+
+  .app-panel[data-variant="danger"] {
+    border-color: var(--ag-status-danger-border);
+  }
+
+  .app-panel-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--ag-slate-200);
+  }
+
+  .app-panel-header h2 {
+    font-size: 0.9375rem;
+    font-weight: 600;
+  }
+
+  .app-panel-header p {
+    margin-top: 0.125rem;
+    font-size: 0.8125rem;
+    color: var(--ag-slate-600);
+  }
+
+  .app-panel-action {
+    flex-shrink: 0;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--ag-indigo-700);
+  }
+
+  .app-panel-action:hover {
+    text-decoration: underline;
+  }
+
+  .app-panel-body {
+    padding: 1.25rem;
+  }
+
+  .app-panel[data-flush] > .app-panel-body {
+    padding: 0;
+  }
+
+  /* Panel bertint: ringkasan atau ajakan, bukan data. */
+  .app-panel[data-variant="tint"] {
+    border-color: var(--ag-indigo-100);
+    background: var(--ag-surface-tint);
+  }
+
+  /* Tabel di panel flush: kolom tepi sejajar padding panel, baris dengan hover. */
+  /* Tabel lebar bisa digeser di dalam panel; tabel bermenu aksi (popover) tidak dipotong. */
+  .app-panel[data-flush] .table-container {
+    overflow-x: auto;
+  }
+
+  .app-panel[data-flush] .table-container:has(.popover) {
+    overflow: visible;
+  }
+
+  .table time {
+    white-space: nowrap;
+  }
+
+  .app-panel[data-flush] .table :is(th, td):first-child {
+    padding-inline-start: 1.25rem;
+  }
+
+  .app-panel[data-flush] .table :is(th, td):last-child {
+    padding-inline-end: 1.25rem;
+  }
+
+  .app-panel[data-flush] .table tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .app-panel[data-flush] .table thead th {
+    background: var(--ag-slate-50);
+  }
+
+  .table th {
+    height: 2.5rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--ag-slate-600);
+  }
+
+  .table td {
+    height: 3rem;
+  }
+
+  .table tbody tr:hover td {
+    background: var(--ag-slate-50);
+  }
+
+  .table tr[aria-selected="true"] > td {
+    background: var(--ag-indigo-50);
+  }
+
+  /* Daftar baris di panel flush (repo, item tanpa kolom). */
+  .app-list > li {
+    padding: 0.875rem 1.25rem;
+    border-bottom: 1px solid var(--ag-slate-200);
+  }
+
+  .app-list > li:last-child {
+    border-bottom: 0;
+  }
+
+  /* Baris pengaturan: judul + penjelasan kiri, kontrol kanan; menumpuk di layar kecil. */
+  .app-setting-row {
+    display: grid;
+    gap: 0.75rem;
+    padding-block: 1.25rem;
+    border-bottom: 1px solid var(--ag-slate-200);
+  }
+
+  .app-setting-row:first-child {
+    padding-top: 0;
+  }
+
+  .app-setting-row:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
+  }
+
+  @media (min-width: 64rem) {
+    .app-setting-row {
+      grid-template-columns: 14rem minmax(0, 1fr);
+      gap: 2rem;
+    }
+  }
+
+  .app-setting-row > header h3 {
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  .app-setting-row > header p {
+    margin-top: 0.25rem;
+    font-size: 0.8125rem;
+    color: var(--ag-slate-600);
+  }
+
+  .app-setting-row > div {
+    min-width: 0;
+    max-width: 36rem;
+  }
+
+  /* Statistik. */
+  .app-stat {
+    display: grid;
+    gap: 0.375rem;
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--ag-card-border);
+    border-radius: var(--radius);
+  }
+
+  .app-stat > span {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    color: var(--ag-slate-600);
+  }
+
+  .app-stat > strong {
+    font-size: 1.5rem;
+    line-height: 2rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Kotak kode project. */
+  .app-key-tile {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius);
+    background: var(--ag-indigo-50);
+    color: var(--ag-indigo-700);
+    font-family: var(--font-mono);
+    font-weight: 600;
+  }
+
+  .app-key-tile[data-size="md"] {
+    height: 2.25rem;
+    padding-inline: 0.625rem;
+    font-size: 0.75rem;
+  }
+
+  .app-key-tile[data-size="lg"] {
+    height: 2.75rem;
+    min-width: 2.75rem;
+    padding-inline: 0.625rem;
+    font-size: 0.8125rem;
+  }
+
+  /* Daftar label → nilai. */
+  .app-meta-list {
+    display: grid;
+    grid-template-columns: minmax(6rem, auto) minmax(0, 1fr);
+    gap: 0.5rem 1rem;
+    font-size: 0.875rem;
+  }
+
+  .app-meta-list > dt {
+    color: var(--ag-slate-600);
+  }
+
+  .app-meta-list > dd {
+    overflow-wrap: anywhere;
+  }
+}
+
+@layer components {
+  /* Isi popover menu aksi: form bertumpuk. */
+  .app-action-menu {
+    width: 18rem;
+    text-align: left;
+  }
+
+  .app-action-menu > * + * {
+    margin-top: 1rem;
+  }
+
+  a.app-stat:hover {
+    border-color: var(--ag-slate-300);
+  }
+
+  /* Menu kiri di dalam isi halaman (Pengaturan project): grid sama seperti .app-page. */
+  .app-split {
+    display: grid;
+    gap: 1.5rem;
+  }
+
+  @media (min-width: 48rem) {
+    .app-split:has(> .app-subnav) {
+      grid-template-columns: 12.5rem minmax(0, 1fr);
+      gap: 2.5rem;
+    }
+  }
+
+  .app-split > :last-child {
+    display: grid;
+    min-width: 0;
+    max-width: 56rem;
+    align-content: start;
+    gap: 1.5rem;
+  }
+}
+
+@layer components {
+  /* Form bertumpuk: field satu kolom, tombol di bawah. */
+  .app-form {
+    display: grid;
+    max-width: 36rem;
+    gap: 1.25rem;
+  }
+
+  .app-form-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  /* Form sebaris: satu field + tombol (konfirmasi slug, tambah jabatan); menumpuk di HP. */
+  .app-inline-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.75rem;
+  }
+
+  .app-inline-form > .field {
+    min-width: 15rem;
+    flex: 1;
+  }
+
+  /* Teks bantuan di bawah kontrol. */
+  .app-hint {
+    font-size: 0.8125rem;
+    color: var(--ag-slate-600);
+  }
+
+  /* Status + aksi di sisi kanan baris pengaturan. */
+  .app-control-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+  }
+}
+
+@layer components {
+  /* Orang: avatar + nama + detail. */
+  .app-person {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .app-person > span:last-child {
+    display: grid;
+    min-width: 0;
+  }
+
+  .app-person > span:last-child > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app-person > span:last-child > span:first-child {
+    font-weight: 500;
+  }
+
+  .app-person > span:last-child > span + span {
+    font-size: 0.8125rem;
+    color: var(--ag-slate-600);
+  }
+
+  /* Panel lipat. */
+  .app-disclosure > summary {
+    display: flex;
+    cursor: pointer;
+    list-style: none;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem;
+  }
+
+  .app-disclosure > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .app-disclosure > summary > span:nth-child(2) {
+    display: grid;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .app-disclosure > summary > span:nth-child(2) > span:first-child {
+    font-size: 0.9375rem;
+    font-weight: 600;
+  }
+
+  .app-disclosure > summary > span:nth-child(2) > span + span {
+    display: none;
+    font-size: 0.8125rem;
+    color: var(--ag-slate-600);
+  }
+
+  @media (min-width: 48rem) {
+    .app-disclosure > summary > span:nth-child(2) > span + span {
+      display: block;
+    }
+  }
+
+  .app-disclosure[open] > summary {
+    border-bottom: 1px solid var(--ag-slate-200);
+  }
+
+  .app-disclosure[open] > summary > .btn {
+    display: none;
+  }
+
+  .app-disclosure-icon {
+    display: flex;
+    width: 2rem;
+    height: 2rem;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border-radius: calc(var(--radius) - 2px);
+    background: var(--ag-indigo-50);
+    color: var(--ag-indigo-700);
+  }
+
+  /* Teks sekunder dan sel kosong. */
+  .app-muted {
+    font-size: 0.8125rem;
+    color: var(--ag-slate-600);
+  }
+
+  /* Kolom tabel yang disembunyikan di layar kecil: data-hide="md" | "lg" di th dan td. */
+  .table [data-hide] {
+    display: none;
+  }
+
+  @media (min-width: 48rem) {
+    .table [data-hide="md"] {
+      display: table-cell;
+    }
+  }
+
+  @media (min-width: 64rem) {
+    .table [data-hide="lg"] {
+      display: table-cell;
+    }
+  }
+
+  /* Sel aksi di kanan (menu ⋯ atau tombol). */
+  .table td[data-actions] {
+    width: 1%;
+    white-space: nowrap;
+    text-align: right;
+  }
+
+  .app-action-menu .app-inline-form > .field {
+    min-width: 0;
+  }
+
+  .app-button-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+}
+
+@layer components {
+  /* Tumpukan isi panel (teks + tombol). */
+  .app-stack {
+    display: grid;
+    gap: 1.25rem;
+  }
+
+  .app-action-menu > a.btn {
+    width: 100%;
+  }
+}
+
+@layer components {
+  /* Kode pemulihan: dua kolom mono. */
+  .app-code-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem 1.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+  }
+
+  /* Setup 2FA: QR di kiri, kode manual + form di kanan; menumpuk di HP. */
+  .app-qr-setup {
+    display: grid;
+    gap: 1.5rem;
+  }
+
+  @media (min-width: 40rem) {
+    .app-qr-setup {
+      grid-template-columns: auto minmax(0, 1fr);
+      align-items: start;
+    }
+  }
+
+  .app-qr {
+    width: 11rem;
+    padding: 0.5rem;
+    border: 1px solid var(--ag-slate-200);
+    border-radius: var(--radius);
+  }
+
+  .app-qr > svg {
+    width: 100%;
+    height: auto;
+  }
+
+  .app-code {
+    overflow-wrap: anywhere;
+  }
+}
+
+@layer components {
+  /* Bagian isi di panel flush (form di atas daftar). */
+  .app-panel-section {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--ag-slate-200);
+  }
+
+  .app-panel-section:last-child {
+    border-bottom: 0;
+  }
+
+  /* Item daftar berupa tautan: ikon, nama, chevron. */
+  .app-list > li:has(> a) {
+    padding: 0;
+  }
+
+  .app-list > li > a {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem 1.25rem;
+    font-weight: 500;
+  }
+
+  .app-list > li > a > span {
+    flex: 1;
+  }
+
+  .app-list > li > a > svg {
+    color: var(--ag-slate-600);
+  }
+
+  .app-list > li > a:hover {
+    background: var(--ag-slate-50);
+  }
+
+  /* Baris daftar: isi di kiri, aksi di kanan. */
+  .app-list-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .app-list-row > .app-inline-form {
+    flex: 1;
+  }
+
+  .app-badges {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.375rem;
+  }
+
+  .app-strong {
+    font-weight: 500;
+  }
+
+  /* Pilihan izin: checkbox + label + deskripsi. */
+  .app-checklist {
+    display: grid;
+    gap: 0.875rem;
+  }
+
+  .app-checklist > legend {
+    margin-bottom: 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  .app-checklist > label {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    font-weight: 400;
+  }
+
+  .app-checklist > label > input {
+    margin-top: 0.125rem;
+  }
+
+  .app-checklist > label > span {
+    display: grid;
+    gap: 0.125rem;
+    font-size: 0.875rem;
+  }
+
+  .app-checklist > label > span > span:first-child {
+    font-weight: 500;
+  }
+
+  .app-checklist > label > span > span + span {
+    color: var(--ag-slate-600);
+  }
+
+  .app-checklist > p[role="alert"] {
+    font-size: 0.875rem;
+    color: var(--destructive);
+  }
+}
+
+@layer components {
+  /* Baris filter di atas tabel. */
+  .app-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.75rem;
+  }
+
+  .app-toolbar > .field {
+    width: auto;
+    flex: 0 1 16rem;
+  }
+
+  .app-toolbar > .field > select {
+    width: 100%;
+  }
+
+  /* Tabel + panel detail baris terpilih (detail di kanan pada layar lebar). */
+  .app-master-detail {
+    display: grid;
+    align-items: start;
+    gap: 1.5rem;
+  }
+
+  @media (min-width: 90rem) {
+    .app-master-detail {
+      grid-template-columns: minmax(0, 1fr) 20rem;
+    }
+
+    .app-detail {
+      position: sticky;
+      top: 5rem;
+    }
+  }
+
+  .app-row-link {
+    font-weight: 500;
+  }
+
+  .app-row-link:hover {
+    text-decoration: underline;
+  }
+
+  .app-subheading {
+    margin-bottom: 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+
+  /* Ringkasan perubahan audit: dari (dicoret) → ke. */
+  .app-changes {
+    display: grid;
+    gap: 0.375rem;
+    padding: 0.75rem;
+    border-radius: calc(var(--radius) - 2px);
+    background: var(--ag-surface-tint);
+    font-size: 0.8125rem;
+  }
+
+  .app-changes span {
+    color: var(--ag-slate-600);
+  }
+
+  .app-changes strong {
+    font-weight: 500;
+  }
+}
+
+@layer components {
+  /* Dua kolom isi (utama 2/3 + samping 1/3) pada layar lebar. */
+  .app-columns {
+    display: grid;
+    align-items: start;
+    gap: 1.5rem;
+  }
+
+  @media (min-width: 64rem) {
+    .app-columns {
+      grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    }
+  }
+
+  .app-truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app-repo,
+  .app-subject {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .app-repo > svg,
+  .app-subject > svg {
+    flex-shrink: 0;
+    color: var(--ag-slate-600);
+  }
+
+  .app-subject > span {
+    display: grid;
+  }
+
+  .app-subject > span > span:first-child {
+    font-weight: 500;
+  }
+
+  .app-subject > span > span + span {
+    font-size: 0.8125rem;
+    color: var(--ag-slate-600);
+  }
+
+  .app-form-actions[data-align="end"] {
+    justify-content: flex-end;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--ag-slate-200);
+  }
+
+  /* Form repo: nama, provider, URL (lebar), branch (sempit), tombol; menumpuk di HP. */
+  .app-repo-form {
+    display: grid;
+    flex: 1;
+    gap: 0.75rem;
+  }
+
+  @media (min-width: 64rem) {
+    .app-repo-form {
+      grid-template-columns: minmax(0, 1fr) 9rem minmax(0, 2fr) 8rem auto;
+      align-items: end;
+    }
+  }
+}
+
+@layer components {
+  .app-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  @media (min-width: 64rem) {
+    .app-stats {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
+  .app-project-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-weight: 500;
+  }
+
+  .app-project-link:hover > span:last-child {
+    text-decoration: underline;
+  }
+}
+
+@layer components {
+  /* Katalog /_dev/ui: contoh warna. */
+  .app-swatches {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .app-swatches > li {
+    display: grid;
+    width: 5rem;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+  }
+
+  .app-swatches > li > span:first-child {
+    height: 2.5rem;
+    border: 1px solid var(--ag-slate-200);
+    border-radius: calc(var(--radius) - 2px);
+  }
+}

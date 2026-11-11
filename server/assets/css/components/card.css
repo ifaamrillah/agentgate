@@ -1,33 +1,8 @@
-/* Card: putih bergaris indigo muda, tanpa bayangan (gaya "bernuansa warna"). */
+/* Card Basecoat (dipakai halaman masuk/undangan): garis slate-200, tanpa bayangan. */
 @layer components {
   .card {
     --tw-ring-color: var(--ag-card-border);
     box-shadow: 0 0 0 1px var(--ag-card-border);
     border-radius: var(--radius-lg);
-  }
-
-  /* Area bertint untuk mengelompokkan isi (kolom board, panel ringkasan). */
-  .ag-tint {
-    background: var(--ag-surface-tint);
-    border-radius: var(--radius-lg);
-  }
-}
-
-/* Card zona berbahaya (hapus, arsipkan): garis merah muda. */
-@layer components {
-  .card.ag-card-danger {
-    --tw-ring-color: var(--ag-status-danger-bg);
-    box-shadow: 0 0 0 1px var(--ag-status-danger-bg);
-  }
-}
-
-/* Tabel di dalam card: kolom pertama/terakhir sejajar dengan padding card. */
-@layer components {
-  .card .table :is(th, td):first-child {
-    padding-inline-start: 1.5rem;
-  }
-
-  .card .table :is(th, td):last-child {
-    padding-inline-end: 1.5rem;
   }
 }

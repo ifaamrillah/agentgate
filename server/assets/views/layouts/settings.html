@@ -1,39 +1,6 @@
-{#- Kerangka halaman Pengaturan workspace: judul, menu kiri (bagian yang boleh dibuka role, dari
-    shell.settings), dan isi. Block: title, settings_attrs (atribut tambahan pembungkus, mis.
-    data-settings-index), settings_content (judul halaman + isi, di kolom kanan).
-    Variabel: shell (lihat layouts/app.html): current_workspace.settings_href, settings
-    ({members, teams, job_titles, roles, audit}: href atau null), section (bagian aktif). -#}
-{% extends "layouts/app.html" %}
-{% block content %}
-<div {% block settings_attrs %}{% endblock settings_attrs %}>
-  <div class="grid gap-6 md:grid-cols-[13rem_minmax(0,1fr)] md:gap-8">
-    <div class="grid content-start gap-3">
-      <div class="grid gap-0.5 px-3">
-        <span class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{{ t(key="workspace-settings-title", lang="id") }}</span>
-        <span class="truncate text-sm font-medium">{{ shell.current_workspace.name }}</span>
-      </div>
-    <nav class="ag-subnav" aria-label="{{ t(key="workspace-settings-title", lang="id") }}" data-settings-nav>
-      <a href="{{ shell.current_workspace.settings_href }}"{% if shell.section == "general" %} aria-current="page"{% endif %}>{{ icon(name="settings", class="size-4") }}{{ t(key="workspace-settings-general", lang="id") }}</a>
-      {%- if shell.settings.members %}
-      <a href="{{ shell.settings.members }}" data-settings-members{% if shell.section == "members" %} aria-current="page"{% endif %}>{{ icon(name="users", class="size-4") }}{{ t(key="settings-members-title", lang="id") }}</a>
-      {%- endif %}
-      {%- if shell.settings.teams %}
-      <a href="{{ shell.settings.teams }}" data-settings-teams{% if shell.section == "teams" %} aria-current="page"{% endif %}>{{ icon(name="users-group", class="size-4") }}{{ t(key="settings-teams-title", lang="id") }}</a>
-      {%- endif %}
-      {%- if shell.settings.job_titles %}
-      <a href="{{ shell.settings.job_titles }}" data-settings-job-titles{% if shell.section == "job_titles" %} aria-current="page"{% endif %}>{{ icon(name="id-badge-2", class="size-4") }}{{ t(key="settings-job-titles-title", lang="id") }}</a>
-      {%- endif %}
-      {%- if shell.settings.roles %}
-      <a href="{{ shell.settings.roles }}" data-settings-roles{% if shell.section == "roles" %} aria-current="page"{% endif %}>{{ icon(name="key", class="size-4") }}{{ t(key="settings-roles-title", lang="id") }}</a>
-      {%- endif %}
-      {%- if shell.settings.audit %}
-      <a href="{{ shell.settings.audit }}" data-settings-audit{% if shell.section == "audit" %} aria-current="page"{% endif %}>{{ icon(name="list-details", class="size-4") }}{{ t(key="settings-audit-title", lang="id") }}</a>
-      {%- endif %}
-    </nav>
-    </div>
-    <div class="grid min-w-0 content-start gap-6">
-      {% block settings_content %}{% endblock settings_content %}
-    </div>
-  </div>
-</div>
-{% endblock content %}
+{#- Halaman Pengaturan workspace: layouts/page.html dengan menu kiri dari shell.subnav
+    (views::nav::settings_nav, bagian sesuai izin role). Lebar default narrow; halaman tabel
+    (Anggota, Log audit) mengisi block width dengan wide. Block: seperti layouts/page.html. -#}
+{% extends "layouts/page.html" %}
+{% block width %}narrow{% endblock width %}
+{% block aside %}{{ <subnav title={t(key="workspace-settings-title", lang="id")} subtitle={shell.current_workspace.name} items={shell.subnav}/> }}{% endblock aside %}

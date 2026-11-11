@@ -11,6 +11,7 @@ use super::{
     form::{FieldErrors, field_errors},
     layout::{AppShell, app_page},
     members::OptionView,
+    nav,
 };
 use crate::models::{
     project_grants::{self, GrantSubject},
@@ -184,6 +185,15 @@ pub fn new(
     )
 }
 
+/// Tab project untuk halaman di dalam project (`shell.current_project` terisi).
+fn tabs(shell: &AppShell, paths: Option<&ProjectPaths>, current: &str) -> Vec<nav::NavItem> {
+    let home = shell
+        .current_project
+        .as_ref()
+        .map_or("", |p| p.href.as_str());
+    nav::project_tabs(home, paths.map(|p| p.settings.as_str()), current)
+}
+
 /// Beranda project. `paths` hanya untuk Admin project (tautan pengaturan), `None` untuk lainnya.
 pub fn show(
     v: &impl ViewRenderer,
@@ -197,7 +207,12 @@ pub fn show(
         "projects/show.html",
         app_page(
             shell,
-            data!({ "project": project, "repos": repos, "paths": paths }),
+            data!({
+                "project": project,
+                "repos": repos,
+                "paths": paths,
+                "tabs": tabs(shell, paths, "overview"),
+            }),
         ),
     )
 }
@@ -222,7 +237,8 @@ pub fn settings(
                 "paths": paths,
                 "form": form,
                 "flash": flash,
-                "tab": "general",
+                "tabs": tabs(shell, Some(paths), "settings"),
+                "subnav": nav::project_settings_nav(paths, "general"),
             }),
         ),
     )
@@ -318,7 +334,8 @@ pub fn access(
                 "paths": paths,
                 "page": page,
                 "flash": page.flash,
-                "tab": "access",
+                "tabs": tabs(shell, Some(paths), "settings"),
+                "subnav": nav::project_settings_nav(paths, "access"),
             }),
         ),
     )
@@ -421,7 +438,8 @@ pub fn repos(
                 "paths": paths,
                 "page": page,
                 "flash": page.flash,
-                "tab": "repos",
+                "tabs": tabs(shell, Some(paths), "settings"),
+                "subnav": nav::project_settings_nav(paths, "repos"),
             }),
         ),
     )

@@ -1,20 +1,23 @@
 {#- Konfirmasi "Keluar dari workspace" (semua anggota). Variabel: workspace_name, action (POST),
     error (kunci Fluent, mis. workspace-last-owner, atau ""). -#}
-{% extends "layouts/app.html" %}
+{% extends "layouts/page.html" %}
 {% block title %}{{ t(key="leave-title", lang="id") }}{% endblock title %}
-{% block content %}
-<div class="mx-auto grid max-w-xl gap-6" data-leave-workspace-page>
-  {% <card title={t(key="leave-title", lang="id")}> %}
-    {%- if error %}
-    <div class="mb-6">{{ <flash kind="error" message={t(key=error, lang="id")}/> }}</div>
-    {%- endif %}
-    <p class="text-sm">{{ t(key="leave-body", lang="id", workspace=workspace_name) }}</p>
-    <div class="mt-6 flex flex-wrap gap-2">
-      <form method="post" action="{{ action }}">
-        {{ <button label={t(key="leave-submit", lang="id")} variant="destructive" type="submit"/> }}
-      </form>
-      <a href="/" class="btn" data-variant="outline">{{ t(key="member-cancel", lang="id") }}</a>
+{% block width %}narrow{% endblock width %}
+{% block page_attrs %}data-leave-workspace-page{% endblock page_attrs %}
+{% block heading %}{{ t(key="leave-title", lang="id") }}{% endblock heading %}
+{% block main %}
+  {%- if error %}
+  {{ <flash kind="error" message={t(key=error, lang="id")}/> }}
+  {%- endif %}
+  {% <panel variant="danger"> %}
+    <div class="app-stack">
+      <p>{{ t(key="leave-body", lang="id", workspace=workspace_name) }}</p>
+      <div class="app-button-row">
+        <form method="post" action="{{ action }}">
+          {{ <button label={t(key="leave-submit", lang="id")} variant="destructive" type="submit"/> }}
+        </form>
+        <a href="/" class="btn" data-variant="outline">{{ t(key="member-cancel", lang="id") }}</a>
+      </div>
     </div>
-  {% </card> %}
-</div>
-{% endblock content %}
+  {% </panel> %}
+{% endblock main %}

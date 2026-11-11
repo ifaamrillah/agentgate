@@ -4,54 +4,46 @@
     layout). -#}
 {% extends "layouts/settings.html" %}
 {% block title %}{{ page.title }}{% endblock title %}
-{% block settings_content %}
-<div class="grid max-w-3xl gap-6" data-team-page>
-  {% <page_header title={page.title}> %}
-    <a href="{{ page.back }}" class="btn" data-variant="ghost">{{ icon(name="arrow-left", class="size-4") }}{{ t(key="team-back", lang="id") }}</a>
-  {% </page_header> %}
-  {% <card title={t(key="team-name", lang="id")}> %}
-    <form method="post" action="{{ page.action }}" class="form flex flex-wrap items-end gap-3">
-      {{ <field id="team-name" name="name" label={t(key="team-name", lang="id")} value={page.form.name} error={page.form.errors.name.code} error_min={page.form.errors.name.min} error_max={page.form.errors.name.max} required={true} class="min-w-48 flex-1"/> }}
+{% block page_attrs %}data-team-page{% endblock page_attrs %}
+{% block heading %}{{ page.title }}{% endblock heading %}
+{% block actions %}<a href="{{ page.back }}" class="btn" data-variant="ghost">{{ icon(name="arrow-left", class="size-4") }}{{ t(key="team-back", lang="id") }}</a>{% endblock actions %}
+{% block main %}
+  {% <panel title={t(key="team-name", lang="id")}> %}
+    <form method="post" action="{{ page.action }}" class="app-inline-form">
+      {{ <field id="team-name" name="name" label={t(key="team-name", lang="id")} value={page.form.name} error={page.form.errors.name.code} error_min={page.form.errors.name.min} error_max={page.form.errors.name.max} required={true} hide_label={true}/> }}
       {{ <button label={t(key="team-rename", lang="id")} variant="outline" type="submit"/> }}
     </form>
-  {% </card> %}
-  {% <card title={t(key="team-members-title", lang="id")}> %}
-    <div class="grid gap-4">
-      {%- if page.candidates %}
-      <form method="post" action="{{ page.add_action }}" class="form flex flex-wrap items-end gap-3">
-        <div class="field min-w-56 flex-1">
-          <label for="team-member">{{ t(key="team-member-add-label", lang="id") }}</label>
-          <select class="select" id="team-member" name="user_id" required>
-            {%- for person in page.candidates %}<option value="{{ person.id }}">{{ person.name }}</option>{% endfor %}
-          </select>
-        </div>
+  {% </panel> %}
+  {% <panel title={t(key="team-members-title", lang="id")} flush={true}> %}
+    {%- if page.candidates %}
+    <div class="app-panel-section">
+      <form method="post" action="{{ page.add_action }}" class="app-inline-form">
+        {{ <select_field id="team-member" name="user_id" label={t(key="team-member-add-label", lang="id")} options={page.candidates} required={true}/> }}
         {{ <button label={t(key="team-member-add", lang="id")} type="submit" icon="plus"/> }}
       </form>
-      {%- endif %}
-      {%- if page.members %}
-      <ul class="grid gap-2">
-        {%- for member in page.members %}
-        <li class="flex flex-wrap items-center justify-between gap-2" data-team-member>
-          <div class="grid">
-            <span class="font-medium">{{ member.name }}</span>
-            <span class="text-sm text-muted-foreground">{{ member.email }}</span>
-          </div>
+    </div>
+    {%- endif %}
+    {%- if page.members %}
+    <ul class="app-list">
+      {%- for member in page.members %}
+      <li data-team-member>
+        <div class="app-list-row">
+          {{ <person name={member.name} initials={member.initials} detail={member.email}/> }}
           <form method="post" action="{{ page.remove_action }}">
             <input type="hidden" name="user_id" value="{{ member.user_id }}">
             {{ <button label={t(key="team-member-remove", lang="id")} variant="ghost" size="sm" type="submit"/> }}
           </form>
-        </li>
-        {%- endfor %}
-      </ul>
-      {%- else %}
-      <p class="text-sm text-muted-foreground">{{ t(key="team-members-empty", lang="id") }}</p>
-      {%- endif %}
-    </div>
-  {% </card> %}
-  {% <card title={t(key="team-delete-title", lang="id")} description={t(key="team-delete-description", lang="id")}> %}
+        </div>
+      </li>
+      {%- endfor %}
+    </ul>
+    {%- else %}
+    <div class="app-panel-section"><p class="app-muted">{{ t(key="team-members-empty", lang="id") }}</p></div>
+    {%- endif %}
+  {% </panel> %}
+  {% <panel title={t(key="team-delete-title", lang="id")} description={t(key="team-delete-description", lang="id")} variant="danger"> %}
     <form method="post" action="{{ page.delete_action }}" hx-confirm="{{ t(key="team-delete-confirm", lang="id") }}">
       {{ <button label={t(key="team-delete", lang="id")} variant="destructive" type="submit"/> }}
     </form>
-  {% </card> %}
-</div>
-{% endblock settings_content %}
+  {% </panel> %}
+{% endblock main %}

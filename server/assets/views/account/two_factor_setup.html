@@ -3,31 +3,29 @@
     dibuka dari workspace yang mewajibkan 2FA). -#}
 {% extends "layouts/account.html" %}
 {% block title %}{{ t(key="totp-setup-title", lang="id") }}{% endblock title %}
-{% block account_content %}
-<div class="grid max-w-xl gap-6">
-  {{ <page_header title={t(key="totp-setup-title", lang="id")}/> }}
+{% block heading %}{{ t(key="totp-setup-title", lang="id") }}{% endblock heading %}
+{% block description %}{{ t(key="totp-setup-description", lang="id") }}{% endblock description %}
+{% block main %}
   {%- if required %}
   <div data-two-factor-required>{{ <flash kind="info" message={t(key="totp-required-notice", lang="id")}/> }}</div>
   {%- endif %}
-  <section class="card">
-    <header>
-      <p class="text-sm text-muted-foreground">{{ t(key="totp-setup-description", lang="id") }}</p>
-    </header>
-    <section class="grid gap-6">
-      <div class="flex justify-center" role="img" aria-label="{{ t(key="totp-setup-qr-label", lang="id") }}">
+  {% <panel> %}
+    <div class="app-qr-setup">
+      <div class="app-qr" role="img" aria-label="{{ t(key="totp-setup-qr-label", lang="id") }}">
         {#- `safe` hanya untuk markup ini: SVG dibuat server oleh totp::begin_setup dari URI
             otpauth (path dan rect saja, tanpa script/URL), bukan isian user. -#}
         {{ qr_svg | safe }}
       </div>
-      <div class="grid gap-1 text-sm">
-        <p class="text-muted-foreground">{{ t(key="totp-setup-manual", lang="id") }}</p>
-        <code id="totp-secret" class="break-all font-mono">{{ secret }}</code>
+      <div class="app-form">
+        <div>
+          <p class="app-muted">{{ t(key="totp-setup-manual", lang="id") }}</p>
+          <code id="totp-secret" class="app-code">{{ secret }}</code>
+        </div>
+        <form method="post" action="/account/2fa" class="app-form">
+          {{ <field id="totp-setup-code" name="code" label={t(key="totp-setup-code", lang="id")} error={error} autocomplete="one-time-code" required={true}/> }}
+          <div class="app-form-actions">{{ <button label={t(key="totp-setup-submit", lang="id")} type="submit"/> }}</div>
+        </form>
       </div>
-      <form method="post" action="/account/2fa" class="form grid gap-6">
-        {{ <field id="totp-setup-code" name="code" label={t(key="totp-setup-code", lang="id")} error={error} autocomplete="one-time-code" required={true}/> }}
-        {{ <button label={t(key="totp-setup-submit", lang="id")} type="submit" class="w-full"/> }}
-      </form>
-    </section>
-  </section>
-</div>
-{% endblock account_content %}
+    </div>
+  {% </panel> %}
+{% endblock main %}

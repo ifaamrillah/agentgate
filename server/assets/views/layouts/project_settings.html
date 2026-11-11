@@ -1,17 +1,10 @@
-{#- Kerangka Pengaturan project (Admin project): kepala + tab project (layouts/project.html), menu
-    kiri Umum/Akses/Repo, dan isi. Block: title, project_settings_content.
-    Variabel: seperti layouts/project.html, plus paths (wajib) dan tab ("general" | "access" |
-    "repos": bagian yang sedang dibuka). -#}
+{#- Pengaturan project (Admin project): layouts/project.html + menu kiri Umum/Akses/Repo
+    (variabel subnav dari views::nav::project_settings_nav) di samping isi (maks 56rem).
+    Block: title, settings_main. -#}
 {% extends "layouts/project.html" %}
-{% block project_content %}
-<div class="grid gap-6 md:grid-cols-[12rem_minmax(0,1fr)] md:gap-8">
-  <nav class="ag-subnav self-start" aria-label="{{ t(key="project-settings-title", lang="id") }}" data-project-settings-nav>
-    <a href="{{ paths.settings }}"{% if tab == "general" %} aria-current="page"{% endif %}>{{ icon(name="settings", class="size-4") }}{{ t(key="project-settings-general", lang="id") }}</a>
-    <a href="{{ paths.access }}"{% if tab == "access" %} aria-current="page"{% endif %}>{{ icon(name="users", class="size-4") }}{{ t(key="project-settings-access", lang="id") }}</a>
-    <a href="{{ paths.repos }}"{% if tab == "repos" %} aria-current="page"{% endif %}>{{ icon(name="git-branch", class="size-4") }}{{ t(key="project-settings-repos", lang="id") }}</a>
-  </nav>
-  <div class="grid min-w-0 max-w-4xl content-start gap-6">
-    {% block project_settings_content %}{% endblock project_settings_content %}
-  </div>
+{% block main %}
+<div class="app-split">
+  {{ <subnav title={t(key="project-settings-title", lang="id")} items={subnav}/> }}
+  <div>{% block settings_main %}{% endblock settings_main %}</div>
 </div>
-{% endblock project_content %}
+{% endblock main %}

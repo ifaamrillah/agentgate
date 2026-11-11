@@ -1,0 +1,12 @@
+{#- Komponen daftar label → nilai (detail audit, info project).
+    Parameter:
+      items: array              [{label, value, mono (opsional, bool: nilai berupa kode/ID)}];
+                                label sudah diterjemahkan -#}
+{% component meta_list(items: array) %}
+<dl class="app-meta-list">
+  {%- for item in items %}
+  <dt>{{ item.label }}</dt>
+  <dd{% if item.mono is defined and item.mono %} class="app-code"{% endif %}>{{ item.value }}</dd>
+  {%- endfor %}
+</dl>
+{%- endcomponent meta_list %}

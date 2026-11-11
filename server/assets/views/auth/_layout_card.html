@@ -6,9 +6,9 @@
 {% extends "layouts/base.html" %}
 {% block body %}
 <div class="grid min-h-screen lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-  <aside class="ag-auth-brand hidden flex-col p-12 lg:flex" aria-hidden="true">
+  <aside class="app-auth-brand hidden flex-col p-12 lg:flex" aria-hidden="true">
     <span class="flex items-center gap-3 text-lg font-semibold">
-      <span class="ag-auth-check flex size-9 items-center justify-center rounded-md">{{ icon(name="robot", class="size-5") }}</span>
+      <span class="app-auth-mark flex size-9 items-center justify-center rounded-md">{{ icon(name="robot", class="size-5") }}</span>
       {{ t(key="app-name", lang="id") }}
     </span>
     <div class="mt-auto grid max-w-md gap-5">
@@ -17,7 +17,7 @@
       <ul class="grid gap-3">
         {%- for key in ["auth-brand-point-board", "auth-brand-point-gate", "auth-brand-point-audit"] %}
         <li class="flex items-center gap-3">
-          <span class="ag-auth-check flex size-6 shrink-0 items-center justify-center rounded-full">{{ icon(name="check", class="size-3.5") }}</span>
+          <span class="app-auth-mark flex size-6 shrink-0 items-center justify-center rounded-full">{{ icon(name="check", class="size-3.5") }}</span>
           {{ t(key=key, lang="id") }}
         </li>
         {%- endfor %}

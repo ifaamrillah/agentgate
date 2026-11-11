@@ -4,37 +4,39 @@
     role-in-use datang lewat sini dengan status 422). -#}
 {% extends "layouts/settings.html" %}
 {% block title %}{{ t(key="settings-roles-title", lang="id") }}{% endblock title %}
-{% block settings_content %}
-<div class="grid gap-6" data-roles-index>
-  {% <page_header title={t(key="settings-roles-title", lang="id")} description={t(key="settings-roles-description", lang="id")}> %}
-    <a href="{{ new_href }}" class="btn" data-variant="primary">{{ icon(name="plus", class="size-4") }}{{ t(key="role-new-title", lang="id") }}</a>
-  {% </page_header> %}
-  {% <table headers={[t(key="role-column-name", lang="id"), t(key="role-column-permissions", lang="id"), t(key="role-column-actions", lang="id")]}> %}
-    {%- for role in roles %}
-    <tr {% if role.builtin %}data-builtin-role{% else %}data-custom-role{% endif %}>
-      <td class="align-top">
-        <div class="flex flex-wrap items-center gap-2">
-          <span class="font-medium">{{ role.name }}</span>
-          {%- if role.builtin %}{{ <badge label={t(key="role-builtin-badge", lang="id")} variant="outline"/> }}{% endif %}
-        </div>
-      </td>
-      <td class="align-top">
-        <div class="flex flex-wrap gap-1">
-          {%- for key in role.permission_keys %}{{ <badge label={t(key=key, lang="id")}/> }}{% endfor %}
-        </div>
-      </td>
-      <td class="align-top">
-        {%- if role.edit_href %}
-        <div class="flex flex-wrap items-center gap-2">
-          <a href="{{ role.edit_href }}" class="btn" data-variant="outline" data-size="sm">{{ t(key="role-edit", lang="id") }}</a>
-          <form method="post" action="{{ role.delete_action }}" hx-confirm="{{ t(key="role-delete-confirm", lang="id") }}">
-            {{ <button label={t(key="role-delete", lang="id")} variant="destructive" size="sm" type="submit"/> }}
-          </form>
-        </div>
-        {%- endif %}
-      </td>
-    </tr>
-    {%- endfor %}
-  {% </table> %}
-</div>
-{% endblock settings_content %}
+{% block page_attrs %}data-roles-index{% endblock page_attrs %}
+{% block width %}wide{% endblock width %}
+{% block heading %}{{ t(key="settings-roles-title", lang="id") }}{% endblock heading %}
+{% block description %}{{ t(key="settings-roles-description", lang="id") }}{% endblock description %}
+{% block actions %}<a href="{{ new_href }}" class="btn" data-variant="primary">{{ icon(name="plus", class="size-4") }}{{ t(key="role-new-title", lang="id") }}</a>{% endblock actions %}
+{% block main %}
+  {% <panel flush={true}> %}
+    {% <table headers={[{"label": t(key="role-column-name", lang="id")}, {"label": t(key="role-column-permissions", lang="id"), "hide": "md"}, {"label": t(key="role-column-actions", lang="id"), "sr": true}]}> %}
+      {%- for role in roles %}
+      <tr {% if role.builtin %}data-builtin-role{% else %}data-custom-role{% endif %}>
+        <td>
+          <div class="app-badges">
+            <span class="app-strong">{{ role.name }}</span>
+            {%- if role.builtin %}{{ <badge label={t(key="role-builtin-badge", lang="id")} variant="outline"/> }}{% endif %}
+          </div>
+        </td>
+        <td data-hide="md">
+          <div class="app-badges">
+            {%- for key in role.permission_keys %}{{ <badge label={t(key=key, lang="id")}/> }}{% endfor %}
+          </div>
+        </td>
+        <td data-actions>
+          {%- if role.edit_href %}
+          <div class="app-button-row">
+            <a href="{{ role.edit_href }}" class="btn" data-variant="outline" data-size="sm">{{ t(key="role-edit", lang="id") }}</a>
+            <form method="post" action="{{ role.delete_action }}" hx-confirm="{{ t(key="role-delete-confirm", lang="id") }}">
+              {{ <button label={t(key="role-delete", lang="id")} variant="ghost" size="sm" type="submit"/> }}
+            </form>
+          </div>
+          {%- endif %}
+        </td>
+      </tr>
+      {%- endfor %}
+    {% </table> %}
+  {% </panel> %}
+{% endblock main %}

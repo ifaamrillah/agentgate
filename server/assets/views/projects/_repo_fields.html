@@ -1,7 +1,7 @@
 {#- Field satu form repo (tambah atau ubah). Variabel: repo (views::projects::RepoFormView:
     field_id (awalan id input), name, provider, url, default_branch, errors), providers
     ([{value, label_key}]). -#}
-{{ <field id={repo.field_id ~ "-name"} name="name" label={t(key="repo-name", lang="id")} value={repo.name} error={repo.errors.name.code} error_min={repo.errors.name.min} error_max={repo.errors.name.max} required={true} class="min-w-40 flex-1"/> }}
+{{ <field id={repo.field_id ~ "-name"} name="name" label={t(key="repo-name", lang="id")} value={repo.name} error={repo.errors.name.code} error_min={repo.errors.name.min} error_max={repo.errors.name.max} required={true}/> }}
 <div class="field"{% if repo.errors.provider.code %} data-invalid="true"{% endif %}>
   <label for="{{ repo.field_id }}-provider">{{ t(key="repo-provider", lang="id") }}</label>
   <select class="select" id="{{ repo.field_id }}-provider" name="provider"
@@ -14,5 +14,5 @@
   <p role="alert" id="{{ repo.field_id }}-provider-error">{{ t(key=repo.errors.provider.code, lang="id") }}</p>
   {%- endif %}
 </div>
-{{ <field id={repo.field_id ~ "-url"} name="url" label={t(key="repo-url", lang="id")} value={repo.url} error={repo.errors.url.code} error_max={repo.errors.url.max} autocomplete="off" required={true} class="min-w-64 flex-[2]"/> }}
-{{ <field id={repo.field_id ~ "-branch"} name="default_branch" label={t(key="repo-default-branch", lang="id")} value={repo.default_branch} error={repo.errors.default_branch.code} error_max={repo.errors.default_branch.max} autocomplete="off" required={true} class="w-32"/> }}
+{{ <field id={repo.field_id ~ "-url"} name="url" label={t(key="repo-url", lang="id")} value={repo.url} error={repo.errors.url.code} error_max={repo.errors.url.max} autocomplete="off" required={true} class="app-field-wide"/> }}
+{{ <field id={repo.field_id ~ "-branch"} name="default_branch" label={t(key="repo-default-branch", lang="id")} value={repo.default_branch} error={repo.errors.default_branch.code} error_max={repo.errors.default_branch.max} autocomplete="off" required={true} class="app-field-narrow"/> }}

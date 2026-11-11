@@ -1,5 +1,5 @@
 {#- Pengaturan project → Akses (Admin project). Variabel: project (ProjectSummary), paths
-    (ProjectPaths), tab ("access"), page (views::projects::AccessPage):
+    (ProjectPaths), tabs dan subnav, page (views::projects::AccessPage):
       grants ([GrantRow]: is_team, subject_name, subject_detail, role_id, role_name, manageable
         (form ubah/cabut hanya bila true), role_action, revoke_action),
       teams, people ([{id = "team:<id>"/"user:<id>", name}]: subjek yang belum punya akses),
@@ -7,64 +7,52 @@
     flash (dirender layout; penolakan aturan datang lewat sini dengan status 422). -#}
 {% extends "layouts/project_settings.html" %}
 {% block title %}{{ t(key="project-settings-access", lang="id") }}{% endblock title %}
-{% block project_settings_content %}
-<section class="card" data-project-access>
-  <header class="border-b">
-    <h2>{{ t(key="project-settings-access", lang="id") }}</h2>
-    <p>{{ t(key="project-access-description", lang="id") }}</p>
-  </header>
-  <section class="grid gap-6">
-  <div class="ag-setting-row">
-    <header><h3>{{ t(key="grant-add-title", lang="id") }}</h3><p>{{ t(key="grant-add-description", lang="id") }}</p></header>
-    <div>
-    {%- if page.teams or page.people %}
-    <form method="post" action="{{ page.action }}" class="form flex flex-wrap items-end gap-3">
-      <div class="field min-w-56 flex-1">
-        <label for="grant-subject">{{ t(key="grant-subject", lang="id") }}</label>
-        <select class="select" id="grant-subject" name="subject" required>
-          {%- if page.teams %}
-          <optgroup label="{{ t(key="grant-subject-teams", lang="id") }}">
-            {%- for team in page.teams %}<option value="{{ team.id }}">{{ team.name }}</option>{% endfor %}
-          </optgroup>
-          {%- endif %}
-          {%- if page.people %}
-          <optgroup label="{{ t(key="grant-subject-people", lang="id") }}">
-            {%- for person in page.people %}<option value="{{ person.id }}">{{ person.name }}</option>{% endfor %}
-          </optgroup>
-          {%- endif %}
-        </select>
-      </div>
-      <div class="field">
-        <label for="grant-role">{{ t(key="grant-role", lang="id") }}</label>
-        <select class="select" id="grant-role" name="role_id" required>
-          {%- for role in page.roles %}<option value="{{ role.id }}">{{ role.name }}</option>{% endfor %}
-        </select>
-      </div>
-      {{ <button label={t(key="grant-add-submit", lang="id")} type="submit" icon="plus"/> }}
-    </form>
-    {%- else %}
-    <p class="text-sm text-muted-foreground">{{ t(key="grant-add-nobody", lang="id") }}</p>
-    {%- endif %}
+{% block settings_main %}
+<div class="app-page-main" data-project-access>
+{% <panel title={t(key="grant-add-title", lang="id")} description={t(key="grant-add-description", lang="id")}> %}
+  {%- if page.teams or page.people %}
+  <form method="post" action="{{ page.action }}" class="app-inline-form">
+    {#- Select berkelompok (Tim / Orang): markup Basecoat langsung, select_field tidak punya optgroup. -#}
+    <div class="field">
+      <label for="grant-subject">{{ t(key="grant-subject", lang="id") }}</label>
+      <select class="select" id="grant-subject" name="subject" required>
+        {%- if page.teams %}
+        <optgroup label="{{ t(key="grant-subject-teams", lang="id") }}">
+          {%- for team in page.teams %}<option value="{{ team.id }}">{{ team.name }}</option>{% endfor %}
+        </optgroup>
+        {%- endif %}
+        {%- if page.people %}
+        <optgroup label="{{ t(key="grant-subject-people", lang="id") }}">
+          {%- for person in page.people %}<option value="{{ person.id }}">{{ person.name }}</option>{% endfor %}
+        </optgroup>
+        {%- endif %}
+      </select>
     </div>
-  </div>
+    {{ <select_field id="grant-role" name="role_id" label={t(key="grant-role", lang="id")} options={page.roles} required={true}/> }}
+    {{ <button label={t(key="grant-add-submit", lang="id")} type="submit" icon="plus"/> }}
+  </form>
+  {%- else %}
+  <p class="app-muted">{{ t(key="grant-add-nobody", lang="id") }}</p>
+  {%- endif %}
+{% </panel> %}
 
-  {%- if page.grants %}
-  <div class="-mx-6 border-t border-border">
-  {% <table headers={[t(key="grant-column-subject", lang="id"), t(key="grant-column-role", lang="id"), t(key="member-column-actions", lang="id")]}> %}
+{%- if page.grants %}
+{% <panel title={t(key="project-settings-access", lang="id")} description={t(key="project-access-description", lang="id")} flush={true}> %}
+  {% <table headers={[{"label": t(key="grant-column-subject", lang="id")}, {"label": t(key="grant-column-role", lang="id")}, {"label": t(key="member-column-actions", lang="id"), "sr": true}]}> %}
     {%- for grant in page.grants %}
     <tr data-grant>
-      <td class="align-top">
-        <div class="flex items-center gap-2">
-          {%- if grant.is_team %}{{ icon(name="users", class="size-4") }}{% else %}{{ icon(name="user", class="size-4") }}{% endif %}
-          <div class="grid">
-            <span class="font-medium">{{ grant.subject_name }}</span>
-            {%- if grant.subject_detail %}<span class="text-sm text-muted-foreground">{{ grant.subject_detail }}</span>{% endif %}
-          </div>
-        </div>
+      <td>
+        <span class="app-subject">
+          {%- if grant.is_team %}{{ icon(name="users-group", class="size-4") }}{% else %}{{ icon(name="user", class="size-4") }}{% endif %}
+          <span>
+            <span>{{ grant.subject_name }}</span>
+            {%- if grant.subject_detail %}<span>{{ grant.subject_detail }}</span>{% endif %}
+          </span>
+        </span>
       </td>
-      <td class="align-top">
+      <td>
         {%- if grant.manageable %}
-        <form method="post" action="{{ grant.role_action }}" class="flex flex-wrap items-center gap-2">
+        <form method="post" action="{{ grant.role_action }}" class="app-button-row">
           <select class="select" name="role_id" aria-label="{{ t(key="grant-column-role", lang="id") }}">
             {%- for role in page.roles %}
             <option value="{{ role.id }}"{% if role.id == grant.role_id %} selected{% endif %}>{{ role.name }}</option>
@@ -76,20 +64,19 @@
         {{ <badge label={grant.role_name} variant="outline"/> }}
         {%- endif %}
       </td>
-      <td class="align-top">
+      <td data-actions>
         {%- if grant.manageable %}
         <form method="post" action="{{ grant.revoke_action }}" hx-confirm="{{ t(key="grant-revoke-confirm", lang="id") }}">
-          {{ <button label={t(key="grant-revoke", lang="id")} variant="destructive" size="sm" type="submit"/> }}
+          {{ <button label={t(key="grant-revoke", lang="id")} variant="ghost" size="sm" type="submit"/> }}
         </form>
         {%- endif %}
       </td>
     </tr>
     {%- endfor %}
   {% </table> %}
-  </div>
-  {%- else %}
-  {{ <empty_state title={t(key="grants-empty-title", lang="id")} description={t(key="grants-empty-description", lang="id")} icon="users" variant="dashed"/> }}
-  {%- endif %}
-  </section>
-</section>
-{% endblock project_settings_content %}
+{% </panel> %}
+{%- else %}
+{{ <empty_state title={t(key="grants-empty-title", lang="id")} description={t(key="grants-empty-description", lang="id")} icon="users" variant="dashed"/> }}
+{%- endif %}
+</div>
+{% endblock settings_main %}

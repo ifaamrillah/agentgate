@@ -1,0 +1,35 @@
+{#- Komponen field pilihan (pasangan `field`): label, select, pesan error. Opsi diambil langsung
+    dari data Rust, mis. [OptionView {id, name}], tanpa disusun ulang di template.
+    Parameter:
+      id, name, label: string   seperti `field`
+      options: array            daftar objek opsi
+      option_value: string      nama properti nilai opsi (default "id")
+      option_label: string      nama properti label opsi (default "name")
+      translate: bool           label opsi berupa kunci Fluent (default false)
+      empty_label: string       opsi kosong pertama (value ""), mis. "Tanpa jabatan" (default ""
+                                = tanpa opsi kosong)
+      value: string             nilai terpilih (default "")
+      error: string             kode error = kunci Fluent (default "" = tanpa error)
+      required, hide_label: bool  (default false)
+      hint: string              teks bantuan di bawah kontrol (default "")
+      class: hanya untuk layout -#}
+{% component select_field(id: string, name: string, label: string, options: array, option_value: string = "id", option_label: string = "name", translate: bool = false, empty_label: string = "", value: string = "", error: string = "", required: bool = false, hide_label: bool = false, hint: string = "", class: string = "") %}
+<div class="field {{ class }}"{% if error %} data-invalid="true"{% endif %}>
+  <label for="{{ id }}"{% if hide_label %} class="sr-only"{% endif %}>{{ label }}</label>
+  <select class="select" id="{{ id }}" name="{{ name }}"
+    {%- if required %} required{% endif %}
+    {%- if error %} aria-invalid="true" aria-describedby="{{ id }}-error"{% endif %}>
+    {%- if empty_label %}<option value="">{{ empty_label }}</option>{% endif %}
+    {%- for option in options %}
+    {%- set option_text = option[option_label] %}
+    <option value="{{ option[option_value] }}"{% if option[option_value] ~ "" == value %} selected{% endif %}>{% if translate %}{{ t(key=option_text, lang="id") }}{% else %}{{ option_text }}{% endif %}</option>
+    {%- endfor %}
+  </select>
+  {%- if hint %}
+  <p class="app-hint" id="{{ id }}-hint">{{ hint }}</p>
+  {%- endif %}
+  {%- if error %}
+  <p role="alert" id="{{ id }}-error">{{ t(key=error, lang="id") }}</p>
+  {%- endif %}
+</div>
+{%- endcomponent select_field %}

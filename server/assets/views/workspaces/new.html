@@ -1,14 +1,14 @@
 {#- Buat workspace. Variabel: form (views::workspaces::WorkspaceFormView). -#}
-{% extends "layouts/app.html" %}
+{% extends "layouts/page.html" %}
 {% block title %}{{ t(key="workspace-new-title", lang="id") }}{% endblock title %}
-{% block content %}
-<div class="mx-auto grid max-w-xl gap-6">
-  {{ <page_header title={t(key="workspace-new-title", lang="id")} description={t(key="workspace-new-description", lang="id")}/> }}
-  {% <card> %}
-    <form method="post" action="/w/new" class="form grid gap-6">
+{% block width %}narrow{% endblock width %}
+{% block heading %}{{ t(key="workspace-new-title", lang="id") }}{% endblock heading %}
+{% block description %}{{ t(key="workspace-new-description", lang="id") }}{% endblock description %}
+{% block main %}
+  {% <panel> %}
+    <form method="post" action="/w/new" class="app-form">
       {% include "workspaces/_form.html" %}
-      <div>{{ <button label={t(key="workspace-create-submit", lang="id")} type="submit"/> }}</div>
+      <div class="app-form-actions">{{ <button label={t(key="workspace-create-submit", lang="id")} type="submit"/> }}</div>
     </form>
-  {% </card> %}
-</div>
-{% endblock content %}
+  {% </panel> %}
+{% endblock main %}
