@@ -33,6 +33,21 @@ Pertama kali, `bin/*` membangun image `agentgate-rs-dev` dan menyalakan layanan 
 
 Katalog komponen UI ada di <http://localhost:5150/_dev/ui> (hanya development).
 
+## Data seed dan login development
+
+`bin/loco db seed` mengisi database dev dengan lima user (terverifikasi, **tanpa password**):
+`owner@agentgate.test`, `admin@agentgate.test`, `dev@agentgate.test`, `qa@agentgate.test`, dan
+`viewer@agentgate.test`. Menjalankannya lagi tidak menggandakan data; untuk mengulang dari nol pakai
+`bin/loco db reset` lalu seed.
+
+- **Masuk tanpa password**: `bin/loco task dev_login email:owner@agentgate.test` mencetak link
+  `http://localhost:<PORT>/_dev/login?token=...` yang berlaku 10 menit. Buka di browser. Link ini
+  setara password: jangan dibagikan atau di-commit. Hanya jalan di environment development.
+- **Mencoba form login**: beri password ke user seed dengan
+  `bin/loco task user:set_password email:dev@agentgate.test` (password dibaca dari prompt tanpa echo,
+  dua kali, minimal 12 karakter; semua sesi user itu dicabut).
+- **User baru**: `bin/loco task user:create email:ana@contoh.test name:"Ana"` (terverifikasi, tanpa password).
+
 ## Kerja paralel dengan worktree
 
 ```bash

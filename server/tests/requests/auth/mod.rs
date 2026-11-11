@@ -1,4 +1,5 @@
 mod change_password;
+mod dev_login;
 mod gate;
 mod login;
 mod logout;

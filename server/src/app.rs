@@ -12,15 +12,19 @@ use loco_rs::{
         AppRoutes,
         middleware::{self, MiddlewareLayer, MiddlewareStackExt},
     },
+    db,
     environment::Environment,
     task::Tasks,
 };
 use migration::Migrator;
 use sea_orm::{ConnectionTrait, DbBackend, Statement, Value};
 
-use crate::{common::settings::Settings, controllers, initializers};
+use crate::{common::settings::Settings, controllers, initializers, models::users};
 
 pub struct App;
+
+/// User pertama di fixture; bila sudah ada, seed dianggap sudah dijalankan.
+const SEED_MARKER_EMAIL: &str = "owner@agentgate.test";
 
 /// Semua tabel yang dikosongkan hook `truncate`; tabel baru didaftarkan di sini.
 const TRUNCATE_TABLES: &[&str] = &[
@@ -105,7 +109,12 @@ impl Hooks for App {
         Ok(())
     }
 
-    fn register_tasks(_tasks: &mut Tasks) {}
+    fn register_tasks(tasks: &mut Tasks) {
+        #[cfg(debug_assertions)]
+        tasks.register(crate::tasks::dev_login::DevLogin);
+        tasks.register(crate::tasks::user_create::UserCreate);
+        tasks.register(crate::tasks::user_set_password::UserSetPassword);
+    }
 
     /// Kosongkan tabel sebelum tes (`dangerously_truncate`). Satu `TRUNCATE` untuk semua tabel
     /// supaya urutan FK tidak penting. Tabel sesi Loco dibuat malas saat sesi pertama dipakai,
@@ -136,7 +145,16 @@ impl Hooks for App {
         Ok(())
     }
 
-    async fn seed(_ctx: &AppContext, _base: &Path) -> Result<()> {
-        Ok(())
+    /// Seed dev: hanya user (workspace, tim, dan project menyusul saat tabelnya ada). Dijalankan
+    /// ulang tanpa `db reset` tidak error: bila user seed sudah ada, seed dilewati.
+    async fn seed(ctx: &AppContext, base: &Path) -> Result<()> {
+        if users::Model::find_by_email(&ctx.db, SEED_MARKER_EMAIL)
+            .await?
+            .is_some()
+        {
+            tracing::info!("seed dilewati: user seed sudah ada");
+            return Ok(());
+        }
+        db::seed::<users::ActiveModel>(&ctx.db, &base.join("users.yaml").to_string_lossy()).await
     }
 }

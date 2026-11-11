@@ -72,6 +72,9 @@ uuid = { version = "1", features = ["v7", "serde"] }
 # Timestamp (timestamptz) dan perhitungan umur token/sesi.
 chrono = "0.4"
 
+# Prompt password tanpa echo untuk task user:set_password.
+rpassword = "7"
+
 [dev-dependencies]
 # Helper tes request/boot dan assertion selector HTML (`assert_css_*`).
 loco-rs = { workspace = true, features = ["testing"] }

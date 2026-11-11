@@ -1,6 +1,8 @@
 //! Route autentikasi (rules §7). Adapter tipis: logika ada di `services::auth`.
 use loco_rs::prelude::Routes;
 
+#[cfg(debug_assertions)]
+pub mod dev_login;
 pub mod login;
 pub mod logout;
 pub mod password;

@@ -23,7 +23,10 @@ pub fn routes(ctx: &AppContext) -> AppRoutes {
 #[cfg(debug_assertions)]
 fn add_dev_routes(routes: AppRoutes, env: &Environment) -> AppRoutes {
     match env {
-        Environment::Development | Environment::Test => routes.add_route(dev::routes()),
+        Environment::Development => routes
+            .add_route(dev::routes())
+            .add_route(auth::dev_login::routes()),
+        Environment::Test => routes.add_route(dev::routes()),
         _ => routes,
     }
 }
