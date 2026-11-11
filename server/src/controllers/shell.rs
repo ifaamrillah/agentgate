@@ -4,8 +4,9 @@
 //! Berisi user, daftar workspace yang boleh dibuka user (switcher), dan, bila halaman berada di
 //! dalam workspace (`Some(tenant)`), workspace aktif, tampil-tidaknya Pengaturan (role memegang
 //! izin yang punya halaman Pengaturan), dan project yang bisa dibuka
-//! (`projects::Model::accessible_for`, satu query dengan aturan `project_access`). Halaman di
-//! dalam project (`Some(project)`) menandai project itu aktif (menu project terbuka).
+//! (`projects::Model::accessible_for`, satu query dengan aturan `project_access`), serta banner
+//! workspace terjadwal hapus. Halaman di dalam project (`Some(project)`) menandai project itu
+//! aktif (menu project terbuka).
 use loco_rs::{Result, app::AppContext};
 
 use super::extractors::{ProjectAccess, Tenant};
@@ -39,7 +40,10 @@ pub async fn app_shell(
         .map(|p| ProjectLink::new(slug, &p.name, &p.key).archived(p.is_archived()))
         .collect();
     let shell = shell
-        .with_current_workspace(WorkspaceView::new(&tenant.workspace.name, slug))
+        .with_current_workspace(
+            WorkspaceView::new(&tenant.workspace.name, slug)
+                .scheduled_for_deletion(tenant.workspace.purge_on().as_ref()),
+        )
         .can_manage_workspace(tenant.role.has_settings_access())
         .with_projects(projects);
     Ok(match project {

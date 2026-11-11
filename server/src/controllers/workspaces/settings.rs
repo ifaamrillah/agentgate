@@ -1,30 +1,93 @@
 //! `GET /w/{slug}/settings`: indeks Pengaturan, terbuka untuk role yang memegang salah satu izin
 //! Pengaturan (`Require<AnySettings>`, sama dengan tautan di sidebar). Setiap bagian tampil
-//! sesuai izinnya sendiri: nama/slug (`ManageWorkspace`), tautan Anggota dan Jabatan
-//! (`ManageMembers`), Role (`ManageRoles`), dan Tim (`ManageTeams`); 2FA wajib dan hapus
-//! workspace di Task 13.
-//! `POST /w/{slug}/settings` mengubah nama/slug dan butuh `ManageWorkspace`.
+//! sesuai izinnya sendiri: nama/slug dan toggle "Wajibkan 2FA" (`ManageWorkspace`), tautan
+//! Anggota dan Jabatan (`ManageMembers`), Role (`ManageRoles`), Tim (`ManageTeams`), Audit log
+//! (`ViewAuditLog`), dan "Hapus workspace" (role bawaan Owner).
+//!
+//! POST, masing-masing dengan guard yang sama dengan bagiannya:
+//! - `/settings`: nama/slug (`ManageWorkspace`);
+//! - `/settings/require-2fa`: wajibkan/berhenti mewajibkan 2FA (`ManageWorkspace`);
+//! - `/settings/delete`: jadwalkan hapus setelah slug diketik (Owner), lalu 303 ke beranda
+//!   workspace yang menampilkan banner tenggat dan tombol batalkan;
+//! - `/settings/delete/cancel`: batalkan jadwal hapus (Owner).
 use axum::http::StatusCode;
 use loco_rs::prelude::*;
+use serde::Deserialize;
 
-use super::{WorkspaceForm, job_titles, members, roles, settings_path, teams};
+use super::{
+    WorkspaceForm, audit, job_titles, members, members::acting, roles, settings_path, teams,
+};
 use crate::{
     controllers::{
         extractors::{
             PermissionMarker, RequestId, Require, Tenant, ValidForm,
-            require::{AnySettings, ManageWorkspace},
+            require::{AnySettings, ManageWorkspace, WorkspaceOwner},
         },
         flash,
         shell::app_shell,
     },
     models::workspaces::WorkspaceError,
-    services::workspaces::update::{self, WorkspaceDetails},
+    services::workspaces::{
+        deletion::{self, DELETE_CONFIRM_MISMATCH, DeletionError},
+        require_two_factor::{self, REQUIRE_2FA_ACTOR_MISSING, RequireTwoFactorError},
+        update::{self, WorkspaceDetails},
+    },
     views::{
         self,
         flash::Flash,
-        workspaces::{SettingsLinks, WorkspaceFormView},
+        workspaces::{
+            DangerZoneView, DeleteWorkspaceView, RequireTwoFactorView, SettingsLinks, SettingsPage,
+            WorkspaceFormView,
+        },
     },
 };
+
+/// Isian toggle 2FA: status yang diminta.
+#[derive(Debug, Deserialize)]
+pub struct RequireTwoFactorForm {
+    enabled: bool,
+}
+
+/// Isian konfirmasi hapus. Field yang tidak dikirim dianggap kosong (→ 422).
+#[derive(Debug, Deserialize)]
+pub struct DeleteForm {
+    #[serde(default)]
+    confirm_slug: String,
+}
+
+/// Isian halaman yang dirender ulang dengan 422.
+#[derive(Default)]
+struct Rejected<'a> {
+    form: Option<&'a WorkspaceFormView>,
+    delete_error: Option<&'a str>,
+    flash: Option<Flash>,
+}
+
+/// Render indeks Pengaturan dengan `status`. `rejected` = isian dan error yang ditolak.
+async fn render(
+    ctx: &AppContext,
+    v: &TeraView,
+    tenant: &Tenant,
+    rejected: Rejected<'_>,
+    status: StatusCode,
+) -> Result<Response> {
+    let shell = app_shell(ctx, &tenant.user, Some(tenant), None).await?;
+    let current = general_form(tenant)
+        .then(|| WorkspaceFormView::new(&tenant.workspace.name, &tenant.workspace.slug, None));
+    let form = rejected.form.or(current.as_ref());
+    views::workspaces::settings(
+        v,
+        &shell,
+        &SettingsPage {
+            action: &settings_path(&tenant.workspace.slug),
+            form,
+            links: &links(tenant),
+            danger: &danger_zone(tenant, rejected.delete_error),
+        },
+        rejected.flash,
+        status,
+    )
+}
 
 #[debug_handler]
 pub(super) async fn show(
@@ -33,20 +96,12 @@ pub(super) async fn show(
     access: Require<AnySettings>,
     session: Session,
 ) -> Result<Response> {
-    let tenant = &access.tenant;
     let (session, flash) = flash::take(session);
-    let shell = app_shell(&ctx, &tenant.user, Some(tenant), None).await?;
-    let form = general_form(tenant)
-        .then(|| WorkspaceFormView::new(&tenant.workspace.name, &tenant.workspace.slug, None));
-    let res = views::workspaces::settings(
-        &v,
-        &shell,
-        &settings_path(&tenant.workspace.slug),
-        form.as_ref(),
-        &links(tenant),
+    let rejected = Rejected {
         flash,
-        StatusCode::OK,
-    )?;
+        ..Rejected::default()
+    };
+    let res = render(&ctx, &v, &access.tenant, rejected, StatusCode::OK).await?;
     Ok((session, res).into_response())
 }
 
@@ -57,6 +112,7 @@ fn links(tenant: &Tenant) -> SettingsLinks {
         roles: roles::settings_link(tenant),
         job_titles: job_titles::settings_link(tenant),
         teams: teams::settings_link(tenant),
+        audit: audit::settings_link(tenant),
     }
 }
 
@@ -64,6 +120,25 @@ fn links(tenant: &Tenant) -> SettingsLinks {
 /// `POST`.
 fn general_form(tenant: &Tenant) -> bool {
     ManageWorkspace::allows(&tenant.role)
+}
+
+/// Zona berbahaya menurut guard POST masing-masing. Form hapus tidak tampil bila workspace
+/// sudah terjadwal hapus (banner layout menampilkan tombol batalkan).
+fn danger_zone(tenant: &Tenant, delete_error: Option<&str>) -> DangerZoneView {
+    let base = settings_path(&tenant.workspace.slug);
+    DangerZoneView {
+        require_2fa: ManageWorkspace::allows(&tenant.role).then(|| RequireTwoFactorView {
+            action: format!("{base}/require-2fa"),
+            enabled: tenant.workspace.require_2fa_at.is_some(),
+        }),
+        delete: (WorkspaceOwner::allows(&tenant.role)
+            && tenant.workspace.deletion_scheduled_at.is_none())
+        .then(|| DeleteWorkspaceView {
+            action: format!("{base}/delete"),
+            slug: tenant.workspace.slug.clone(),
+            error: delete_error.unwrap_or_default().to_string(),
+        }),
+    }
 }
 
 /// `Require` sebelum `ValidForm`: tanpa izin → 404 sebelum body dibaca (rules §6).
@@ -98,22 +173,109 @@ pub(super) async fn update(
             Ok((session, format::redirect(&settings_path(&workspace.slug))?).into_response())
         }
         Err(WorkspaceError::Invalid(errors)) => {
-            let shell = app_shell(&ctx, &tenant.user, Some(tenant), None).await?;
             let form = WorkspaceFormView::new(
                 form.name.trim(),
                 &form.slug.trim().to_lowercase(),
                 Some(&errors),
             );
-            views::workspaces::settings(
-                &v,
-                &shell,
-                &settings_path(&tenant.workspace.slug),
-                Some(&form),
-                &links(tenant),
-                None,
-                StatusCode::UNPROCESSABLE_ENTITY,
-            )
+            let rejected = Rejected {
+                form: Some(&form),
+                ..Rejected::default()
+            };
+            render(&ctx, &v, tenant, rejected, StatusCode::UNPROCESSABLE_ENTITY).await
         }
         Err(e) => Err(e.into()),
+    }
+}
+
+#[debug_handler]
+pub(super) async fn require_2fa(
+    State(ctx): State<AppContext>,
+    ViewEngine(v): ViewEngine<TeraView>,
+    access: Require<ManageWorkspace>,
+    session: Session,
+    RequestId(request_id): RequestId,
+    ValidForm(form): ValidForm<RequireTwoFactorForm>,
+) -> Result<Response> {
+    let tenant = &access.tenant;
+    match require_two_factor::set(&ctx.db, &acting(tenant, request_id), form.enabled).await {
+        Ok(workspace) => {
+            let key = if form.enabled {
+                views::workspaces::FLASH_REQUIRE_2FA_ON
+            } else {
+                views::workspaces::FLASH_REQUIRE_2FA_OFF
+            };
+            let session = flash::set(session, &Flash::success(key))?;
+            Ok((session, format::redirect(&settings_path(&workspace.slug))?).into_response())
+        }
+        Err(RequireTwoFactorError::ActorMissing) => {
+            let rejected = Rejected {
+                flash: Some(Flash::error(REQUIRE_2FA_ACTOR_MISSING)),
+                ..Rejected::default()
+            };
+            render(&ctx, &v, tenant, rejected, StatusCode::UNPROCESSABLE_ENTITY).await
+        }
+        Err(RequireTwoFactorError::NotFound) => Err(Error::NotFound),
+        Err(RequireTwoFactorError::Db(e)) => Err(e.into()),
+    }
+}
+
+#[debug_handler]
+pub(super) async fn schedule_deletion(
+    State(ctx): State<AppContext>,
+    ViewEngine(v): ViewEngine<TeraView>,
+    access: Require<WorkspaceOwner>,
+    session: Session,
+    RequestId(request_id): RequestId,
+    ValidForm(form): ValidForm<DeleteForm>,
+) -> Result<Response> {
+    let tenant = &access.tenant;
+    match deletion::schedule(&ctx.db, &acting(tenant, request_id), &form.confirm_slug).await {
+        Ok(workspace) => {
+            let session = flash::set(
+                session,
+                &Flash::success(views::workspaces::FLASH_DELETION_SCHEDULED),
+            )?;
+            Ok((
+                session,
+                format::redirect(&format!("/w/{}", workspace.slug))?,
+            )
+                .into_response())
+        }
+        Err(DeletionError::ConfirmMismatch) => {
+            let rejected = Rejected {
+                delete_error: Some(DELETE_CONFIRM_MISMATCH),
+                ..Rejected::default()
+            };
+            render(&ctx, &v, tenant, rejected, StatusCode::UNPROCESSABLE_ENTITY).await
+        }
+        Err(DeletionError::NotFound) => Err(Error::NotFound),
+        Err(DeletionError::Db(e)) => Err(e.into()),
+    }
+}
+
+#[debug_handler]
+pub(super) async fn cancel_deletion(
+    State(ctx): State<AppContext>,
+    access: Require<WorkspaceOwner>,
+    session: Session,
+    RequestId(request_id): RequestId,
+) -> Result<Response> {
+    let tenant = &access.tenant;
+    match deletion::cancel(&ctx.db, &acting(tenant, request_id)).await {
+        Ok(workspace) => {
+            let session = flash::set(
+                session,
+                &Flash::success(views::workspaces::FLASH_DELETION_CANCELLED),
+            )?;
+            Ok((
+                session,
+                format::redirect(&format!("/w/{}", workspace.slug))?,
+            )
+                .into_response())
+        }
+        // Pembatalan tidak pernah memeriksa konfirmasi; varian itu tidak terjadi di sini.
+        Err(DeletionError::NotFound | DeletionError::ConfirmMismatch) => Err(Error::NotFound),
+        Err(DeletionError::Db(e)) => Err(e.into()),
     }
 }

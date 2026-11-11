@@ -5,7 +5,7 @@ use axum::Router as AxumRouter;
 use loco_rs::{
     Result,
     app::{AppContext, Hooks, Initializer},
-    bgworker::Queue,
+    bgworker::{BackgroundWorker, Queue},
     boot::{BootResult, StartMode, create_app},
     config::Config,
     controller::{
@@ -141,13 +141,18 @@ impl Hooks for App {
         )))
     }
 
-    async fn connect_workers(_ctx: &AppContext, _queue: &Queue) -> Result<()> {
+    async fn connect_workers(ctx: &AppContext, queue: &Queue) -> Result<()> {
+        // Pembersihan harian; jadwalnya lewat task `cleanup` di bagian `scheduler` config.
+        queue
+            .register(crate::workers::cleanup::CleanupWorker::build(ctx))
+            .await?;
         Ok(())
     }
 
     fn register_tasks(tasks: &mut Tasks) {
         #[cfg(debug_assertions)]
         tasks.register(crate::tasks::dev_login::DevLogin);
+        tasks.register(crate::tasks::cleanup::Cleanup);
         tasks.register(crate::tasks::user_create::UserCreate);
         tasks.register(crate::tasks::user_set_password::UserSetPassword);
     }

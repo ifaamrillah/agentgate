@@ -1,9 +1,11 @@
 //! Workspace: pilih (`/`), buat (`/w/new`), beranda (`/w/{slug}`), dan Pengaturan
-//! (`/w/{slug}/settings`, dengan Anggota, Role, Jabatan, dan Tim di bawahnya). Semua route di bawah
+//! (`/w/{slug}/settings`, dengan zona berbahaya, serta Anggota, Role, Jabatan, Tim, dan Audit log
+//! di bawahnya). Semua route di bawah
 //! `/w/{slug}` memakai extractor `Tenant`.
 use loco_rs::prelude::*;
 use serde::Deserialize;
 
+mod audit;
 mod home;
 mod invitations;
 mod job_titles;
@@ -64,6 +66,19 @@ pub fn routes() -> Routes {
             "/w/{slug}/settings",
             get(settings::show).post(settings::update),
         )
+        .add(
+            "/w/{slug}/settings/require-2fa",
+            post(settings::require_2fa),
+        )
+        .add(
+            "/w/{slug}/settings/delete",
+            post(settings::schedule_deletion),
+        )
+        .add(
+            "/w/{slug}/settings/delete/cancel",
+            post(settings::cancel_deletion),
+        )
+        .add("/w/{slug}/settings/audit", get(audit::index))
         .add("/w/{slug}/settings/members", get(members::index))
         // Rute statis `invitations` menang atas `{id}`.
         .add(

@@ -1,5 +1,6 @@
 //! Task CLI (`bin/loco task <nama> ...`). Badan task tipis; logika ada di model/service
 //! (rules §8). Output: banner fase, baris `[OK ]` / `[FAIL]` / `[SKIP]`, dan hitungan akhir.
+pub mod cleanup;
 #[cfg(debug_assertions)]
 pub mod dev_login;
 pub mod user_create;
@@ -28,7 +29,6 @@ fn fail(message: &str) {
     println!("[FAIL] {message}");
 }
 
-#[cfg(debug_assertions)]
 fn skip(message: &str) {
     println!("[SKIP] {message}");
 }

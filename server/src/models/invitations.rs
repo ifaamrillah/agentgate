@@ -15,7 +15,7 @@ use chrono::{Duration, Utc};
 use loco_rs::model::{TenantEntity, TenantQueryExt};
 use sea_orm::{
     ActiveValue::{self, Set},
-    Condition, IntoActiveModel, QueryOrder, QuerySelect,
+    Condition, IntoActiveModel, PaginatorTrait, QueryOrder, QuerySelect,
     entity::prelude::*,
     sea_query::Expr,
 };
@@ -211,6 +211,41 @@ impl Model {
             .await
             .map(|res| res.rows_affected)
     }
+
+    /// Hitung undangan yang selesai sebelum `cutoff` (lihat [`Model::delete_finished_before`])
+    /// tanpa menghapusnya (dry run job pembersihan).
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn count_finished_before<C: ConnectionTrait>(
+        db: &C,
+        cutoff: chrono::DateTime<Utc>,
+    ) -> Result<u64, DbErr> {
+        Entity::find()
+            .filter(finished_before(cutoff))
+            .count(db)
+            .await
+    }
+
+    /// Hapus undangan yang selesai (diterima, dibatalkan, atau kedaluwarsa) sebelum `cutoff`, di
+    /// semua workspace (job pembersihan: 30 hari lalu). Lintas tenant, sengaja: job ini tidak
+    /// berjalan di dalam satu workspace. Riwayatnya tetap ada di audit log
+    /// (`member.invited`, `member.joined`, `member.invitation_revoked`).
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn delete_finished_before<C: ConnectionTrait>(
+        db: &C,
+        cutoff: chrono::DateTime<Utc>,
+    ) -> Result<u64, DbErr> {
+        Entity::delete_many()
+            .filter(finished_before(cutoff))
+            .exec(db)
+            .await
+            .map(|res| res.rows_affected)
+    }
 }
 
 impl ActiveModel {
@@ -249,6 +284,15 @@ fn pending() -> Condition {
     Condition::all()
         .add(Column::AcceptedAt.is_null())
         .add(Column::RevokedAt.is_null())
+}
+
+/// Selesai sebelum `cutoff`: salah satu titik selesainya (diterima, dibatalkan, kedaluwarsa)
+/// lebih awal dari `cutoff`.
+fn finished_before(cutoff: chrono::DateTime<Utc>) -> Condition {
+    Condition::any()
+        .add(Column::AcceptedAt.lt(cutoff))
+        .add(Column::RevokedAt.lt(cutoff))
+        .add(Column::ExpiresAt.lt(cutoff))
 }
 
 /// Satu definisi "token undangan berlaku", dipakai [`Model::find_usable`] dan [`Model::claim`].

@@ -1,9 +1,10 @@
 {#- Indeks Pengaturan workspace (role dengan salah satu izin Pengaturan). Variabel: action (path
     POST bagian Umum), form (views::workspaces::WorkspaceFormView, atau null bila role tidak
-    memegang ManageWorkspace), links ({members, roles, job_titles, teams}: href atau null bila
-    role tidak membuka halaman itu), flash (dirender layout).
-    Bagian baru (2FA wajib, hapus workspace: Task 13) ditambahkan
-    di dalam [data-settings-index], masing-masing dengan flag izinnya sendiri dari controller. -#}
+    memegang ManageWorkspace), links ({members, roles, job_titles, teams, audit}: href atau null
+    bila role tidak membuka halaman itu), danger (views::workspaces::DangerZoneView: require_2fa
+    dan delete, masing-masing null bila role tidak boleh), flash (dirender layout).
+    Bagian baru ditambahkan di dalam [data-settings-index], masing-masing dengan flag izinnya
+    sendiri dari controller. -#}
 {% extends "layouts/app.html" %}
 {% block title %}{{ t(key="workspace-settings-title", lang="id") }}{% endblock title %}
 {% block content %}
@@ -47,7 +48,17 @@
     {% </card> %}
   </div>
   {%- endif %}
-  {%- if not form and not links.members and not links.roles and not links.job_titles and not links.teams %}
+  {%- if links.audit %}
+  <div data-settings-audit>
+    {% <card title={t(key="settings-audit-title", lang="id")} description={t(key="settings-audit-description", lang="id")}> %}
+      <a href="{{ links.audit }}" class="btn" data-variant="outline">{{ t(key="settings-audit-open", lang="id") }}</a>
+    {% </card> %}
+  </div>
+  {%- endif %}
+  {%- if danger.require_2fa or danger.delete %}
+  {% include "workspaces/_danger.html" %}
+  {%- endif %}
+  {%- if not form and not links.members and not links.roles and not links.job_titles and not links.teams and not links.audit and not danger.require_2fa %}
   {#- Cadangan: setiap izin Pengaturan kini punya bagian, jadi ini hanya untuk izin baru yang
       belum punya halaman. -#}
   {{ <empty_state title={t(key="workspace-settings-empty-title", lang="id")} description={t(key="workspace-settings-empty-description", lang="id")} icon="settings" variant="dashed"/> }}

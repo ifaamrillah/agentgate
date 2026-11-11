@@ -67,7 +67,9 @@ impl WorkspaceLink {
 }
 
 /// Workspace yang sedang dibuka: judul switcher, tujuan Beranda, Pengaturan, dan "Keluar dari
-/// workspace" (menu profil, terbuka untuk semua anggota).
+/// workspace" (menu profil, terbuka untuk semua anggota). `deletion` terisi bila workspace
+/// terjadwal hapus: layout menampilkan banner merah dengan tombol batalkan (hanya Owner yang
+/// bisa membuka workspace seperti itu).
 #[derive(Debug, Clone, Serialize)]
 pub struct WorkspaceView {
     pub name: String,
@@ -75,6 +77,14 @@ pub struct WorkspaceView {
     pub href: String,
     pub settings_href: String,
     pub leave_href: String,
+    pub deletion: Option<DeletionBanner>,
+}
+
+/// Banner workspace terjadwal hapus: tanggal hapus permanen (WIB) dan form batalkan.
+#[derive(Debug, Clone, Serialize)]
+pub struct DeletionBanner {
+    pub purge_on: String,
+    pub cancel_action: String,
 }
 
 impl WorkspaceView {
@@ -86,7 +96,21 @@ impl WorkspaceView {
             href: workspace_href(slug),
             settings_href: format!("{}/settings", workspace_href(slug)),
             leave_href: format!("{}/leave", workspace_href(slug)),
+            deletion: None,
         }
+    }
+
+    /// Workspace terjadwal hapus permanen pada `purge_on` (`None` = tidak terjadwal).
+    #[must_use]
+    pub fn scheduled_for_deletion<Tz: chrono::TimeZone>(
+        mut self,
+        purge_on: Option<&chrono::DateTime<Tz>>,
+    ) -> Self {
+        self.deletion = purge_on.map(|at| DeletionBanner {
+            purge_on: super::time::wib_date(at),
+            cancel_action: format!("{}/settings/delete/cancel", self.href),
+        });
+        self
     }
 }
 

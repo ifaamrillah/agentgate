@@ -1,0 +1,29 @@
+{#- Zona berbahaya di indeks Pengaturan (di-include settings.html). Variabel: danger
+    (views::workspaces::DangerZoneView): require_2fa ({action, enabled} atau null bila role tidak
+    memegang ManageWorkspace), delete ({action, slug, error} atau null bila bukan Owner atau
+    workspace sudah terjadwal hapus). -#}
+<div class="grid gap-6" data-settings-danger>
+  {%- if danger.require_2fa %}
+  {% <card title={t(key="workspace-require-2fa-title", lang="id")} description={t(key="workspace-require-2fa-description", lang="id")}> %}
+    <form method="post" action="{{ danger.require_2fa.action }}" class="flex flex-wrap items-center gap-3" data-require-2fa>
+      {%- if danger.require_2fa.enabled %}
+      {{ <badge label={t(key="workspace-require-2fa-on", lang="id")} variant="primary"/> }}
+      <input type="hidden" name="enabled" value="false">
+      {{ <button label={t(key="workspace-require-2fa-disable", lang="id")} type="submit" variant="outline"/> }}
+      {%- else %}
+      {{ <badge label={t(key="workspace-require-2fa-off", lang="id")} variant="outline"/> }}
+      <input type="hidden" name="enabled" value="true">
+      {{ <button label={t(key="workspace-require-2fa-enable", lang="id")} type="submit"/> }}
+      {%- endif %}
+    </form>
+  {% </card> %}
+  {%- endif %}
+  {%- if danger.delete %}
+  {% <card title={t(key="workspace-delete-title", lang="id")} description={t(key="workspace-delete-description", lang="id")}> %}
+    <form method="post" action="{{ danger.delete.action }}" class="form grid gap-4" data-delete-workspace>
+      {{ <field id="delete-confirm" name="confirm_slug" label={t(key="workspace-delete-confirm", lang="id", slug=danger.delete.slug)} error={danger.delete.error} autocomplete="off" required={true}/> }}
+      <div>{{ <button label={t(key="workspace-delete-submit", lang="id")} type="submit" variant="destructive"/> }}</div>
+    </form>
+  {% </card> %}
+  {%- endif %}
+</div>

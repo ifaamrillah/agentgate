@@ -309,3 +309,32 @@ fn test_config_never_reads_the_dev_database_url() {
         "recreate menghapus skema setiap boot"
     );
 }
+
+/// Scheduler (rules §8): job pembersihan harian 03:00 UTC di development/staging/production,
+/// menjalankan task yang benar-benar terdaftar. Test tanpa scheduler (tes memanggil job-nya
+/// langsung).
+#[test]
+fn deployed_environments_schedule_daily_cleanup() {
+    with_deploy_env(|| {
+        for env in ["development", "staging", "production"] {
+            let config = load(env).unwrap_or_else(|e| panic!("{env}: {e}"));
+            let scheduler = config
+                .scheduler
+                .as_ref()
+                .unwrap_or_else(|| panic!("{env}: scheduler"));
+            let job = scheduler
+                .jobs
+                .get("cleanup")
+                .unwrap_or_else(|| panic!("{env}: job cleanup"));
+            assert_eq!(job.run, "cleanup confirm:yes", "{env}");
+            assert_eq!(job.cron, "0 0 3 * * *", "{env}: 03:00 UTC");
+            assert!(!job.shell, "{env}");
+            loco_rs::scheduler::Scheduler::new::<agentgate_server::app::App>(
+                scheduler,
+                &Environment::from_str(env).unwrap(),
+            )
+            .unwrap_or_else(|e| panic!("{env}: {e}"));
+        }
+        assert!(load("test").unwrap().scheduler.is_none());
+    });
+}

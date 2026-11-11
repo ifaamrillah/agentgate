@@ -10,7 +10,7 @@ use agentgate_server::{
     },
     services::{
         auth::{oauth, password, password_change},
-        workspaces::{accept_invite, invite, membership},
+        workspaces::{accept_invite, deletion, invite, membership, require_two_factor},
     },
     views::{self, account, auth, errors::MESSAGE_KEYS},
 };
@@ -78,6 +78,8 @@ fn every_validation_error_code_has_a_message() {
         invite::ERROR_CODES,
         accept_invite::ERROR_CODES,
         membership::ERROR_CODES,
+        deletion::ERROR_CODES,
+        require_two_factor::ERROR_CODES,
         agentgate_server::services::workspaces::teams::ERROR_CODES,
     ]
     .concat();
@@ -123,4 +125,23 @@ fn every_repo_provider_has_a_label() {
         let key = views::projects::provider_key(Some(provider));
         assert!(keys.contains(key), "{key}");
     }
+}
+
+#[test]
+fn every_audit_action_subject_and_group_has_a_label() {
+    use agentgate_server::models::audit_events::{AuditAction, AuditGroup, AuditSubject};
+    let keys = fluent_keys();
+    let mut missing = Vec::new();
+    for action in AuditAction::iter() {
+        missing.push(views::audit::action_key(action));
+    }
+    for subject in AuditSubject::iter() {
+        missing.push(views::audit::subject_key(subject));
+    }
+    for group in AuditGroup::iter() {
+        missing.push(views::audit::group_key(group));
+    }
+    missing.extend(views::audit::MESSAGE_KEYS.iter().map(|k| (*k).to_string()));
+    missing.retain(|k| !keys.contains(k));
+    assert!(missing.is_empty(), "kunci tanpa terjemahan: {missing:?}");
 }

@@ -11,7 +11,7 @@
 use loco_rs::validation::ModelValidationErrors;
 use sea_orm::{
     ActiveValue::Set,
-    IntoActiveModel, QuerySelect, SqlErr,
+    IntoActiveModel, QueryOrder, QuerySelect, SqlErr,
     entity::prelude::*,
     sea_query::{ExprTrait, Func, LockType},
 };
@@ -24,6 +24,10 @@ use crate::common::text;
 /// Slug yang tidak boleh dipakai workspace: bentrok dengan route statis di bawah `/w/`, atau
 /// dicadangkan untuk area aplikasi.
 pub const RESERVED_SLUGS: &[&str] = &["new", "settings", "admin", "api", "auth"];
+
+/// Masa tenggang hapus workspace (spec "Keamanan, privasi & akun"): selama itu Owner bisa
+/// membatalkan; setelahnya job pembersihan menghapus workspace permanen.
+pub const DELETION_GRACE_DAYS: i64 = 30;
 
 pub const SLUG_TAKEN: &str = "slug-taken";
 pub const SLUG_RESERVED: &str = "slug-reserved";
@@ -162,6 +166,94 @@ impl Model {
         self.require_2fa_at.is_some() && user.totp_enabled_at.is_none()
     }
 
+    /// Saat workspace terjadwal hapus akan dihapus permanen (jadwal + masa tenggang).
+    #[must_use]
+    pub fn purge_on(&self) -> Option<DateTimeWithTimeZone> {
+        self.deletion_scheduled_at
+            .map(|at| at + chrono::Duration::days(DELETION_GRACE_DAYS))
+    }
+
+    /// Set atau kosongkan `require_2fa_at`. Mengembalikan workspace tanpa menulis bila nilainya
+    /// sudah sama.
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn set_require_two_factor<C: ConnectionTrait>(
+        self,
+        db: &C,
+        enabled: bool,
+    ) -> Result<Self, DbErr> {
+        if self.require_2fa_at.is_some() == enabled {
+            return Ok(self);
+        }
+        let mut workspace = self.into_active_model();
+        workspace.require_2fa_at = Set(enabled.then(|| chrono::Utc::now().into()));
+        workspace.update(db).await
+    }
+
+    /// Jadwalkan hapus sekarang (`scheduled`) atau batalkan. Mengembalikan workspace tanpa
+    /// menulis bila status jadwalnya sudah sama: jadwal ulang tidak memperpanjang tenggat.
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn set_deletion_scheduled<C: ConnectionTrait>(
+        self,
+        db: &C,
+        scheduled: bool,
+    ) -> Result<Self, DbErr> {
+        if self.deletion_scheduled_at.is_some() == scheduled {
+            return Ok(self);
+        }
+        let mut workspace = self.into_active_model();
+        workspace.deletion_scheduled_at = Set(scheduled.then(|| chrono::Utc::now().into()));
+        workspace.update(db).await
+    }
+
+    /// Id workspace yang masa tenggangnya sudah lewat pada `now` (job pembersihan). Lintas
+    /// tenant, sengaja: tidak ada workspace "aktif" untuk membatasi query ini.
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn due_for_purge<C: ConnectionTrait>(
+        db: &C,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> Result<Vec<Uuid>, DbErr> {
+        Entity::find()
+            .select_only()
+            .column(Column::Id)
+            .filter(purge_due(now))
+            .order_by_asc(Column::DeletionScheduledAt)
+            .into_tuple()
+            .all(db)
+            .await
+    }
+
+    /// Hapus permanen workspace `id` bila masa tenggangnya masih lewat pada `now` (dicek ulang
+    /// di `DELETE` yang sama, supaya pembatalan yang menang lebih dulu tidak ikut terhapus).
+    /// Semua data tenant ikut terhapus di statement yang sama lewat FK `ON DELETE CASCADE`
+    /// dari `workspaces`; FK `role_id` tanpa ON DELETE (anggota, undangan, grant) tidak
+    /// menghalangi karena baris yang merujuk role ikut terhapus di statement itu. Audit log
+    /// workspace ikut terhapus, disengaja. `true` bila ada yang terhapus.
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn purge_if_due<C: ConnectionTrait>(
+        db: &C,
+        id: Uuid,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> Result<bool, DbErr> {
+        let res = Entity::delete_many()
+            .filter(Column::Id.eq(id))
+            .filter(purge_due(now))
+            .exec(db)
+            .await?;
+        Ok(res.rows_affected > 0)
+    }
+
     /// Ganti nama dan slug setelah normalisasi dan validasi yang sama dengan
     /// [`ActiveModel::create`]. Slug kosong berarti tetap.
     ///
@@ -216,6 +308,12 @@ impl ActiveModel {
         .await
         .map_err(slug_taken_or_db)
     }
+}
+
+/// Terjadwal hapus lebih dari masa tenggang sebelum `now`.
+fn purge_due(now: chrono::DateTime<chrono::Utc>) -> sea_orm::Condition {
+    sea_orm::Condition::all()
+        .add(Column::DeletionScheduledAt.lt(now - chrono::Duration::days(DELETION_GRACE_DAYS)))
 }
 
 /// `lower(slug)`: bentuk yang sama dengan unique index, sehingga pencarian memakai index itu.

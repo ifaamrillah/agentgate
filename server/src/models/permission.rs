@@ -46,12 +46,13 @@ impl std::fmt::Display for Permission {
 }
 
 /// Izin yang punya halaman di Pengaturan workspace: sidebar menampilkan Pengaturan bila role
-/// memegang salah satunya.
+/// memegang salah satunya. `ViewAuditLog`: audit log ada di Pengaturan → Audit log.
 pub const SETTINGS_PERMISSIONS: &[Permission] = &[
     Permission::ManageWorkspace,
     Permission::ManageMembers,
     Permission::ManageRoles,
     Permission::ManageTeams,
+    Permission::ViewAuditLog,
 ];
 
 /// Satu role bawaan: key-nya dan izinnya.

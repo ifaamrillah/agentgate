@@ -10,8 +10,18 @@ use super::{
 };
 
 pub const FLASH_SETTINGS_SAVED: &str = "flash-workspace-settings-saved";
+pub const FLASH_REQUIRE_2FA_ON: &str = "flash-workspace-require-2fa-on";
+pub const FLASH_REQUIRE_2FA_OFF: &str = "flash-workspace-require-2fa-off";
+pub const FLASH_DELETION_SCHEDULED: &str = "flash-workspace-deletion-scheduled";
+pub const FLASH_DELETION_CANCELLED: &str = "flash-workspace-deletion-cancelled";
 /// Kunci Fluent yang dikirim sebagai variabel ke template (dijaga tes i18n).
-pub const MESSAGE_KEYS: &[&str] = &[FLASH_SETTINGS_SAVED];
+pub const MESSAGE_KEYS: &[&str] = &[
+    FLASH_SETTINGS_SAVED,
+    FLASH_REQUIRE_2FA_ON,
+    FLASH_REQUIRE_2FA_OFF,
+    FLASH_DELETION_SCHEDULED,
+    FLASH_DELETION_CANCELLED,
+];
 
 pub const WORKSPACE_FIELDS: &[&str] = &["name", "slug"];
 
@@ -86,16 +96,47 @@ pub struct SettingsLinks {
     pub roles: Option<String>,
     pub job_titles: Option<String>,
     pub teams: Option<String>,
+    pub audit: Option<String>,
+}
+
+/// Toggle "Wajibkan 2FA": `enabled` = status sekarang; form mengirim kebalikannya.
+#[derive(Debug, Serialize)]
+pub struct RequireTwoFactorView {
+    pub action: String,
+    pub enabled: bool,
+}
+
+/// Form "Hapus workspace": ketik `slug` untuk konfirmasi. `error` = kode error isian
+/// (`""` = tanpa error). `None` di [`DangerZoneView`] bila sudah terjadwal (banner layout
+/// menampilkan tombol batalkan).
+#[derive(Debug, Serialize)]
+pub struct DeleteWorkspaceView {
+    pub action: String,
+    pub slug: String,
+    pub error: String,
+}
+
+/// Zona berbahaya: toggle 2FA (`ManageWorkspace`) dan hapus workspace (Owner bawaan).
+#[derive(Debug, Default, Serialize)]
+pub struct DangerZoneView {
+    pub require_2fa: Option<RequireTwoFactorView>,
+    pub delete: Option<DeleteWorkspaceView>,
 }
 
 /// Indeks Pengaturan. `form` = bagian Umum (nama, slug), `None` bila role tidak memegang
-/// `ManageWorkspace`; `links` = bagian lain yang boleh dibuka role.
+/// `ManageWorkspace`; `links` = bagian lain yang boleh dibuka role; `danger` = zona berbahaya.
+#[derive(Debug, Serialize)]
+pub struct SettingsPage<'a> {
+    pub action: &'a str,
+    pub form: Option<&'a WorkspaceFormView>,
+    pub links: &'a SettingsLinks,
+    pub danger: &'a DangerZoneView,
+}
+
 pub fn settings(
     v: &impl ViewRenderer,
     shell: &AppShell,
-    action: &str,
-    form: Option<&WorkspaceFormView>,
-    links: &SettingsLinks,
+    page: &SettingsPage<'_>,
     flash: Option<Flash>,
     status: StatusCode,
 ) -> Result<Response> {
@@ -104,7 +145,13 @@ pub fn settings(
         "workspaces/settings.html",
         app_page(
             shell,
-            data!({ "action": action, "form": form, "links": links, "flash": flash }),
+            data!({
+                "action": page.action,
+                "form": page.form,
+                "links": page.links,
+                "danger": page.danger,
+                "flash": flash,
+            }),
         ),
     )
 }

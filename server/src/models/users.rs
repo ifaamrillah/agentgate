@@ -102,6 +102,30 @@ impl Model {
         Entity::find_by_id(id).one(db).await
     }
 
+    /// Nama user `ids` (satu query), mis. pelaku di halaman audit. Id yang tidak ada (user
+    /// sudah dihapus) tidak ada di hasil.
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn names_by_id<C: ConnectionTrait>(
+        db: &C,
+        ids: &[Uuid],
+    ) -> Result<std::collections::HashMap<Uuid, String>, DbErr> {
+        if ids.is_empty() {
+            return Ok(std::collections::HashMap::new());
+        }
+        let rows: Vec<(Uuid, String)> = Entity::find()
+            .select_only()
+            .column(Column::Id)
+            .column(Column::Name)
+            .filter(Column::Id.is_in(ids.iter().copied()))
+            .into_tuple()
+            .all(db)
+            .await?;
+        Ok(rows.into_iter().collect())
+    }
+
     /// Ganti PHC string tanpa menyentuh `password_changed_at`: dipakai rehash saat login,
     /// yang bukan penggantian password oleh user.
     ///

@@ -60,6 +60,25 @@ queue:
     failed_days: 7
     interval_seconds: 300
 
+# Scheduler (rules §8): berjalan di tepat satu proses. Development tidak menjalankannya
+# otomatis (bin/dev hanya server); coba lewat `bin/loco scheduler --list` atau
+# `bin/loco scheduler --name cleanup`, atau jalankan pembersihannya langsung:
+# `bin/loco task cleanup` (dry run) lalu `bin/loco task cleanup confirm:yes`.
+scheduler:
+  output: stdout
+  jobs:
+    # Pembersihan harian (task `cleanup`, services::cleanup): sesi kedaluwarsa, rate limit login
+    # basi, token email > 7 hari, undangan selesai > 30 hari, dan workspace yang masa tenggang
+    # hapusnya (30 hari) lewat. Idempoten: jadwal yang terlewat cukup menunggu hari berikutnya.
+    cleanup:
+      run: cleanup confirm:yes
+      # 03:00 UTC (10:00 WIB): pekerjaannya ringan (DELETE berindeks), jadi tidak perlu jam
+      # sepi; jalan di jam kerja WIB supaya kegagalan (baris FAIL, exit code bukan nol)
+      # langsung terlihat tim, dan jauh dari pergantian hari UTC tempat tenggat dihitung.
+      # Format Loco: detik menit jam tanggal bulan hari, selalu UTC.
+      schedule: "0 0 3 * * *"
+      tags: ["maintenance"]
+
 mailer:
   smtp:
     enable: true

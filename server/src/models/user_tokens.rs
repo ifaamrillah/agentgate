@@ -6,7 +6,7 @@
 
 use chrono::{Duration, Utc};
 use sea_orm::{
-    ActiveValue::Set, Condition, QueryFilter, TransactionSession, TransactionTrait,
+    ActiveValue::Set, Condition, PaginatorTrait, QueryFilter, TransactionSession, TransactionTrait,
     entity::prelude::*, sea_query::Expr,
 };
 
@@ -151,4 +151,43 @@ fn usable(raw: &str, purpose: TokenPurpose) -> Condition {
         .add(Column::Purpose.eq(purpose.to_value()))
         .add(Column::UsedAt.is_null())
         .add(Column::ExpiresAt.gt(Utc::now()))
+}
+
+/// Hitung token yang sudah selesai sebelum `cutoff` (lihat [`delete_finished_before`]) tanpa
+/// menghapusnya (dry run job pembersihan).
+///
+/// # Errors
+///
+/// Error database.
+pub async fn count_finished_before<C: ConnectionTrait>(
+    db: &C,
+    cutoff: chrono::DateTime<Utc>,
+) -> Result<u64, DbErr> {
+    Entity::find()
+        .filter(finished_before(cutoff))
+        .count(db)
+        .await
+}
+
+/// Hapus token yang kedaluwarsa atau dipakai sebelum `cutoff` (job pembersihan: 7 hari lalu).
+/// Token seperti ini tidak bisa dipakai lagi; disimpan sebentar hanya untuk penelusuran.
+///
+/// # Errors
+///
+/// Error database.
+pub async fn delete_finished_before<C: ConnectionTrait>(
+    db: &C,
+    cutoff: chrono::DateTime<Utc>,
+) -> Result<u64, DbErr> {
+    Entity::delete_many()
+        .filter(finished_before(cutoff))
+        .exec(db)
+        .await
+        .map(|res| res.rows_affected)
+}
+
+fn finished_before(cutoff: chrono::DateTime<Utc>) -> Condition {
+    Condition::any()
+        .add(Column::ExpiresAt.lt(cutoff))
+        .add(Column::UsedAt.lt(cutoff))
 }
