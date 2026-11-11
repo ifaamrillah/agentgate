@@ -57,8 +57,10 @@ subtle = "2"
 rand = { version = "0.9", features = ["os_rng"] }
 # Password di struct form dengan Debug yang disamarkan.
 secrecy = { version = "0.10", features = ["serde"] }
-# TOTP untuk 2FA: QR provisioning dan pembuatan secret.
-totp-rs = { version = "5", features = ["qr", "gen_secret"] }
+# TOTP untuk 2FA (RFC 6238) dan URI otpauth://; secret dibuat dari OsRng aplikasi.
+totp-rs = { version = "5", features = ["otpauth"] }
+# QR code untuk URI otpauth, dirender sebagai SVG inline (tanpa image/PNG).
+qrcodegen = "1.8"
 # Enkripsi XChaCha20-Poly1305 untuk secret TOTP di database (kunci ENCRYPTION_KEY).
 chacha20poly1305 = "0.10"
 # HMAC-SHA256 untuk token dev_login bertanda tangan.

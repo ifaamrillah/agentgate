@@ -16,6 +16,12 @@ pub const TOO_MANY_ATTEMPTS: &str = "auth-too-many-attempts";
 pub const TOO_MANY_REQUESTS: &str = "auth-too-many-requests";
 pub const FLASH_EMAIL_VERIFIED: &str = "flash-email-verified";
 pub const FLASH_PASSWORD_RESET: &str = "flash-password-reset";
+/// Kode langkah kedua (TOTP atau kode pemulihan) salah.
+pub const SECOND_FACTOR_INVALID: &str = "auth-second-factor-invalid";
+/// Login pending dibuang setelah terlalu banyak kode salah.
+pub const FLASH_SECOND_FACTOR_LOCKED: &str = "flash-second-factor-locked";
+/// Login pending melewati batas waktu memasukkan kode.
+pub const FLASH_SECOND_FACTOR_EXPIRED: &str = "flash-second-factor-expired";
 /// Kunci Fluent yang dikirim sebagai variabel ke template (dijaga tes i18n).
 pub const MESSAGE_KEYS: &[&str] = &[
     INVALID_CREDENTIALS,
@@ -23,6 +29,9 @@ pub const MESSAGE_KEYS: &[&str] = &[
     TOO_MANY_REQUESTS,
     FLASH_EMAIL_VERIFIED,
     FLASH_PASSWORD_RESET,
+    SECOND_FACTOR_INVALID,
+    FLASH_SECOND_FACTOR_LOCKED,
+    FLASH_SECOND_FACTOR_EXPIRED,
 ];
 
 /// Field form daftar, urutan sama dengan template.
@@ -69,6 +78,14 @@ pub fn verify_pending(v: &impl ViewRenderer, error: &str, status: StatusCode) ->
     format::render()
         .status(status)
         .view(v, "auth/verify_pending.html", data!({ "error": error }))
+}
+
+/// Form kode langkah kedua login (`/login/2fa`). `error`: kunci Fluent atau kosong. Kode
+/// yang dikirim tidak dirender ulang.
+pub fn two_factor(v: &impl ViewRenderer, error: &str, status: StatusCode) -> Result<Response> {
+    format::render()
+        .status(status)
+        .view(v, "auth/two_factor.html", data!({ "error": error }))
 }
 
 /// Data `auth/register.html`.

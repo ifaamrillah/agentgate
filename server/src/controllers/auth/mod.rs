@@ -7,6 +7,7 @@ pub mod login;
 pub mod logout;
 pub mod password;
 pub mod register;
+pub mod two_factor;
 pub mod verify_email;
 
 /// "Cek email kamu": tujuan `303` setelah daftar, lupa password, dan kirim ulang verifikasi.
@@ -18,5 +19,6 @@ pub fn routes() -> Vec<Routes> {
         register::routes(),
         verify_email::routes(),
         password::routes(),
+        two_factor::routes(),
     ]
 }

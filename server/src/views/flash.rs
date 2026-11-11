@@ -28,4 +28,12 @@ impl Flash {
             key: key.to_string(),
         }
     }
+
+    #[must_use]
+    pub fn error(key: &str) -> Self {
+        Self {
+            kind: FlashKind::Error,
+            key: key.to_string(),
+        }
+    }
 }

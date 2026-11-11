@@ -5,7 +5,9 @@
 //! (arah layer §3), jadi `NewUser` menerima PHC string, bukan password mentah.
 
 use loco_rs::validation::ModelValidationErrors;
-use sea_orm::{ActiveValue::Set, IntoActiveModel, SqlErr, entity::prelude::*};
+use sea_orm::{
+    ActiveValue::Set, Condition, IntoActiveModel, SqlErr, entity::prelude::*, sea_query::Expr,
+};
 use validator::{ValidateEmail, ValidationError, ValidationErrors};
 
 pub use super::_entities::users::{ActiveModel, Column, Entity, Model};
@@ -182,6 +184,66 @@ impl Model {
         let mut user = self.into_active_model();
         user.name = Set(name);
         Ok(user.update(db).await?)
+    }
+
+    /// Aktifkan 2FA dengan secret terenkripsi `secret_encrypted`. `step` adalah langkah kode
+    /// konfirmasi, supaya kode itu tidak bisa dipakai lagi untuk login.
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn enable_totp<C: ConnectionTrait>(
+        self,
+        db: &C,
+        secret_encrypted: Vec<u8>,
+        step: i64,
+    ) -> Result<Self, DbErr> {
+        let mut user = self.into_active_model();
+        user.totp_secret_encrypted = Set(Some(secret_encrypted));
+        user.totp_enabled_at = Set(Some(chrono::Utc::now().into()));
+        user.totp_last_step = Set(Some(step));
+        user.update(db).await
+    }
+
+    /// Matikan 2FA: secret, waktu aktif, dan langkah terakhir dikosongkan.
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn disable_totp<C: ConnectionTrait>(self, db: &C) -> Result<Self, DbErr> {
+        let mut user = self.into_active_model();
+        user.totp_secret_encrypted = Set(None);
+        user.totp_enabled_at = Set(None);
+        user.totp_last_step = Set(None);
+        user.update(db).await
+    }
+
+    /// Catat `step` sebagai langkah TOTP terakhir yang diterima, hanya bila lebih baru dari
+    /// yang tersimpan: satu `UPDATE` bersyarat, sehingga kode yang sama tidak bisa dipakai dua
+    /// kali, juga oleh dua request bersamaan. `false` berarti langkah itu sudah (atau
+    /// langkah yang lebih baru sudah) dipakai.
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn claim_totp_step<C: ConnectionTrait>(
+        &self,
+        db: &C,
+        step: i64,
+    ) -> Result<bool, DbErr> {
+        let res = Entity::update_many()
+            .col_expr(Column::TotpLastStep, Expr::value(step))
+            .col_expr(Column::UpdatedAt, Expr::value(chrono::Utc::now()))
+            .filter(Column::Id.eq(self.id))
+            .filter(Column::TotpEnabledAt.is_not_null())
+            .filter(
+                Condition::any()
+                    .add(Column::TotpLastStep.is_null())
+                    .add(Column::TotpLastStep.lt(step)),
+            )
+            .exec(db)
+            .await?;
+        Ok(res.rows_affected == 1)
     }
 
     /// Boleh login dan memakai sesi: belum dinonaktifkan.

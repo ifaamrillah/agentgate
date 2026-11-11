@@ -1,5 +1,6 @@
 //! Halaman akun user yang login: `GET /account` (profil), `POST /account/profile` (nama),
-//! `GET|POST /account/password` (ganti password, rules §7).
+//! `GET|POST /account/password` (ganti password, rules §7). Pengaturan 2FA (`/account/2fa`)
+//! ada di `auth::two_factor`.
 use axum::http::StatusCode;
 use loco_rs::prelude::*;
 use secrecy::SecretString;
@@ -39,7 +40,12 @@ async fn show(
     session: Session,
 ) -> Result<Response> {
     let (session, flash) = flash::take(session);
-    let page = AccountPage::new(&user.name, &user.email, flash);
+    let page = AccountPage::new(
+        &user.name,
+        &user.email,
+        user.totp_enabled_at.is_some(),
+        flash,
+    );
     Ok((session, views::account::show(&v, &page, StatusCode::OK)?).into_response())
 }
 
@@ -51,7 +57,12 @@ async fn update_profile(
     session: Session,
     ValidForm(form): ValidForm<ProfileForm>,
 ) -> Result<Response> {
-    let page = AccountPage::new(&user.name, &user.email, None);
+    let page = AccountPage::new(
+        &user.name,
+        &user.email,
+        user.totp_enabled_at.is_some(),
+        None,
+    );
     match user.rename(&ctx.db, &form.name).await {
         Ok(_) => {
             let session = flash::set(

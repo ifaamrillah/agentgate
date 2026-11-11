@@ -7,4 +7,5 @@ mod password_reset;
 mod register;
 mod session;
 mod throttle;
+mod two_factor;
 mod verify_email;

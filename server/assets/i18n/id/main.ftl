@@ -23,6 +23,16 @@ auth-too-many-attempts = Terlalu banyak percobaan login. Coba lagi dalam 15 meni
 auth-too-many-requests = Terlalu banyak permintaan untuk email ini. Coba lagi dalam 15 menit.
 flash-email-verified = Email terverifikasi. Silakan masuk.
 flash-password-reset = Password berhasil diganti. Silakan masuk dengan password baru.
+auth-second-factor-invalid = Kode salah. Coba lagi.
+flash-second-factor-locked = Terlalu banyak kode salah. Masuk lagi dalam 15 menit.
+flash-second-factor-expired = Waktu memasukkan kode habis. Silakan masuk lagi.
+
+two-factor-title = Verifikasi dua langkah
+two-factor-description = Masukkan kode 6 digit dari aplikasi authenticator kamu.
+two-factor-code = Kode
+two-factor-recovery-hint = Tidak bisa membuka aplikasi authenticator? Masukkan salah satu kode pemulihan.
+two-factor-submit = Verifikasi
+two-factor-back = Batal dan kembali ke halaman masuk
 
 verify-pending-title = Cek email untuk verifikasi
 verify-pending-description = Email kamu belum diverifikasi.
@@ -72,7 +82,9 @@ account-name = Nama
 account-save = Simpan
 account-security = Keamanan
 account-change-password = Ganti password
-account-two-factor = Autentikasi dua langkah (segera hadir)
+account-two-factor = Autentikasi dua langkah
+account-two-factor-on = aktif
+account-two-factor-off = belum aktif
 flash-profile-saved = Profil disimpan.
 
 change-password-title = Ganti password
@@ -82,6 +94,26 @@ change-password-new = Password baru
 change-password-submit = Ganti password
 change-password-back = Kembali ke akun
 flash-password-changed = Password berhasil diganti.
+
+totp-setup-title = Aktifkan autentikasi dua langkah
+totp-setup-description = Pindai QR code di bawah dengan aplikasi authenticator (mis. Google Authenticator, Authy, 1Password), lalu masukkan kode 6 digit yang muncul.
+totp-setup-qr-label = QR code untuk aplikasi authenticator
+totp-setup-manual = Tidak bisa memindai? Masukkan kunci ini secara manual:
+totp-setup-code = Kode dari aplikasi
+totp-setup-submit = Aktifkan
+totp-code-invalid = Kode salah. Pastikan jam di ponsel kamu tepat, lalu coba lagi.
+totp-back = Kembali ke akun
+totp-status-title = Autentikasi dua langkah aktif
+totp-recovery-title = Kode pemulihan
+totp-recovery-remaining = Sisa { $count } kode pemulihan yang belum dipakai.
+totp-recovery-regenerate = Buat kode pemulihan baru
+totp-disable-title = Matikan autentikasi dua langkah
+totp-disable-description = Masukkan password saat ini untuk mematikan autentikasi dua langkah. Semua kode pemulihan ikut dihapus.
+totp-disable-submit = Matikan
+totp-codes-title = Simpan kode pemulihan
+totp-codes-description = Setiap kode hanya bisa dipakai sekali untuk masuk bila kamu tidak bisa membuka aplikasi authenticator. Simpan di tempat aman: kode ini hanya ditampilkan sekarang. Kode pemulihan lama tidak berlaku lagi.
+totp-codes-done = Selesai, kode sudah saya simpan
+flash-two-factor-disabled = Autentikasi dua langkah dimatikan.
 
 # Email (assets/views/mailers/). Hanya karakter ASCII supaya isi email tetap 7bit.
 mail-greeting = Halo { $name },

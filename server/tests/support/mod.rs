@@ -14,6 +14,10 @@ pub use session::{request_as_development, request_with_settings, session_cookie,
 /// supaya `sign_in_as` dan builder user tidak berbeda pendapat.
 pub const TEST_PASSWORD: &str = "correct horse battery staple";
 
+/// Secret TOTP (base32, 160 bit) untuk `a_user().with_totp()`. Tes menghitung kodenya lewat
+/// `totp::code_at`.
+pub const TEST_TOTP_SECRET: &str = "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP";
+
 use agentgate_server::models::users::{self, NewUser};
 use sea_orm::DatabaseConnection;
 

@@ -1,7 +1,8 @@
 //! Login dan aturan sesi milik aplikasi (rules §7).
 //!
 //! - [`with_password`]: satu alur login password (rate limit, hash dummy, rehash).
-//! - [`complete`]: tempat sesi login dibuat (password, OAuth, 2FA, `/_dev/login`), lewat
+//! - [`complete`]: tempat sesi login dibuat (password, OAuth, `/_dev/login`; langkah kedua 2FA
+//!   lewat [`complete_second_factor`]), lewat
 //!   [`start_session`], satu-satunya yang menulis `user_id` (juga dipakai ganti password).
 //!   Selalu `renew()` dulu, sehingga id sesi yang ditanam sebelum login (session fixation)
 //!   tidak terbawa.
@@ -30,6 +31,10 @@ pub const SIGNED_IN_AT: &str = "signed_in_at";
 pub const PENDING_USER_ID: &str = "pending_user_id";
 /// Waktu sesi pending dibuat (detik epoch, `i64`).
 pub const PENDING_SINCE: &str = "pending_since";
+/// `return_to` (sudah lewat [`safe_return_to`]) yang dibawa sesi pending ke langkah kedua.
+pub const PENDING_RETURN_TO: &str = "pending_return_to";
+/// Umur sesi pending 2FA: lewat dari ini, user harus memasukkan password lagi.
+pub const PENDING_TTL_SECONDS: i64 = 5 * 60;
 /// User yang password-nya benar tetapi email-nya belum diverifikasi, untuk tombol "kirim
 /// ulang email verifikasi" (`POST /verify-email/resend`). Seperti [`PENDING_USER_ID`], sesi ini
 /// tanpa `user_id`, jadi bukan sesi login. Dibuat [`await_verification`].
@@ -62,19 +67,79 @@ pub enum PasswordSignIn {
 }
 
 /// Buat sesi login untuk `user`. Pemanggil mengembalikan sesi dari [`SignInStep`] di respons.
+/// `return_to` hanya disimpan untuk langkah kedua ([`PENDING_RETURN_TO`]); pada
+/// [`SignInStep::Done`] pemanggil sendiri yang mengarahkan ke sana.
 ///
 /// # Errors
 ///
 /// Bila data sesi tidak bisa di-serialize.
-pub fn complete(_ctx: &AppContext, session: Session, user: &users::Model) -> Result<SignInStep> {
+pub fn complete(
+    _ctx: &AppContext,
+    session: Session,
+    user: &users::Model,
+    return_to: Option<&str>,
+) -> Result<SignInStep> {
     if user.totp_enabled_at.is_some() {
-        let session = session
+        let mut session = session
             .renew()
             .insert(PENDING_USER_ID, &user.id.to_string())?
             .insert(PENDING_SINCE, &now())?;
+        if let Some(target) = return_to.and_then(safe_return_to) {
+            session = session.insert(PENDING_RETURN_TO, &target)?;
+        }
         return Ok(SignInStep::NeedsSecondFactor(session));
     }
     Ok(SignInStep::Done(start_session(session, user)?))
+}
+
+/// State sesi untuk langkah kedua login.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PendingSecondFactor {
+    /// Bukan sesi pending 2FA.
+    None,
+    /// Sesi pending melewati [`PENDING_TTL_SECONDS`]: harus dibuang.
+    Expired,
+    /// Sesi pending yang masih berlaku untuk user ini.
+    Active(Uuid),
+}
+
+/// Baca sesi pending 2FA yang dibuat [`complete`].
+#[must_use]
+pub fn pending_second_factor(session: &Session) -> PendingSecondFactor {
+    let Some(id) = session
+        .get::<String>(PENDING_USER_ID)
+        .and_then(|id| Uuid::parse_str(&id).ok())
+    else {
+        return PendingSecondFactor::None;
+    };
+    match session.get::<i64>(PENDING_SINCE) {
+        Some(since) if !pending_expired(since, now()) => PendingSecondFactor::Active(id),
+        _ => PendingSecondFactor::Expired,
+    }
+}
+
+/// Sesi pending yang dibuat pada `since` sudah kedaluwarsa pada `now`: berumur
+/// [`PENDING_TTL_SECONDS`] atau lebih, atau `since` terlalu jauh di masa depan (jam server
+/// mundur), supaya sesi tidak berlaku tanpa batas.
+#[must_use]
+pub fn pending_expired(since: i64, now: i64) -> bool {
+    now.saturating_sub(since).saturating_abs() >= PENDING_TTL_SECONDS
+}
+
+/// Langkah kedua berhasil: sesi login penuh lewat [`start_session`] (sesi pending dibuang
+/// oleh `renew`). Mengembalikan sesi dan `return_to` yang dibawa sesi pending.
+///
+/// # Errors
+///
+/// Bila data sesi tidak bisa di-serialize.
+pub fn complete_second_factor(
+    session: Session,
+    user: &users::Model,
+) -> Result<(Session, Option<String>)> {
+    let return_to = session
+        .get::<String>(PENDING_RETURN_TO)
+        .and_then(|target| safe_return_to(&target));
+    Ok((start_session(session, user)?, return_to))
 }
 
 /// Sesi login penuh yang baru untuk `user` (`renew` + `user_id` + [`SIGNED_IN_AT`]), tanpa

@@ -15,7 +15,7 @@ use crate::{
 };
 
 /// Halaman setelah login bila tidak ada `return_to`.
-const HOME: &str = "/";
+pub(super) const HOME: &str = "/";
 
 #[derive(Debug, Deserialize)]
 pub struct ShowParams {
@@ -59,15 +59,17 @@ async fn submit(
     let settings = Settings::from_ctx(&ctx)?;
     let page = login_page(&ctx, &form.email, form.return_to.as_deref())?;
     match sign_in::with_password(&ctx.db, &settings.auth, &form.email, &form.password, ip).await? {
-        PasswordSignIn::Authenticated(user) => match sign_in::complete(&ctx, session, &user)? {
-            SignInStep::Done(session) => {
-                let target = page.return_to.as_deref().unwrap_or(HOME);
-                Ok((session, format::redirect(target)?).into_response())
+        PasswordSignIn::Authenticated(user) => {
+            match sign_in::complete(&ctx, session, &user, page.return_to.as_deref())? {
+                SignInStep::Done(session) => {
+                    let target = page.return_to.as_deref().unwrap_or(HOME);
+                    Ok((session, format::redirect(target)?).into_response())
+                }
+                SignInStep::NeedsSecondFactor(session) => {
+                    Ok((session, format::redirect(sign_in::SECOND_FACTOR_PATH)?).into_response())
+                }
             }
-            SignInStep::NeedsSecondFactor(session) => {
-                Ok((session, format::redirect(sign_in::SECOND_FACTOR_PATH)?).into_response())
-            }
-        },
+        }
         // Bukan sesi login: sesi baru hanya mengingat user untuk tombol kirim ulang.
         PasswordSignIn::Unverified(user) => {
             let session = sign_in::await_verification(session, &user)?;

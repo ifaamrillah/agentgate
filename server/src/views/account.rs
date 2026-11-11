@@ -10,11 +10,24 @@ use super::{
 
 pub const FLASH_PROFILE_SAVED: &str = "flash-profile-saved";
 pub const FLASH_PASSWORD_CHANGED: &str = "flash-password-changed";
+pub const FLASH_TWO_FACTOR_DISABLED: &str = "flash-two-factor-disabled";
+/// Kode konfirmasi setup 2FA salah.
+pub const TOTP_CODE_INVALID: &str = "totp-code-invalid";
 /// Kunci Fluent yang dikirim sebagai variabel ke template (dijaga tes i18n).
-pub const MESSAGE_KEYS: &[&str] = &[FLASH_PROFILE_SAVED, FLASH_PASSWORD_CHANGED];
+pub const MESSAGE_KEYS: &[&str] = &[
+    FLASH_PROFILE_SAVED,
+    FLASH_PASSWORD_CHANGED,
+    FLASH_TWO_FACTOR_DISABLED,
+    TOTP_CODE_INVALID,
+];
+
+/// Halaman yang berisi rahasia (secret TOTP, kode pemulihan): tidak disimpan cache browser
+/// maupun proxy, sehingga tombol Back atau riwayat tidak menampilkannya lagi.
+const NO_STORE: (&str, &str) = ("cache-control", "no-store");
 
 pub const PROFILE_FIELDS: &[&str] = &["name"];
 pub const PASSWORD_FIELDS: &[&str] = &["current_password", "password"];
+pub const DISABLE_TWO_FACTOR_FIELDS: &[&str] = &["current_password"];
 
 /// Data `account/show.html`. `name` adalah isian form (nilai tersimpan, atau isian yang gagal
 /// validasi); `email` selalu nilai tersimpan.
@@ -24,16 +37,19 @@ pub struct AccountPage {
     pub email: String,
     pub errors: FieldErrors,
     pub flash: Option<Flash>,
+    /// Status 2FA di bagian Keamanan.
+    pub two_factor_enabled: bool,
 }
 
 impl AccountPage {
     #[must_use]
-    pub fn new(name: &str, email: &str, flash: Option<Flash>) -> Self {
+    pub fn new(name: &str, email: &str, two_factor_enabled: bool, flash: Option<Flash>) -> Self {
         Self {
             name: name.to_string(),
             email: email.to_string(),
             errors: field_errors(PROFILE_FIELDS, None),
             flash,
+            two_factor_enabled,
         }
     }
 
@@ -60,5 +76,54 @@ pub fn password(
         v,
         "account/password.html",
         data!({ "errors": field_errors(PASSWORD_FIELDS, errors) }),
+    )
+}
+
+/// Data `account/two_factor_setup.html`.
+#[derive(Debug, Serialize)]
+pub struct TwoFactorSetupPage {
+    /// Markup `<svg>` QR code buatan server (`totp::begin_setup`), dirender tanpa escape.
+    pub qr_svg: String,
+    /// Secret base32 untuk dimasukkan manual.
+    pub secret: String,
+    /// Kunci Fluent error kode, atau kosong.
+    pub error: &'static str,
+}
+
+/// Setup 2FA: QR code, secret, dan form kode konfirmasi.
+pub fn two_factor_setup(
+    v: &impl ViewRenderer,
+    page: &TwoFactorSetupPage,
+    status: StatusCode,
+) -> Result<Response> {
+    format::render()
+        .status(status)
+        .header(NO_STORE.0, NO_STORE.1)
+        .view(v, "account/two_factor_setup.html", page)
+}
+
+/// 2FA aktif: sisa kode pemulihan, buat ulang kode, dan matikan 2FA (butuh password).
+pub fn two_factor_status(
+    v: &impl ViewRenderer,
+    remaining_codes: u64,
+    errors: Option<&ModelValidationErrors>,
+    status: StatusCode,
+) -> Result<Response> {
+    format::render().status(status).view(
+        v,
+        "account/two_factor.html",
+        data!({
+            "remaining_codes": remaining_codes,
+            "errors": field_errors(DISABLE_TWO_FACTOR_FIELDS, errors),
+        }),
+    )
+}
+
+/// Kode pemulihan baru, ditampilkan sekali (setelah setup atau buat ulang).
+pub fn recovery_codes(v: &impl ViewRenderer, codes: &[String]) -> Result<Response> {
+    format::render().header(NO_STORE.0, NO_STORE.1).view(
+        v,
+        "account/recovery_codes.html",
+        data!({ "codes": codes }),
     )
 }

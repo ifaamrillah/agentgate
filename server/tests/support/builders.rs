@@ -10,10 +10,7 @@ use loco_rs::app::AppContext;
 use sea_orm::{ActiveModelTrait, ActiveValue::Set, IntoActiveModel};
 use secrecy::SecretString;
 
-use super::TEST_PASSWORD;
-
-/// Secret TOTP contoh (base32). Task 6 menggantinya dengan secret yang benar-benar dipakai.
-const DUMMY_TOTP_SECRET: &[u8] = b"JBSWY3DPEHPK3PXP";
+use super::{TEST_PASSWORD, TEST_TOTP_SECRET};
 
 pub struct UserBuilder {
     email: Option<String>,
@@ -21,7 +18,8 @@ pub struct UserBuilder {
     password: Option<String>,
     verified: bool,
     disabled: bool,
-    totp: bool,
+    /// Secret TOTP (base32) bila 2FA aktif.
+    totp: Option<String>,
 }
 
 #[must_use]
@@ -32,7 +30,7 @@ pub fn a_user() -> UserBuilder {
         password: Some(TEST_PASSWORD.to_string()),
         verified: true,
         disabled: false,
-        totp: false,
+        totp: None,
     }
 }
 
@@ -69,10 +67,17 @@ impl UserBuilder {
         self
     }
 
-    /// `totp_enabled_at` terisi dengan secret dummy terenkripsi.
+    /// 2FA aktif dengan secret [`TEST_TOTP_SECRET`]: tes menghitung kode yang benar lewat
+    /// `totp::code_at(TEST_TOTP_SECRET, waktu)`.
     #[must_use]
-    pub fn with_totp(mut self) -> Self {
-        self.totp = true;
+    pub fn with_totp(self) -> Self {
+        self.with_totp_secret(TEST_TOTP_SECRET)
+    }
+
+    /// 2FA aktif dengan secret base32 `secret`, disimpan terenkripsi seperti hasil setup.
+    #[must_use]
+    pub fn with_totp_secret(mut self, secret: &str) -> Self {
+        self.totp = Some(secret.to_string());
         self
     }
 
@@ -108,10 +113,10 @@ impl UserBuilder {
         if self.disabled {
             active.disabled_at = Set(Some(now));
         }
-        if self.totp {
+        if let Some(secret) = self.totp {
             let key = settings.encryption_key_bytes().unwrap();
             active.totp_secret_encrypted =
-                Set(Some(crypto::encrypt(&key, DUMMY_TOTP_SECRET).unwrap()));
+                Set(Some(crypto::encrypt(&key, secret.as_bytes()).unwrap()));
             active.totp_enabled_at = Set(Some(now));
         }
         active.update(&ctx.db).await.unwrap()

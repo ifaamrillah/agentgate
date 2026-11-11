@@ -1,0 +1,22 @@
+{#- Kode pemulihan baru, tampil sekali (respons tidak disimpan cache). Variabel: codes (daftar
+    string `xxxxx-xxxxx`). -#}
+{% extends "layouts/app.html" %}
+{% block title %}{{ t(key="totp-codes-title", lang="id") }}{% endblock title %}
+{% block content %}
+<div class="mx-auto grid max-w-md gap-6">
+  <h1 class="text-2xl font-semibold">{{ t(key="totp-codes-title", lang="id") }}</h1>
+  <section class="card">
+    <header>
+      <p class="text-sm text-muted-foreground">{{ t(key="totp-codes-description", lang="id") }}</p>
+    </header>
+    <section>
+      <ul class="grid grid-cols-2 gap-2 font-mono text-sm">
+        {%- for code in codes %}
+        <li><code data-recovery-code>{{ code }}</code></li>
+        {%- endfor %}
+      </ul>
+    </section>
+  </section>
+  <a href="/account" class="btn" data-variant="primary">{{ t(key="totp-codes-done", lang="id") }}</a>
+</div>
+{% endblock content %}

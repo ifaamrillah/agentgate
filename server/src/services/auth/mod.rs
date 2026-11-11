@@ -9,4 +9,5 @@ pub mod password_reset;
 pub mod registration;
 pub mod sign_in;
 pub mod throttle;
+pub mod totp;
 pub mod verification;

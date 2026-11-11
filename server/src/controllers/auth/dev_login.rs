@@ -42,7 +42,7 @@ async fn login(
     let Some(user) = user else {
         return Err(Error::NotFound);
     };
-    let (session, target) = match sign_in::complete(&ctx, session, &user)? {
+    let (session, target) = match sign_in::complete(&ctx, session, &user, None)? {
         SignInStep::Done(session) => (session, HOME),
         SignInStep::NeedsSecondFactor(session) => (session, sign_in::SECOND_FACTOR_PATH),
     };

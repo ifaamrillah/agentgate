@@ -1,5 +1,6 @@
 {#- Halaman akun. Variabel (views::account::AccountPage): name (isian form nama), email
-    (string), errors (field name → {code, min, max}), flash (dirender layout). -#}
+    (string), errors (field name → {code, min, max}), flash (dirender layout),
+    two_factor_enabled (bool). -#}
 {% extends "layouts/app.html" %}
 {% block title %}{{ t(key="account-title", lang="id") }}{% endblock title %}
 {% block content %}
@@ -23,8 +24,10 @@
     </header>
     <section class="grid gap-3 text-sm">
       <a href="/account/password" class="underline underline-offset-4">{{ t(key="account-change-password", lang="id") }}</a>
-      {#- Pengaturan 2FA menyusul (M1 Task 6): sementara teks saja, belum ada route. -#}
-      <p class="text-muted-foreground">{{ t(key="account-two-factor", lang="id") }}</p>
+      <p>
+        <a href="/account/2fa" class="underline underline-offset-4">{{ t(key="account-two-factor", lang="id") }}</a>
+        <span class="text-muted-foreground">({% if two_factor_enabled %}{{ t(key="account-two-factor-on", lang="id") }}{% else %}{{ t(key="account-two-factor-off", lang="id") }}{% endif %})</span>
+      </p>
     </section>
   </section>
 </div>
