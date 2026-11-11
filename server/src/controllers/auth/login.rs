@@ -16,8 +16,6 @@ use crate::{
 
 /// Halaman setelah login bila tidak ada `return_to`.
 const HOME: &str = "/";
-/// Halaman kode 2FA untuk sesi pending (M1 Task 6).
-const SECOND_FACTOR: &str = "/login/2fa";
 
 #[derive(Debug, Deserialize)]
 pub struct ShowParams {
@@ -67,7 +65,7 @@ async fn submit(
                 Ok((session, format::redirect(target)?).into_response())
             }
             SignInStep::NeedsSecondFactor(session) => {
-                Ok((session, format::redirect(SECOND_FACTOR)?).into_response())
+                Ok((session, format::redirect(sign_in::SECOND_FACTOR_PATH)?).into_response())
             }
         },
         // Bukan sesi login: sesi baru hanya mengingat user untuk tombol kirim ulang.

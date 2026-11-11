@@ -56,3 +56,23 @@ where
     .unwrap();
     callback(server, boot.app_context).await;
 }
+
+/// Seperti `request::<App, _, _>`, tetapi app dibangun sebagai environment development (config
+/// dan database tetap test), sehingga route khusus development seperti `/_dev/login` terdaftar.
+pub async fn request_as_development<F, Fut>(callback: F)
+where
+    F: FnOnce(TestServer, AppContext) -> Fut,
+    Fut: Future<Output = ()>,
+{
+    let config = App::load_config(&Environment::Test).await.unwrap();
+    let boot = App::boot(StartMode::ServerOnly, &Environment::Development, config)
+        .await
+        .unwrap();
+    let server = TestServer::new(
+        boot.router
+            .unwrap()
+            .into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .unwrap();
+    callback(server, boot.app_context).await;
+}

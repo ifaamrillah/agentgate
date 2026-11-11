@@ -35,6 +35,9 @@ pub const PENDING_SINCE: &str = "pending_since";
 /// tanpa `user_id`, jadi bukan sesi login. Dibuat [`await_verification`].
 pub const PENDING_VERIFICATION_USER_ID: &str = "pending_verification_user_id";
 
+/// Halaman kode 2FA untuk sesi pending (`SignInStep::NeedsSecondFactor`), tujuan redirect login.
+pub const SECOND_FACTOR_PATH: &str = "/login/2fa";
+
 /// Hasil [`complete`]. Keduanya membawa sesi yang harus dikembalikan dari handler.
 #[derive(Debug)]
 pub enum SignInStep {

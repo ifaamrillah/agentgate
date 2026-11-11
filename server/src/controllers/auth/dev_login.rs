@@ -13,8 +13,6 @@ use crate::{
 };
 
 const HOME: &str = "/";
-/// Halaman kode 2FA untuk user yang punya TOTP, seperti di `POST /login`.
-const SECOND_FACTOR: &str = "/login/2fa";
 
 #[derive(Debug, Deserialize)]
 pub struct Params {
@@ -46,7 +44,7 @@ async fn login(
     };
     let (session, target) = match sign_in::complete(&ctx, session, &user)? {
         SignInStep::Done(session) => (session, HOME),
-        SignInStep::NeedsSecondFactor(session) => (session, SECOND_FACTOR),
+        SignInStep::NeedsSecondFactor(session) => (session, sign_in::SECOND_FACTOR_PATH),
     };
     Ok((session, format::redirect(target)?).into_response())
 }

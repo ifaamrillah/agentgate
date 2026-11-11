@@ -22,8 +22,9 @@ use loco_rs::{
 };
 use tracing::Instrument;
 
-/// Path yang query string-nya berisi token email sekali pakai.
-const TOKEN_PATHS: &[&str] = &["/verify-email", "/password/reset"];
+/// Path yang query string-nya berisi token sekali pakai (email, atau `dev_login` yang setara
+/// password selama 10 menit).
+const TOKEN_PATHS: &[&str] = &["/verify-email", "/password/reset", "/_dev/login"];
 
 pub struct RequestLog {
     enable: bool,
@@ -122,6 +123,10 @@ mod tests {
         assert_eq!(
             logged_uri(&uri("/verify-email?token=abc")),
             "/verify-email?[redacted]"
+        );
+        assert_eq!(
+            logged_uri(&uri("/_dev/login?token=x")),
+            "/_dev/login?[redacted]"
         );
         assert_eq!(logged_uri(&uri("/verify-email")), "/verify-email");
         assert_eq!(logged_uri(&uri("/projects?tab=a")), "/projects?tab=a");
