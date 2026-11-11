@@ -7,7 +7,11 @@ const EXACT: &[&str] = &[
     // Kode 2FA: sesi pending belum punya user_id (M1 Task 6).
     "/login/2fa",
     "/register",
+    // "Cek email kamu" setelah daftar, lupa password, atau kirim ulang verifikasi.
+    "/check-email",
     "/verify-email",
+    // Kirim ulang verifikasi: sesi menunggu verifikasi belum punya user_id.
+    "/verify-email/resend",
     // Logout selalu lolos gate, apa pun state sesinya.
     "/logout",
     // Health check bawaan Loco.
@@ -48,6 +52,8 @@ mod tests {
             "/login/2fa",
             "/register",
             "/verify-email",
+            "/verify-email/resend",
+            "/check-email",
             "/logout",
             "/_ping",
             "/_health",

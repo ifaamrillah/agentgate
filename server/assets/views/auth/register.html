@@ -1,0 +1,21 @@
+{#- Halaman daftar. Variabel (views::auth::RegisterPage): name, email (string terisi),
+    errors (field name/email/password → {code, min, max}; code "" = tanpa error),
+    error (kunci Fluent pesan form, mis. rate limit, atau ""). Password tidak pernah dirender. -#}
+{% extends "auth/_layout_card.html" %}
+{% block title %}{{ t(key="register-title", lang="id") }}{% endblock title %}
+{% block heading %}{{ t(key="register-title", lang="id") }}{% endblock heading %}
+{% block description %}{{ t(key="register-description", lang="id") }}{% endblock description %}
+{% block card %}
+{% if error %}
+  <div class="mb-6">{{ <flash kind="error" message={t(key=error, lang="id")}/> }}</div>
+{% endif %}
+<form method="post" action="/register" class="form grid gap-6">
+  {{ <field id="register-name" name="name" label={t(key="register-name", lang="id")} value={name} error={errors.name.code} error_min={errors.name.min} error_max={errors.name.max} autocomplete="name" required={true} autofocus={true}/> }}
+  {{ <field id="register-email" name="email" type="email" label={t(key="register-email", lang="id")} value={email} error={errors.email.code} autocomplete="email" required={true}/> }}
+  {{ <field id="register-password" name="password" type="password" label={t(key="register-password", lang="id")} error={errors.password.code} error_min={errors.password.min} error_max={errors.password.max} autocomplete="new-password" required={true}/> }}
+  {{ <button label={t(key="register-submit", lang="id")} type="submit" class="w-full"/> }}
+</form>
+{% endblock card %}
+{% block below %}
+{{ t(key="register-have-account", lang="id") }} <a href="/login" class="underline underline-offset-4">{{ t(key="register-login", lang="id") }}</a>
+{% endblock below %}

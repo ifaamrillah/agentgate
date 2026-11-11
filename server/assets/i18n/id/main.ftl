@@ -1,6 +1,7 @@
 app-name = Agent Gate
 
 nav-home = Beranda
+nav-account = Akun
 nav-logout = Keluar
 
 home-title = Beranda
@@ -19,11 +20,85 @@ login-no-account = Belum punya akun?
 login-register = Daftar
 auth-invalid-credentials = Email atau password salah.
 auth-too-many-attempts = Terlalu banyak percobaan login. Coba lagi dalam 15 menit.
+auth-too-many-requests = Terlalu banyak permintaan untuk email ini. Coba lagi dalam 15 menit.
+flash-email-verified = Email terverifikasi. Silakan masuk.
+flash-password-reset = Password berhasil diganti. Silakan masuk dengan password baru.
 
 verify-pending-title = Cek email untuk verifikasi
 verify-pending-description = Email kamu belum diverifikasi.
 verify-pending-body = Kami sudah mengirim link verifikasi ke email kamu. Buka link itu, lalu masuk lagi.
 verify-pending-back = Kembali ke halaman masuk
+verify-pending-resend = Kirim ulang email verifikasi
+
+register-title = Daftar
+register-description = Buat akun Agent Gate.
+register-name = Nama
+register-email = Email
+register-password = Password
+register-submit = Daftar
+register-have-account = Sudah punya akun?
+register-login = Masuk
+
+check-email-title = Cek email kamu
+check-email-description = Langkah berikutnya ada di inbox kamu.
+check-email-body = Bila alamat itu bisa menerima email dari kami, sebentar lagi kamu akan menerima email berisi link untuk melanjutkan. Cek juga folder spam.
+check-email-back = Kembali ke halaman masuk
+
+verify-email-title = Verifikasi email
+verify-email-description = Klik tombol di bawah untuk menyelesaikan verifikasi email kamu.
+verify-email-submit = Verifikasi email
+
+token-invalid-title = Link tidak berlaku
+token-invalid-verify-body = Link verifikasi ini sudah tidak berlaku. Masuk dengan email dan password kamu untuk meminta link baru.
+token-invalid-verify-action = Ke halaman masuk
+token-invalid-reset-body = Link reset password ini sudah tidak berlaku. Link hanya bisa dipakai sekali dan berlaku dalam waktu singkat.
+token-invalid-reset-action = Minta link baru
+
+forgot-title = Lupa password
+forgot-description = Masukkan email akun kamu. Kami akan mengirim link untuk membuat password baru.
+forgot-email = Email
+forgot-submit = Kirim link reset
+forgot-back = Kembali ke halaman masuk
+
+reset-title = Buat password baru
+reset-description = Password minimal 12 karakter. Setelah diganti, semua sesi login lain berakhir.
+reset-password = Password baru
+reset-submit = Simpan password
+
+account-title = Akun
+account-profile = Profil
+account-email = Email
+account-name = Nama
+account-save = Simpan
+account-security = Keamanan
+account-change-password = Ganti password
+account-two-factor = Autentikasi dua langkah (segera hadir)
+flash-profile-saved = Profil disimpan.
+
+change-password-title = Ganti password
+change-password-description = Setelah password diganti, semua sesi login di perangkat lain berakhir.
+change-password-current = Password saat ini
+change-password-new = Password baru
+change-password-submit = Ganti password
+change-password-back = Kembali ke akun
+flash-password-changed = Password berhasil diganti.
+
+# Email (assets/views/mailers/). Hanya karakter ASCII supaya isi email tetap 7bit.
+mail-greeting = Halo { $name },
+mail-footer = Email ini dikirim otomatis oleh { app-name }. Jangan membalas email ini.
+mail-verify-subject = Verifikasi email kamu di { app-name }
+mail-verify-body = Terima kasih sudah mendaftar. Buka link di bawah untuk memverifikasi email kamu.
+mail-verify-action = Verifikasi email
+mail-verify-expiry = Link ini berlaku { $hours } jam. Bila kamu tidak merasa mendaftar, abaikan email ini.
+mail-already-registered-subject = Email kamu sudah terdaftar di { app-name }
+mail-already-registered-body = Seseorang (mungkin kamu) mencoba mendaftar dengan email ini, padahal email ini sudah punya akun. Bila kamu lupa password, buat password baru lewat link di bawah.
+mail-already-registered-action = Buat password baru
+mail-already-registered-expiry = Link ini berlaku { $minutes } menit. Bila kamu tidak mencoba mendaftar, abaikan email ini; akun kamu tidak berubah.
+mail-already-registered-login = Masih ingat password? Masuk di
+mail-password-reset-subject = Reset password { app-name }
+mail-password-reset-body = Kami menerima permintaan reset password untuk akun kamu. Buka link di bawah untuk membuat password baru.
+mail-password-reset-action = Buat password baru
+mail-password-reset-expiry = Link ini berlaku { $minutes } menit dan hanya bisa dipakai sekali. Bila kamu tidak meminta reset, abaikan email ini; password kamu tidak berubah.
 
 error-code = Kode error
 error-back-home = Kembali ke beranda
@@ -50,3 +125,4 @@ email-invalid = Alamat email tidak valid.
 email-taken = Email ini sudah terdaftar.
 password-too-short = Password minimal { $min } karakter.
 password-too-long = Password maksimal { $max } karakter.
+password-current-wrong = Password saat ini salah.

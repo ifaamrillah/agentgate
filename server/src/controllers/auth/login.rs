@@ -1,12 +1,15 @@
 //! `GET /login` dan `POST /login`: email + password.
 use axum::{extract::Query, http::StatusCode};
-use loco_rs::{controller::middleware::remote_ip::RemoteIP, prelude::*};
+use loco_rs::prelude::*;
 use secrecy::SecretString;
 use serde::Deserialize;
 
 use crate::{
     common::settings::Settings,
-    controllers::extractors::{MaybeCurrentUser, ValidForm},
+    controllers::{
+        extractors::{ClientIp, MaybeCurrentUser, ValidForm},
+        flash,
+    },
     services::auth::sign_in::{self, PasswordSignIn, SignInStep},
     views::{self, auth::LoginPage},
 };
@@ -34,36 +37,29 @@ async fn show(
     State(ctx): State<AppContext>,
     ViewEngine(v): ViewEngine<TeraView>,
     MaybeCurrentUser(user): MaybeCurrentUser,
+    session: Session,
     Query(params): Query<ShowParams>,
 ) -> Result<Response> {
     if user.is_some() {
         return format::redirect(HOME);
     }
-    let page = login_page(&ctx, "", params.return_to.as_deref());
-    views::auth::login(&v, &page, StatusCode::OK)
+    // Flash dari verifikasi email atau reset password ("silakan masuk").
+    let (session, flash) = flash::take(session);
+    let mut page = login_page(&ctx, "", params.return_to.as_deref())?;
+    page.flash = flash;
+    Ok((session, views::auth::login(&v, &page, StatusCode::OK)?).into_response())
 }
 
 #[debug_handler]
 async fn submit(
     State(ctx): State<AppContext>,
     ViewEngine(v): ViewEngine<TeraView>,
-    remote_ip: RemoteIP,
+    ClientIp(ip): ClientIp,
     session: Session,
     ValidForm(form): ValidForm<LoginForm>,
 ) -> Result<Response> {
-    let ip = match remote_ip {
-        RemoteIP::Forwarded(ip) | RemoteIP::Socket(ip) => ip,
-        RemoteIP::None => {
-            // Salah konfigurasi middleware remote_ip: rate limit per IP tidak boleh diam-diam
-            // terlewati, jadi login ditolak.
-            tracing::error!(
-                "login rejected: client IP unavailable (check server.middlewares.remote_ip)"
-            );
-            return Err(Error::InternalServerError);
-        }
-    };
     let settings = Settings::from_ctx(&ctx)?;
-    let page = login_page(&ctx, &form.email, form.return_to.as_deref());
+    let page = login_page(&ctx, &form.email, form.return_to.as_deref())?;
     match sign_in::with_password(&ctx.db, &settings.auth, &form.email, &form.password, ip).await? {
         PasswordSignIn::Authenticated(user) => match sign_in::complete(&ctx, session, &user)? {
             SignInStep::Done(session) => {
@@ -74,7 +70,12 @@ async fn submit(
                 Ok((session, format::redirect(SECOND_FACTOR)?).into_response())
             }
         },
-        PasswordSignIn::Unverified(_) => views::auth::verify_pending(&v),
+        // Bukan sesi login: sesi baru hanya mengingat user untuk tombol kirim ulang.
+        PasswordSignIn::Unverified(user) => {
+            let session = sign_in::await_verification(session, &user)?;
+            let page = views::auth::verify_pending(&v, "", StatusCode::OK)?;
+            Ok((session, page).into_response())
+        }
         PasswordSignIn::Rejected => views::auth::login(
             &v,
             &page.with_error(views::auth::INVALID_CREDENTIALS),
@@ -90,7 +91,7 @@ async fn submit(
 
 /// Data halaman login. `return_to` yang tidak aman dibuang di sini, sehingga form maupun
 /// redirect hanya pernah memakai nilai yang lolos `safe_return_to`.
-fn login_page(ctx: &AppContext, email: &str, return_to: Option<&str>) -> LoginPage {
+fn login_page(ctx: &AppContext, email: &str, return_to: Option<&str>) -> Result<LoginPage> {
     // Tombol OAuth hanya untuk provider yang dikonfigurasi (`auth.oauth.providers`).
     let providers = ctx
         .config
@@ -99,13 +100,15 @@ fn login_page(ctx: &AppContext, email: &str, return_to: Option<&str>) -> LoginPa
         .and_then(|a| a.oauth.as_ref())
         .map(|o| &o.providers);
     let has = |name: &str| providers.is_some_and(|p| p.contains_key(name));
-    LoginPage {
+    Ok(LoginPage {
         email: email.trim().to_string(),
         return_to: return_to.and_then(sign_in::safe_return_to),
         error: "",
         oauth_google: has("google"),
         oauth_github: has("github"),
-    }
+        registration_open: Settings::from_ctx(ctx)?.auth.registration_open,
+        flash: None,
+    })
 }
 
 pub fn routes() -> Routes {

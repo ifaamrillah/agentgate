@@ -14,6 +14,7 @@ const CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self' 'unsa
 /// Env var yang dibutuhkan staging/production; dev/test mendapatkannya dari bin/*.
 const DEPLOY_ENV: &[(&str, &str)] = &[
     ("APP_URL", "https://agentgate.test"),
+    ("MAIL_FROM", "Agent Gate <noreply@agentgate.test>"),
     ("SMTP_HOST", "smtp.agentgate.test"),
     ("SMTP_PORT", "587"),
     ("SMTP_USER", "user"),

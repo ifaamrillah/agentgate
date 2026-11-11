@@ -71,6 +71,12 @@ impl Hooks for App {
 
     fn middlewares(ctx: &AppContext) -> Vec<Box<dyn MiddlewareLayer>> {
         let mut stack = middleware::default_middleware_stack(ctx);
+        // Logger Loco mencatat URI utuh; pengganti ini menyamarkan query string route yang
+        // membawa token email (rules §7).
+        stack.replace(
+            "logger",
+            Box::new(controllers::middleware::request_log::RequestLog::new(ctx)),
+        );
         // Gate harus di DALAM `auth_session` (yang memasang state sesi per request), jadi
         // disisipkan sebelum `auth_session` di Vec: yang lebih awal di Vec lebih dalam.
         stack.insert_before(

@@ -13,6 +13,8 @@ pub struct Settings {
     pub app_name: String,
     /// URL publik aplikasi tanpa `/` di akhir, untuk link di email (verifikasi, reset, undangan).
     pub public_base_url: String,
+    /// Pengirim (`From`) semua email aplikasi, mis. `Agent Gate <noreply@example.com>`.
+    pub mail_from: String,
     pub auth: AuthSettings,
 }
 

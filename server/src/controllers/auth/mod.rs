@@ -3,7 +3,18 @@ use loco_rs::prelude::Routes;
 
 pub mod login;
 pub mod logout;
+pub mod password;
+pub mod register;
+pub mod verify_email;
 
-pub fn routes() -> Routes {
-    login::routes().add("/logout", loco_rs::prelude::post(logout::submit))
+/// "Cek email kamu": tujuan `303` setelah daftar, lupa password, dan kirim ulang verifikasi.
+pub const CHECK_EMAIL: &str = "/check-email";
+
+pub fn routes() -> Vec<Routes> {
+    vec![
+        login::routes().add("/logout", loco_rs::prelude::post(logout::submit)),
+        register::routes(),
+        verify_email::routes(),
+        password::routes(),
+    ]
 }

@@ -5,8 +5,8 @@ use std::{collections::HashSet, path::Path};
 use agentgate_server::{
     common::text,
     models::users,
-    services::auth::password,
-    views::{auth, errors::MESSAGE_KEYS},
+    services::auth::{password, password_change},
+    views::{account, auth, errors::MESSAGE_KEYS},
 };
 
 fn fluent_keys() -> HashSet<String> {
@@ -22,7 +22,7 @@ fn template_keys(dir: &Path, out: &mut Vec<(String, String)>) {
         let path = entry.unwrap().path();
         if path.is_dir() {
             template_keys(&path, out);
-        } else if path.extension().is_some_and(|e| e == "html") {
+        } else if path.extension().is_some_and(|e| e == "html" || e == "t") {
             let src = std::fs::read_to_string(&path).unwrap();
             for part in src.split("t(key=\"").skip(1) {
                 if let Some(end) = part.find('"') {
@@ -56,7 +56,13 @@ fn every_error_message_key_has_title_and_body() {
 #[test]
 fn every_validation_error_code_has_a_message() {
     let keys = fluent_keys();
-    let codes = [text::ERROR_CODES, users::ERROR_CODES, password::ERROR_CODES].concat();
+    let codes = [
+        text::ERROR_CODES,
+        users::ERROR_CODES,
+        password::ERROR_CODES,
+        password_change::ERROR_CODES,
+    ]
+    .concat();
     let missing: Vec<_> = codes.iter().filter(|c| !keys.contains(**c)).collect();
     assert!(missing.is_empty(), "kode error tanpa pesan: {missing:?}");
 }
@@ -64,9 +70,10 @@ fn every_validation_error_code_has_a_message() {
 #[test]
 fn every_auth_message_key_has_a_translation() {
     let keys = fluent_keys();
-    let missing: Vec<_> = auth::MESSAGE_KEYS
-        .iter()
-        .filter(|k| !keys.contains(**k))
+    let missing: Vec<_> = [auth::MESSAGE_KEYS, account::MESSAGE_KEYS]
+        .concat()
+        .into_iter()
+        .filter(|k| !keys.contains(*k))
         .collect();
     assert!(missing.is_empty(), "kunci tanpa terjemahan: {missing:?}");
 }

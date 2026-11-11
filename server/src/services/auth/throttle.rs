@@ -1,6 +1,8 @@
-//! Rate limit login per email dan per IP di tabel `login_throttles` (rules §7, tanpa Redis).
+//! Rate limit login, dan permintaan yang mengirim email, per email dan per IP di tabel
+//! `login_throttles` (rules §7, tanpa Redis).
 //!
-//! Satu baris per kunci (`email:<lower>` / `ip:<addr>`). Setiap percobaan dipesan lebih dulu
+//! Satu baris per kunci (`email:<lower>` / `ip:<addr>` untuk login, `mail-email:<lower>` /
+//! `mail-ip:<addr>` untuk permintaan email). Setiap percobaan dipesan lebih dulu
 //! ([`reserve`]) di jendela `login_window_minutes`; mencapai batas mengunci kunci itu
 //! `login_lockout_minutes`. Percobaan yang berhasil dikembalikan ([`succeeded`]).
 //! Kunci email berlaku untuk string email apa pun, terdaftar atau tidak, supaya "terlalu
@@ -19,9 +21,19 @@ use crate::{
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ThrottleKey {
-    /// Email apa adanya dari form; dinormalisasi sama seperti `users.email`.
+    /// Percobaan login per email, apa adanya dari form; dinormalisasi sama seperti
+    /// `users.email`.
     Email(String),
+    /// Percobaan login per IP.
     Ip(IpAddr),
+    /// Permintaan yang mengirim email (daftar, lupa password, kirim ulang verifikasi) per
+    /// alamat tujuan. Penghitungnya terpisah dari login: permintaan reset berulang tidak
+    /// boleh mengunci login pemilik akun, dan login berhasil tidak mereset batas email.
+    /// Setiap permintaan dihitung (tidak ada [`succeeded`]); batas dan jendelanya sama dengan
+    /// login (`login_max_failures_per_email`, `login_window_minutes`).
+    MailEmail(String),
+    /// Permintaan yang mengirim email per IP, batas `login_max_failures_per_ip`.
+    MailIp(IpAddr),
 }
 
 impl ThrottleKey {
@@ -31,13 +43,15 @@ impl ThrottleKey {
         match self {
             Self::Email(email) => format!("email:{}", users::normalize_email(email)),
             Self::Ip(ip) => format!("ip:{ip}"),
+            Self::MailEmail(email) => format!("mail-email:{}", users::normalize_email(email)),
+            Self::MailIp(ip) => format!("mail-ip:{ip}"),
         }
     }
 
     fn max_failures(&self, settings: &AuthSettings) -> i32 {
         match self {
-            Self::Email(_) => settings.login_max_failures_per_email,
-            Self::Ip(_) => settings.login_max_failures_per_ip,
+            Self::Email(_) | Self::MailEmail(_) => settings.login_max_failures_per_email,
+            Self::Ip(_) | Self::MailIp(_) => settings.login_max_failures_per_ip,
         }
     }
 }
@@ -150,12 +164,12 @@ pub async fn succeeded<C: ConnectionTrait>(
         WHERE key = $1";
     for key in keys {
         match key {
-            ThrottleKey::Email(_) => {
+            ThrottleKey::Email(_) | ThrottleKey::MailEmail(_) => {
                 login_throttles::Entity::delete_by_id(key.key())
                     .exec(db)
                     .await?;
             }
-            ThrottleKey::Ip(_) => {
+            ThrottleKey::Ip(_) | ThrottleKey::MailIp(_) => {
                 db.execute_raw(Statement::from_sql_and_values(
                     DbBackend::Postgres,
                     RELEASE_SQL,
@@ -189,6 +203,14 @@ mod tests {
         assert_eq!(
             ThrottleKey::Ip("127.0.0.1".parse().unwrap()).key(),
             "ip:127.0.0.1"
+        );
+        assert_eq!(
+            ThrottleKey::MailEmail(" Ana@Example.COM".into()).key(),
+            "mail-email:ana@example.com"
+        );
+        assert_eq!(
+            ThrottleKey::MailIp("::1".parse().unwrap()).key(),
+            "mail-ip:::1"
         );
     }
 }

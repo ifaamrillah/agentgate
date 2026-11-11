@@ -1,9 +1,10 @@
 //! Login dan aturan sesi milik aplikasi (rules §7).
 //!
 //! - [`with_password`]: satu alur login password (rate limit, hash dummy, rehash).
-//! - [`complete`]: **satu-satunya** tempat sesi login dibuat (password, OAuth, 2FA,
-//!   `/_dev/login`). Selalu `renew()` dulu, sehingga id sesi yang ditanam sebelum login
-//!   (session fixation) tidak terbawa.
+//! - [`complete`]: tempat sesi login dibuat (password, OAuth, 2FA, `/_dev/login`), lewat
+//!   [`start_session`], satu-satunya yang menulis `user_id` (juga dipakai ganti password).
+//!   Selalu `renew()` dulu, sehingga id sesi yang ditanam sebelum login (session fixation)
+//!   tidak terbawa.
 //! - [`current_user`]: aturan yang tidak disediakan Loco, yaitu user masih ada, belum
 //!   dinonaktifkan, dan sesi belum melewati umur mutlak `absolute_lifetime_hours`.
 
@@ -29,6 +30,10 @@ pub const SIGNED_IN_AT: &str = "signed_in_at";
 pub const PENDING_USER_ID: &str = "pending_user_id";
 /// Waktu sesi pending dibuat (detik epoch, `i64`).
 pub const PENDING_SINCE: &str = "pending_since";
+/// User yang password-nya benar tetapi email-nya belum diverifikasi, untuk tombol "kirim
+/// ulang email verifikasi" (`POST /verify-email/resend`). Seperti [`PENDING_USER_ID`], sesi ini
+/// tanpa `user_id`, jadi bukan sesi login. Dibuat [`await_verification`].
+pub const PENDING_VERIFICATION_USER_ID: &str = "pending_verification_user_id";
 
 /// Hasil [`complete`]. Keduanya membawa sesi yang harus dikembalikan dari handler.
 #[derive(Debug)]
@@ -59,18 +64,48 @@ pub enum PasswordSignIn {
 ///
 /// Bila data sesi tidak bisa di-serialize.
 pub fn complete(_ctx: &AppContext, session: Session, user: &users::Model) -> Result<SignInStep> {
-    let now = now();
-    let session = session.renew();
     if user.totp_enabled_at.is_some() {
         let session = session
+            .renew()
             .insert(PENDING_USER_ID, &user.id.to_string())?
-            .insert(PENDING_SINCE, &now)?;
+            .insert(PENDING_SINCE, &now())?;
         return Ok(SignInStep::NeedsSecondFactor(session));
     }
-    let session = session
+    Ok(SignInStep::Done(start_session(session, user)?))
+}
+
+/// Sesi login penuh yang baru untuk `user` (`renew` + `user_id` + [`SIGNED_IN_AT`]), tanpa
+/// pemeriksaan 2FA. Dipakai [`complete`] dan ganti password, yang membuat ulang sesi
+/// perangkat yang sedang dipakai setelah semua sesi user dicabut.
+///
+/// # Errors
+///
+/// Bila data sesi tidak bisa di-serialize.
+pub fn start_session(session: Session, user: &users::Model) -> Result<Session> {
+    session
+        .renew()
         .set_user_id(user.id.to_string())
-        .insert(SIGNED_IN_AT, &now)?;
-    Ok(SignInStep::Done(session))
+        .insert(SIGNED_IN_AT, &now())
+}
+
+/// Sesi baru (tanpa `user_id`) yang mengingat `user` yang belum terverifikasi, untuk tombol
+/// kirim ulang email verifikasi ([`PENDING_VERIFICATION_USER_ID`]).
+///
+/// # Errors
+///
+/// Bila data sesi tidak bisa di-serialize.
+pub fn await_verification(session: Session, user: &users::Model) -> Result<Session> {
+    session
+        .renew()
+        .insert(PENDING_VERIFICATION_USER_ID, &user.id.to_string())
+}
+
+/// User di [`PENDING_VERIFICATION_USER_ID`], bila ada dan id-nya valid.
+#[must_use]
+pub fn awaiting_verification(session: &Session) -> Option<Uuid> {
+    session
+        .get::<String>(PENDING_VERIFICATION_USER_ID)
+        .and_then(|id| Uuid::parse_str(&id).ok())
 }
 
 /// Login email + password dari IP `ip`.

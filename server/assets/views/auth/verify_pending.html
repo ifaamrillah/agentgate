@@ -1,11 +1,18 @@
-{#- Password benar tetapi email belum diverifikasi: tidak ada sesi. Tidak membutuhkan variabel. -#}
+{#- Password benar tetapi email belum diverifikasi: tidak ada sesi login, hanya sesi yang
+    mengingat user untuk tombol kirim ulang. Variabel: error (kunci Fluent atau ""). -#}
 {% extends "auth/_layout_card.html" %}
 {% block title %}{{ t(key="verify-pending-title", lang="id") }}{% endblock title %}
 {% block heading %}{{ t(key="verify-pending-title", lang="id") }}{% endblock heading %}
 {% block description %}{{ t(key="verify-pending-description", lang="id") }}{% endblock description %}
 {% block card %}
+{% if error %}
+  <div class="mb-6">{{ <flash kind="error" message={t(key=error, lang="id")}/> }}</div>
+{% endif %}
 <p class="text-sm">{{ t(key="verify-pending-body", lang="id") }}</p>
-{#- M1 Task 4: form POST "kirim ulang email verifikasi" (ikut rate limit) dipasang di sini. -#}
+{#- Kirim ulang adalah POST (ikut rate limit permintaan email), bukan link. -#}
+<form method="post" action="/verify-email/resend" class="mt-6">
+  {{ <button label={t(key="verify-pending-resend", lang="id")} type="submit" variant="outline" class="w-full"/> }}
+</form>
 {% endblock card %}
 {% block below %}
 <a href="/login" class="underline underline-offset-4">{{ t(key="verify-pending-back", lang="id") }}</a>

@@ -96,8 +96,11 @@ async fn unverified_user_gets_verify_page_not_session() {
             "{}",
             res.text()
         );
-        assert!(session_cookie(&res).is_none());
-        assert!(res.maybe_header("set-cookie").is_none());
+        // Sesi hanya mengingat user untuk tombol kirim ulang verifikasi, bukan sesi login.
+        let cookie = session_cookie(&res).expect("sesi menunggu verifikasi");
+        let home = request.get("/").add_cookie(cookie).await;
+        assert_eq!(home.status_code(), 303);
+        assert_eq!(home.header("location"), "/login?return_to=%2F");
     })
     .await;
 }

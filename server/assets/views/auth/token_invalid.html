@@ -1,0 +1,18 @@
+{#- Link verifikasi atau reset yang tidak berlaku (tidak ada, sudah dipakai, kedaluwarsa,
+    atau diganti permintaan baru; alasannya sengaja tidak dibedakan).
+    Variabel: kind ("verify" | "reset"). -#}
+{% extends "auth/_layout_card.html" %}
+{% block title %}{{ t(key="token-invalid-title", lang="id") }}{% endblock title %}
+{% block heading %}{{ t(key="token-invalid-title", lang="id") }}{% endblock heading %}
+{% block description %}{% endblock description %}
+{% block card %}
+<div data-page="token-invalid">
+{%- if kind == "reset" %}
+  <p class="text-sm">{{ t(key="token-invalid-reset-body", lang="id") }}</p>
+  <a href="/password/forgot" class="btn mt-6 w-full" data-variant="outline">{{ t(key="token-invalid-reset-action", lang="id") }}</a>
+{%- else %}
+  <p class="text-sm">{{ t(key="token-invalid-verify-body", lang="id") }}</p>
+  <a href="/login" class="btn mt-6 w-full" data-variant="outline">{{ t(key="token-invalid-verify-action", lang="id") }}</a>
+{%- endif %}
+</div>
+{% endblock card %}

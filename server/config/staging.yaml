@@ -94,6 +94,8 @@ settings:
   app_name: Agent Gate
   # Basis link di email (verifikasi, reset, undangan), tanpa `/` di akhir.
   public_base_url: <%= get_env(name="APP_URL") %>
+  # Pengirim semua email aplikasi (header From), alamat yang diizinkan relay SMTP; tanpa default.
+  mail_from: <%= get_env(name="MAIL_FROM") %>
   auth:
     # argon2id m = 19 MiB, t = 2, p = 1: baseline OWASP argon2id.
     argon2_memory_kib: 19456

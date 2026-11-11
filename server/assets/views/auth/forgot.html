@@ -1,0 +1,18 @@
+{#- Lupa password. Variabel (views::auth::ForgotPage): email (string terisi), error (kunci
+    Fluent pesan form, mis. rate limit, atau ""). -#}
+{% extends "auth/_layout_card.html" %}
+{% block title %}{{ t(key="forgot-title", lang="id") }}{% endblock title %}
+{% block heading %}{{ t(key="forgot-title", lang="id") }}{% endblock heading %}
+{% block description %}{{ t(key="forgot-description", lang="id") }}{% endblock description %}
+{% block card %}
+{% if error %}
+  <div class="mb-6">{{ <flash kind="error" message={t(key=error, lang="id")}/> }}</div>
+{% endif %}
+<form method="post" action="/password/forgot" class="form grid gap-6">
+  {{ <field id="forgot-email" name="email" type="email" label={t(key="forgot-email", lang="id")} value={email} autocomplete="email" required={true} autofocus={true}/> }}
+  {{ <button label={t(key="forgot-submit", lang="id")} type="submit" class="w-full"/> }}
+</form>
+{% endblock card %}
+{% block below %}
+<a href="/login" class="underline underline-offset-4">{{ t(key="forgot-back", lang="id") }}</a>
+{% endblock below %}

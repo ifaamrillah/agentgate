@@ -1,5 +1,9 @@
+mod change_password;
 mod gate;
 mod login;
 mod logout;
+mod password_reset;
+mod register;
 mod session;
 mod throttle;
+mod verify_email;

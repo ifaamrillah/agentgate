@@ -1,0 +1,12 @@
+{#- "Cek email kamu" setelah daftar, lupa password, atau kirim ulang verifikasi. Sengaja
+    tidak menyebut apakah email terdaftar. Tidak membutuhkan variabel. -#}
+{% extends "auth/_layout_card.html" %}
+{% block title %}{{ t(key="check-email-title", lang="id") }}{% endblock title %}
+{% block heading %}{{ t(key="check-email-title", lang="id") }}{% endblock heading %}
+{% block description %}{{ t(key="check-email-description", lang="id") }}{% endblock description %}
+{% block card %}
+<p class="text-sm" data-page="check-email">{{ t(key="check-email-body", lang="id") }}</p>
+{% endblock card %}
+{% block below %}
+<a href="/login" class="underline underline-offset-4">{{ t(key="check-email-back", lang="id") }}</a>
+{% endblock below %}

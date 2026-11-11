@@ -1,5 +1,6 @@
 {#- Layout aplikasi (setelah login): sidebar navigasi + konten. Block: title, content.
-    Menu dan data user diisi mulai M1. -#}
+    Variabel opsional: flash ({kind, key}: pesan sekali tampil dari controllers::flash).
+    Shell sidebar lengkap menyusul (M1 Task 8). -#}
 {% extends "layouts/base.html" %}
 {% block body %}
 <div class="flex min-h-screen">
@@ -11,6 +12,9 @@
       <a href="/" class="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent">
         {{ icon(name="home", class="size-4") }}{{ t(key="nav-home", lang="id") }}
       </a>
+      <a href="/account" class="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent">
+        {{ icon(name="user", class="size-4") }}{{ t(key="nav-account", lang="id") }}
+      </a>
     </nav>
     {#- Logout adalah form POST, bukan link: GET tidak pernah mengubah data (rules §6). -#}
     <form method="post" action="/logout" class="mt-6">
@@ -20,6 +24,9 @@
     </form>
   </aside>
   <main class="min-w-0 flex-1 p-4 md:p-8">
+    {%- if flash is defined and flash %}
+    <div class="mb-6">{{ <flash kind={flash.kind} message={t(key=flash.key, lang="id")}/> }}</div>
+    {%- endif %}
     {% block content %}{% endblock content %}
   </main>
 </div>

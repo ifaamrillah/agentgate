@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use axum::{Extension, Router as AxumRouter, middleware::from_fn_with_state};
-use fluent_templates::{ArcLoader, FluentLoader};
+use fluent_templates::FluentLoader;
 use loco_rs::{
     Error, Result,
     app::{AppContext, Initializer},
@@ -13,12 +13,11 @@ use loco_rs::{
 };
 use tera::{Kwargs, State, TeraResult, Value};
 
-use crate::{common::icons::IconSet, controllers::middleware::html_errors};
+use crate::{
+    common::{i18n, icons::IconSet},
+    controllers::middleware::html_errors,
+};
 
-const I18N_DIR: &str = "assets/i18n";
-// Harus di LUAR `I18N_DIR`: bila di dalamnya, resource terdaftar dua kali dan
-// pembuatan bundle gagal ("Failed to add FTL resources to the bundle").
-const I18N_SHARED: &str = "assets/shared.ftl";
 const ICONS_DIR: &str = "assets/icons";
 
 pub struct ViewEngineInitializer;
@@ -43,13 +42,7 @@ impl tera::Function<TeraResult<Value>> for IconFn {
 
 /// Bangun view engine aplikasi. Dipakai initializer dan tes (satu implementasi).
 pub fn build_view_engine() -> Result<TeraView> {
-    let locales = Arc::new(
-        ArcLoader::builder(&I18N_DIR, unic_langid::langid!("id"))
-            .shared_resources(Some(&[I18N_SHARED.into()]))
-            .customize(|bundle| bundle.set_use_isolating(false))
-            .build()
-            .map_err(|e| Error::string(&e.to_string()))?,
-    );
+    let locales = i18n::loader()?;
     let icons = Arc::new(
         IconSet::load(std::path::Path::new(ICONS_DIR))
             .map_err(|e| Error::string(&e.to_string()))?,

@@ -1,6 +1,6 @@
 {#- Halaman login. Variabel (views::auth::LoginPage): email (string), return_to (string atau
-    null, sudah aman), error (kunci Fluent atau ""), oauth_google, oauth_github (bool).
-    Password tidak pernah dirender ulang. -#}
+    null, sudah aman), error (kunci Fluent atau ""), oauth_google, oauth_github,
+    registration_open (bool), flash (dirender layout). Password tidak pernah dirender ulang. -#}
 {% extends "auth/_layout_card.html" %}
 {% block title %}{{ t(key="login-title", lang="id") }}{% endblock title %}
 {% block heading %}{{ t(key="login-title", lang="id") }}{% endblock heading %}
@@ -28,5 +28,7 @@
 {% endif %}
 {% endblock card %}
 {% block below %}
+{%- if registration_open %}
 {{ t(key="login-no-account", lang="id") }} <a href="/register" class="underline underline-offset-4">{{ t(key="login-register", lang="id") }}</a>
+{%- endif %}
 {% endblock below %}

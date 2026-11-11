@@ -1,5 +1,10 @@
-//! Autentikasi milik aplikasi (rules §7): password, login, rate limit, dan aturan sesi
-//! tambahan. Sesi itu sendiri (cookie, store, rotasi id, revoke) memakai `loco_rs::auth`.
+//! Autentikasi milik aplikasi (rules §7): password, login, pendaftaran, verifikasi email,
+//! reset dan ganti password, rate limit, dan aturan sesi tambahan. Sesi itu sendiri (cookie,
+//! store, rotasi id, revoke) memakai `loco_rs::auth`.
 pub mod password;
+pub mod password_change;
+pub mod password_reset;
+pub mod registration;
 pub mod sign_in;
 pub mod throttle;
+pub mod verification;

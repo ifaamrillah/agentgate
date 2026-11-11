@@ -115,6 +115,75 @@ impl Model {
         user.update(db).await
     }
 
+    /// Password baru dipilih user (ganti password): simpan PHC string dan
+    /// `password_changed_at`.
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn change_password<C: ConnectionTrait>(
+        self,
+        db: &C,
+        password_hash: String,
+    ) -> Result<Self, DbErr> {
+        let mut user = self.into_active_model();
+        user.password_hash = Set(Some(password_hash));
+        user.password_changed_at = Set(Some(chrono::Utc::now().into()));
+        user.update(db).await
+    }
+
+    /// Password baru lewat link reset: seperti [`Self::change_password`], dan
+    /// `email_verified_at` diisi bila masih kosong, karena user terbukti memegang inbox-nya.
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn reset_password<C: ConnectionTrait>(
+        self,
+        db: &C,
+        password_hash: String,
+    ) -> Result<Self, DbErr> {
+        let now: DateTimeWithTimeZone = chrono::Utc::now().into();
+        let verified = self.email_verified_at.unwrap_or(now);
+        let mut user = self.into_active_model();
+        user.password_hash = Set(Some(password_hash));
+        user.password_changed_at = Set(Some(now));
+        user.email_verified_at = Set(Some(verified));
+        user.update(db).await
+    }
+
+    /// Tandai email terverifikasi. Waktu verifikasi pertama dipertahankan bila sudah ada.
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn mark_email_verified<C: ConnectionTrait>(self, db: &C) -> Result<Self, DbErr> {
+        if self.email_verified_at.is_some() {
+            return Ok(self);
+        }
+        let mut user = self.into_active_model();
+        user.email_verified_at = Set(Some(chrono::Utc::now().into()));
+        user.update(db).await
+    }
+
+    /// Ganti nama tampilan setelah normalisasi dan validasi yang sama dengan [`ActiveModel::create`].
+    ///
+    /// # Errors
+    ///
+    /// [`UserError::Invalid`] untuk nama tidak valid (field `name`), [`UserError::Db`] untuk
+    /// error database.
+    pub async fn rename<C: ConnectionTrait>(self, db: &C, name: &str) -> Result<Self, UserError> {
+        let name = text::normalize_name(name);
+        if let Err(e) = text::validate_name("user", &name) {
+            let mut errors = ValidationErrors::new();
+            errors.add("name", e);
+            return Err(UserError::Invalid(errors.into()));
+        }
+        let mut user = self.into_active_model();
+        user.name = Set(name);
+        Ok(user.update(db).await?)
+    }
+
     /// Boleh login dan memakai sesi: belum dinonaktifkan.
     #[must_use]
     pub fn is_active(&self) -> bool {
@@ -146,6 +215,20 @@ impl ActiveModel {
                 UserError::Db(e)
             }
         })
+    }
+}
+
+/// Validasi email dan nama untuk user baru tanpa menyimpan apa pun, setelah normalisasi yang
+/// sama dengan [`ActiveModel::create`]. Untuk form yang memvalidasi semua field sekaligus
+/// (mis. bersama aturan password) sebelum pekerjaan mahal seperti hashing.
+///
+/// # Errors
+///
+/// Kode error per field (`email`, `name`).
+pub fn check_new(email: &str, name: &str) -> Result<(), ModelValidationErrors> {
+    match validate(&normalize_email(email), &text::normalize_name(name)) {
+        Err(UserError::Invalid(errors)) => Err(errors),
+        _ => Ok(()),
     }
 }
 

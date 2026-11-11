@@ -1,0 +1,1 @@
+{{ t(key="mail-verify-subject", lang="id") }}
