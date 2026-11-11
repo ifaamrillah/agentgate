@@ -61,7 +61,7 @@ queue:
     interval_seconds: 300
 
 # Scheduler (rules §8): berjalan di tepat satu proses. Development tidak menjalankannya
-# otomatis (bin/dev hanya server); coba lewat `bin/loco scheduler --list` atau
+# otomatis (bin/dev hanya server + worker); coba lewat `bin/loco scheduler --list` atau
 # `bin/loco scheduler --name cleanup`, atau jalankan pembersihannya langsung:
 # `bin/loco task cleanup` (dry run) lalu `bin/loco task cleanup confirm:yes`.
 scheduler:
