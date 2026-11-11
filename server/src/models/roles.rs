@@ -295,6 +295,24 @@ impl Model {
             .await
     }
 
+    /// Role `id` di workspace ini dengan kunci baca (`FOR SHARE`) sampai transaksi `txn`
+    /// selesai: perubahan izin role itu menunggu, tetapi pembaca lain tidak saling menunggu.
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn lock_shared_in<C: ConnectionTrait>(
+        txn: &C,
+        workspace_id: WorkspaceId,
+        id: Uuid,
+    ) -> Result<Option<Self>, DbErr> {
+        Entity::find_by_id(id)
+            .in_tenant(workspace_id)
+            .lock_shared()
+            .one(txn)
+            .await
+    }
+
     /// Role bawaan `key` di workspace ini.
     ///
     /// # Errors

@@ -243,3 +243,35 @@ async fn grant_has_exactly_one_subject() {
     assert!(insert(None, Some(owner.id)).await);
     assert!(!insert(None, Some(owner.id)).await, "grant orang ganda");
 }
+
+/// FK komposit `(team_id, workspace_id)` dan `(project_id, workspace_id)`: tim workspace A tidak
+/// bisa diberi akses ke project workspace B, apa pun `workspace_id` baris grant-nya.
+#[tokio::test]
+async fn team_cannot_be_granted_on_project_of_other_workspace() {
+    let boot = boot_test::<App>().await.unwrap();
+    let ctx = &boot.app_context;
+    let a = a_workspace(&a_user().create(ctx).await).create(ctx).await;
+    let b = a_workspace(&a_user().create(ctx).await).create(ctx).await;
+    let team_a = a_team(ctx, &a, "QA", &[]).await;
+    let project_b = a_project(ctx, &b, "KSR").await;
+    for (workspace, role) in [
+        (&a, builtin_role(ctx, &a, RoleKey::Viewer).await),
+        (&b, builtin_role(ctx, &b, RoleKey::Viewer).await),
+    ] {
+        let inserted = ctx
+            .db
+            .execute_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "INSERT INTO project_grants (workspace_id, project_id, team_id, role_id) \
+                 VALUES ($1, $2, $3, $4)",
+                [
+                    Value::from(workspace.id),
+                    Value::from(project_b.id),
+                    Value::from(team_a.id),
+                    Value::from(role.id),
+                ],
+            ))
+            .await;
+        assert!(inserted.is_err(), "workspace {}", workspace.slug);
+    }
+}

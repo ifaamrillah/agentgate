@@ -3,7 +3,8 @@
 //!
 //! Aturan eskalasi (`project_access::can_grant`, lewat [`Administering::ensure_grantable`])
 //! berlaku untuk role tujuan dan role asal grant: pelaku tidak bisa memberikan, mengganti, atau
-//! mencabut grant ber-role di atas aksesnya sendiri, dan role Owner hanya diatur Owner.
+//! mencabut grant ber-role di atas aksesnya sendiri, dan role Owner hanya diatur Owner. Role
+//! tujuan juga harus memegang izin project (`grant-role-no-project-access`).
 
 use sea_orm::{ModelTrait, SqlErr};
 use uuid::Uuid;
@@ -11,6 +12,7 @@ use uuid::Uuid;
 use super::{Administering, ProjectFailure, grant_changes};
 use crate::{
     models::{
+        project_access,
         project_grants::{self, GrantSubject},
         roles, teams, workspace_members,
         workspaces::WorkspaceId,
@@ -40,6 +42,7 @@ pub async fn grant(
     let role = find_role(&admin, wid, role_id).await?;
     ensure_subject(&admin, wid, subject).await?;
     admin.ensure_grantable(&role)?;
+    ensure_gives_access(&role)?;
     let grant = project_grants::ActiveModel::grant(&admin.txn, wid, project_id, subject, role.id)
         .await
         .map_err(|e| {
@@ -82,6 +85,7 @@ pub async fn change_role(
     let target = find_role(&admin, wid, role_id).await?;
     admin.ensure_grantable(&current)?;
     admin.ensure_grantable(&target)?;
+    ensure_gives_access(&target)?;
     if current.id == target.id {
         admin.txn.rollback().await?;
         return Ok(grant);
@@ -157,14 +161,25 @@ async fn find_grant(
         .ok_or(ProjectFailure::NotFound)
 }
 
-/// Subjek ada di workspace ini: tim milik workspace, atau orang yang anggota workspace.
+/// Role grant harus memegang setidaknya satu izin project; role lain tidak memberi akses apa
+/// pun (form hanya menawarkan role yang memberi akses, ini menjaga POST langsung).
+fn ensure_gives_access(role: &roles::Model) -> Result<(), ProjectFailure> {
+    if project_access::project_permissions_of(role).is_empty() {
+        Err(ProjectFailure::NoProjectAccess)
+    } else {
+        Ok(())
+    }
+}
+
+/// Subjek ada di workspace ini: tim milik workspace (dikunci, berurutan dengan tambah anggota
+/// tim, `workspaces::teams`), atau orang yang anggota workspace.
 async fn ensure_subject(
     admin: &Administering,
     wid: WorkspaceId,
     subject: GrantSubject,
 ) -> Result<(), ProjectFailure> {
     let found = match subject {
-        GrantSubject::Team(id) => teams::Model::find_in(&admin.txn, wid, id).await?.is_some(),
+        GrantSubject::Team(id) => teams::Model::lock_in(&admin.txn, wid, id).await?.is_some(),
         GrantSubject::User(id) => workspace_members::Model::find_with_role(&admin.txn, wid, id)
             .await?
             .is_some(),

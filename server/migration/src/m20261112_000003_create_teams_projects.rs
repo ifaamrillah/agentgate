@@ -99,6 +99,9 @@ const UP: &[&str] = &[
     "CREATE UNIQUE INDEX project_grants_project_id_user_id_key \
      ON project_grants (project_id, user_id) WHERE user_id IS NOT NULL",
     // Cek FK saat role dihapus, cascade saat tim dihapus, dan grant milik user (akses project).
+    // Daftar akses satu project (Pengaturan → Akses) dan cascade hapus project. Unique index
+    // parsial di atas tidak dipakai untuk semua grant satu project.
+    "CREATE INDEX project_grants_project_id_idx ON project_grants (project_id)",
     "CREATE INDEX project_grants_role_id_idx ON project_grants (role_id)",
     "CREATE INDEX project_grants_team_id_idx ON project_grants (team_id) \
      WHERE team_id IS NOT NULL",

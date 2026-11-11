@@ -18,7 +18,7 @@ use crate::{
     models::{
         permission::Permission,
         project_access::{self, Accessor, EffectiveRole},
-        project_grants::{self, GrantSubject, PROJECT_GRANT_EXISTS},
+        project_grants::{self, GRANT_ROLE_NO_PROJECT_ACCESS, GrantSubject, PROJECT_GRANT_EXISTS},
         projects::{self, NewProject, ProjectError},
         repos::RepoError,
         roles::{self, MEMBER_ROLE_NOT_ASSIGNABLE, RoleKey},
@@ -42,6 +42,10 @@ pub enum ProjectFailure {
     /// Subjek sudah punya grant di project ini (`project-grant-exists`).
     #[error("grant already exists")]
     GrantExists,
+    /// Role grant tidak memegang izin project, jadi tidak memberi akses
+    /// (`grant-role-no-project-access`).
+    #[error("grant role has no project permission")]
+    NoProjectAccess,
     /// Validasi field gagal.
     #[error("invalid: {0}")]
     Invalid(ModelValidationErrors),
@@ -57,6 +61,7 @@ impl ProjectFailure {
         match self {
             Self::NotAssignable => Some(MEMBER_ROLE_NOT_ASSIGNABLE),
             Self::GrantExists => Some(PROJECT_GRANT_EXISTS),
+            Self::NoProjectAccess => Some(GRANT_ROLE_NO_PROJECT_ACCESS),
             Self::NotFound | Self::Invalid(_) | Self::Db(_) => None,
         }
     }
@@ -85,9 +90,9 @@ impl From<ProjectFailure> for loco_rs::Error {
         match err {
             ProjectFailure::NotFound => Self::NotFound,
             ProjectFailure::Invalid(errors) => Self::Validation(errors),
-            ProjectFailure::NotAssignable | ProjectFailure::GrantExists => {
-                Self::BadRequest(err.to_string())
-            }
+            ProjectFailure::NotAssignable
+            | ProjectFailure::GrantExists
+            | ProjectFailure::NoProjectAccess => Self::BadRequest(err.to_string()),
             ProjectFailure::Db(e) => Self::DB(e),
         }
     }

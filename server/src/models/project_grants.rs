@@ -14,8 +14,11 @@ use super::workspaces::WorkspaceId;
 
 /// Subjek sudah punya grant di project ini (partial unique index per subjek).
 pub const PROJECT_GRANT_EXISTS: &str = "project-grant-exists";
+/// Role grant tanpa izin project (`ViewProject`/`EditProject`/`AdministerProject`): tidak
+/// memberi akses apa pun, jadi ditolak.
+pub const GRANT_ROLE_NO_PROJECT_ACCESS: &str = "grant-role-no-project-access";
 /// Kode error milik model ini; masing-masing punya pesan di Fluent (dijaga tes i18n).
-pub const ERROR_CODES: &[&str] = &[PROJECT_GRANT_EXISTS];
+pub const ERROR_CODES: &[&str] = &[PROJECT_GRANT_EXISTS, GRANT_ROLE_NO_PROJECT_ACCESS];
 
 /// Subjek grant.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -78,6 +81,25 @@ impl Model {
         Entity::find()
             .in_tenant(workspace_id)
             .filter(Column::ProjectId.eq(project_id))
+            .order_by_asc(Column::CreatedAt)
+            .order_by_asc(Column::Id)
+            .all(db)
+            .await
+    }
+
+    /// Semua grant tim `team_id` (di project mana pun), urut waktu dibuat.
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn of_team<C: ConnectionTrait>(
+        db: &C,
+        workspace_id: WorkspaceId,
+        team_id: Uuid,
+    ) -> Result<Vec<Self>, DbErr> {
+        Entity::find()
+            .in_tenant(workspace_id)
+            .filter(Column::TeamId.eq(team_id))
             .order_by_asc(Column::CreatedAt)
             .order_by_asc(Column::Id)
             .all(db)

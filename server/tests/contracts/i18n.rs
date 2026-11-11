@@ -78,6 +78,7 @@ fn every_validation_error_code_has_a_message() {
         invite::ERROR_CODES,
         accept_invite::ERROR_CODES,
         membership::ERROR_CODES,
+        agentgate_server::services::workspaces::teams::ERROR_CODES,
     ]
     .concat();
     let missing: Vec<_> = codes.iter().filter(|c| !keys.contains(**c)).collect();

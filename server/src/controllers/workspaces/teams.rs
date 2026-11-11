@@ -3,7 +3,6 @@
 //! tim workspace lain, orang di luar workspace, atau id tidak valid → 404.
 use axum::http::StatusCode;
 use loco_rs::prelude::*;
-use sea_orm::DbErr;
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -16,12 +15,11 @@ use crate::{
         flash,
         shell::app_shell,
     },
-    models::{
-        team_members,
-        teams::{self, TeamError},
-        workspace_members,
+    models::{team_members, teams, workspace_members},
+    services::workspaces::{
+        Actor,
+        teams::{self as service, TeamFailure},
     },
-    services::workspaces::{Actor, teams as service},
     views::{
         self,
         flash::Flash,
@@ -52,12 +50,10 @@ fn actor(tenant: &Tenant, request_id: Option<String>) -> Actor {
     }
 }
 
-/// Tim yang hilang di tengah jalan atau orang di luar workspace → 404; sisanya error biasa.
-fn failure(err: TeamError) -> Error {
-    match err {
-        TeamError::Db(DbErr::RecordNotFound(_)) => Error::NotFound,
-        other => other.into(),
-    }
+/// Tim yang hilang di tengah jalan, orang di luar workspace, atau pelaku yang kehilangan
+/// `ManageTeams` → 404; sisanya error biasa.
+fn failure(err: TeamFailure) -> Error {
+    err.into()
 }
 
 async fn find_team(ctx: &AppContext, tenant: &Tenant, id: Uuid) -> Result<teams::Model> {
@@ -152,7 +148,7 @@ pub(super) async fn create(
             let path = format!("{}/{}", teams_path(&tenant.workspace.slug), team.id);
             redirect_with(session, &path, views::teams::FLASH_CREATED).await
         }
-        Err(TeamError::Invalid(errors)) => {
+        Err(TeamFailure::Invalid(errors)) => {
             let create = TeamFormView::new(form.name.trim(), Some(&errors));
             render_index(
                 &ctx,
@@ -201,7 +197,7 @@ pub(super) async fn rename(
             let path = format!("{}/{}", teams_path(&tenant.workspace.slug), team.id);
             redirect_with(session, &path, views::teams::FLASH_UPDATED).await
         }
-        Err(TeamError::Invalid(errors)) => {
+        Err(TeamFailure::Invalid(errors)) => {
             let form = TeamFormView::new(form.name.trim(), Some(&errors));
             render_team(
                 &ctx,
@@ -239,9 +235,12 @@ pub(super) async fn delete(
     .await
 }
 
+/// Tim dengan grant di atas akses pelaku → 422 halaman tim dengan pesannya
+/// (`team-member-not-assignable`).
 #[debug_handler]
 pub(super) async fn add_member(
     State(ctx): State<AppContext>,
+    ViewEngine(v): ViewEngine<TeraView>,
     access: Require<ManageTeams>,
     path: IdOr404<teams::Entity>,
     session: Session,
@@ -250,11 +249,29 @@ pub(super) async fn add_member(
 ) -> Result<Response> {
     let tenant = &access.tenant;
     let user_id = form_id(&form.user_id)?;
-    service::add_member(&ctx.db, &actor(tenant, request_id), path.id, user_id)
-        .await
-        .map_err(failure)?;
-    let back = format!("{}/{}", teams_path(&tenant.workspace.slug), path.id);
-    redirect_with(session, &back, views::teams::FLASH_MEMBER_ADDED).await
+    match service::add_member(&ctx.db, &actor(tenant, request_id), path.id, user_id).await {
+        Ok(()) => {
+            let back = format!("{}/{}", teams_path(&tenant.workspace.slug), path.id);
+            redirect_with(session, &back, views::teams::FLASH_MEMBER_ADDED).await
+        }
+        Err(e) => {
+            let Some(code) = e.code() else {
+                return Err(failure(e));
+            };
+            let team = find_team(&ctx, tenant, path.id).await?;
+            let form = TeamFormView::new(&team.name, None);
+            render_team(
+                &ctx,
+                &v,
+                tenant,
+                &team,
+                form,
+                Some(Flash::error(code)),
+                StatusCode::UNPROCESSABLE_ENTITY,
+            )
+            .await
+        }
+    }
 }
 
 #[debug_handler]

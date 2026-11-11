@@ -584,3 +584,66 @@ async fn removed_or_leaving_member_loses_grants_and_team_memberships() {
     })
     .await;
 }
+
+/// Role tanpa izin project tidak memberi akses, jadi tidak bisa dipakai untuk grant (form tidak
+/// menawarkannya; POST langsung ditolak service), baik saat memberi maupun mengganti role.
+#[tokio::test]
+async fn grant_role_without_project_permissions_is_rejected() {
+    request::<App, _, _>(|request, ctx| async move {
+        let owner = a_user().create(&ctx).await;
+        let dev = a_user().create(&ctx).await;
+        let workspace = a_workspace(&owner).slug("acme").create(&ctx).await;
+        let wid = workspace.workspace_id();
+        add_member(&ctx, &workspace, &dev, RoleKey::Member).await;
+        let project = a_project(&ctx, &workspace, "KSR").await;
+        let teams_only =
+            custom_role(&ctx, &workspace, "Pengatur tim", &[Permission::ManageTeams]).await;
+        let cookie = sign_in_as(&request, &owner).await;
+        let res = request
+            .post("/w/acme/p/KSR/settings/access")
+            .add_cookie(cookie.clone())
+            .form(&[
+                ("subject", format!("user:{}", dev.id)),
+                ("role_id", teams_only.id.to_string()),
+            ])
+            .await;
+        assert_eq!(res.status_code(), 422);
+        assert!(
+            res.text().contains("tidak memberi akses project"),
+            "{}",
+            res.text()
+        );
+        assert!(
+            project_grants::Model::of_project(&ctx.db, wid, project.id)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+
+        let viewer = builtin_role(&ctx, &workspace, RoleKey::Viewer).await;
+        let dev_grant = grant(
+            &ctx,
+            &workspace,
+            &project,
+            GrantSubject::User(dev.id),
+            &viewer,
+        )
+        .await;
+        let res = request
+            .post(&format!(
+                "/w/acme/p/KSR/settings/access/{}/role",
+                dev_grant.id
+            ))
+            .add_cookie(cookie)
+            .form(&[("role_id", teams_only.id.to_string())])
+            .await;
+        assert_eq!(res.status_code(), 422);
+        let still = project_grants::Entity::find_by_id(dev_grant.id)
+            .one(&ctx.db)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(still.role_id, viewer.id);
+    })
+    .await;
+}
