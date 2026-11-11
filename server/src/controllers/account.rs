@@ -11,6 +11,7 @@ use crate::{
     controllers::{
         extractors::{CurrentUser, ValidForm},
         flash,
+        shell::app_shell,
     },
     models::users::UserError,
     services::auth::{
@@ -46,7 +47,8 @@ async fn show(
         user.totp_enabled_at.is_some(),
         flash,
     );
-    Ok((session, views::account::show(&v, &page, StatusCode::OK)?).into_response())
+    let res = views::account::show(&v, &app_shell(&user), &page, StatusCode::OK)?;
+    Ok((session, res).into_response())
 }
 
 #[debug_handler]
@@ -63,6 +65,7 @@ async fn update_profile(
         user.totp_enabled_at.is_some(),
         None,
     );
+    let shell = app_shell(&user);
     match user.rename(&ctx.db, &form.name).await {
         Ok(_) => {
             let session = flash::set(
@@ -73,6 +76,7 @@ async fn update_profile(
         }
         Err(UserError::Invalid(errors)) => views::account::show(
             &v,
+            &shell,
             &page.with_errors(&form.name, &errors),
             StatusCode::UNPROCESSABLE_ENTITY,
         ),
@@ -83,9 +87,9 @@ async fn update_profile(
 #[debug_handler(state = AppContext)]
 async fn show_password(
     ViewEngine(v): ViewEngine<TeraView>,
-    CurrentUser(_user): CurrentUser,
+    CurrentUser(user): CurrentUser,
 ) -> Result<Response> {
-    views::account::password(&v, None, StatusCode::OK)
+    views::account::password(&v, &app_shell(&user), None, StatusCode::OK)
 }
 
 /// Berhasil: semua sesi user dicabut (service), lalu sesi baru untuk perangkat ini di respons
@@ -99,6 +103,7 @@ async fn change_password(
     ValidForm(form): ValidForm<PasswordForm>,
 ) -> Result<Response> {
     let settings = Settings::from_ctx(&ctx)?;
+    let shell = app_shell(&user);
     match password_change::change(&ctx, &settings, user, &form.current_password, form.password)
         .await?
     {
@@ -110,7 +115,7 @@ async fn change_password(
             Ok((session, format::redirect(ACCOUNT)?).into_response())
         }
         Changed::Invalid(errors) => {
-            views::account::password(&v, Some(&errors), StatusCode::UNPROCESSABLE_ENTITY)
+            views::account::password(&v, &shell, Some(&errors), StatusCode::UNPROCESSABLE_ENTITY)
         }
     }
 }

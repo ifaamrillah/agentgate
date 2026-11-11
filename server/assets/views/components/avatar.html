@@ -1,0 +1,12 @@
+{#- Komponen avatar berisi inisial (tanpa foto).
+    Parameter:
+      initials: string          1–2 huruf (dihitung server, mis. views::layout::UserView)
+      label: string             nama lengkap untuk pembaca layar (default "" = dekoratif,
+                                mis. bila nama sudah tertulis di sebelahnya)
+      size: sm|default|lg       (default "default")
+      class: hanya untuk layout (margin), bukan warna/ukuran -#}
+{% component avatar(initials: string, label: string = "", size: string = "default", class: string = "") %}
+{%- if size not in ["sm", "default", "lg"] %}{{ throw(message="avatar: size tidak dikenal: " ~ size) }}{% endif -%}
+<span class="avatar {{ class }}" data-size="{{ size }}"
+  {%- if label %} role="img" aria-label="{{ label }}"{% else %} aria-hidden="true"{% endif %}><span>{{ initials }}</span></span>
+{%- endcomponent avatar %}

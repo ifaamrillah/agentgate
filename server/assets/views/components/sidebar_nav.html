@@ -1,0 +1,32 @@
+{#- Komponen satu item navigasi sidebar (`<li>` di dalam `<ul>` sidebar Basecoat). Dipanggil
+    inline, atau sebagai blok untuk sub-menu: body = item `sidebar_nav` lain, dirender sebagai
+    `<ul>` bertingkat di bawah item ini.
+    Parameter:
+      label: string             teks item (sudah diterjemahkan pemanggil)
+      href: string              tujuan link (default ""; wajib kecuali state="disabled")
+      icon: nama ikon Tabler    (default "" = tanpa ikon)
+      state: default|current|active|disabled   (default "default")
+                                current  = halaman yang sedang dibuka (aria-current="page")
+                                active   = bagian yang sedang dibuka, mis. project aktif
+                                disabled = belum tersedia: tanpa href, tidak bisa difokus/diklik
+      soon: bool                tampilkan badge "segera" (default false; untuk fitur yang
+                                menunggu milestone-nya, biasanya bersama state="disabled")
+      size: default|sm          (default "default") -#}
+{% component sidebar_nav(label: string, href: string = "", icon: string = "", state: string = "default", soon: bool = false, size: string = "default") %}
+{%- if state not in ["default", "current", "active", "disabled"] %}{{ throw(message="sidebar_nav: state tidak dikenal: " ~ state) }}{% endif -%}
+{%- if size not in ["default", "sm"] %}{{ throw(message="sidebar_nav: size tidak dikenal: " ~ size) }}{% endif -%}
+{%- if state != "disabled" and not href %}{{ throw(message="sidebar_nav: href wajib untuk item aktif: " ~ label) }}{% endif -%}
+<li>
+  <a
+    {%- if state == "disabled" %} aria-disabled="true"{% else %} href="{{ href }}"{% endif %}
+    {%- if state == "current" %} aria-current="page"{% elif state == "active" %} data-active="true"{% endif %}
+    {%- if size == "sm" %} data-size="sm"{% endif %}>
+    {%- if icon %}{{ icon(name=icon, class="size-4") }}{% endif %}
+    <span>{{ label }}</span>
+    {%- if soon %}{{ <badge label={t(key="nav-soon", lang="id")} variant="outline" class="ms-auto"/> }}{% endif %}
+  </a>
+  {%- if body is defined %}
+  <ul>{{ body }}</ul>
+  {%- endif %}
+</li>
+{%- endcomponent sidebar_nav %}

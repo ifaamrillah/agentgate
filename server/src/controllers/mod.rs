@@ -11,6 +11,7 @@ pub mod home;
 pub mod middleware;
 pub mod public_routes;
 pub mod render;
+pub mod shell;
 
 pub fn routes(ctx: &AppContext) -> AppRoutes {
     let routes = AppRoutes::with_default_routes()

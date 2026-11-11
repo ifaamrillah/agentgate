@@ -1,0 +1,9 @@
+{#- Komponen badge (label status singkat).
+    Parameter:
+      label: string             teks badge (sudah diterjemahkan pemanggil)
+      variant: primary|secondary|outline|destructive   (default secondary)
+      class: hanya untuk layout (margin, posisi), bukan warna/ukuran -#}
+{% component badge(label: string, variant: string = "secondary", class: string = "") %}
+{%- if variant not in ["primary", "secondary", "outline", "destructive"] %}{{ throw(message="badge: variant tidak dikenal: " ~ variant) }}{% endif -%}
+<span class="badge {{ class }}" data-variant="{{ variant }}">{{ label }}</span>
+{%- endcomponent badge %}

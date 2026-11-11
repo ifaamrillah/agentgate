@@ -6,3 +6,4 @@ pub mod errors;
 pub mod flash;
 pub mod form;
 pub mod home;
+pub mod layout;

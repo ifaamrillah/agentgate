@@ -21,6 +21,7 @@ use crate::{
     controllers::{
         extractors::{CurrentUser, MaybeCurrentUser, ValidForm},
         flash,
+        shell::app_shell,
     },
     models::{recovery_codes, users},
     services::auth::{
@@ -124,7 +125,13 @@ async fn settings(
 ) -> Result<Response> {
     if user.totp_enabled_at.is_some() {
         let remaining = recovery_codes::count_unused(&ctx.db, user.id).await?;
-        return views::account::two_factor_status(&v, remaining, None, StatusCode::OK);
+        return views::account::two_factor_status(
+            &v,
+            &app_shell(&user),
+            remaining,
+            None,
+            StatusCode::OK,
+        );
     }
     // Secret pending dipakai lagi bila ada, sehingga reload atau preload tidak menggantinya.
     let settings = Settings::from_ctx(&ctx)?;
@@ -140,7 +147,7 @@ async fn settings(
         secret: setup.secret_base32,
         error: "",
     };
-    let res = views::account::two_factor_setup(&v, &page, StatusCode::OK)?;
+    let res = views::account::two_factor_setup(&v, &app_shell(&user), &page, StatusCode::OK)?;
     Ok((session, res).into_response())
 }
 
@@ -159,7 +166,8 @@ async fn confirm(
     match totp::confirm(&ctx, &user, &sealed, form.code.expose_secret()).await? {
         Confirmed::Enabled(codes) => {
             let session = session.remove(SETUP_SECRET);
-            Ok((session, views::account::recovery_codes(&v, &codes)?).into_response())
+            let res = views::account::recovery_codes(&v, &app_shell(&user), &codes)?;
+            Ok((session, res).into_response())
         }
         // Klik ganda: request pertama sudah mengaktifkan 2FA dan menampilkan kodenya.
         Confirmed::AlreadyEnabled => {
@@ -180,8 +188,12 @@ async fn confirm(
                 secret: setup.secret_base32,
                 error: views::account::TOTP_CODE_INVALID,
             };
-            let res =
-                views::account::two_factor_setup(&v, &page, StatusCode::UNPROCESSABLE_ENTITY)?;
+            let res = views::account::two_factor_setup(
+                &v,
+                &app_shell(&user),
+                &page,
+                StatusCode::UNPROCESSABLE_ENTITY,
+            )?;
             Ok((session, res).into_response())
         }
     }
@@ -213,6 +225,7 @@ async fn disable(
     let remaining = recovery_codes::count_unused(&ctx.db, user.id).await?;
     views::account::two_factor_status(
         &v,
+        &app_shell(&user),
         remaining,
         Some(&wrong.into()),
         StatusCode::UNPROCESSABLE_ENTITY,
@@ -226,7 +239,7 @@ async fn regenerate_recovery_codes(
     CurrentUser(user): CurrentUser,
 ) -> Result<Response> {
     match totp::regenerate_recovery_codes(&ctx, &user).await? {
-        Some(codes) => views::account::recovery_codes(&v, &codes),
+        Some(codes) => views::account::recovery_codes(&v, &app_shell(&user), &codes),
         None => format::redirect(SETTINGS),
     }
 }

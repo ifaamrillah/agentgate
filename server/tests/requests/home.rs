@@ -32,3 +32,40 @@ async fn home_requires_sign_in() {
     })
     .await;
 }
+
+#[tokio::test]
+async fn app_layout_renders_with_minimal_shell() {
+    request::<App, _, _>(|request, ctx| async move {
+        let user = a_user().name("Budi Santoso").create(&ctx).await;
+        let cookie = sign_in_as(&request, &user).await;
+        let html = request.get("/").add_cookie(cookie).await.text();
+        assert_css_exists(
+            &html,
+            "aside.sidebar#app-sidebar > nav[hx-preload\\:inherited=\"mouseover\"]",
+        );
+        // Tombol menu mobile menunjuk ke sidebar.
+        assert_css_exists(
+            &html,
+            "button[data-sidebar-toggle=\"app-sidebar\"][aria-controls=\"app-sidebar\"]",
+        );
+        // Switcher tanpa workspace: hanya "Buat workspace", tanpa daftar.
+        assert_css_exists(
+            &html,
+            "[role=\"menu\"] a[role=\"menuitem\"][href=\"/w/new\"]",
+        );
+        assert_css_not_exists(&html, "[data-workspace-item]");
+        assert_css_not_exists(&html, "[data-project-list]");
+        // Tanpa workspace tidak ada Pengaturan.
+        assert_css_not_exists(&html, "a[href$=\"/settings\"]");
+        // Menu profil: Akun (link) dan Keluar (form POST).
+        assert_css_exists(&html, "a[role=\"menuitem\"][href=\"/account\"]");
+        assert_css_exists(
+            &html,
+            "form[method=\"post\"][action=\"/logout\"] button[type=\"submit\"]",
+        );
+        assert_css_not_exists(&html, "a[href=\"/logout\"]");
+        assert_css_eq(&html, "#profile-menu-trigger .avatar > span", "BS");
+        assert!(html.contains("Budi Santoso"));
+    })
+    .await;
+}
