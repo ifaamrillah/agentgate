@@ -13,10 +13,22 @@ use loco_rs::{
     task::Tasks,
 };
 use migration::Migrator;
+use sea_orm::{ConnectionTrait, DbBackend, Statement, Value};
 
 use crate::{common::settings::Settings, controllers, initializers};
 
 pub struct App;
+
+/// Semua tabel yang dikosongkan hook `truncate`; tabel baru didaftarkan di sini.
+const TRUNCATE_TABLES: &[&str] = &[
+    "users",
+    "user_tokens",
+    "login_throttles",
+    "identities",
+    "recovery_codes",
+    "loco_sessions",
+    "loco_remember_tokens",
+];
 
 #[async_trait]
 impl Hooks for App {
@@ -74,7 +86,32 @@ impl Hooks for App {
 
     fn register_tasks(_tasks: &mut Tasks) {}
 
-    async fn truncate(_ctx: &AppContext) -> Result<()> {
+    /// Kosongkan tabel sebelum tes (`dangerously_truncate`). Satu `TRUNCATE` untuk semua tabel
+    /// supaya urutan FK tidak penting. Tabel sesi Loco dibuat malas saat sesi pertama dipakai,
+    /// jadi hanya tabel yang sudah ada yang ikut (`to_regclass`).
+    async fn truncate(ctx: &AppContext) -> Result<()> {
+        let existing = ctx
+            .db
+            .query_all_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "SELECT t FROM unnest($1::text[]) AS t WHERE to_regclass(t) IS NOT NULL",
+                [Value::from(
+                    TRUNCATE_TABLES
+                        .iter()
+                        .map(|t| (*t).to_string())
+                        .collect::<Vec<_>>(),
+                )],
+            ))
+            .await?
+            .iter()
+            .map(|row| row.try_get_by_index::<String>(0))
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        if !existing.is_empty() {
+            // Nama tabel berasal dari konstanta TRUNCATE_TABLES, bukan input user.
+            ctx.db
+                .execute_unprepared(&format!("TRUNCATE {} CASCADE", existing.join(", ")))
+                .await?;
+        }
         Ok(())
     }
 

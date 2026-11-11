@@ -16,6 +16,7 @@ pub const MESSAGE_KEYS: &[&str] = &[
     "error-422",
     "error-429",
     "error-500",
+    "error-503",
     "error-4xx",
 ];
 
@@ -26,6 +27,7 @@ fn message_key(status: StatusCode) -> &'static str {
         404 => "error-404",
         422 => "error-422",
         429 => "error-429",
+        503 => "error-503",
         s if s >= 500 => "error-500",
         _ => "error-4xx",
     }

@@ -32,6 +32,14 @@ fn fill_random(buf: &mut [u8]) {
     OsRng.unwrap_err().fill_bytes(buf);
 }
 
+/// `N` byte acak dari RNG sistem operasi (mis. salt password).
+#[must_use]
+pub fn random_bytes<const N: usize>() -> [u8; N] {
+    let mut bytes = [0u8; N];
+    fill_random(&mut bytes);
+    bytes
+}
+
 /// Token acak 32 byte dari OS, base64url tanpa padding (43 karakter, aman di URL).
 #[must_use]
 pub fn random_token() -> String {

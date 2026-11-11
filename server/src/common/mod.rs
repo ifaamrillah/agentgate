@@ -2,3 +2,4 @@
 pub mod crypto;
 pub mod icons;
 pub mod settings;
+pub mod text;

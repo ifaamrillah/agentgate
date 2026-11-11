@@ -2,7 +2,9 @@
 
 use std::{collections::HashSet, path::Path};
 
-use agentgate_server::views::errors::MESSAGE_KEYS;
+use agentgate_server::{
+    common::text, models::users, services::auth::password, views::errors::MESSAGE_KEYS,
+};
 
 fn fluent_keys() -> HashSet<String> {
     let src = std::fs::read_to_string("assets/i18n/id/main.ftl").unwrap();
@@ -46,4 +48,12 @@ fn every_error_message_key_has_title_and_body() {
             assert!(keys.contains(&format!("{key}{suffix}")), "{key}{suffix}");
         }
     }
+}
+
+#[test]
+fn every_validation_error_code_has_a_message() {
+    let keys = fluent_keys();
+    let codes = [text::ERROR_CODES, users::ERROR_CODES, password::ERROR_CODES].concat();
+    let missing: Vec<_> = codes.iter().filter(|c| !keys.contains(**c)).collect();
+    assert!(missing.is_empty(), "kode error tanpa pesan: {missing:?}");
 }
