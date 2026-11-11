@@ -1,0 +1,19 @@
+{#- Kerangka halaman autentikasi: satu card di tengah layout publik.
+    Block: title (wajib), heading (judul card), description (opsional, di bawah judul),
+    card (isi card), below (opsional, di bawah card: link daftar dan sejenisnya).
+    Tidak membutuhkan variabel. -#}
+{% extends "layouts/public.html" %}
+{% block content %}
+<section class="card">
+  <header>
+    <h1 class="text-xl font-semibold">{% block heading %}{% endblock heading %}</h1>
+    <p class="text-sm text-muted-foreground">{% block description %}{% endblock description %}</p>
+  </header>
+  <section>
+    {% block card %}{% endblock card %}
+  </section>
+</section>
+<div class="mt-6 text-center text-sm text-muted-foreground">
+  {% block below %}{% endblock below %}
+</div>
+{% endblock content %}

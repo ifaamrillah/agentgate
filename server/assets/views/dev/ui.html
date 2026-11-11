@@ -18,4 +18,22 @@
     {{ <button label="submit" type="submit" icon="check"/> }}
   </div>
 </section>
+
+<section class="mt-8 max-w-md" id="field">
+  <h2 class="text-lg font-semibold">field</h2>
+  <form class="form mt-4 grid gap-6">
+    {{ <field id="catalog-name" name="name" label="Nama" value="Ana"/> }}
+    {{ <field id="catalog-email" name="email" type="email" label="Email" value="ana@example.test" autocomplete="email" required={true}/> }}
+    {{ <field id="catalog-password" name="password" type="password" label="Password" value="tidak-dirender" error="password-too-short" error_min={12}/> }}
+  </form>
+</section>
+
+<section class="mt-8 max-w-md" id="flash">
+  <h2 class="text-lg font-semibold">flash</h2>
+  <div class="mt-4 grid gap-3">
+    {% for kind in ["info", "success", "error"] %}
+      {{ <flash kind={kind} message={"Pesan " ~ kind}/> }}
+    {% endfor %}
+  </div>
+</section>
 {% endblock content %}

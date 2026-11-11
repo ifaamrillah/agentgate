@@ -8,7 +8,10 @@ use loco_rs::{
     bgworker::Queue,
     boot::{BootResult, StartMode, create_app},
     config::Config,
-    controller::AppRoutes,
+    controller::{
+        AppRoutes,
+        middleware::{self, MiddlewareLayer, MiddlewareStackExt},
+    },
     environment::Environment,
     task::Tasks,
 };
@@ -66,6 +69,17 @@ impl Hooks for App {
         controllers::routes(ctx)
     }
 
+    fn middlewares(ctx: &AppContext) -> Vec<Box<dyn MiddlewareLayer>> {
+        let mut stack = middleware::default_middleware_stack(ctx);
+        // Gate harus di DALAM `auth_session` (yang memasang state sesi per request), jadi
+        // disisipkan sebelum `auth_session` di Vec: yang lebih awal di Vec lebih dalam.
+        stack.insert_before(
+            "auth_session",
+            Box::new(controllers::middleware::gate::Gate::new(ctx)),
+        );
+        stack
+    }
+
     async fn before_routes(_ctx: &AppContext) -> Result<AxumRouter<AppContext>> {
         // Fallback dipasang di sini (sebelum middleware Loco diterapkan) supaya respons 404
         // ikut membawa CSP, request id, dan header keamanan lain.
@@ -73,8 +87,9 @@ impl Hooks for App {
     }
 
     async fn after_routes(router: AxumRouter, _ctx: &AppContext) -> Result<AxumRouter> {
-        // CSRF membungkus semua route; penolakannya dirender sebagai halaman HTML oleh
-        // layer html_errors yang dipasang view engine di luar layer ini.
+        // CSRF membungkus semua route (di luar stack Loco, sehingga berjalan sebelum gate login
+        // di `middlewares`); penolakannya dirender sebagai halaman HTML oleh layer html_errors
+        // yang dipasang view engine di luar layer ini.
         Ok(router.layer(axum::middleware::from_fn(
             controllers::middleware::csrf::layer,
         )))

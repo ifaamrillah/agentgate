@@ -1,0 +1,113 @@
+//! `GET /login` dan `POST /login`: email + password.
+use axum::{extract::Query, http::StatusCode};
+use loco_rs::{controller::middleware::remote_ip::RemoteIP, prelude::*};
+use secrecy::SecretString;
+use serde::Deserialize;
+
+use crate::{
+    common::settings::Settings,
+    controllers::extractors::{MaybeCurrentUser, ValidForm},
+    services::auth::sign_in::{self, PasswordSignIn, SignInStep},
+    views::{self, auth::LoginPage},
+};
+
+/// Halaman setelah login bila tidak ada `return_to`.
+const HOME: &str = "/";
+/// Halaman kode 2FA untuk sesi pending (M1 Task 6).
+const SECOND_FACTOR: &str = "/login/2fa";
+
+#[derive(Debug, Deserialize)]
+pub struct ShowParams {
+    return_to: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct LoginForm {
+    email: String,
+    password: SecretString,
+    #[serde(default)]
+    return_to: Option<String>,
+}
+
+#[debug_handler]
+async fn show(
+    State(ctx): State<AppContext>,
+    ViewEngine(v): ViewEngine<TeraView>,
+    MaybeCurrentUser(user): MaybeCurrentUser,
+    Query(params): Query<ShowParams>,
+) -> Result<Response> {
+    if user.is_some() {
+        return format::redirect(HOME);
+    }
+    let page = login_page(&ctx, "", params.return_to.as_deref());
+    views::auth::login(&v, &page, StatusCode::OK)
+}
+
+#[debug_handler]
+async fn submit(
+    State(ctx): State<AppContext>,
+    ViewEngine(v): ViewEngine<TeraView>,
+    remote_ip: RemoteIP,
+    session: Session,
+    ValidForm(form): ValidForm<LoginForm>,
+) -> Result<Response> {
+    let ip = match remote_ip {
+        RemoteIP::Forwarded(ip) | RemoteIP::Socket(ip) => ip,
+        RemoteIP::None => {
+            // Salah konfigurasi middleware remote_ip: rate limit per IP tidak boleh diam-diam
+            // terlewati, jadi login ditolak.
+            tracing::error!(
+                "login rejected: client IP unavailable (check server.middlewares.remote_ip)"
+            );
+            return Err(Error::InternalServerError);
+        }
+    };
+    let settings = Settings::from_ctx(&ctx)?;
+    let page = login_page(&ctx, &form.email, form.return_to.as_deref());
+    match sign_in::with_password(&ctx.db, &settings.auth, &form.email, &form.password, ip).await? {
+        PasswordSignIn::Authenticated(user) => match sign_in::complete(&ctx, session, &user)? {
+            SignInStep::Done(session) => {
+                let target = page.return_to.as_deref().unwrap_or(HOME);
+                Ok((session, format::redirect(target)?).into_response())
+            }
+            SignInStep::NeedsSecondFactor(session) => {
+                Ok((session, format::redirect(SECOND_FACTOR)?).into_response())
+            }
+        },
+        PasswordSignIn::Unverified(_) => views::auth::verify_pending(&v),
+        PasswordSignIn::Rejected => views::auth::login(
+            &v,
+            &page.with_error(views::auth::INVALID_CREDENTIALS),
+            StatusCode::UNPROCESSABLE_ENTITY,
+        ),
+        PasswordSignIn::Locked => views::auth::login(
+            &v,
+            &page.with_error(views::auth::TOO_MANY_ATTEMPTS),
+            StatusCode::TOO_MANY_REQUESTS,
+        ),
+    }
+}
+
+/// Data halaman login. `return_to` yang tidak aman dibuang di sini, sehingga form maupun
+/// redirect hanya pernah memakai nilai yang lolos `safe_return_to`.
+fn login_page(ctx: &AppContext, email: &str, return_to: Option<&str>) -> LoginPage {
+    // Tombol OAuth hanya untuk provider yang dikonfigurasi (`auth.oauth.providers`).
+    let providers = ctx
+        .config
+        .auth
+        .as_ref()
+        .and_then(|a| a.oauth.as_ref())
+        .map(|o| &o.providers);
+    let has = |name: &str| providers.is_some_and(|p| p.contains_key(name));
+    LoginPage {
+        email: email.trim().to_string(),
+        return_to: return_to.and_then(sign_in::safe_return_to),
+        error: "",
+        oauth_google: has("google"),
+        oauth_github: has("github"),
+    }
+}
+
+pub fn routes() -> Routes {
+    Routes::new().add("/login", get(show).post(submit))
+}

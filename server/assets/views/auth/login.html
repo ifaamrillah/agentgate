@@ -1,0 +1,32 @@
+{#- Halaman login. Variabel (views::auth::LoginPage): email (string), return_to (string atau
+    null, sudah aman), error (kunci Fluent atau ""), oauth_google, oauth_github (bool).
+    Password tidak pernah dirender ulang. -#}
+{% extends "auth/_layout_card.html" %}
+{% block title %}{{ t(key="login-title", lang="id") }}{% endblock title %}
+{% block heading %}{{ t(key="login-title", lang="id") }}{% endblock heading %}
+{% block description %}{{ t(key="login-description", lang="id") }}{% endblock description %}
+{% block card %}
+{% if error %}
+  <div class="mb-6">{{ <flash kind="error" message={t(key=error, lang="id")}/> }}</div>
+{% endif %}
+<form method="post" action="/login" class="form grid gap-6">
+  {% if return_to %}<input type="hidden" name="return_to" value="{{ return_to }}">{% endif %}
+  {{ <field id="login-email" name="email" type="email" label={t(key="login-email", lang="id")} value={email} autocomplete="email" required={true} autofocus={true}/> }}
+  {{ <field id="login-password" name="password" type="password" label={t(key="login-password", lang="id")} autocomplete="current-password" required={true}/> }}
+  <div class="flex items-center justify-end text-sm">
+    <a href="/password/forgot" class="underline underline-offset-4">{{ t(key="login-forgot-password", lang="id") }}</a>
+  </div>
+  {{ <button label={t(key="login-submit", lang="id")} type="submit" class="w-full"/> }}
+</form>
+{% if oauth_google or oauth_github %}
+<div class="mt-6 grid gap-3">
+  <p class="text-center text-sm text-muted-foreground">{{ t(key="login-or", lang="id") }}</p>
+  {#- Ke domain provider: navigasi browser penuh, bukan request HTMX (rules §6). -#}
+  {% if oauth_google %}<a href="/auth/google" class="btn w-full" data-variant="outline" hx-boost="false">{{ t(key="login-with-google", lang="id") }}</a>{% endif %}
+  {% if oauth_github %}<a href="/auth/github" class="btn w-full" data-variant="outline" hx-boost="false">{{ t(key="login-with-github", lang="id") }}</a>{% endif %}
+</div>
+{% endif %}
+{% endblock card %}
+{% block below %}
+{{ t(key="login-no-account", lang="id") }} <a href="/register" class="underline underline-offset-4">{{ t(key="login-register", lang="id") }}</a>
+{% endblock below %}

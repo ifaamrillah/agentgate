@@ -6,7 +6,7 @@ const CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self' 'unsa
 #[tokio::test]
 async fn pages_carry_strict_csp_and_request_id() {
     request::<App, _, _>(|request, _ctx| async move {
-        let res = request.get("/").await;
+        let res = request.get("/login").await;
         assert_eq!(res.header("content-security-policy").to_str().unwrap(), CSP);
         assert!(!res.header("x-request-id").is_empty());
     })

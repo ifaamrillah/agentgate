@@ -86,7 +86,7 @@ async fn cross_site_get_is_allowed() {
     let out = code.clone();
     request::<App, _, _>(|request, _ctx| async move {
         let res = request
-            .get("/")
+            .get("/login")
             .add_header("sec-fetch-site", "cross-site")
             .await;
         out.store(res.status_code().as_u16(), Ordering::SeqCst);

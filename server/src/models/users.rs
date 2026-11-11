@@ -5,7 +5,7 @@
 //! (arah layer §3), jadi `NewUser` menerima PHC string, bukan password mentah.
 
 use loco_rs::validation::ModelValidationErrors;
-use sea_orm::{ActiveValue::Set, SqlErr, entity::prelude::*};
+use sea_orm::{ActiveValue::Set, IntoActiveModel, SqlErr, entity::prelude::*};
 use validator::{ValidateEmail, ValidationError, ValidationErrors};
 
 pub use super::_entities::users::{ActiveModel, Column, Entity, Model};
@@ -88,6 +88,31 @@ impl Model {
             .filter(Column::Email.eq(normalize_email(email)))
             .one(db)
             .await
+    }
+
+    /// User dengan id ini, aktif atau tidak.
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn find_by_id<C: ConnectionTrait>(db: &C, id: Uuid) -> Result<Option<Self>, DbErr> {
+        Entity::find_by_id(id).one(db).await
+    }
+
+    /// Ganti PHC string tanpa menyentuh `password_changed_at`: dipakai rehash saat login,
+    /// yang bukan penggantian password oleh user.
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn rehash_password<C: ConnectionTrait>(
+        self,
+        db: &C,
+        password_hash: String,
+    ) -> Result<Self, DbErr> {
+        let mut user = self.into_active_model();
+        user.password_hash = Set(Some(password_hash));
+        user.update(db).await
     }
 
     /// Boleh login dan memakai sesi: belum dinonaktifkan.

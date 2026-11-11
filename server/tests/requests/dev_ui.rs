@@ -24,3 +24,19 @@ async fn component_catalog_renders_every_button_variant() {
     })
     .await;
 }
+
+#[tokio::test]
+async fn component_catalog_renders_field_and_flash() {
+    request::<App, _, _>(|request, _ctx| async move {
+        let html = request.get("/_dev/ui").await.text();
+        // field: label terhubung ke input, error diterjemahkan dari kode dan ditautkan aria.
+        assert!(html.contains("for=\"catalog-email\""), "{html}");
+        assert!(html.contains("aria-invalid=\"true\""));
+        assert!(html.contains("aria-describedby=\"catalog-password-error\""));
+        assert!(html.contains("Password minimal 12 karakter."));
+        for kind in ["info", "success", "error"] {
+            assert!(html.contains(&format!("data-flash=\"{kind}\"")), "{kind}");
+        }
+    })
+    .await;
+}

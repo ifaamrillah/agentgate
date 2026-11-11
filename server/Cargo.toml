@@ -79,6 +79,8 @@ loco-rs = { workspace = true, features = ["testing"] }
 tera = "2.4"
 # Memanggil router Axum langsung di tes layer (`ServiceExt::oneshot`).
 tower = { version = "0.5", features = ["util"] }
+# Tipe `TestServer`/`TestResponse` yang dipakai helper tes Loco (versi sama dengan Loco).
+axum-test = "17.3"
 
 [lints]
 workspace = true

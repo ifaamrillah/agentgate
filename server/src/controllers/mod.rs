@@ -1,14 +1,19 @@
 //! Adapter HTTP tipis. Semua route didaftarkan di `routes`.
 use loco_rs::{app::AppContext, controller::AppRoutes, environment::Environment};
 
+pub mod auth;
 #[cfg(debug_assertions)]
 pub mod dev;
+pub mod extractors;
 pub mod home;
 pub mod middleware;
+pub mod public_routes;
 pub mod render;
 
 pub fn routes(ctx: &AppContext) -> AppRoutes {
-    let routes = AppRoutes::with_default_routes().add_route(home::routes());
+    let routes = AppRoutes::with_default_routes()
+        .add_route(auth::routes())
+        .add_route(home::routes());
     add_dev_routes(routes, &ctx.environment)
 }
 

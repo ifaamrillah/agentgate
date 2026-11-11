@@ -1,0 +1,12 @@
+{#- Password benar tetapi email belum diverifikasi: tidak ada sesi. Tidak membutuhkan variabel. -#}
+{% extends "auth/_layout_card.html" %}
+{% block title %}{{ t(key="verify-pending-title", lang="id") }}{% endblock title %}
+{% block heading %}{{ t(key="verify-pending-title", lang="id") }}{% endblock heading %}
+{% block description %}{{ t(key="verify-pending-description", lang="id") }}{% endblock description %}
+{% block card %}
+<p class="text-sm">{{ t(key="verify-pending-body", lang="id") }}</p>
+{#- M1 Task 4: form POST "kirim ulang email verifikasi" (ikut rate limit) dipasang di sini. -#}
+{% endblock card %}
+{% block below %}
+<a href="/login" class="underline underline-offset-4">{{ t(key="verify-pending-back", lang="id") }}</a>
+{% endblock below %}

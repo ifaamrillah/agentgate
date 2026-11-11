@@ -1,0 +1,27 @@
+{#- Komponen field form: label, input, dan pesan error yang diterjemahkan dari kode error.
+    Parameter:
+      id: string                id input (dasar id pesan error `<id>-error`)
+      name: string              nama field form
+      label: string             teks label (sudah diterjemahkan pemanggil)
+      type: text|email|password (default text). Field password tidak pernah merender value.
+      value: string             nilai terisi (default "")
+      error: string             kode error validasi = kunci Fluent (default "" = tanpa error)
+      error_min, error_max: integer  argumen pesan error `$min`/`$max` (default 0)
+      autocomplete: string      (default "" = tanpa atribut)
+      required, autofocus: bool (default false)
+      class: hanya untuk layout (margin, lebar), bukan warna/ukuran -#}
+{% component field(id: string, name: string, label: string, type: string = "text", value: string = "", error: string = "", error_min: integer = 0, error_max: integer = 0, autocomplete: string = "", required: bool = false, autofocus: bool = false, class: string = "") %}
+{%- if type not in ["text", "email", "password"] %}{{ throw(message="field: type tidak dikenal: " ~ type) }}{% endif -%}
+<div class="field {{ class }}"{% if error %} data-invalid="true"{% endif %}>
+  <label for="{{ id }}">{{ label }}</label>
+  <input class="input" type="{{ type }}" id="{{ id }}" name="{{ name }}"
+    {%- if type != "password" %} value="{{ value }}"{% endif %}
+    {%- if autocomplete %} autocomplete="{{ autocomplete }}"{% endif %}
+    {%- if required %} required{% endif %}
+    {%- if autofocus %} autofocus{% endif %}
+    {%- if error %} aria-invalid="true" aria-describedby="{{ id }}-error"{% endif %}>
+  {%- if error %}
+  <p role="alert" id="{{ id }}-error">{{ t(key=error, lang="id", min=error_min, max=error_max) }}</p>
+  {%- endif %}
+</div>
+{%- endcomponent field %}

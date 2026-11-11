@@ -1,9 +1,12 @@
 use loco_rs::prelude::*;
 
-use crate::views;
+use crate::{controllers::extractors::CurrentUser, views};
 
-#[debug_handler]
-async fn index(ViewEngine(v): ViewEngine<TeraView>) -> Result<Response> {
+#[debug_handler(state = AppContext)]
+async fn index(
+    CurrentUser(_user): CurrentUser,
+    ViewEngine(v): ViewEngine<TeraView>,
+) -> Result<Response> {
     views::home::index(&v)
 }
 

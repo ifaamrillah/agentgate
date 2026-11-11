@@ -1,3 +1,4 @@
+mod auth;
 mod csrf;
 mod dev_ui;
 mod errors;

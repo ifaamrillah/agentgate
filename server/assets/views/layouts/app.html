@@ -12,6 +12,12 @@
         {{ icon(name="home", class="size-4") }}{{ t(key="nav-home", lang="id") }}
       </a>
     </nav>
+    {#- Logout adalah form POST, bukan link: GET tidak pernah mengubah data (rules §6). -#}
+    <form method="post" action="/logout" class="mt-6">
+      <button type="submit" class="btn w-full justify-start" data-variant="ghost" data-size="sm">
+        {{ icon(name="logout", class="size-4") }}{{ t(key="nav-logout", lang="id") }}
+      </button>
+    </form>
   </aside>
   <main class="min-w-0 flex-1 p-4 md:p-8">
     {% block content %}{% endblock content %}
