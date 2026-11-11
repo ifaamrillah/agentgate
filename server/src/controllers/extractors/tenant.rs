@@ -7,7 +7,8 @@
 //! - workspace tidak ada, user bukan anggota, atau workspace dijadwalkan hapus dan user bukan
 //!   Owner → 404, sama persis, supaya keberadaan workspace tidak bocor;
 //! - workspace mewajibkan 2FA dan user belum mengaktifkannya → 303 ke setup 2FA. Dicek setelah
-//!   keanggotaan: bukan anggota tetap 404.
+//!   keanggotaan: bukan anggota tetap 404. Pengecualian: [`MemberIgnoring2fa`] untuk keluar
+//!   dari workspace.
 //!
 //! Slug dicocokkan tanpa membedakan huruf besar; `/w/ACME` me-resolve `acme` tanpa redirect,
 //! dan link yang dibangun halaman memakai slug kanonis dari database.
@@ -76,6 +77,32 @@ where
         if let Some(tenant) = parts.extensions.get::<Self>() {
             return Ok(tenant.clone());
         }
+        let MemberIgnoring2fa(tenant) = MemberIgnoring2fa::from_request_parts(parts, state).await?;
+        if tenant.workspace.requires_two_factor_from(&tenant.user) {
+            let location = two_factor_required_path(&tenant.workspace.slug);
+            return Err((StatusCode::SEE_OTHER, [(header::LOCATION, location)]).into_response());
+        }
+        parts.extensions.insert(tenant.clone());
+        Ok(tenant)
+    }
+}
+
+/// Seperti [`Tenant`] (login, keanggotaan, workspace terbuka untuk role-nya; selain itu 404),
+/// tanpa redirect ke setup 2FA bila workspace mewajibkannya. Hanya untuk "Keluar dari
+/// workspace": anggota tanpa 2FA tidak dipaksa mengaktifkan 2FA hanya untuk keluar. Tidak
+/// disimpan di extensions request, supaya `Tenant` di request yang sama tetap memeriksa 2FA.
+#[derive(Debug, Clone)]
+pub struct MemberIgnoring2fa(pub Tenant);
+
+impl<S> FromRequestParts<S> for MemberIgnoring2fa
+where
+    AppContext: FromRef<S>,
+    S: Send + Sync,
+{
+    type Rejection = Response;
+
+    /// Login, slug dari path, dan keanggotaan, tanpa aturan 2FA workspace.
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
         let CurrentUser(user) = CurrentUser::from_request_parts(parts, state).await?;
         let slug = RawPathParams::from_request_parts(parts, state)
             .await
@@ -88,16 +115,11 @@ where
             return Err(StatusCode::NOT_FOUND.into_response());
         };
         let ctx = AppContext::from_ref(state);
-        let tenant = resolve(&ctx, user, &slug)
+        resolve(&ctx, user, &slug)
             .await
             .map_err(|e| loco_rs::Error::from(e).into_response())?
-            .ok_or_else(|| StatusCode::NOT_FOUND.into_response())?;
-        if tenant.workspace.requires_two_factor_from(&tenant.user) {
-            let location = two_factor_required_path(&tenant.workspace.slug);
-            return Err((StatusCode::SEE_OTHER, [(header::LOCATION, location)]).into_response());
-        }
-        parts.extensions.insert(tenant.clone());
-        Ok(tenant)
+            .map(Self)
+            .ok_or_else(|| StatusCode::NOT_FOUND.into_response())
     }
 }
 

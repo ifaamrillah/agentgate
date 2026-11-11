@@ -6,7 +6,7 @@ use std::collections::HashSet;
 use agentgate_server::{
     app::App,
     models::{
-        audit_events::{self, AuditAction, AuditSubject},
+        audit_events::{AuditAction, AuditSubject},
         permission::Permission,
         roles::RoleKey,
         workspace_members, workspaces,
@@ -85,7 +85,7 @@ async fn audit_rows_written_for_invite_and_role_change() {
             .await;
         assert_eq!(res.status_code(), 303, "{}", res.text());
 
-        let events = audit_events::Model::newest_first(&ctx.db, workspace.workspace_id(), 10)
+        let events = crate::support::newest_audit_events(&ctx.db, workspace.workspace_id(), 10)
             .await
             .unwrap();
         let actions: Vec<_> = events.iter().map(|e| e.action().unwrap()).collect();

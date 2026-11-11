@@ -4,7 +4,7 @@
 use agentgate_server::{
     app::App,
     models::{
-        audit_events::{self, AuditAction, AuditSubject},
+        audit_events::{AuditAction, AuditSubject},
         project_grants::{self, GrantSubject},
         projects,
         roles::RoleKey,
@@ -63,7 +63,7 @@ async fn project_key_unique_case_insensitive_and_normalized_upper() {
         assert_eq!(grants[0].subject().unwrap(), GrantSubject::User(member.id));
         assert_eq!(grants[0].role_id, admin.id);
 
-        let events = audit_events::Model::newest_first(&ctx.db, wid, 10)
+        let events = crate::support::newest_audit_events(&ctx.db, wid, 10)
             .await
             .unwrap();
         let actions: Vec<_> = events
@@ -225,7 +225,7 @@ async fn project_settings_update_and_archive() {
         let home = request.get("/w/acme").add_cookie(cookie).await.text();
         assert_css_exists(&home, "[data-project=\"KSR\"] [data-project-archived]");
 
-        let events = audit_events::Model::newest_first(&ctx.db, wid, 10)
+        let events = crate::support::newest_audit_events(&ctx.db, wid, 10)
             .await
             .unwrap();
         assert_eq!(events[0].action().unwrap(), AuditAction::ProjectArchived);

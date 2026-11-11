@@ -14,12 +14,15 @@ pub const FLASH_PASSWORD_CHANGED: &str = "flash-password-changed";
 pub const FLASH_TWO_FACTOR_DISABLED: &str = "flash-two-factor-disabled";
 /// Kode konfirmasi setup 2FA salah.
 pub const TOTP_CODE_INVALID: &str = "totp-code-invalid";
+/// Kode TOTP/kode pemulihan untuk mematikan 2FA kosong, salah, atau sudah dipakai.
+pub const TOTP_DISABLE_CODE_INVALID: &str = "totp-disable-code-invalid";
 /// Kunci Fluent yang dikirim sebagai variabel ke template (dijaga tes i18n).
 pub const MESSAGE_KEYS: &[&str] = &[
     FLASH_PROFILE_SAVED,
     FLASH_PASSWORD_CHANGED,
     FLASH_TWO_FACTOR_DISABLED,
     TOTP_CODE_INVALID,
+    TOTP_DISABLE_CODE_INVALID,
 ];
 
 /// Halaman yang berisi rahasia (secret TOTP, kode pemulihan): tidak disimpan cache browser
@@ -28,7 +31,7 @@ const NO_STORE: (&str, &str) = ("cache-control", "no-store");
 
 pub const PROFILE_FIELDS: &[&str] = &["name"];
 pub const PASSWORD_FIELDS: &[&str] = &["current_password", "password"];
-pub const DISABLE_TWO_FACTOR_FIELDS: &[&str] = &["current_password"];
+pub const DISABLE_TWO_FACTOR_FIELDS: &[&str] = &["current_password", "code"];
 
 /// Data `account/show.html`. `name` adalah isian form (nilai tersimpan, atau isian yang gagal
 /// validasi); `email` selalu nilai tersimpan.
@@ -115,7 +118,8 @@ pub fn two_factor_setup(
         .view(v, "account/two_factor_setup.html", app_page(shell, page))
 }
 
-/// 2FA aktif: sisa kode pemulihan, buat ulang kode, dan matikan 2FA (butuh password).
+/// 2FA aktif: sisa kode pemulihan, buat ulang kode, dan matikan 2FA (butuh password dan kode
+/// TOTP atau kode pemulihan).
 pub fn two_factor_status(
     v: &impl ViewRenderer,
     shell: &AppShell,

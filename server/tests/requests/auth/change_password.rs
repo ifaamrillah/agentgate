@@ -146,3 +146,40 @@ async fn change_password_keeps_only_current_device_signed_in() {
     })
     .await;
 }
+
+/// Sesi curian tidak bisa menebak password saat ini tanpa batas: percobaan dipesan di rate
+/// limit per user sebelum password diperiksa, dan kuncinya 429 seperti login.
+#[tokio::test]
+async fn change_password_locks_after_repeated_wrong_passwords() {
+    request::<App, _, _>(|request, ctx| async move {
+        let user = a_user().create(&ctx).await;
+        let cookie = sign_in_as(&request, &user).await;
+        for attempt in 1..=5 {
+            let res = request
+                .post("/account/password")
+                .add_cookie(cookie.clone())
+                .form(&[
+                    ("current_password", "password yang salah"),
+                    ("password", NEW_PASSWORD),
+                ])
+                .await;
+            assert_eq!(res.status_code(), 422, "percobaan {attempt}");
+        }
+        let res = request
+            .post("/account/password")
+            .add_cookie(cookie.clone())
+            .form(&[
+                ("current_password", TEST_PASSWORD),
+                ("password", NEW_PASSWORD),
+            ])
+            .await;
+        assert_eq!(res.status_code(), 429, "{}", res.text());
+        assert!(res.text().contains("Terlalu banyak percobaan"));
+        let stored = users::Model::find_by_id(&ctx.db, user.id)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(stored.password_hash, user.password_hash);
+    })
+    .await;
+}

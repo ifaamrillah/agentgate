@@ -6,7 +6,7 @@ use agentgate_server::{
     app::App,
     common::{crypto, settings::Settings},
     models::{
-        audit_events::{self, AuditAction, AuditSubject},
+        audit_events::{AuditAction, AuditSubject},
         invitations, job_titles,
         roles::RoleKey,
         users, workspace_members,
@@ -138,7 +138,7 @@ async fn owner_can_invite_and_email_is_sent() {
         }
 
         // Audit tanpa token.
-        let event = &audit_events::Model::newest_first(&ctx.db, wid, 1)
+        let event = &crate::support::newest_audit_events(&ctx.db, wid, 1)
             .await
             .unwrap()[0];
         assert_eq!(event.action().unwrap(), AuditAction::MemberInvited);
@@ -453,7 +453,7 @@ async fn invite_accept_requires_matching_email() {
         assert_eq!(member.job_title_id, Some(title.id));
         let invitation = &invitations_for(&ctx, "eka@example.test").await[0];
         assert!(invitation.accepted_at.is_some());
-        let event = &audit_events::Model::newest_first(&ctx.db, wid, 1)
+        let event = &crate::support::newest_audit_events(&ctx.db, wid, 1)
             .await
             .unwrap()[0];
         assert_eq!(event.action().unwrap(), AuditAction::MemberJoined);
@@ -925,5 +925,58 @@ async fn register_via_invite_works_when_registration_is_closed() {
             );
         },
     )
+    .await;
+}
+
+/// Role custom dengan semua izin Admin tidak bisa mengundang sebagai role bawaan Admin (Admin
+/// di semua project hanya diberikan Owner atau Admin).
+#[tokio::test]
+async fn custom_role_with_admin_permissions_cannot_invite_as_admin() {
+    request::<App, _, _>(|request, ctx| async move {
+        let owner = a_user().create(&ctx).await;
+        let workspace = a_workspace(&owner).slug("acme").create(&ctx).await;
+        let wid = workspace.workspace_id();
+        let admin_permissions = agentgate_server::models::permission::BUILTIN_ROLES
+            .iter()
+            .find(|r| r.key == RoleKey::Admin)
+            .unwrap()
+            .permissions
+            .to_vec();
+        let co_admin = agentgate_server::models::roles::ActiveModel::create_custom(
+            &ctx.db,
+            wid,
+            "Wakil",
+            admin_permissions,
+        )
+        .await
+        .unwrap();
+        let wakil = a_user().create(&ctx).await;
+        workspace_members::ActiveModel::add(&ctx.db, wid, wakil.id, co_admin.id)
+            .await
+            .unwrap();
+        let admin_role = builtin_role(&ctx, &workspace, RoleKey::Admin).await;
+        let cookie = sign_in_as(&request, &wakil).await;
+
+        let html = request.get(MEMBERS).add_cookie(cookie.clone()).await.text();
+        assert_css_not_exists(
+            &html,
+            &format!("select#invite-role option[value=\"{}\"]", admin_role.id),
+        );
+        let res = request
+            .post(INVITE)
+            .add_cookie(cookie.clone())
+            .form(&[
+                ("email", "kiki@example.test"),
+                ("role_id", &admin_role.id.to_string()),
+                ("job_title_id", ""),
+            ])
+            .await;
+        assert_eq!(res.status_code(), 422);
+        assert_css_exists(&res.text(), "#invite-role-error");
+        assert!(invitations_for(&ctx, "kiki@example.test").await.is_empty());
+
+        // Role custom-nya sendiri tetap boleh diberikan.
+        invite(&request, &ctx, &cookie, "kiki@example.test", co_admin.id).await;
+    })
     .await;
 }

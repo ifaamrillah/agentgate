@@ -78,6 +78,10 @@ pub enum WorkspaceError {
     /// Validasi field (`name`, `slug`) gagal, termasuk slug yang sudah dipakai.
     #[error("invalid workspace: {0}")]
     Invalid(ModelValidationErrors),
+    /// Workspace sudah tidak ada, atau pelaku (dibaca ulang setelah kunci) tidak lagi boleh
+    /// mengubahnya: 404, sama dengan guard `Require`.
+    #[error("workspace not found")]
+    NotFound,
     #[error(transparent)]
     Db(#[from] DbErr),
 }
@@ -86,6 +90,7 @@ impl From<WorkspaceError> for loco_rs::Error {
     fn from(err: WorkspaceError) -> Self {
         match err {
             WorkspaceError::Invalid(errors) => Self::Validation(errors),
+            WorkspaceError::NotFound => Self::NotFound,
             WorkspaceError::Db(e) => Self::DB(e),
         }
     }

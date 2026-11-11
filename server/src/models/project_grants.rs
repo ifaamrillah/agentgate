@@ -87,6 +87,28 @@ impl Model {
             .await
     }
 
+    /// Ada grant (project mana pun, tim atau orang) yang memakai role `role_id`.
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn exists_for_role<C: ConnectionTrait>(
+        db: &C,
+        workspace_id: WorkspaceId,
+        role_id: Uuid,
+    ) -> Result<bool, DbErr> {
+        let found = Entity::find()
+            .in_tenant(workspace_id)
+            .filter(Column::RoleId.eq(role_id))
+            .select_only()
+            .column(Column::Id)
+            .limit(1)
+            .into_tuple::<Uuid>()
+            .one(db)
+            .await?;
+        Ok(found.is_some())
+    }
+
     /// Semua grant tim `team_id` (di project mana pun), urut waktu dibuat.
     ///
     /// # Errors

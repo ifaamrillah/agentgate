@@ -4,7 +4,7 @@
 use agentgate_server::{
     app::App,
     models::{
-        audit_events::{self, AuditAction, AuditSubject},
+        audit_events::{AuditAction, AuditSubject},
         permission::Permission,
         project_grants::{self, GrantSubject},
         roles::RoleKey,
@@ -134,7 +134,7 @@ async fn team_crud_and_members() {
                 .is_none()
         );
 
-        let events = audit_events::Model::newest_first(&ctx.db, wid, 10)
+        let events = crate::support::newest_audit_events(&ctx.db, wid, 10)
             .await
             .unwrap();
         let actions: Vec<_> = events
@@ -209,7 +209,7 @@ async fn deleting_team_removes_its_project_grants() {
         );
         let res = request.get("/w/acme/p/KSR").add_cookie(dev_cookie).await;
         assert_eq!(res.status_code(), 404);
-        let events = audit_events::Model::newest_first(&ctx.db, wid, 1)
+        let events = crate::support::newest_audit_events(&ctx.db, wid, 1)
             .await
             .unwrap();
         assert_eq!(events[0].action().unwrap(), AuditAction::TeamDeleted);
@@ -459,7 +459,7 @@ async fn removed_team_member_loses_project_access() {
         let res = request.get("/w/acme/p/KSR").add_cookie(dev_cookie).await;
         assert_eq!(res.status_code(), 404);
 
-        let events = audit_events::Model::newest_first(&ctx.db, wid, 1)
+        let events = crate::support::newest_audit_events(&ctx.db, wid, 1)
             .await
             .unwrap();
         assert_eq!(events[0].action().unwrap(), AuditAction::TeamMemberRemoved);

@@ -9,10 +9,11 @@
 //!   `?required=<slug>` (dari extractor `Tenant`, workspace yang mewajibkan 2FA) hanya
 //!   menampilkan pemberitahuan; nilainya tidak dipakai.
 //! - `POST /account/2fa`: konfirmasi setup dengan kode; menampilkan kode pemulihan sekali.
-//! - `POST /account/2fa/disable`: matikan 2FA (butuh password saat ini).
+//! - `POST /account/2fa/disable`: matikan 2FA (butuh password saat ini dan kode TOTP atau kode
+//!   pemulihan; rate limit per user, terkunci → 429).
 //! - `POST /account/2fa/recovery-codes`: buat ulang kode pemulihan.
 use axum::http::StatusCode;
-use loco_rs::prelude::*;
+use loco_rs::{prelude::*, validation::ModelValidationErrors};
 use secrecy::{ExposeSecret, SecretString};
 use serde::Deserialize;
 use validator::{ValidationError, ValidationErrors};
@@ -21,6 +22,7 @@ use super::login::HOME;
 use crate::{
     common::settings::Settings,
     controllers::{
+        account::too_many_attempts,
         extractors::{CurrentUser, MaybeCurrentUser, ValidForm},
         flash,
         shell::app_shell,
@@ -29,7 +31,7 @@ use crate::{
     services::auth::{
         password_change::CURRENT_PASSWORD_WRONG,
         sign_in::{self, PendingSecondFactor},
-        totp::{self, Confirmed, SecondStep},
+        totp::{self, Confirmed, Disabled, SecondStep},
     },
     views::{self, account::TwoFactorSetupPage, flash::Flash},
 };
@@ -52,6 +54,9 @@ pub struct CodeForm {
 pub struct DisableForm {
     #[serde(default = "empty_secret")]
     current_password: SecretString,
+    /// Kode TOTP atau kode pemulihan; disamarkan di `Debug` seperti password.
+    #[serde(default = "empty_secret")]
+    code: SecretString,
 }
 
 /// Query `GET /account/2fa`. Field lain diabaikan.
@@ -230,26 +235,45 @@ async fn disable(
     if user.totp_enabled_at.is_none() {
         return format::redirect(ACCOUNT);
     }
-    if totp::disable(&ctx, &user, &form.current_password).await? {
-        let session = flash::set(
-            session,
-            &Flash::success(views::account::FLASH_TWO_FACTOR_DISABLED),
-        )?;
-        return Ok((session, format::redirect(ACCOUNT)?).into_response());
-    }
-    let mut wrong = ValidationErrors::new();
-    wrong.add(
-        "current_password",
-        ValidationError::new(CURRENT_PASSWORD_WRONG),
-    );
+    let (errors, status) = match totp::disable(
+        &ctx,
+        &user,
+        &form.current_password,
+        form.code.expose_secret(),
+    )
+    .await?
+    {
+        Disabled::Done => {
+            let session = flash::set(
+                session,
+                &Flash::success(views::account::FLASH_TWO_FACTOR_DISABLED),
+            )?;
+            return Ok((session, format::redirect(ACCOUNT)?).into_response());
+        }
+        Disabled::WrongPassword => (
+            field_error("current_password", CURRENT_PASSWORD_WRONG),
+            StatusCode::UNPROCESSABLE_ENTITY,
+        ),
+        Disabled::WrongCode => (
+            field_error("code", views::account::TOTP_DISABLE_CODE_INVALID),
+            StatusCode::UNPROCESSABLE_ENTITY,
+        ),
+        Disabled::Locked => (too_many_attempts(), StatusCode::TOO_MANY_REQUESTS),
+    };
     let remaining = recovery_codes::count_unused(&ctx.db, user.id).await?;
     views::account::two_factor_status(
         &v,
         &app_shell(&ctx, &user, None, None).await?,
         remaining,
-        Some(&wrong.into()),
-        StatusCode::UNPROCESSABLE_ENTITY,
+        Some(&errors),
+        status,
     )
+}
+
+fn field_error(field: &'static str, code: &'static str) -> ModelValidationErrors {
+    let mut errors = ValidationErrors::new();
+    errors.add(field, ValidationError::new(code));
+    errors.into()
 }
 
 #[debug_handler]

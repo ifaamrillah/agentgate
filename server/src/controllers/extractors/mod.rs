@@ -14,5 +14,5 @@ pub use id_or_404::{IdOr404, form_id};
 pub use project_access::{ProjectAccess, ProjectAdmin};
 pub use request_id::RequestId;
 pub use require::{PermissionMarker, Require};
-pub use tenant::Tenant;
+pub use tenant::{MemberIgnoring2fa, Tenant};
 pub use valid_form::ValidForm;

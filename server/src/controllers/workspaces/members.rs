@@ -1,7 +1,7 @@
 //! Pengaturan → Anggota (`Require<ManageMembers>`): tabel anggota dengan ganti role dan jabatan,
 //! keluarkan anggota (konfirmasi lewat halaman biasa), undangan tertunda dan form undang
 //! (handler undang di `invitations.rs`). Juga "Keluar dari workspace" (`/w/{slug}/leave`,
-//! semua anggota, `Tenant`).
+//! semua anggota, `MemberIgnoring2fa`: tanpa redirect setup 2FA).
 //!
 //! Penolakan aturan (`member-role-not-assignable`, `workspace-last-owner`) → 422 halaman anggota
 //! dengan pesan error; member, role, atau jabatan workspace lain dan id tidak valid → 404.
@@ -14,7 +14,7 @@ use super::members_path;
 use crate::{
     controllers::{
         extractors::{
-            IdOr404, PermissionMarker, RequestId, Require, Tenant, ValidForm,
+            IdOr404, MemberIgnoring2fa, PermissionMarker, RequestId, Require, Tenant, ValidForm,
             require::ManageMembers,
         },
         flash,
@@ -253,12 +253,13 @@ pub(super) async fn remove(
     }
 }
 
-/// Konfirmasi "Keluar dari workspace", terbuka untuk semua anggota (`Tenant`).
+/// Konfirmasi "Keluar dari workspace", terbuka untuk semua anggota, termasuk yang belum
+/// mengaktifkan 2FA di workspace yang mewajibkannya (`MemberIgnoring2fa`).
 #[debug_handler]
 pub(super) async fn confirm_leave(
     State(ctx): State<AppContext>,
     ViewEngine(v): ViewEngine<TeraView>,
-    tenant: Tenant,
+    MemberIgnoring2fa(tenant): MemberIgnoring2fa,
 ) -> Result<Response> {
     let shell = app_shell(&ctx, &tenant.user, Some(&tenant), None).await?;
     views::members::confirm_leave(
@@ -276,7 +277,7 @@ pub(super) async fn confirm_leave(
 pub(super) async fn leave(
     State(ctx): State<AppContext>,
     ViewEngine(v): ViewEngine<TeraView>,
-    tenant: Tenant,
+    MemberIgnoring2fa(tenant): MemberIgnoring2fa,
     RequestId(request_id): RequestId,
 ) -> Result<Response> {
     match membership::leave(&ctx, &acting(&tenant, request_id)).await {

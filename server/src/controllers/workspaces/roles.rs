@@ -4,9 +4,8 @@
 //! → 404 (`IdOr404` + `find_in`).
 use axum::http::StatusCode;
 use loco_rs::prelude::*;
-use sea_orm::DbErr;
 
-use super::roles_path;
+use super::{members::acting, roles_path};
 use crate::{
     controllers::{
         extractors::{
@@ -16,7 +15,7 @@ use crate::{
         shell::app_shell,
     },
     models::roles::{self, RoleError},
-    services::workspaces::{Actor, roles as service},
+    services::workspaces::roles as service,
     views::{
         self,
         flash::Flash,
@@ -43,14 +42,6 @@ impl From<Vec<(String, String)>> for RoleForm {
             }
         }
         form
-    }
-}
-
-fn actor(tenant: &Tenant, request_id: Option<String>) -> Actor {
-    Actor {
-        workspace_id: tenant.workspace_id(),
-        user_id: tenant.user.id,
-        request_id,
     }
 }
 
@@ -100,7 +91,8 @@ async fn render_form(
 }
 
 /// Penolakan role (bawaan, masih dipakai) dirender di halaman daftar dengan 422; role yang
-/// hilang di tengah jalan → 404; sisanya error biasa. `Invalid` ditangani pemanggil (form).
+/// hilang di tengah jalan atau pelaku yang kehilangan izin (`NotFound`) → 404; sisanya error
+/// biasa. `Invalid` ditangani pemanggil (form).
 async fn rejected(
     ctx: &AppContext,
     v: &TeraView,
@@ -117,10 +109,7 @@ async fn rejected(
         )
         .await;
     }
-    match err {
-        RoleError::Db(DbErr::RecordNotFound(_)) => Err(Error::NotFound),
-        other => Err(other.into()),
-    }
+    Err(err.into())
 }
 
 async fn redirect_with(session: Session, tenant: &Tenant, key: &str) -> Result<Response> {
@@ -172,8 +161,7 @@ pub(super) async fn create(
         Ok(permissions) => {
             service::create(
                 &ctx.db,
-                &actor(tenant, request_id),
-                &tenant.role,
+                &acting(tenant, request_id),
                 &form.name,
                 permissions,
             )
@@ -243,8 +231,7 @@ pub(super) async fn update(
         Ok(permissions) => {
             service::update(
                 &ctx.db,
-                &actor(tenant, request_id),
-                &tenant.role,
+                &acting(tenant, request_id),
                 role.id,
                 &form.name,
                 permissions,
@@ -291,7 +278,7 @@ pub(super) async fn delete(
     if let Err(e) = roles::ensure_role_editable(&role) {
         return rejected(&ctx, &v, tenant, e).await;
     }
-    match service::delete(&ctx.db, &actor(tenant, request_id), role.id).await {
+    match service::delete(&ctx.db, &acting(tenant, request_id), role.id).await {
         Ok(()) => redirect_with(session, tenant, views::roles::FLASH_DELETED).await,
         Err(e) => rejected(&ctx, &v, tenant, e).await,
     }

@@ -7,7 +7,7 @@ use agentgate_server::{
     models::{recovery_codes, users},
     services::auth::{
         sign_in,
-        totp::{self, Confirmed},
+        totp::{self, Confirmed, Disabled},
     },
 };
 use loco_rs::testing::prelude::*;
@@ -223,7 +223,7 @@ async fn regenerating_recovery_codes_replaces_the_old_ones() {
 }
 
 #[tokio::test]
-async fn disable_2fa_requires_password_and_clears_everything() {
+async fn disable_2fa_requires_password_and_code_and_clears_everything() {
     request::<App, _, _>(|_request, ctx| async move {
         let user = a_user().with_totp().create(&ctx).await;
         totp::regenerate_recovery_codes(&ctx, &user)
@@ -235,11 +235,24 @@ async fn disable_2fa_requires_password_and_clears_everything() {
         let user = reload(&ctx, &user).await;
 
         let wrong = SecretString::from("password yang salah");
-        assert!(!totp::disable(&ctx, &user, &wrong).await.unwrap());
+        let right = SecretString::from(TEST_PASSWORD);
+        let next = totp::code_at(TEST_TOTP_SECRET, now() + 30).unwrap();
+        assert_eq!(
+            totp::disable(&ctx, &user, &wrong, &next).await.unwrap(),
+            Disabled::WrongPassword
+        );
+        assert!(reload(&ctx, &user).await.totp_enabled_at.is_some());
+        // Kode langkah yang sudah dipakai (replay) ditolak walau password benar.
+        assert_eq!(
+            totp::disable(&ctx, &user, &right, &code).await.unwrap(),
+            Disabled::WrongCode
+        );
         assert!(reload(&ctx, &user).await.totp_enabled_at.is_some());
 
-        let right = SecretString::from(TEST_PASSWORD);
-        assert!(totp::disable(&ctx, &user, &right).await.unwrap());
+        assert_eq!(
+            totp::disable(&ctx, &user, &right, &next).await.unwrap(),
+            Disabled::Done
+        );
         let user = reload(&ctx, &user).await;
         assert!(user.totp_enabled_at.is_none());
         assert!(user.totp_secret_encrypted.is_none());

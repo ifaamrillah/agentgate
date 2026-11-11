@@ -321,30 +321,63 @@ async fn setup_shows_qr_and_confirms_with_a_code() {
     .await;
 }
 
+/// Kode TOTP langkah berikutnya (masih dalam toleransi): langkah saat ini sudah dipakai login.
+fn next_code() -> String {
+    totp::code_at(TEST_TOTP_SECRET, now() + 30).unwrap()
+}
+
+/// Login penuh (password + kode) untuk user ber-2FA: kembalikan cookie sesi.
+async fn signed_in_with_totp(request: &TestServer, user: &users::Model) -> Cookie<'static> {
+    let pending = pending_login(request, user).await;
+    let res = submit_code(request, &pending, &current_code()).await;
+    assert_eq!(res.status_code(), 303, "{}", res.text());
+    session_cookie(&res).unwrap()
+}
+
+async fn disable_with(
+    request: &TestServer,
+    cookie: &Cookie<'static>,
+    password: &str,
+    code: &str,
+) -> axum_test::TestResponse {
+    request
+        .post("/account/2fa/disable")
+        .add_cookie(cookie.clone())
+        .form(&[("current_password", password), ("code", code)])
+        .await
+}
+
 #[tokio::test]
-async fn disable_2fa_requires_password() {
+async fn disable_2fa_requires_password_and_code() {
     request::<App, _, _>(|request, ctx| async move {
         let user = a_user().with_totp().create(&ctx).await;
-        let pending = pending_login(&request, &user).await;
-        let res = submit_code(&request, &pending, &current_code()).await;
-        let cookie = session_cookie(&res).unwrap();
+        let cookie = signed_in_with_totp(&request, &user).await;
 
-        let wrong = request
-            .post("/account/2fa/disable")
-            .add_cookie(cookie.clone())
-            .form(&[("current_password", "password yang salah")])
-            .await;
+        let page = request.get("/account/2fa").add_cookie(cookie.clone()).await;
+        assert_css_exists(
+            &page.text(),
+            r#"form[action="/account/2fa/disable"] input[name="code"]"#,
+        );
+
+        let wrong = disable_with(&request, &cookie, "password yang salah", &next_code()).await;
         assert_eq!(wrong.status_code(), 422);
         assert!(wrong.text().contains("Password saat ini salah."));
         assert!(!wrong.text().contains("password yang salah"));
         assert!(reload(&ctx, &user).await.totp_enabled_at.is_some());
 
-        let res = request
-            .post("/account/2fa/disable")
-            .add_cookie(cookie.clone())
-            .form(&[("current_password", TEST_PASSWORD)])
-            .await;
-        assert_eq!(res.status_code(), 303);
+        // Password benar saja tidak cukup: tanpa kode, atau dengan kode salah, ditolak.
+        for code in ["", wrong_code().as_str(), "aaaaa-aaaaa"] {
+            let res = disable_with(&request, &cookie, TEST_PASSWORD, code).await;
+            assert_eq!(res.status_code(), 422, "{code}");
+            assert_css_exists(&res.text(), "#totp-disable-code-error");
+            assert!(
+                reload(&ctx, &user).await.totp_enabled_at.is_some(),
+                "{code}"
+            );
+        }
+
+        let res = disable_with(&request, &cookie, TEST_PASSWORD, &next_code()).await;
+        assert_eq!(res.status_code(), 303, "{}", res.text());
         assert_eq!(res.header("location"), "/account");
         let user = reload(&ctx, &user).await;
         assert!(user.totp_enabled_at.is_none());
@@ -353,6 +386,60 @@ async fn disable_2fa_requires_password() {
         // Login berikutnya tanpa langkah kedua.
         request.post("/logout").add_cookie(cookie).await;
         sign_in_as(&request, &user).await;
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn disable_2fa_accepts_an_unused_recovery_code() {
+    request::<App, _, _>(|request, ctx| async move {
+        let user = a_user().with_totp().create(&ctx).await;
+        let codes = totp::regenerate_recovery_codes(&ctx, &user)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(
+            totp::use_recovery_code(&ctx, &user, &codes[0])
+                .await
+                .unwrap()
+        );
+        let cookie = signed_in_with_totp(&request, &user).await;
+
+        // Kode pemulihan yang sudah dipakai tidak berlaku.
+        let res = disable_with(&request, &cookie, TEST_PASSWORD, &codes[0]).await;
+        assert_eq!(res.status_code(), 422);
+        assert!(reload(&ctx, &user).await.totp_enabled_at.is_some());
+
+        let res = disable_with(&request, &cookie, TEST_PASSWORD, &codes[1].to_uppercase()).await;
+        assert_eq!(res.status_code(), 303, "{}", res.text());
+        let user = reload(&ctx, &user).await;
+        assert!(user.totp_enabled_at.is_none());
+        assert_eq!(
+            agentgate_server::models::recovery_codes::count_unused(&ctx.db, user.id)
+                .await
+                .unwrap(),
+            0
+        );
+    })
+    .await;
+}
+
+/// Sesi curian tidak bisa menebak password tanpa batas untuk mematikan 2FA: percobaan
+/// dipesan di rate limit per user sebelum password diperiksa.
+#[tokio::test]
+async fn disable_2fa_locks_after_repeated_wrong_passwords() {
+    request::<App, _, _>(|request, ctx| async move {
+        let user = a_user().with_totp().create(&ctx).await;
+        let cookie = signed_in_with_totp(&request, &user).await;
+        for attempt in 1..=5 {
+            let res = disable_with(&request, &cookie, "password yang salah", &next_code()).await;
+            assert_eq!(res.status_code(), 422, "percobaan {attempt}");
+        }
+        // Terkunci: kredensial benar pun ditolak.
+        let res = disable_with(&request, &cookie, TEST_PASSWORD, &next_code()).await;
+        assert_eq!(res.status_code(), 429, "{}", res.text());
+        assert!(res.text().contains("Terlalu banyak percobaan"));
+        assert!(reload(&ctx, &user).await.totp_enabled_at.is_some());
     })
     .await;
 }

@@ -43,6 +43,8 @@ const UP: &[&str] = &[
     )",
     // issue() membatalkan token lama per (user, purpose).
     "CREATE INDEX user_tokens_user_id_purpose_idx ON user_tokens (user_id, purpose)",
+    // Pembersihan harian token kedaluwarsa (`services::cleanup`).
+    "CREATE INDEX user_tokens_expires_at_idx ON user_tokens (expires_at)",
     // key: `email:<lower>` atau `ip:<addr>`; tanpa FK karena email tak terdaftar ikut dikunci.
     "CREATE TABLE login_throttles (
         key text PRIMARY KEY,

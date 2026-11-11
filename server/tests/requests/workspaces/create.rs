@@ -2,11 +2,7 @@
 
 use agentgate_server::{
     app::App,
-    models::{
-        audit_events::{self, AuditAction},
-        roles::RoleKey,
-        workspace_members, workspaces,
-    },
+    models::{audit_events::AuditAction, roles::RoleKey, workspace_members, workspaces},
 };
 use loco_rs::testing::prelude::*;
 
@@ -43,7 +39,7 @@ async fn signup_then_create_workspace_makes_user_owner() {
                 .unwrap();
         assert_eq!(role.role_key().unwrap(), Some(RoleKey::Owner));
 
-        let events = audit_events::Model::newest_first(&ctx.db, workspace.workspace_id(), 10)
+        let events = crate::support::newest_audit_events(&ctx.db, workspace.workspace_id(), 10)
             .await
             .unwrap();
         assert_eq!(events.len(), 1);

@@ -36,6 +36,9 @@ pub const ROLE_IN_USE: &str = "role-in-use";
 /// Pelaku memberi atau mencabut role yang tidak boleh ia berikan ([`can_assign`]): mengundang
 /// dengan role itu, mengganti role member dari/ke role itu, atau mengeluarkan pemegangnya.
 pub const MEMBER_ROLE_NOT_ASSIGNABLE: &str = "member-role-not-assignable";
+/// Izin role yang dipakai grant project hanya boleh diubah pelaku yang admin di semua project
+/// ([`ensure_grant_role_editable`]).
+pub const ROLE_PERMISSIONS_GRANTED: &str = "role-permissions-granted";
 /// Kode error milik model ini; masing-masing punya pesan di Fluent (dijaga tes i18n).
 pub const ERROR_CODES: &[&str] = &[
     MEMBER_ROLE_NOT_ASSIGNABLE,
@@ -45,6 +48,7 @@ pub const ERROR_CODES: &[&str] = &[
     ROLE_PERMISSION_NOT_HELD,
     ROLE_BUILTIN,
     ROLE_IN_USE,
+    ROLE_PERMISSIONS_GRANTED,
 ];
 
 /// Key role bawaan. Disimpan sebagai string dengan CHECK constraint (rules §4, dijaga
@@ -89,6 +93,10 @@ pub enum RoleError {
     /// dihapus.
     #[error("role is in use")]
     InUse,
+    /// Role tujuan sudah tidak ada di workspace ini, atau role pelaku (dibaca ulang setelah
+    /// kunci) tidak lagi memegang `ManageRoles`: 404, sama dengan guard `Require`.
+    #[error("not found in workspace")]
+    NotFound,
     #[error(transparent)]
     Db(#[from] DbErr),
 }
@@ -100,7 +108,7 @@ impl RoleError {
         match self {
             Self::Builtin => Some(ROLE_BUILTIN),
             Self::InUse => Some(ROLE_IN_USE),
-            Self::Invalid(_) | Self::Db(_) => None,
+            Self::Invalid(_) | Self::NotFound | Self::Db(_) => None,
         }
     }
 }
@@ -110,6 +118,7 @@ impl From<RoleError> for loco_rs::Error {
         match err {
             RoleError::Invalid(errors) => Self::Validation(errors),
             RoleError::Builtin | RoleError::InUse => Self::BadRequest(err.to_string()),
+            RoleError::NotFound => Self::NotFound,
             RoleError::Db(e) => Self::DB(e),
         }
     }
@@ -154,15 +163,42 @@ pub fn ensure_permissions_grantable(
     }
 }
 
+/// Izin role yang dipakai grant project (`in_grants`) hanya diubah pelaku yang admin di semua
+/// project (Owner atau Admin bawaan). Tanpa aturan ini, pemegang `ManageRoles` lewat role custom
+/// menaikkan akses project setiap pemegang grant itu tanpa lewat aturan pemberian grant
+/// (`project_access::can_grant`). Ganti nama saja (izin sama) selalu boleh.
+///
+/// # Errors
+///
+/// [`RoleError::Invalid`] dengan [`ROLE_PERMISSIONS_GRANTED`] di field `permissions`.
+pub fn ensure_grant_role_editable(
+    actor: &Model,
+    in_grants: bool,
+    before: &[Permission],
+    after: &[Permission],
+) -> Result<(), RoleError> {
+    let changed =
+        before.iter().any(|p| !after.contains(p)) || after.iter().any(|p| !before.contains(p));
+    if changed && in_grants && !actor.is_admin_everywhere() {
+        return Err(field_error("permissions", ROLE_PERMISSIONS_GRANTED));
+    }
+    Ok(())
+}
+
 /// Satu-satunya aturan "role ini boleh diberikan atau dicabut oleh pelaku": role Owner hanya
-/// oleh Owner, role lain hanya bila setiap izinnya dipegang role pelaku (`actor`), aturan yang
-/// sama dengan [`ensure_permissions_grantable`] untuk penugasan. Berlaku untuk role tujuan
-/// (undang, ganti role) dan role asal member (ganti role, keluarkan), sehingga non-Owner tidak
-/// bisa menurunkan atau mengeluarkan Owner maupun pemegang izin yang tidak ia punya.
+/// oleh Owner, role Admin bawaan hanya oleh Owner atau Admin bawaan (role custom tidak pernah
+/// mencapai "admin di semua project", walau memegang semua izin Admin), role lain hanya bila
+/// setiap izinnya dipegang role pelaku (`actor`), aturan yang sama dengan
+/// [`ensure_permissions_grantable`] untuk penugasan. Berlaku untuk role tujuan (undang, ganti
+/// role) dan role asal member (ganti role, keluarkan), sehingga non-Owner tidak bisa
+/// menurunkan atau mengeluarkan Owner maupun pemegang izin yang tidak ia punya.
 #[must_use]
 pub fn can_assign(actor: &Model, role: &Model) -> bool {
     if role.is_owner() {
         return actor.is_owner();
+    }
+    if role.is_admin_everywhere() && !actor.is_admin_everywhere() {
+        return false;
     }
     role.permissions
         .iter()
@@ -244,6 +280,13 @@ impl Model {
     #[must_use]
     pub fn is_owner(&self) -> bool {
         self.key.as_deref() == Some(RoleKey::Owner.to_value().as_str())
+    }
+
+    /// Role bawaan Owner atau Admin: Admin di semua project. Role custom tidak pernah, walau
+    /// memegang semua izin Admin.
+    #[must_use]
+    pub fn is_admin_everywhere(&self) -> bool {
+        matches!(self.role_key(), Ok(Some(RoleKey::Owner | RoleKey::Admin)))
     }
 
     /// Semua role workspace, bawaan lebih dulu, lalu urut waktu dibuat.
@@ -517,5 +560,28 @@ mod tests {
         assert!(can_assign(&admin, &admin));
         assert!(!can_assign(&admin, &role_holding(&[ManageWorkspace])));
         assert!(!can_assign(&viewer, &admin));
+    }
+
+    #[test]
+    fn only_admin_everywhere_assigns_builtin_admin() {
+        let all: Vec<Permission> = Permission::iter().collect();
+        let mut owner = role_holding(&all);
+        owner.key = Some(RoleKey::Owner.to_value());
+        let admin_permissions = BUILTIN_ROLES
+            .iter()
+            .find(|r| r.key == RoleKey::Admin)
+            .unwrap()
+            .permissions;
+        let mut admin = role_holding(admin_permissions);
+        admin.key = Some(RoleKey::Admin.to_value());
+        // Role custom dengan semua izin Admin (bahkan semua izin) tetap bukan admin di mana-mana.
+        let co_admin = role_holding(admin_permissions);
+        let full_custom = role_holding(&all);
+
+        assert!(can_assign(&owner, &admin));
+        assert!(can_assign(&admin, &admin));
+        assert!(!can_assign(&co_admin, &admin));
+        assert!(!can_assign(&full_custom, &admin));
+        assert!(can_assign(&co_admin, &co_admin));
     }
 }

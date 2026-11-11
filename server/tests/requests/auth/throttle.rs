@@ -5,7 +5,7 @@ use std::future::IntoFuture;
 
 use crate::support::{TEST_PASSWORD, a_user, session_cookie};
 
-const TOO_MANY: &str = "Terlalu banyak percobaan login";
+const TOO_MANY: &str = "Terlalu banyak percobaan";
 
 async fn attempt(request: &TestServer, email: &str, password: &str) -> TestResponse {
     request

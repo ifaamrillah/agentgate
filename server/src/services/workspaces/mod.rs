@@ -96,6 +96,18 @@ pub(crate) async fn lock_as<C: ConnectionTrait>(
     acting: &Acting<'_>,
     allowed: impl Fn(&role_model::Model) -> bool,
 ) -> Result<Option<workspaces::Model>, DbErr> {
+    Ok(lock_with_role(txn, acting, allowed)
+        .await?
+        .map(|(workspace, _)| workspace))
+}
+
+/// Seperti [`lock_as`], juga mengembalikan role terbaru pelaku, untuk aturan yang
+/// membandingkan role pelaku dengan yang diubahnya (mis. izin yang boleh diberikan).
+pub(crate) async fn lock_with_role<C: ConnectionTrait>(
+    txn: &C,
+    acting: &Acting<'_>,
+    allowed: impl Fn(&role_model::Model) -> bool,
+) -> Result<Option<(workspaces::Model, role_model::Model)>, DbErr> {
     let wid = acting.workspace_id();
     // Kalah balapan dengan job pembersihan (workspace dihapus permanen setelah `Tenant`
     // memuatnya): sama dengan workspace yang tidak ada, 404 bukan 500.
@@ -107,5 +119,5 @@ pub(crate) async fn lock_as<C: ConnectionTrait>(
     let role = workspace_members::Model::find_with_role(txn, wid, acting.user.id)
         .await?
         .map(|(_, role)| role);
-    Ok(role.filter(|r| allowed(r)).map(|_| workspace))
+    Ok(role.filter(|r| allowed(r)).map(|role| (workspace, role)))
 }

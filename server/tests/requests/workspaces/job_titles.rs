@@ -4,7 +4,7 @@
 use agentgate_server::{
     app::App,
     models::{
-        audit_events::{self, AuditAction, AuditSubject},
+        audit_events::{AuditAction, AuditSubject},
         job_titles,
         roles::RoleKey,
         workspace_members,
@@ -114,7 +114,7 @@ async fn job_title_crud_and_delete_unassigns_members() {
         assert_eq!(member.job_title_id, None);
         assert_eq!(member.workspace_id, wid.get());
 
-        let events = audit_events::Model::newest_first(&ctx.db, wid, 10)
+        let events = crate::support::newest_audit_events(&ctx.db, wid, 10)
             .await
             .unwrap();
         let actions: Vec<_> = events

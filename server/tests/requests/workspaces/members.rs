@@ -6,7 +6,7 @@
 use agentgate_server::{
     app::App,
     models::{
-        audit_events::{self, AuditAction, AuditSubject},
+        audit_events::{AuditAction, AuditSubject},
         job_titles,
         roles::{self, RoleKey},
         users, workspace_members, workspaces,
@@ -98,7 +98,7 @@ async fn owner_can_change_role_and_job_title() {
             .unwrap();
         assert_eq!(updated.job_title_id, None);
 
-        let events = audit_events::Model::newest_first(&ctx.db, wid, 3)
+        let events = crate::support::newest_audit_events(&ctx.db, wid, 3)
             .await
             .unwrap();
         let actions: Vec<_> = events
@@ -300,7 +300,7 @@ async fn removed_member_loses_access_immediately() {
                 .status_code(),
             303
         );
-        let event = &audit_events::Model::newest_first(&ctx.db, wid, 1)
+        let event = &crate::support::newest_audit_events(&ctx.db, wid, 1)
             .await
             .unwrap()[0];
         assert_eq!(event.action().unwrap(), AuditAction::MemberRemoved);
@@ -353,7 +353,7 @@ async fn any_member_can_leave() {
                 .status_code(),
             404
         );
-        let event = &audit_events::Model::newest_first(&ctx.db, wid, 1)
+        let event = &crate::support::newest_audit_events(&ctx.db, wid, 1)
             .await
             .unwrap()[0];
         assert_eq!(event.action().unwrap(), AuditAction::MemberLeft);
@@ -524,4 +524,57 @@ async fn actor_who_lost_manage_members_is_rejected() {
     // Keluar tetap boleh.
     membership::leave(ctx, &acting).await.unwrap();
     assert_eq!(role_of(ctx, &workspace, &admin).await, None);
+}
+
+/// Izin role bawaan Admin, untuk role custom "wakil admin" dengan izin yang sama.
+fn admin_permissions() -> Vec<agentgate_server::models::permission::Permission> {
+    agentgate_server::models::permission::BUILTIN_ROLES
+        .iter()
+        .find(|r| r.key == RoleKey::Admin)
+        .unwrap()
+        .permissions
+        .to_vec()
+}
+
+/// Role custom dengan semua izin Admin tidak menjadi Admin di semua project lewat role bawaan
+/// Admin: menjadikan dirinya sendiri (atau anggota lain) Admin ditolak.
+#[tokio::test]
+async fn custom_role_with_admin_permissions_cannot_take_builtin_admin() {
+    request::<App, _, _>(|request, ctx| async move {
+        let owner = a_user().create(&ctx).await;
+        let workspace = a_workspace(&owner).slug("acme").create(&ctx).await;
+        let wid = workspace.workspace_id();
+        let co_admin =
+            roles::ActiveModel::create_custom(&ctx.db, wid, "Wakil", admin_permissions())
+                .await
+                .unwrap();
+        let wakil = a_user().create(&ctx).await;
+        let own = workspace_members::ActiveModel::add(&ctx.db, wid, wakil.id, co_admin.id)
+            .await
+            .unwrap();
+        let budi = a_user().create(&ctx).await;
+        let other = add_member(&ctx, &workspace, &budi, RoleKey::Member).await;
+        let admin_role = builtin_role(&ctx, &workspace, RoleKey::Admin).await;
+        let cookie = sign_in_as(&request, &wakil).await;
+
+        for member in [&own, &other] {
+            let res = request
+                .post(&format!("{MEMBERS}/{}/role", member.id))
+                .add_cookie(cookie.clone())
+                .form(&[("role_id", admin_role.id.to_string())])
+                .await;
+            assert_eq!(res.status_code(), 422, "{}", res.text());
+            assert!(res.text().contains("tidak bisa memberikan"));
+        }
+        let (_, role) = workspace_members::Model::find_with_role(&ctx.db, wid, wakil.id)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(role.id, co_admin.id);
+        assert_eq!(
+            role_of(&ctx, &workspace, &budi).await,
+            Some(RoleKey::Member)
+        );
+    })
+    .await;
 }

@@ -5,7 +5,7 @@
 use agentgate_server::{
     app::App,
     models::{
-        audit_events::{self, AuditAction, AuditSubject},
+        audit_events::{AuditAction, AuditSubject},
         permission::Permission,
         project_grants::{self, GrantSubject},
         roles::{self, RoleKey},
@@ -89,7 +89,7 @@ async fn team_grant_gives_access_to_team_members() {
             .unwrap();
         assert_eq!(grants.len(), 1);
         assert_eq!(grants[0].subject().unwrap(), GrantSubject::Team(team.id));
-        let events = audit_events::Model::newest_first(&ctx.db, wid, 1)
+        let events = crate::support::newest_audit_events(&ctx.db, wid, 1)
             .await
             .unwrap();
         assert_eq!(
@@ -210,7 +210,7 @@ async fn removing_team_grant_revokes_access() {
             .form(&[("role_id", viewer_role.id.to_string())])
             .await;
         assert_eq!(res.status_code(), 303, "{}", res.text());
-        let events = audit_events::Model::newest_first(&ctx.db, wid, 1)
+        let events = crate::support::newest_audit_events(&ctx.db, wid, 1)
             .await
             .unwrap();
         assert_eq!(
@@ -245,7 +245,7 @@ async fn removing_team_grant_revokes_access() {
             .add_cookie(owner_cookie)
             .await;
         assert_eq!(res.status_code(), 303, "{}", res.text());
-        let events = audit_events::Model::newest_first(&ctx.db, wid, 1)
+        let events = crate::support::newest_audit_events(&ctx.db, wid, 1)
             .await
             .unwrap();
         assert_eq!(

@@ -5,7 +5,7 @@
 use agentgate_server::{
     app::App,
     models::{
-        audit_events::{self, AuditAction, AuditSubject},
+        audit_events::{AuditAction, AuditSubject},
         permission::Permission,
         roles::RoleKey,
         workspace_members, workspaces,
@@ -31,7 +31,7 @@ async fn reload(ctx: &AppContext) -> workspaces::Model {
 }
 
 async fn actions(ctx: &AppContext, workspace: &workspaces::Model) -> Vec<AuditAction> {
-    audit_events::Model::newest_first(&ctx.db, workspace.workspace_id(), 20)
+    crate::support::newest_audit_events(&ctx.db, workspace.workspace_id(), 20)
         .await
         .unwrap()
         .iter()
@@ -131,7 +131,7 @@ async fn owner_schedules_deletion_after_typing_slug() {
             1,
             "jadwal ulang tidak diaudit: {acts:?}"
         );
-        let event = &audit_events::Model::newest_first(&ctx.db, workspace.workspace_id(), 1)
+        let event = &crate::support::newest_audit_events(&ctx.db, workspace.workspace_id(), 1)
             .await
             .unwrap()[0];
         assert_eq!(event.action().unwrap(), AuditAction::WorkspaceDeletionScheduled);

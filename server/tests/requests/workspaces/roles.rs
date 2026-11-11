@@ -4,16 +4,17 @@
 use agentgate_server::{
     app::App,
     models::{
-        audit_events::{self, AuditAction, AuditSubject},
+        audit_events::{AuditAction, AuditSubject},
         invitations,
         permission::Permission,
+        project_grants::GrantSubject,
         roles::{self, RoleKey},
         workspace_members, workspaces,
     },
 };
 use loco_rs::testing::prelude::*;
 
-use crate::support::{a_user, a_workspace, add_member, sign_in_as};
+use crate::support::{a_project, a_user, a_workspace, add_member, grant, sign_in_as};
 
 async fn custom_role(
     ctx: &loco_rs::app::AppContext,
@@ -94,7 +95,7 @@ async fn custom_role_with_permissions_can_be_created() {
             role.permissions().unwrap(),
             vec![Permission::EditProject, Permission::ViewProject]
         );
-        let events = audit_events::Model::newest_first(&ctx.db, wid, 10)
+        let events = crate::support::newest_audit_events(&ctx.db, wid, 10)
             .await
             .unwrap();
         assert_eq!(events[0].action().unwrap(), AuditAction::RoleCreated);
@@ -132,7 +133,7 @@ async fn custom_role_with_permissions_can_be_created() {
             updated.permissions().unwrap(),
             vec![Permission::ViewProject]
         );
-        let events = audit_events::Model::newest_first(&ctx.db, wid, 10)
+        let events = crate::support::newest_audit_events(&ctx.db, wid, 10)
             .await
             .unwrap();
         assert_eq!(events[0].action().unwrap(), AuditAction::RoleUpdated);
@@ -175,7 +176,7 @@ async fn custom_role_with_permissions_can_be_created() {
                 .unwrap()
                 .is_none()
         );
-        let events = audit_events::Model::newest_first(&ctx.db, wid, 10)
+        let events = crate::support::newest_audit_events(&ctx.db, wid, 10)
             .await
             .unwrap();
         assert_eq!(events[0].action().unwrap(), AuditAction::RoleDeleted);
@@ -191,7 +192,7 @@ async fn builtin_role_cannot_be_edited_or_deleted() {
         let workspace = a_workspace(&owner).slug("acme").create(&ctx).await;
         let wid = workspace.workspace_id();
         let cookie = sign_in_as(&request, &owner).await;
-        let audit_before = audit_events::Model::newest_first(&ctx.db, wid, 50)
+        let audit_before = crate::support::newest_audit_events(&ctx.db, wid, 50)
             .await
             .unwrap()
             .len();
@@ -251,7 +252,7 @@ async fn builtin_role_cannot_be_edited_or_deleted() {
             Err(roles::RoleError::Builtin)
         ));
         assert_eq!(
-            audit_events::Model::newest_first(&ctx.db, wid, 50)
+            crate::support::newest_audit_events(&ctx.db, wid, 50)
                 .await
                 .unwrap()
                 .len(),
@@ -286,7 +287,7 @@ async fn role_in_use_cannot_be_deleted() {
                 .unwrap()
                 .is_some()
         );
-        let events = audit_events::Model::newest_first(&ctx.db, wid, 10)
+        let events = crate::support::newest_audit_events(&ctx.db, wid, 10)
             .await
             .unwrap();
         assert_ne!(events[0].action().unwrap(), AuditAction::RoleDeleted);
@@ -610,4 +611,149 @@ async fn only_active_invitations_block_role_deletion() {
         assert_eq!(left, 2);
     })
     .await;
+}
+
+/// Izin role yang dipakai grant project hanya diubah Owner atau Admin bawaan: tanpa itu,
+/// pemegang `ManageRoles` menaikkan akses project semua pemegang grant tanpa lewat aturan
+/// pemberian grant (`can_grant`).
+#[tokio::test]
+async fn only_admin_everywhere_changes_permissions_of_a_granted_role() {
+    request::<App, _, _>(|request, ctx| async move {
+        let owner = a_user().create(&ctx).await;
+        let workspace = a_workspace(&owner).slug("acme").create(&ctx).await;
+        let wid = workspace.workspace_id();
+        let manager_role = role_with(
+            &ctx,
+            &workspace,
+            "Pengelola",
+            vec![
+                Permission::ManageRoles,
+                Permission::AdministerProject,
+                Permission::EditProject,
+                Permission::ViewProject,
+            ],
+        )
+        .await;
+        let manager = a_user().create(&ctx).await;
+        workspace_members::ActiveModel::add(&ctx.db, wid, manager.id, manager_role.id)
+            .await
+            .unwrap();
+        let tamu = custom_role(&ctx, &workspace, "Tamu").await;
+        let budi = a_user().create(&ctx).await;
+        add_member(&ctx, &workspace, &budi, RoleKey::Viewer).await;
+        let project = a_project(&ctx, &workspace, "KSR").await;
+        grant(
+            &ctx,
+            &workspace,
+            &project,
+            GrantSubject::User(budi.id),
+            &tamu,
+        )
+        .await;
+        let edit = format!("/w/acme/settings/roles/{}/edit", tamu.id);
+
+        let cookie = sign_in_as(&request, &manager).await;
+        let res = request
+            .post(&edit)
+            .add_cookie(cookie.clone())
+            .form(&[
+                ("name", "Tamu"),
+                ("permissions", "view_project"),
+                ("permissions", "administer_project"),
+            ])
+            .await;
+        assert_eq!(res.status_code(), 422, "{}", res.text());
+        let html = res.text();
+        assert_css_exists(&html, "#role-permissions-error");
+        assert!(html.contains("dipakai untuk akses project"), "{html}");
+        let unchanged = roles::Model::find_in(&ctx.db, wid, tamu.id)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(!unchanged.has(Permission::AdministerProject));
+        // Ganti nama saja (izin sama) tetap boleh.
+        let res = request
+            .post(&edit)
+            .add_cookie(cookie)
+            .form(&[("name", "Tamu Project"), ("permissions", "view_project")])
+            .await;
+        assert_eq!(res.status_code(), 303, "{}", res.text());
+
+        // Admin bawaan boleh.
+        let admin = a_user().create(&ctx).await;
+        add_member(&ctx, &workspace, &admin, RoleKey::Admin).await;
+        let cookie = sign_in_as(&request, &admin).await;
+        let res = request
+            .post(&edit)
+            .add_cookie(cookie)
+            .form(&[
+                ("name", "Tamu Project"),
+                ("permissions", "view_project"),
+                ("permissions", "edit_project"),
+            ])
+            .await;
+        assert_eq!(res.status_code(), 303, "{}", res.text());
+    })
+    .await;
+}
+
+/// Service membaca ulang role pelaku setelah kunci: pelaku yang kehilangan `ManageRoles` di
+/// tengah jalan, dan role yang sudah dihapus, mendapat `NotFound` (404), bukan 500.
+#[tokio::test]
+async fn role_service_rechecks_actor_and_target_under_lock() {
+    use agentgate_server::services::workspaces::{Acting, roles as service};
+    let boot = boot_test::<App>().await.unwrap();
+    let ctx = &boot.app_context;
+    let owner = a_user().create(ctx).await;
+    let workspace = a_workspace(&owner).create(ctx).await;
+    let wid = workspace.workspace_id();
+    let admin = a_user().create(ctx).await;
+    let admin_member = add_member(ctx, &workspace, &admin, RoleKey::Admin).await;
+    let admin_role = roles::Model::find_builtin(&ctx.db, wid, RoleKey::Admin)
+        .await
+        .unwrap()
+        .unwrap();
+    let viewer_role = roles::Model::find_builtin(&ctx.db, wid, RoleKey::Viewer)
+        .await
+        .unwrap()
+        .unwrap();
+    let target = custom_role(ctx, &workspace, "Tamu").await;
+    let acting = Acting {
+        workspace: &workspace,
+        user: &admin,
+        role: &admin_role,
+        request_id: None,
+    };
+
+    // Role tujuan sudah tidak ada.
+    let gone = uuid::Uuid::now_v7();
+    let res = service::update(&ctx.db, &acting, gone, "X", vec![Permission::ViewProject]).await;
+    assert!(matches!(res, Err(roles::RoleError::NotFound)), "{res:?}");
+    let res = service::delete(&ctx.db, &acting, gone).await;
+    assert!(matches!(res, Err(roles::RoleError::NotFound)), "{res:?}");
+
+    // Role di DB sudah Viewer, tetapi Acting masih membawa Admin dari awal request.
+    admin_member
+        .set_role(&ctx.db, viewer_role.id)
+        .await
+        .unwrap();
+    let res = service::create(&ctx.db, &acting, "Baru", vec![Permission::ViewProject]).await;
+    assert!(matches!(res, Err(roles::RoleError::NotFound)), "{res:?}");
+    let res = service::update(
+        &ctx.db,
+        &acting,
+        target.id,
+        "Ubah",
+        vec![Permission::ViewProject],
+    )
+    .await;
+    assert!(matches!(res, Err(roles::RoleError::NotFound)), "{res:?}");
+    let res = service::delete(&ctx.db, &acting, target.id).await;
+    assert!(matches!(res, Err(roles::RoleError::NotFound)), "{res:?}");
+    assert!(
+        roles::Model::find_in(&ctx.db, wid, target.id)
+            .await
+            .unwrap()
+            .is_some()
+    );
 }

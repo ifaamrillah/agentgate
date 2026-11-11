@@ -302,25 +302,6 @@ impl Model {
         AuditSubject::try_from_value(&self.subject_type)
     }
 
-    /// `limit` kejadian terbaru di workspace ini (total order `created_at`, lalu `id`).
-    ///
-    /// # Errors
-    ///
-    /// Error database.
-    pub async fn newest_first<C: ConnectionTrait>(
-        db: &C,
-        workspace_id: WorkspaceId,
-        limit: u64,
-    ) -> Result<Vec<Self>, DbErr> {
-        Entity::find()
-            .in_tenant(workspace_id)
-            .order_by_desc(Column::CreatedAt)
-            .order_by_desc(Column::Id)
-            .limit(limit)
-            .all(db)
-            .await
-    }
-
     /// Satu halaman (`limit` baris) kejadian di workspace ini, terbaru dulu, sebelum `before`
     /// (keyset `(created_at, id) < (…)`), hanya kelompok `group` bila diisi. Mengambil satu
     /// baris lebih untuk tahu apakah ada halaman berikutnya.

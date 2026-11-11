@@ -2,9 +2,10 @@
 //! `GET|POST /account/password` (ganti password, rules §7). Pengaturan 2FA (`/account/2fa`)
 //! ada di `auth::two_factor`.
 use axum::http::StatusCode;
-use loco_rs::prelude::*;
+use loco_rs::{prelude::*, validation::ModelValidationErrors};
 use secrecy::SecretString;
 use serde::Deserialize;
+use validator::{ValidationError, ValidationErrors};
 
 use crate::{
     common::settings::Settings,
@@ -121,7 +122,24 @@ async fn change_password(
         Changed::Invalid(errors) => {
             views::account::password(&v, &shell, Some(&errors), StatusCode::UNPROCESSABLE_ENTITY)
         }
+        Changed::Locked => views::account::password(
+            &v,
+            &shell,
+            Some(&too_many_attempts()),
+            StatusCode::TOO_MANY_REQUESTS,
+        ),
     }
+}
+
+/// Error field `current_password` saat pemeriksaan password terkunci (429), pesan yang sama
+/// dengan login yang terkunci. Dipakai juga form matikan 2FA.
+pub(crate) fn too_many_attempts() -> ModelValidationErrors {
+    let mut errors = ValidationErrors::new();
+    errors.add(
+        "current_password",
+        ValidationError::new(views::auth::TOO_MANY_ATTEMPTS),
+    );
+    errors.into()
 }
 
 pub fn routes() -> Routes {

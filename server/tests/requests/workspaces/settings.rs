@@ -3,7 +3,7 @@
 use agentgate_server::{
     app::App,
     models::{
-        audit_events::{self, AuditAction, AuditSubject},
+        audit_events::{AuditAction, AuditSubject},
         workspaces,
     },
 };
@@ -46,7 +46,7 @@ async fn owner_updates_name_and_slug_and_audit_is_written() {
         assert_eq!(updated.id, workspace.id);
         assert_eq!(updated.name, "Acme Baru");
 
-        let events = audit_events::Model::newest_first(&ctx.db, workspace.workspace_id(), 10)
+        let events = crate::support::newest_audit_events(&ctx.db, workspace.workspace_id(), 10)
             .await
             .unwrap();
         assert_eq!(events[0].action().unwrap(), AuditAction::WorkspaceUpdated);
@@ -94,7 +94,7 @@ async fn settings_without_changes_writes_no_audit() {
             .form(&[("name", "Acme"), ("slug", "acme")])
             .await;
         assert_eq!(res.status_code(), 303);
-        let events = audit_events::Model::newest_first(&ctx.db, workspace.workspace_id(), 10)
+        let events = crate::support::newest_audit_events(&ctx.db, workspace.workspace_id(), 10)
             .await
             .unwrap();
         assert_eq!(events.len(), 1, "hanya workspace.created");
@@ -120,4 +120,74 @@ async fn settings_slug_taken_or_invalid_gets_422() {
         }
     })
     .await;
+}
+
+/// Service membaca ulang role pelaku setelah kunci (`ManageWorkspace`), bukan role dari awal
+/// request; workspace yang sudah dihapus permanen → `NotFound` (404), bukan 500.
+#[tokio::test]
+async fn update_rechecks_manage_workspace_under_lock() {
+    use agentgate_server::{
+        models::{
+            roles::{self, RoleKey},
+            workspace_members,
+            workspaces::WorkspaceError,
+        },
+        services::workspaces::{
+            Acting,
+            update::{self, WorkspaceDetails},
+        },
+    };
+    use sea_orm::ConnectionTrait;
+
+    let boot = boot_test::<App>().await.unwrap();
+    let ctx = &boot.app_context;
+    let owner = a_user().create(ctx).await;
+    let workspace = a_workspace(&owner).name("Acme").create(ctx).await;
+    let wid = workspace.workspace_id();
+    let owner_role = roles::Model::find_builtin(&ctx.db, wid, RoleKey::Owner)
+        .await
+        .unwrap()
+        .unwrap();
+    let details = || WorkspaceDetails {
+        name: "Baru".to_string(),
+        slug: workspace.slug.clone(),
+    };
+
+    // Role di DB sudah bukan Owner, tetapi Acting masih membawa Owner.
+    let other = a_user().create(ctx).await;
+    let member = crate::support::add_member(ctx, &workspace, &other, RoleKey::Owner).await;
+    let viewer = roles::Model::find_builtin(&ctx.db, wid, RoleKey::Viewer)
+        .await
+        .unwrap()
+        .unwrap();
+    workspace_members::Model::set_role(member, &ctx.db, viewer.id)
+        .await
+        .unwrap();
+    let acting = Acting {
+        workspace: &workspace,
+        user: &other,
+        role: &owner_role,
+        request_id: None,
+    };
+    let res = update::run(ctx, &acting, details()).await;
+    assert!(matches!(res, Err(WorkspaceError::NotFound)), "{res:?}");
+    let unchanged = workspaces::Model::find_by_slug(&ctx.db, &workspace.slug)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(unchanged.name, "Acme");
+
+    // Workspace dihapus permanen setelah `Tenant` memuatnya.
+    ctx.db
+        .execute_unprepared(&format!("DELETE FROM workspaces WHERE id = '{wid}'"))
+        .await
+        .unwrap();
+    let acting = Acting {
+        workspace: &workspace,
+        user: &owner,
+        role: &owner_role,
+        request_id: None,
+    };
+    let res = update::run(ctx, &acting, details()).await;
+    assert!(matches!(res, Err(WorkspaceError::NotFound)), "{res:?}");
 }

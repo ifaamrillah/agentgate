@@ -4,7 +4,7 @@
 use agentgate_server::{
     app::App,
     models::{
-        audit_events::{self, AuditAction, AuditSubject},
+        audit_events::{AuditAction, AuditSubject},
         permission::Permission,
         roles::RoleKey,
         users, workspace_members, workspaces,
@@ -96,7 +96,7 @@ async fn owner_toggles_require_2fa_only_with_own_2fa() {
         assert_eq!(res.status_code(), 303);
         assert!(reload(&ctx).await.require_2fa_at.is_none());
 
-        let events = audit_events::Model::newest_first(&ctx.db, workspace.workspace_id(), 10)
+        let events = crate::support::newest_audit_events(&ctx.db, workspace.workspace_id(), 10)
             .await
             .unwrap();
         let toggles: Vec<_> = events
@@ -161,15 +161,17 @@ async fn require_2fa_redirects_member_without_totp_to_setup() {
             .await;
         assert_eq!(res.status_code(), 303);
 
-        // Berlaku di setiap halaman workspace, termasuk POST.
-        for path in ["/w/acme", "/w/acme/leave"] {
+        // Berlaku di setiap halaman workspace, termasuk POST (kecuali keluar, lihat
+        // `member_without_totp_can_still_leave`).
+        for path in ["/w/acme", "/w/acme/settings/members"] {
             let res = request.get(path).add_cookie(member_cookie.clone()).await;
             assert_eq!(res.status_code(), 303, "{path}");
             assert_eq!(res.header("location"), "/account/2fa?required=acme");
         }
         let res = request
-            .post("/w/acme/leave")
+            .post("/w/acme/settings/roles/new")
             .add_cookie(member_cookie.clone())
+            .form(&[("name", "X")])
             .await;
         assert_eq!(res.status_code(), 303);
         assert_eq!(res.header("location"), "/account/2fa?required=acme");
@@ -262,4 +264,56 @@ async fn toggle_after_purge_is_not_found() {
         matches!(res, Err(RequireTwoFactorError::NotFound)),
         "{res:?}"
     );
+}
+
+/// Anggota tanpa 2FA tidak dipaksa setup 2FA hanya untuk keluar dari workspace yang
+/// mewajibkannya; bukan anggota tetap 404.
+#[tokio::test]
+async fn member_without_totp_can_still_leave() {
+    request::<App, _, _>(|request, ctx| async move {
+        let owner = a_user().create(&ctx).await;
+        let member = a_user().create(&ctx).await;
+        let outsider = a_user().create(&ctx).await;
+        let workspace = a_workspace(&owner).slug("acme").create(&ctx).await;
+        add_member(&ctx, &workspace, &member, RoleKey::Member).await;
+        let mut active = workspace.clone().into_active_model();
+        active.require_2fa_at = Set(Some(chrono::Utc::now().into()));
+        active.update(&ctx.db).await.unwrap();
+
+        let outsider_cookie = sign_in_as(&request, &outsider).await;
+        let res = request
+            .get("/w/acme/leave")
+            .add_cookie(outsider_cookie.clone())
+            .await;
+        assert_eq!(res.status_code(), 404);
+        let res = request
+            .post("/w/acme/leave")
+            .add_cookie(outsider_cookie)
+            .await;
+        assert_eq!(res.status_code(), 404);
+
+        let cookie = sign_in_as(&request, &member).await;
+        let page = request
+            .get("/w/acme/leave")
+            .add_cookie(cookie.clone())
+            .await;
+        assert_eq!(page.status_code(), 200, "{}", page.text());
+        assert_css_exists(
+            &page.text(),
+            "form[method=\"post\"][action=\"/w/acme/leave\"]",
+        );
+        let res = request
+            .post("/w/acme/leave")
+            .add_cookie(cookie.clone())
+            .await;
+        assert_eq!(res.status_code(), 303, "{}", res.text());
+        assert_eq!(res.header("location"), "/");
+        assert!(
+            workspace_members::Model::find_with_role(&ctx.db, workspace.workspace_id(), member.id)
+                .await
+                .unwrap()
+                .is_none()
+        );
+    })
+    .await;
 }

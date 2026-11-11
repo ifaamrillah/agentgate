@@ -107,6 +107,8 @@ const UP: &[&str] = &[
      WHERE team_id IS NOT NULL",
     "CREATE INDEX project_grants_workspace_id_user_id_idx ON project_grants (workspace_id, user_id) \
      WHERE user_id IS NOT NULL",
+    // Cascade hapus workspace (index (workspace_id, user_id) di atas parsial).
+    "CREATE INDEX project_grants_workspace_id_idx ON project_grants (workspace_id)",
     // project ON DELETE CASCADE: repo tidak berarti tanpa project-nya.
     "CREATE TABLE repos (
         id uuid PRIMARY KEY DEFAULT uuidv7(),
@@ -122,6 +124,8 @@ const UP: &[&str] = &[
             ON DELETE CASCADE
     )",
     "CREATE UNIQUE INDEX repos_project_id_name_lower_key ON repos (project_id, lower(name))",
+    // Cascade hapus workspace.
+    "CREATE INDEX repos_workspace_id_idx ON repos (workspace_id)",
 ];
 
 const DOWN: &[&str] = &[

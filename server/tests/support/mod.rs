@@ -2,11 +2,13 @@
 //! disalin per file tes. Builder datang bersama model-nya (M1 Task 3 dan seterusnya).
 #![allow(dead_code)] // helper dipakai sebagian tes saja; yang belum dipakai tidak boleh memicu warning.
 
+mod audit;
 mod builders;
 pub mod fake_oauth;
 mod mail;
 mod session;
 
+pub use audit::newest_audit_events;
 pub use builders::{
     a_project, a_team, a_user, a_workspace, add_member, builtin_role, custom_role, grant,
 };

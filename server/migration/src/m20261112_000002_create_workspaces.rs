@@ -117,6 +117,8 @@ const UP: &[&str] = &[
      ON invitations (workspace_id, lower(email)) \
      WHERE accepted_at IS NULL AND revoked_at IS NULL",
     "CREATE INDEX invitations_role_id_idx ON invitations (role_id)",
+    // Daftar undangan workspace dan cascade hapus workspace (unique index di atas parsial).
+    "CREATE INDEX invitations_workspace_id_idx ON invitations (workspace_id)",
     // Append-only: tanpa updated_at; aplikasi tidak punya jalur update/delete (rules "Audit log").
     // workspace_id ON DELETE CASCADE: purge workspace (Task 13) bergantung padanya.
     // actor_id ON DELETE SET NULL: jejak tetap ada walau user pelakunya dihapus.

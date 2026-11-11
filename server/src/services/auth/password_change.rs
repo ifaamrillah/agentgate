@@ -2,12 +2,19 @@
 //! ini; berhasil mencabut **semua** sesi user itu. Pemanggil lalu membuat sesi baru untuk
 //! perangkat saat ini (`sign_in::start_session`) di respons yang sama, sehingga hanya
 //! perangkat yang mengganti password yang tetap login.
+//!
+//! Setiap percobaan dipesan lebih dulu di rate limit per user (`ThrottleKey::Account`, dipakai
+//! bersama "matikan 2FA") sebelum password diperiksa: sesi curian tidak bisa menebak password
+//! tanpa batas.
 
 use loco_rs::{Result, app::AppContext, auth::session_store, validation::ModelValidationErrors};
 use secrecy::SecretString;
 use validator::{ValidationError, ValidationErrors};
 
-use super::password::{self, Verify};
+use super::{
+    password::{self, Verify},
+    throttle::{self, ThrottleKey, ThrottleState},
+};
 use crate::{common::settings::Settings, models::users};
 
 /// Kode error field `current_password`: password saat ini kosong atau salah.
@@ -22,6 +29,8 @@ pub enum Changed {
     Done(users::Model),
     /// Password saat ini salah dan/atau password baru tidak memenuhi aturan.
     Invalid(ModelValidationErrors),
+    /// Terlalu banyak password salah: tidak diperiksa, coba lagi setelah kunci habis.
+    Locked,
 }
 
 /// Ganti password `user` menjadi `new_password` bila `current` benar.
@@ -36,6 +45,10 @@ pub async fn change(
     current: &SecretString,
     new_password: SecretString,
 ) -> Result<Changed> {
+    let keys = [ThrottleKey::Account(user.id)];
+    if throttle::reserve(&ctx.db, &settings.auth, &keys).await? == ThrottleState::Locked {
+        return Ok(Changed::Locked);
+    }
     let mut errors = password::validate(&new_password)
         .err()
         .map_or_else(Default::default, |e| e.errors);
@@ -46,7 +59,9 @@ pub async fn change(
         }
         None => false,
     };
-    if !current_ok {
+    if current_ok {
+        throttle::succeeded(&ctx.db, &settings.auth, &keys).await?;
+    } else {
         let mut wrong = ValidationErrors::new();
         wrong.add(
             "current_password",

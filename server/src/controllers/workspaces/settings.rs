@@ -156,15 +156,7 @@ pub(super) async fn update(
         name: form.name.clone(),
         slug: form.slug.clone(),
     };
-    match update::run(
-        &ctx,
-        tenant.workspace_id(),
-        tenant.user.id,
-        details,
-        request_id,
-    )
-    .await
-    {
+    match update::run(&ctx, &acting(tenant, request_id), details).await {
         Ok(workspace) => {
             let session = flash::set(
                 session,

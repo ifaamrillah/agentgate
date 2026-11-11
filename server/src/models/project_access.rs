@@ -84,7 +84,7 @@ impl EffectiveRole {
 /// walau memegang `AdministerProject`.
 #[must_use]
 pub fn is_admin_everywhere(role: &roles::Model) -> bool {
-    matches!(role.role_key(), Ok(Some(RoleKey::Owner | RoleKey::Admin)))
+    role.is_admin_everywhere()
 }
 
 /// Satu-satunya aturan "pelaku boleh memberikan atau mencabut grant ber-role `role` di

@@ -3,7 +3,8 @@
 //!
 //! Satu baris per kunci (`email:<lower>` / `ip:<addr>` untuk login, `mail-email:<lower>` /
 //! `mail-ip:<addr>` untuk permintaan email, `reset-ip:<addr>` untuk percobaan reset,
-//! `2fa:<user id>` untuk kode langkah kedua login).
+//! `2fa:<user id>` untuk kode langkah kedua login, `account:<user id>` untuk password yang
+//! diperiksa ulang oleh user yang sudah login: ganti password, matikan 2FA).
 //! Setiap percobaan dipesan lebih dulu ([`reserve`]) di jendela `login_window_minutes`;
 //! mencapai batas mengunci kunci itu `login_lockout_minutes`. Percobaan yang berhasil dikembalikan ([`succeeded`]).
 //! Kunci email berlaku untuk string email apa pun, terdaftar atau tidak, supaya "terlalu
@@ -43,6 +44,10 @@ pub enum ThrottleKey {
     /// [`SECOND_FACTOR_MAX_FAILURES`]. Per user, bukan per sesi: login ulang dengan password
     /// tidak memberi jatah tebakan baru.
     SecondFactor(Uuid),
+    /// Pemeriksaan ulang password user yang sudah login (ganti password, matikan 2FA) per
+    /// user, batas `login_max_failures_per_email`. Satu penghitung untuk kedua halaman, supaya
+    /// sesi curian tidak mendapat jatah tebakan password per halaman.
+    Account(Uuid),
 }
 
 /// Kode langkah kedua yang salah sebelum login pending dibuang dan kuncinya terkunci
@@ -60,12 +65,15 @@ impl ThrottleKey {
             Self::MailIp(ip) => format!("mail-ip:{ip}"),
             Self::ResetIp(ip) => format!("reset-ip:{ip}"),
             Self::SecondFactor(user_id) => format!("2fa:{user_id}"),
+            Self::Account(user_id) => format!("account:{user_id}"),
         }
     }
 
     fn max_failures(&self, settings: &AuthSettings) -> i32 {
         match self {
-            Self::Email(_) | Self::MailEmail(_) => settings.login_max_failures_per_email,
+            Self::Email(_) | Self::MailEmail(_) | Self::Account(_) => {
+                settings.login_max_failures_per_email
+            }
             Self::Ip(_) | Self::MailIp(_) | Self::ResetIp(_) => settings.login_max_failures_per_ip,
             Self::SecondFactor(_) => SECOND_FACTOR_MAX_FAILURES,
         }
@@ -160,7 +168,8 @@ pub async fn reserve<C: ConnectionTrait>(
 /// Percobaan yang dipesan [`reserve`] ternyata berhasil (password benar).
 ///
 /// - Kunci email dihapus: login berhasil mereset penghitung email itu (rules §7). Begitu juga
-///   kunci langkah kedua 2FA: kode benar mereset penghitung user itu.
+///   kunci langkah kedua 2FA dan kunci akun: kode atau password benar mereset penghitung user
+///   itu.
 /// - Kunci IP dikurangi satu, dan kuncinya dibuka bila hitungannya kembali di bawah batas:
 ///   login berhasil **tidak** dihitung ke batas IP, supaya banyak user di balik satu NAT
 ///   kantor tidak saling mengunci. Batas IP tetap menghitung semua percobaan gagal.
@@ -181,7 +190,10 @@ pub async fn succeeded<C: ConnectionTrait>(
         WHERE key = $1";
     for key in keys {
         match key {
-            ThrottleKey::Email(_) | ThrottleKey::MailEmail(_) | ThrottleKey::SecondFactor(_) => {
+            ThrottleKey::Email(_)
+            | ThrottleKey::MailEmail(_)
+            | ThrottleKey::SecondFactor(_)
+            | ThrottleKey::Account(_) => {
                 login_throttles::Entity::delete_by_id(key.key())
                     .exec(db)
                     .await?;
@@ -252,6 +264,10 @@ mod tests {
         assert_eq!(
             ThrottleKey::SecondFactor(Uuid::nil()).key(),
             "2fa:00000000-0000-0000-0000-000000000000"
+        );
+        assert_eq!(
+            ThrottleKey::Account(Uuid::nil()).key(),
+            "account:00000000-0000-0000-0000-000000000000"
         );
     }
 }

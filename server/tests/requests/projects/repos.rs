@@ -4,7 +4,7 @@
 use agentgate_server::{
     app::App,
     models::{
-        audit_events::{self, AuditAction, AuditSubject},
+        audit_events::{AuditAction, AuditSubject},
         repos::{self, RepoProvider},
     },
 };
@@ -173,7 +173,7 @@ async fn repo_url_must_be_https_or_ssh() {
             .await;
         assert_eq!(res.status_code(), 404);
 
-        let events = audit_events::Model::newest_first(&ctx.db, wid, 10)
+        let events = crate::support::newest_audit_events(&ctx.db, wid, 10)
             .await
             .unwrap();
         let actions: Vec<_> = events

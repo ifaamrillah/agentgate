@@ -11,11 +11,13 @@
 //!   database hanya menyimpan SHA-256 bentuk ternormalisasinya (huruf kecil, tanpa `-`).
 //! - Langkah kedua login ([`second_step`]) punya rate limit sendiri per user
 //!   (`ThrottleKey::SecondFactor`).
+//! - Mematikan 2FA ([`disable`]) butuh password dan kode TOTP atau kode pemulihan, dengan rate
+//!   limit per user (`ThrottleKey::Account`, bersama ganti password): sesi curian tidak cukup.
 
 use base64::{Engine, engine::general_purpose::STANDARD};
 use loco_rs::{Error, Result, app::AppContext};
 use qrcodegen::{QrCode, QrCodeEcc};
-use sea_orm::TransactionTrait;
+use sea_orm::{ConnectionTrait, TransactionTrait};
 use secrecy::SecretString;
 use totp_rs::{Algorithm, Secret, TOTP};
 
@@ -71,6 +73,19 @@ pub enum Confirmed {
     WrongCode,
     /// 2FA sudah aktif (mis. klik ganda pada tombol konfirmasi): tidak ada yang diubah.
     AlreadyEnabled,
+}
+
+/// Hasil [`disable`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Disabled {
+    /// 2FA dimatikan (atau sudah tidak aktif).
+    Done,
+    /// Password saat ini salah (atau user tanpa password).
+    WrongPassword,
+    /// Password benar, tetapi kode TOTP/kode pemulihan kosong, salah, atau sudah dipakai.
+    WrongCode,
+    /// Terlalu banyak percobaan gagal: tidak diperiksa, coba lagi setelah kunci habis.
+    Locked,
 }
 
 /// Hasil [`second_step`].
@@ -165,17 +180,27 @@ pub async fn confirm(
 ///
 /// Error database, kunci enkripsi tidak valid, atau secret tersimpan tidak bisa dibuka.
 pub async fn verify(ctx: &AppContext, user: &users::Model, code: &str) -> Result<bool> {
+    verify_in(&ctx.db, &auth_settings(ctx)?, user, code).await
+}
+
+/// [`verify`] di koneksi atau transaksi `db`.
+async fn verify_in<C: ConnectionTrait>(
+    db: &C,
+    settings: &AuthSettings,
+    user: &users::Model,
+    code: &str,
+) -> Result<bool> {
     let (Some(_), Some(stored)) = (user.totp_enabled_at, &user.totp_secret_encrypted) else {
         return Ok(false);
     };
-    let key = auth_settings(ctx)?.encryption_key_bytes()?;
+    let key = settings.encryption_key_bytes()?;
     let base32 = crypto::decrypt(&key, stored)
         .map_err(|e| Error::string(&format!("totp secret of user {}: {e}", user.id)))?;
     let secret = decode_base32(&base32)
         .ok_or_else(|| Error::string(&format!("totp secret of user {} is not base32", user.id)))?;
     let totp = totp(secret, None, "")?;
     match matching_step(&totp, code, unix_now()) {
-        Some(step) => Ok(user.claim_totp_step(&ctx.db, step).await?),
+        Some(step) => Ok(user.claim_totp_step(db, step).await?),
         None => Ok(false),
     }
 }
@@ -187,10 +212,19 @@ pub async fn verify(ctx: &AppContext, user: &users::Model, code: &str) -> Result
 ///
 /// Error database.
 pub async fn use_recovery_code(ctx: &AppContext, user: &users::Model, code: &str) -> Result<bool> {
+    use_recovery_code_in(&ctx.db, user, code).await
+}
+
+/// [`use_recovery_code`] di koneksi atau transaksi `db`.
+async fn use_recovery_code_in<C: ConnectionTrait>(
+    db: &C,
+    user: &users::Model,
+    code: &str,
+) -> Result<bool> {
     let Some(normalized) = normalize_recovery_code(code) else {
         return Ok(false);
     };
-    Ok(recovery_codes::claim(&ctx.db, user.id, &crypto::sha256_hex(&normalized)).await?)
+    Ok(recovery_codes::claim(db, user.id, &crypto::sha256_hex(&normalized)).await?)
 }
 
 /// Ganti semua kode pemulihan `user` dengan 10 kode baru; kode lama tidak berlaku lagi.
@@ -216,31 +250,57 @@ pub async fn regenerate_recovery_codes(
     Ok(Some(codes))
 }
 
-/// Matikan 2FA bila `current_password` benar: secret, `totp_enabled_at`, `totp_last_step`,
-/// dan semua kode pemulihan dihapus dalam satu transaksi. `false`: password salah (atau user
-/// tanpa password).
+/// Matikan 2FA bila `current_password` benar **dan** `code` adalah kode TOTP yang berlaku atau
+/// kode pemulihan yang belum dipakai: sesi yang dicuri saja tidak cukup untuk melepas 2FA.
+/// Kode diperiksa (dan diklaim: langkah TOTP dicatat, kode pemulihan ditandai terpakai) di
+/// transaksi yang sama yang menghapus secret, `totp_enabled_at`, `totp_last_step`, dan semua
+/// kode pemulihan, setelah baris user dikunci.
+///
+/// Setiap percobaan dipesan lebih dulu di rate limit per user (`ThrottleKey::Account`) sebelum
+/// password diperiksa; password atau kode yang salah tetap terhitung gagal.
 ///
 /// # Errors
 ///
-/// Error database atau hashing (503).
+/// Error database, hashing (503), atau secret tersimpan tidak bisa dibuka.
 pub async fn disable(
     ctx: &AppContext,
     user: &users::Model,
     current_password: &SecretString,
-) -> Result<bool> {
+    code: &str,
+) -> Result<Disabled> {
     let settings = auth_settings(ctx)?;
+    let keys = [ThrottleKey::Account(user.id)];
+    if throttle::reserve(&ctx.db, &settings, &keys).await? == ThrottleState::Locked {
+        return Ok(Disabled::Locked);
+    }
     let Some(stored) = user.password_hash.as_deref() else {
-        return Ok(false);
+        return Ok(Disabled::WrongPassword);
     };
     if password::verify(&settings, current_password, stored).await? == Verify::Mismatch {
-        return Ok(false);
+        return Ok(Disabled::WrongPassword);
     }
     let txn = ctx.db.begin().await?;
-    users::Model::lock_for_update(&txn, user.id).await?;
-    user.clone().disable_totp(&txn).await?;
+    // Dibaca ulang setelah kunci: `user` dimuat sebelum transaksi.
+    let Some(locked) = users::Model::lock_for_update(&txn, user.id)
+        .await?
+        .filter(|u| u.totp_enabled_at.is_some())
+    else {
+        return Ok(Disabled::Done);
+    };
+    let code_ok = if is_totp_code(code) {
+        verify_in(&txn, &settings, &locked, code).await?
+    } else {
+        use_recovery_code_in(&txn, &locked, code).await?
+    };
+    if !code_ok {
+        txn.rollback().await?;
+        return Ok(Disabled::WrongCode);
+    }
+    locked.disable_totp(&txn).await?;
     recovery_codes::delete_for_user(&txn, user.id).await?;
     txn.commit().await?;
-    Ok(true)
+    throttle::succeeded(&ctx.db, &settings, &keys).await?;
+    Ok(Disabled::Done)
 }
 
 /// Langkah kedua login: `code` berupa kode TOTP 6 digit atau kode pemulihan (satu field).
