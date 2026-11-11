@@ -5,7 +5,7 @@ use std::{collections::HashSet, path::Path};
 use agentgate_server::{
     common::text,
     models::users,
-    services::auth::{password, password_change},
+    services::auth::{oauth, password, password_change},
     views::{account, auth, errors::MESSAGE_KEYS},
 };
 
@@ -70,10 +70,14 @@ fn every_validation_error_code_has_a_message() {
 #[test]
 fn every_auth_message_key_has_a_translation() {
     let keys = fluent_keys();
-    let missing: Vec<_> = [auth::MESSAGE_KEYS, account::MESSAGE_KEYS]
-        .concat()
-        .into_iter()
-        .filter(|k| !keys.contains(*k))
-        .collect();
+    let missing: Vec<_> = [
+        auth::MESSAGE_KEYS,
+        account::MESSAGE_KEYS,
+        oauth::ERROR_CODES,
+    ]
+    .concat()
+    .into_iter()
+    .filter(|k| !keys.contains(*k))
+    .collect();
     assert!(missing.is_empty(), "kunci tanpa terjemahan: {missing:?}");
 }

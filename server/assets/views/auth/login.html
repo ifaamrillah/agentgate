@@ -1,6 +1,6 @@
 {#- Halaman login. Variabel (views::auth::LoginPage): email (string), return_to (string atau
-    null, sudah aman), error (kunci Fluent atau ""), oauth_google, oauth_github,
-    registration_open (bool), flash (dirender layout). Password tidak pernah dirender ulang. -#}
+    null, sudah aman), error (kunci Fluent atau ""), oauth_google, oauth_github (form POST ke
+    /auth/{provider}), registration_open (bool), flash (dirender layout). Password tidak pernah dirender ulang. -#}
 {% extends "auth/_layout_card.html" %}
 {% block title %}{{ t(key="login-title", lang="id") }}{% endblock title %}
 {% block heading %}{{ t(key="login-title", lang="id") }}{% endblock heading %}
@@ -21,9 +21,20 @@
 {% if oauth_google or oauth_github %}
 <div class="mt-6 grid gap-3">
   <p class="text-center text-sm text-muted-foreground">{{ t(key="login-or", lang="id") }}</p>
-  {#- Ke domain provider: navigasi browser penuh, bukan request HTMX (rules §6). -#}
-  {% if oauth_google %}<a href="/auth/google" class="btn w-full" data-variant="outline" hx-boost="false">{{ t(key="login-with-google", lang="id") }}</a>{% endif %}
-  {% if oauth_github %}<a href="/auth/github" class="btn w-full" data-variant="outline" hx-boost="false">{{ t(key="login-with-github", lang="id") }}</a>{% endif %}
+  {#- POST (bukan link): GET tidak memulai login OAuth. Jawabannya redirect ke domain provider,
+      jadi navigasi browser penuh, bukan request HTMX (rules §6). -#}
+  {% if oauth_google %}
+  <form method="post" action="/auth/google" hx-boost="false">
+    {% if return_to %}<input type="hidden" name="return_to" value="{{ return_to }}">{% endif %}
+    {{ <button label={t(key="login-with-google", lang="id")} type="submit" variant="outline" class="w-full"/> }}
+  </form>
+  {% endif %}
+  {% if oauth_github %}
+  <form method="post" action="/auth/github" hx-boost="false">
+    {% if return_to %}<input type="hidden" name="return_to" value="{{ return_to }}">{% endif %}
+    {{ <button label={t(key="login-with-github", lang="id")} type="submit" variant="outline" class="w-full"/> }}
+  </form>
+  {% endif %}
 </div>
 {% endif %}
 {% endblock card %}

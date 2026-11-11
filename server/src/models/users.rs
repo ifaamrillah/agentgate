@@ -169,6 +169,27 @@ impl Model {
         user.update(db).await
     }
 
+    /// Email dijamin provider OAuth (`email_verified`) saat identitas ditautkan: tandai
+    /// terverifikasi. Bila sebelumnya belum terverifikasi, password lokal dibuang: password itu
+    /// bisa dibuat orang lain yang mendaftarkan email ini lebih dulu tanpa memegang inbox-nya
+    /// (pre-hijacking). Pemilik email bisa membuat password lewat lupa password.
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn verify_email_from_provider<C: ConnectionTrait>(
+        self,
+        db: &C,
+    ) -> Result<Self, DbErr> {
+        if self.email_verified_at.is_some() {
+            return Ok(self);
+        }
+        let mut user = self.into_active_model();
+        user.email_verified_at = Set(Some(chrono::Utc::now().into()));
+        user.password_hash = Set(None);
+        user.update(db).await
+    }
+
     /// Ganti nama tampilan setelah normalisasi dan validasi yang sama dengan [`ActiveModel::create`].
     ///
     /// # Errors

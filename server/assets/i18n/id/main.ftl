@@ -26,6 +26,12 @@ flash-password-reset = Password berhasil diganti. Silakan masuk dengan password 
 auth-second-factor-invalid = Kode salah. Coba lagi.
 flash-second-factor-locked = Terlalu banyak kode salah. Masuk lagi dalam 15 menit.
 flash-second-factor-expired = Waktu memasukkan kode habis. Silakan masuk lagi.
+oauth-cancelled = Login dibatalkan.
+oauth-expired = Waktu login sudah habis atau tautannya tidak berlaku. Silakan mulai lagi.
+oauth-failed = Login gagal. Silakan coba lagi.
+oauth-email-unverified = Email akun ini belum diverifikasi oleh Google atau GitHub. Verifikasi email di sana, atau masuk dengan email dan password.
+oauth-registration-closed = Belum ada akun Agent Gate untuk email ini, dan pendaftaran sedang ditutup.
+oauth-user-disabled = Akun ini dinonaktifkan.
 
 two-factor-title = Verifikasi dua langkah
 two-factor-description = Masukkan kode 6 digit dari aplikasi authenticator kamu.

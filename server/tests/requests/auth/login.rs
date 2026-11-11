@@ -8,7 +8,7 @@ use secrecy::SecretString;
 use crate::support::{TEST_PASSWORD, a_user, session_cookie, sign_in_as};
 
 const INVALID: &str = "Email atau password salah.";
-const CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
+const CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self' https://accounts.google.com https://github.com; frame-ancestors 'none'";
 
 #[tokio::test]
 async fn login_page_has_csp_header() {

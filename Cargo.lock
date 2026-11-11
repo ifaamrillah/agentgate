@@ -53,6 +53,7 @@ dependencies = [
  "migration",
  "qrcodegen",
  "rand 0.9.5",
+ "reqwest",
  "rpassword",
  "sea-orm",
  "secrecy",

@@ -3,6 +3,7 @@
 //! store, rotasi id, revoke) memakai `loco_rs::auth`.
 #[cfg(debug_assertions)]
 pub mod dev_login;
+pub mod oauth;
 pub mod password;
 pub mod password_change;
 pub mod password_reset;

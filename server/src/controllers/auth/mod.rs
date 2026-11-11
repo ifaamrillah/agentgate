@@ -5,6 +5,7 @@ use loco_rs::prelude::Routes;
 pub mod dev_login;
 pub mod login;
 pub mod logout;
+pub mod oauth;
 pub mod password;
 pub mod register;
 pub mod two_factor;
@@ -20,5 +21,6 @@ pub fn routes() -> Vec<Routes> {
         verify_email::routes(),
         password::routes(),
         two_factor::routes(),
+        oauth::routes(),
     ]
 }

@@ -1,7 +1,7 @@
 use agentgate_server::app::App;
 use loco_rs::testing::prelude::*;
 
-const CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
+const CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self' https://accounts.google.com https://github.com; frame-ancestors 'none'";
 
 #[tokio::test]
 async fn pages_carry_strict_csp_and_request_id() {

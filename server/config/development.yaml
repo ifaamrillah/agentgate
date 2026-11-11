@@ -37,7 +37,10 @@ server:
       enable: true
       preset: github
       overrides:
-        Content-Security-Policy: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+        # form-action memuat domain authorize Google dan GitHub: tombol login OAuth adalah form
+        # POST ke /auth/{provider} yang dijawab 303 ke provider, dan Chrome menerapkan
+        # form-action juga pada redirect setelah submit form.
+        Content-Security-Policy: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self' https://accounts.google.com https://github.com; frame-ancestors 'none'"
         # HSTS hanya di staging/production (development memakai http).
         Strict-Transport-Security: "max-age=0"
 
@@ -92,6 +95,27 @@ auth:
     cookie_name: agentgate_session<%= get_env(name="SESSION_COOKIE_SUFFIX", default="") %>
     # Idle timeout 1 hari, bergulir setiap sesi dipakai. Umur mutlak ada di settings.auth.
     ttl: 86400
+
+  # Login Google/GitHub (services::auth::oauth; route bawaan Loco tidak dipasang). Provider
+  # hanya ada bila client id-nya di-set: tanpa env var itu tombolnya tersembunyi dan config tetap
+  # ter-load. Client id tanpa secret menggagalkan boot. Tag template if/endif ditaruh di komentar
+  # YAML supaya file tetap YAML valid sebelum di-render. Callback yang didaftarkan di provider:
+  # {base_url}/auth/google/callback dan {base_url}/auth/github/callback.
+  oauth:
+    base_url: http://localhost:<%= get_env(name="PORT") %>
+    # <% if get_env(name="GOOGLE_CLIENT_ID", default="") != "" or get_env(name="GITHUB_CLIENT_ID", default="") != "" %>
+    providers:
+      # <% if get_env(name="GOOGLE_CLIENT_ID", default="") != "" %>
+      google:
+        client_id: <%= get_env(name="GOOGLE_CLIENT_ID") %>
+        client_secret: <%= get_env(name="GOOGLE_CLIENT_SECRET") %>
+      # <% endif %>
+      # <% if get_env(name="GITHUB_CLIENT_ID", default="") != "" %>
+      github:
+        client_id: <%= get_env(name="GITHUB_CLIENT_ID") %>
+        client_secret: <%= get_env(name="GITHUB_CLIENT_SECRET") %>
+      # <% endif %>
+    # <% endif %>
 
 settings:
   app_name: Agent Gate

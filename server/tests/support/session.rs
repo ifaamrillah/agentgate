@@ -10,6 +10,7 @@ use loco_rs::{
     app::{AppContext, Hooks},
     auth::cookies::Cookie,
     boot::StartMode,
+    config::Config,
     environment::Environment,
 };
 
@@ -43,8 +44,19 @@ where
     F: FnOnce(TestServer, AppContext) -> Fut,
     Fut: Future<Output = ()>,
 {
+    request_with_config(|config| edit(config.settings.as_mut().unwrap()), callback).await;
+}
+
+/// Seperti [`request_with_settings`], tetapi `edit` menerima seluruh config (mis. untuk
+/// menambah provider `auth.oauth.providers` yang menunjuk provider palsu).
+pub async fn request_with_config<E, F, Fut>(edit: E, callback: F)
+where
+    E: FnOnce(&mut Config),
+    F: FnOnce(TestServer, AppContext) -> Fut,
+    Fut: Future<Output = ()>,
+{
     let mut config = App::load_config(&Environment::Test).await.unwrap();
-    edit(config.settings.as_mut().unwrap());
+    edit(&mut config);
     let boot = App::boot(StartMode::ServerOnly, &Environment::Test, config)
         .await
         .unwrap();

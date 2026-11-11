@@ -3,12 +3,15 @@
 #![allow(dead_code)] // helper dipakai sebagian tes saja; yang belum dipakai tidak boleh memicu warning.
 
 mod builders;
+pub mod fake_oauth;
 mod mail;
 mod session;
 
 pub use builders::a_user;
 pub use mail::{mail_to, sent_mail, token_in};
-pub use session::{request_as_development, request_with_settings, session_cookie, sign_in_as};
+pub use session::{
+    request_as_development, request_with_config, request_with_settings, session_cookie, sign_in_as,
+};
 
 /// Password tes yang memenuhi aturan panjang (12–128 karakter). Satu nilai untuk semua tes
 /// supaya `sign_in_as` dan builder user tidak berbeda pendapat.

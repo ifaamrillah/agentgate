@@ -10,7 +10,10 @@ use crate::{
         extractors::{ClientIp, MaybeCurrentUser, ValidForm},
         flash,
     },
-    services::auth::sign_in::{self, PasswordSignIn, SignInStep},
+    services::auth::{
+        oauth,
+        sign_in::{self, PasswordSignIn, SignInStep},
+    },
     views::{self, auth::LoginPage},
 };
 
@@ -20,6 +23,8 @@ pub(super) const HOME: &str = "/";
 #[derive(Debug, Deserialize)]
 pub struct ShowParams {
     return_to: Option<String>,
+    /// Kode kegagalan login OAuth dari callback; hanya kode di `oauth::ERROR_CODES`.
+    oauth_error: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -45,6 +50,9 @@ async fn show(
     let (session, flash) = flash::take(session);
     let mut page = login_page(&ctx, "", params.return_to.as_deref())?;
     page.flash = flash;
+    if let Some(code) = params.oauth_error.as_deref().and_then(oauth::error_code) {
+        page = page.with_error(code);
+    }
     Ok((session, views::auth::login(&v, &page, StatusCode::OK)?).into_response())
 }
 
@@ -93,13 +101,8 @@ async fn submit(
 /// redirect hanya pernah memakai nilai yang lolos `safe_return_to`.
 fn login_page(ctx: &AppContext, email: &str, return_to: Option<&str>) -> Result<LoginPage> {
     // Tombol OAuth hanya untuk provider yang dikonfigurasi (`auth.oauth.providers`).
-    let providers = ctx
-        .config
-        .auth
-        .as_ref()
-        .and_then(|a| a.oauth.as_ref())
-        .map(|o| &o.providers);
-    let has = |name: &str| providers.is_some_and(|p| p.contains_key(name));
+    let providers = oauth::configured(ctx);
+    let has = |name: &str| providers.iter().any(|p| p == name);
     Ok(LoginPage {
         email: email.trim().to_string(),
         return_to: return_to.and_then(sign_in::safe_return_to),

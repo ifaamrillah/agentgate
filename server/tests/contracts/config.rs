@@ -9,7 +9,7 @@ use loco_rs::{
     environment::Environment,
 };
 
-const CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
+const CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self' https://accounts.google.com https://github.com; frame-ancestors 'none'";
 
 /// Env var yang dibutuhkan staging/production; dev/test mendapatkannya dari bin/*.
 const DEPLOY_ENV: &[(&str, &str)] = &[
@@ -144,6 +144,57 @@ fn deployed_environments_have_no_default_secrets() {
             );
         }
     }
+}
+
+const OAUTH_ENV: &[(&str, &str)] = &[
+    ("GOOGLE_CLIENT_ID", "google-id"),
+    ("GOOGLE_CLIENT_SECRET", "google-secret"),
+    ("GITHUB_CLIENT_ID", "github-id"),
+    ("GITHUB_CLIENT_SECRET", "github-secret"),
+];
+
+fn oauth_providers(env: &str) -> Vec<String> {
+    let config = load(env).unwrap_or_else(|e| panic!("{env}: {e}"));
+    let oauth = config
+        .auth
+        .and_then(|a| a.oauth)
+        .unwrap_or_else(|| panic!("{env}: auth.oauth"));
+    oauth.providers.keys().cloned().collect()
+}
+
+#[test]
+fn oauth_providers_exist_only_when_their_client_id_is_set() {
+    with_deploy_env(|| {
+        for env in ["development", "test", "staging", "production"] {
+            assert!(
+                oauth_providers(env).is_empty(),
+                "{env}: tanpa env var OAuth"
+            );
+        }
+        unsafe { std::env::set_var("GITHUB_CLIENT_ID", "github-id") };
+        unsafe { std::env::set_var("GITHUB_CLIENT_SECRET", "github-secret") };
+        for env in ["development", "staging", "production"] {
+            assert_eq!(oauth_providers(env), ["github"], "{env}");
+        }
+        for (k, v) in OAUTH_ENV {
+            unsafe { std::env::set_var(k, v) };
+        }
+        for env in ["development", "staging", "production"] {
+            assert_eq!(oauth_providers(env), ["github", "google"], "{env}");
+            let config = load(env).unwrap();
+            let oauth = config.auth.unwrap().oauth.unwrap();
+            assert_eq!(oauth.providers["google"].client_secret, "google-secret");
+            assert!(oauth.base_url.is_some(), "{env}: auth.oauth.base_url");
+        }
+        // Test tidak membaca env var OAuth: provider tes disuntikkan oleh tes sendiri.
+        assert!(oauth_providers("test").is_empty());
+        // Client id tanpa secret: config gagal di-load, bukan provider tanpa secret.
+        unsafe { std::env::remove_var("GOOGLE_CLIENT_SECRET") };
+        assert!(load("production").is_err());
+        for (k, _) in OAUTH_ENV {
+            unsafe { std::env::remove_var(k) };
+        }
+    });
 }
 
 #[test]
