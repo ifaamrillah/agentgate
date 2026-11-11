@@ -18,19 +18,22 @@ path = "src/bin/main.rs"
 
 [dependencies]
 # Framework: routing, view Tera, queue Postgres, worker, mailer, CLI migrasi.
-loco-rs = { workspace = true, features = ["cli", "with-db", "cache_inmem", "worker", "db-postgres", "compression", "generators", "mailer"] }
+# auth_session: sesi server-side (store database); auth_oauth: building block provider/state OAuth;
+# auth_session_encrypted: jar cookie terenkripsi (AES-256-GCM) untuk transaksi login OAuth;
+# multi-tenancy: trait TenantEntity untuk query per workspace.
+loco-rs = { workspace = true, features = ["cli", "with-db", "cache_inmem", "worker", "db-postgres", "compression", "generators", "mailer", "auth_session", "auth_session_encrypted", "auth_oauth", "multi-tenancy"] }
 # Migrasi SeaORM milik server.
 migration = { path = "migration" }
 # Type dan versi bersama dengan CLI.
 agentgate-core = { path = "../core" }
-# ORM (entity, query) untuk Postgres.
-sea-orm = { version = "2.0", default-features = false, features = ["sqlx-postgres", "runtime-tokio-rustls", "macros", "with-uuid", "with-chrono", "with-json"] }
+# ORM (entity, query) untuk Postgres. postgres-array: kolom `text[]` (`roles.permissions`).
+sea-orm = { version = "2.0", default-features = false, features = ["sqlx-postgres", "runtime-tokio-rustls", "macros", "with-uuid", "with-chrono", "with-json", "postgres-array"] }
 # Serialisasi config, form, dan data view.
 serde = { version = "1", features = ["derive"] }
 # Data view (`data!`) dan settings dari config.
 serde_json = "1"
-# Runtime async.
-tokio = { version = "1.45", default-features = false, features = ["rt-multi-thread", "macros"] }
+# Runtime async; sync (Semaphore) dan time (timeout) membatasi hash password bersamaan.
+tokio = { version = "1.45", default-features = false, features = ["rt-multi-thread", "macros", "sync", "time"] }
 # Trait async untuk Hooks dan Initializer Loco.
 async-trait = "0.1"
 # Router, extractor, dan middleware HTTP.
@@ -45,6 +48,35 @@ unic-langid = { version = "0.9", features = ["macros"] }
 tera = "2.4"
 # Error domain bertipe.
 thiserror = "2"
+# Hash password argon2id (PHC string) dengan parameter dari settings.auth.
+argon2 = { version = "0.5", features = ["std"] }
+# Digest SHA-256 untuk token email yang disimpan di database.
+sha2 = "0.10"
+# Perbandingan rahasia constant-time.
+subtle = "2"
+# CSPRNG (OsRng) untuk token dan nonce.
+rand = { version = "0.9", features = ["os_rng"] }
+# Password di struct form dengan Debug yang disamarkan.
+secrecy = { version = "0.10", features = ["serde"] }
+# TOTP untuk 2FA (RFC 6238) dan URI otpauth://; secret dibuat dari OsRng aplikasi.
+totp-rs = { version = "5", features = ["otpauth"] }
+# QR code untuk URI otpauth, dirender sebagai SVG inline (tanpa image/PNG).
+qrcodegen = "1.8"
+# Enkripsi XChaCha20-Poly1305 untuk secret TOTP di database (kunci ENCRYPTION_KEY).
+chacha20poly1305 = "0.10"
+# HMAC-SHA256 untuk token dev_login bertanda tangan.
+hmac = "0.12"
+# Encoding token (base64url) dan kunci enkripsi (base64).
+base64 = "0.22"
+# Validasi form bertipe.
+validator = { version = "0.20", features = ["derive"] }
+# Id UUID v7 untuk semua tabel.
+uuid = { version = "1", features = ["v7", "serde"] }
+# Timestamp (timestamptz) dan perhitungan umur token/sesi.
+chrono = "0.4"
+
+# Prompt password tanpa echo untuk task user:set_password.
+rpassword = "7"
 
 [dev-dependencies]
 # Helper tes request/boot dan assertion selector HTML (`assert_css_*`).
@@ -53,6 +85,14 @@ loco-rs = { workspace = true, features = ["testing"] }
 tera = "2.4"
 # Memanggil router Axum langsung di tes layer (`ServiceExt::oneshot`).
 tower = { version = "0.5", features = ["util"] }
+# Tipe `TestServer`/`TestResponse` yang dipakai helper tes Loco (versi sama dengan Loco).
+axum-test = "17.3"
+# `join_all` untuk tes request paralel (rate limit tidak bisa dilewati dengan burst).
+futures = "0.3"
+# Provider OAuth palsu (tests/support/fake_oauth.rs) mendengarkan di 127.0.0.1:0.
+tokio = { version = "1.45", default-features = false, features = ["net"] }
+# Tes mengikuti redirect authorize provider palsu (versi dan fitur sama dengan Loco).
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 
 [lints]
 workspace = true

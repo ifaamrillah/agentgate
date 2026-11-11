@@ -1,0 +1,1 @@
+{{ t(key="mail-invitation-subject", lang="id", workspace=workspace_name) }}

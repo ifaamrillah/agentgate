@@ -1,0 +1,31 @@
+{#- Daftar lewat undangan. Email terkunci (hanya tampilan; server memakai email undangan).
+    Variabel (views::invitations::RegisterPage): invitation {workspace_name, email, login_href,
+    …}, action (POST), name, errors (name/password → {code, min, max}), account_exists (email
+    sudah punya akun: hanya tautan Masuk). Password tidak pernah dirender. -#}
+{% extends "auth/_layout_card.html" %}
+{% block title %}{{ t(key="invitation-register-title", lang="id") }}{% endblock title %}
+{% block heading %}{{ t(key="invitation-register-title", lang="id") }}{% endblock heading %}
+{% block description %}{{ t(key="invitation-heading", lang="id", workspace=invitation.workspace_name) }}{% endblock description %}
+{% block card %}
+<div class="grid gap-6" data-invitation-register>
+  <div class="field">
+    <span class="text-sm font-medium">{{ t(key="register-email", lang="id") }}</span>
+    <p class="text-sm" data-invitation-email>{{ invitation.email }}</p>
+  </div>
+  {%- if account_exists %}
+  <p class="text-sm">{{ t(key="invitation-account-exists", lang="id") }}</p>
+  <a href="{{ invitation.login_href }}" class="btn w-full" data-variant="primary">{{ t(key="invitation-login", lang="id") }}</a>
+  {%- else %}
+  <form method="post" action="{{ action }}" class="form grid gap-6">
+    {{ <field id="invitation-name" name="name" label={t(key="register-name", lang="id")} value={name} error={errors.name.code} error_min={errors.name.min} error_max={errors.name.max} autocomplete="name" required={true} autofocus={true}/> }}
+    {{ <field id="invitation-password" name="password" type="password" label={t(key="register-password", lang="id")} error={errors.password.code} error_min={errors.password.min} error_max={errors.password.max} autocomplete="new-password" required={true}/> }}
+    {{ <button label={t(key="invitation-register-submit", lang="id")} type="submit" class="w-full"/> }}
+  </form>
+  {%- endif %}
+</div>
+{% endblock card %}
+{% block below %}
+{%- if not account_exists %}
+{{ t(key="register-have-account", lang="id") }} <a href="{{ invitation.login_href }}" class="underline underline-offset-4">{{ t(key="register-login", lang="id") }}</a>
+{%- endif %}
+{% endblock below %}

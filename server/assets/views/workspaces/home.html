@@ -1,0 +1,40 @@
+{#- Beranda workspace. Variabel: workspace_name (string), create_href (path form buat project,
+    atau null bila role tidak memegang CreateProjects); daftar project = shell.projects (project
+    yang bisa dibuka user, sama dengan sidebar: {name, key, href, archived}). -#}
+{% extends "layouts/app.html" %}
+{% block title %}{{ workspace_name }}{% endblock title %}
+{% block content %}
+<div class="grid gap-6">
+  {% <page_header title={workspace_name}> %}
+    {%- if create_href %}
+    <a href="{{ create_href }}" class="btn" data-create-project>{{ icon(name="plus", class="size-4") }}{{ t(key="workspace-create-project", lang="id") }}</a>
+    {%- endif %}
+  {% </page_header> %}
+  {%- if shell.projects %}
+  <ul class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-projects>
+    {%- for project in shell.projects %}
+    <li data-project="{{ project.key }}">
+      <a href="{{ project.href }}" class="card block h-full p-4 hover:bg-accent">
+        <div class="flex items-center gap-2">
+          {{ icon(name="folder", class="size-4 text-muted-foreground") }}
+          <span class="truncate font-medium">{{ project.name }}</span>
+        </div>
+        <div class="mt-2 flex flex-wrap items-center gap-2">
+          {{ <badge label={project.key} variant="outline"/> }}
+          {%- if project.archived %}
+          <span data-project-archived>{{ <badge label={t(key="project-archived", lang="id")} variant="secondary"/> }}</span>
+          {%- endif %}
+        </div>
+      </a>
+    </li>
+    {%- endfor %}
+  </ul>
+  {%- elif create_href %}
+  {% <empty_state title={t(key="workspace-no-projects-title", lang="id")} description={t(key="workspace-no-projects-description", lang="id")} variant="dashed"> %}
+    <a href="{{ create_href }}" class="btn" data-variant="outline">{{ icon(name="plus", class="size-4") }}{{ t(key="workspace-create-project", lang="id") }}</a>
+  {% </empty_state> %}
+  {%- else %}
+  {{ <empty_state title={t(key="workspace-no-projects-title", lang="id")} description={t(key="workspace-no-projects-member-description", lang="id")} variant="dashed"/> }}
+  {%- endif %}
+</div>
+{% endblock content %}

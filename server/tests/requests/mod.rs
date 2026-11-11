@@ -1,6 +1,10 @@
+mod account;
+mod auth;
 mod csrf;
 mod dev_ui;
 mod errors;
 mod health;
 mod home;
+mod projects;
 mod security_headers;
+mod workspaces;

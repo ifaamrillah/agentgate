@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Server development: Tailwind --watch + server Loco di bawah watchexec.
+# Server development: Tailwind --watch + server Loco (beserta worker antrean, supaya email terkirim ke Mailpit) di bawah watchexec.
 # Template, CSS, dan JS berubah tanpa restart; kode Rust, config, ikon, dan terjemahan me-restart.
 set -euo pipefail
 . "$(dirname "$0")/_lib.sh"
@@ -16,4 +16,4 @@ AG_WORKDIR=/workspace/server ag_exec bash -c '
   # $$ tetap PID yang sama setelah exec, jadi menjadi PID watchexec.
   echo "$! $$" >"$PIDS"
   exec watchexec --restart --watch src --watch migration --watch config \
-    --watch assets/icons --watch assets/i18n --watch Cargo.toml -- cargo loco start --binding 0.0.0.0'
+    --watch assets/icons --watch assets/i18n --watch Cargo.toml -- cargo loco start --server-and-worker --binding 0.0.0.0'

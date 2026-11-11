@@ -1,0 +1,1 @@
+{{ t(key="mail-password-reset-subject", lang="id") }}

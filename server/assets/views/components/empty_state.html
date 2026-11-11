@@ -1,0 +1,22 @@
+{#- Komponen empty state: belum ada data, dengan ajakan bertindak opsional.
+    Dipanggil inline, atau sebagai blok bila ada aksi (body = tombol/link di footer).
+    Parameter:
+      title: string             judul (sudah diterjemahkan pemanggil)
+      description: string       penjelasan (default "")
+      icon: nama ikon Tabler    (default "folder"; "" = tanpa ikon)
+      variant: plain|dashed     (default plain; dashed = bingkai garis putus, untuk area kosong
+                                di dalam halaman)
+      class: hanya untuk layout (margin, lebar), bukan warna/ukuran -#}
+{% component empty_state(title: string, description: string = "", icon: string = "folder", variant: string = "plain", class: string = "") %}
+{%- if variant not in ["plain", "dashed"] %}{{ throw(message="empty_state: variant tidak dikenal: " ~ variant) }}{% endif -%}
+<div class="{% if variant == "dashed" %}empty border border-dashed{% else %}empty{% endif %} {{ class }}">
+  <header>
+    {%- if icon %}<figure>{{ icon(name=icon, class="size-6") }}</figure>{% endif %}
+    <h3>{{ title }}</h3>
+    {%- if description %}<p>{{ description }}</p>{% endif %}
+  </header>
+  {%- if body is defined %}
+  <footer>{{ body }}</footer>
+  {%- endif %}
+</div>
+{%- endcomponent empty_state %}

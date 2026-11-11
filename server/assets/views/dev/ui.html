@@ -1,8 +1,9 @@
-{#- Katalog komponen /_dev/ui: setiap komponen di assets/views/components dengan semua variannya. -#}
+{#- Katalog komponen /_dev/ui: setiap komponen di assets/views/components dengan semua variannya.
+    Variabel: shell (contoh statis dari views::dev, dengan workspace dan project). -#}
 {% extends "layouts/app.html" %}
 {% block title %}Katalog UI{% endblock title %}
 {% block content %}
-<h1 class="text-2xl font-semibold">Katalog UI</h1>
+{{ <page_header title="Katalog UI" description="Setiap komponen di assets/views/components dengan semua variannya."/> }}
 
 <section class="mt-8" id="button">
   <h2 class="text-lg font-semibold">button</h2>
@@ -16,6 +17,103 @@
       {{ <button label={size} size={size} icon="plus"/> }}
     {% endfor %}
     {{ <button label="submit" type="submit" icon="check"/> }}
+    {{ <button label="disabled" icon="plus" disabled={true}/> }}
+  </div>
+</section>
+
+<section class="mt-8 max-w-md" id="field">
+  <h2 class="text-lg font-semibold">field</h2>
+  <form class="form mt-4 grid gap-6">
+    {{ <field id="catalog-name" name="name" label="Nama" value="Ana"/> }}
+    {{ <field id="catalog-email" name="email" type="email" label="Email" value="ana@example.test" autocomplete="email" required={true}/> }}
+    {{ <field id="catalog-password" name="password" type="password" label="Password" value="tidak-dirender" error="password-too-short" error_min={12}/> }}
+  </form>
+</section>
+
+<section class="mt-8 max-w-md" id="flash">
+  <h2 class="text-lg font-semibold">flash</h2>
+  <div class="mt-4 grid gap-3">
+    {% for kind in ["info", "success", "error"] %}
+      {{ <flash kind={kind} message={"Pesan " ~ kind}/> }}
+    {% endfor %}
+  </div>
+</section>
+
+<section class="mt-8" id="page_header">
+  <h2 class="text-lg font-semibold">page_header</h2>
+  <div class="mt-4 grid gap-6 rounded-lg border border-border p-4">
+    {{ <page_header title="Beranda"/> }}
+    {% <page_header title="Project" description="Semua project yang bisa kamu akses."> %}
+      {{ <button label="Buat project" icon="plus"/> }}
+    {% </page_header> %}
+  </div>
+</section>
+
+<section class="mt-8" id="card">
+  <h2 class="text-lg font-semibold">card</h2>
+  <div class="mt-4 grid max-w-3xl gap-4 md:grid-cols-2">
+    {% <card title="Profil" description="Nama dan email akun."> %}
+      <p>Isi card ukuran default.</p>
+    {% </card> %}
+    {% <card title="Ringkas" description="Ukuran sm." size="sm"> %}
+      <p>Isi card ukuran sm.</p>
+    {% </card> %}
+    {% <card> %}
+      <p>Card tanpa judul.</p>
+    {% </card> %}
+  </div>
+</section>
+
+<section class="mt-8" id="badge">
+  <h2 class="text-lg font-semibold">badge</h2>
+  <div class="mt-4 flex flex-wrap items-center gap-3">
+    {% for variant in ["primary", "secondary", "outline", "destructive"] %}
+      {{ <badge label={variant} variant={variant}/> }}
+    {% endfor %}
+  </div>
+</section>
+
+<section class="mt-8 max-w-3xl" id="empty_state">
+  <h2 class="text-lg font-semibold">empty_state</h2>
+  <div class="mt-4 grid gap-4 md:grid-cols-2">
+    {{ <empty_state title="Belum ada project" description="Project yang kamu buat atau diundang akan tampil di sini."/> }}
+    {% <empty_state title="Belum ada anggota" description="Undang rekan ke workspace ini." icon="users" variant="dashed"> %}
+      {{ <button label="Undang anggota" icon="plus" size="sm"/> }}
+    {% </empty_state> %}
+  </div>
+</section>
+
+<section class="mt-8 max-w-3xl" id="table">
+  <h2 class="text-lg font-semibold">table</h2>
+  {% <table headers={["Nama", "Email", "Status"]} caption="Anggota workspace" class="mt-4"> %}
+    <tr><td>Ana Nugraha</td><td>ana@agentgate.test</td><td>{{ <badge label="Owner" variant="primary"/> }}</td></tr>
+    <tr><td>Budi Santoso</td><td>budi@agentgate.test</td><td>{{ <badge label="Member"/> }}</td></tr>
+  {% </table> %}
+</section>
+
+<section class="mt-8" id="avatar">
+  <h2 class="text-lg font-semibold">avatar</h2>
+  <div class="mt-4 flex flex-wrap items-center gap-3">
+    {% for size in ["sm", "default", "lg"] %}
+      {{ <avatar initials="AN" label="Ana Nugraha" size={size}/> }}
+    {% endfor %}
+    {{ <avatar initials="B"/> }}
+  </div>
+</section>
+
+<section class="mt-8 max-w-xs" id="sidebar_nav">
+  <h2 class="text-lg font-semibold">sidebar_nav</h2>
+  <p class="mt-2 text-sm text-muted-foreground">Gaya item hanya berlaku di dalam <code>.sidebar &gt; nav</code>; contoh bergaya ada di sidebar kiri halaman ini. Daftar ini menunjukkan markup setiap state.</p>
+  <div class="mt-4 rounded-lg border border-border p-2 text-sm">
+    <ul class="grid gap-1">
+      {{ <sidebar_nav label="Halaman ini (current)" href="/_dev/ui" icon="home" state="current"/> }}
+      {{ <sidebar_nav label="Biasa (default)" href="/account" icon="user"/> }}
+      {% <sidebar_nav label="Bagian aktif (active)" href="/_dev/ui" icon="folder" state="active"> %}
+        {{ <sidebar_nav label="Sub-item" href="/_dev/ui" size="sm"/> }}
+        {{ <sidebar_nav label="Nonaktif" icon="robot" state="disabled" soon={true}/> }}
+      {% </sidebar_nav> %}
+      {{ <sidebar_nav label="Nonaktif (disabled)" icon="book" state="disabled" soon={true}/> }}
+    </ul>
   </div>
 </section>
 {% endblock content %}

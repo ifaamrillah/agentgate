@@ -1,0 +1,1 @@
+{{ t(key="mail-already-registered-subject", lang="id") }}

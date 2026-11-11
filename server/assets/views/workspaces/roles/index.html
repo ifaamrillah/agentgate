@@ -1,0 +1,40 @@
+{#- Pengaturan → Role. Variabel: roles ([views::roles::RoleRow]: name, builtin,
+    permission_keys (kunci Fluent label izin), edit_href dan delete_action (null untuk role
+    bawaan)), new_href (path form role baru), flash (dirender layout; penolakan role-builtin /
+    role-in-use datang lewat sini dengan status 422). -#}
+{% extends "layouts/app.html" %}
+{% block title %}{{ t(key="settings-roles-title", lang="id") }}{% endblock title %}
+{% block content %}
+<div class="grid gap-6" data-roles-index>
+  {% <page_header title={t(key="settings-roles-title", lang="id")} description={t(key="settings-roles-description", lang="id")}> %}
+    <a href="{{ new_href }}" class="btn" data-variant="primary">{{ icon(name="plus", class="size-4") }}{{ t(key="role-new-title", lang="id") }}</a>
+  {% </page_header> %}
+  {% <table headers={[t(key="role-column-name", lang="id"), t(key="role-column-permissions", lang="id"), t(key="role-column-actions", lang="id")]}> %}
+    {%- for role in roles %}
+    <tr {% if role.builtin %}data-builtin-role{% else %}data-custom-role{% endif %}>
+      <td class="align-top">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="font-medium">{{ role.name }}</span>
+          {%- if role.builtin %}{{ <badge label={t(key="role-builtin-badge", lang="id")} variant="outline"/> }}{% endif %}
+        </div>
+      </td>
+      <td class="align-top">
+        <div class="flex flex-wrap gap-1">
+          {%- for key in role.permission_keys %}{{ <badge label={t(key=key, lang="id")}/> }}{% endfor %}
+        </div>
+      </td>
+      <td class="align-top">
+        {%- if role.edit_href %}
+        <div class="flex flex-wrap items-center gap-2">
+          <a href="{{ role.edit_href }}" class="btn" data-variant="outline" data-size="sm">{{ t(key="role-edit", lang="id") }}</a>
+          <form method="post" action="{{ role.delete_action }}" hx-confirm="{{ t(key="role-delete-confirm", lang="id") }}">
+            {{ <button label={t(key="role-delete", lang="id")} variant="destructive" size="sm" type="submit"/> }}
+          </form>
+        </div>
+        {%- endif %}
+      </td>
+    </tr>
+    {%- endfor %}
+  {% </table> %}
+</div>
+{% endblock content %}

@@ -1,0 +1,61 @@
+# User seed dev (rules §4): terverifikasi, tanpa password. Masuk lewat `bin/loco task dev_login`.
+- id: 0197a000-0000-7000-8000-000000000001
+  email: owner@agentgate.test
+  name: Olivia Owner
+  password_hash: null
+  email_verified_at: "2026-01-01T00:00:00Z"
+  password_changed_at: null
+  disabled_at: null
+  totp_secret_encrypted: null
+  totp_enabled_at: null
+  totp_last_step: null
+  created_at: "2026-01-01T00:00:00Z"
+  updated_at: "2026-01-01T00:00:00Z"
+- id: 0197a000-0000-7000-8000-000000000002
+  email: admin@agentgate.test
+  name: Adi Admin
+  password_hash: null
+  email_verified_at: "2026-01-01T00:00:00Z"
+  password_changed_at: null
+  disabled_at: null
+  totp_secret_encrypted: null
+  totp_enabled_at: null
+  totp_last_step: null
+  created_at: "2026-01-01T00:00:00Z"
+  updated_at: "2026-01-01T00:00:00Z"
+- id: 0197a000-0000-7000-8000-000000000003
+  email: dev@agentgate.test
+  name: Dewi Dev
+  password_hash: null
+  email_verified_at: "2026-01-01T00:00:00Z"
+  password_changed_at: null
+  disabled_at: null
+  totp_secret_encrypted: null
+  totp_enabled_at: null
+  totp_last_step: null
+  created_at: "2026-01-01T00:00:00Z"
+  updated_at: "2026-01-01T00:00:00Z"
+- id: 0197a000-0000-7000-8000-000000000004
+  email: qa@agentgate.test
+  name: Qori QA
+  password_hash: null
+  email_verified_at: "2026-01-01T00:00:00Z"
+  password_changed_at: null
+  disabled_at: null
+  totp_secret_encrypted: null
+  totp_enabled_at: null
+  totp_last_step: null
+  created_at: "2026-01-01T00:00:00Z"
+  updated_at: "2026-01-01T00:00:00Z"
+- id: 0197a000-0000-7000-8000-000000000005
+  email: viewer@agentgate.test
+  name: Vina Viewer
+  password_hash: null
+  email_verified_at: "2026-01-01T00:00:00Z"
+  password_changed_at: null
+  disabled_at: null
+  totp_secret_encrypted: null
+  totp_enabled_at: null
+  totp_last_step: null
+  created_at: "2026-01-01T00:00:00Z"
+  updated_at: "2026-01-01T00:00:00Z"

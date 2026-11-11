@@ -33,6 +33,46 @@ Pertama kali, `bin/*` membangun image `agentgate-rs-dev` dan menyalakan layanan 
 
 Katalog komponen UI ada di <http://localhost:5150/_dev/ui> (hanya development).
 
+## Data seed dan login development
+
+`bin/loco db seed` mengisi database dev dengan lima user (terverifikasi, **tanpa password**):
+`owner@agentgate.test`, `admin@agentgate.test`, `dev@agentgate.test`, `qa@agentgate.test`, dan
+`viewer@agentgate.test`, semuanya anggota workspace **PT Contoh** (`/w/pt-contoh`) dengan role
+Owner, Admin, Member, Member, dan Viewer (jabatan: owner PM, dev Dev, qa QA). Workspace itu punya
+project **KSR** "Kasir Online" (`/w/pt-contoh/p/KSR`) dengan akses: tim Backend (dev) dan tim QA
+(qa) ber-role Member, viewer langsung ber-role Viewer; owner dan admin otomatis Admin di semua
+project. Menjalankannya lagi
+tidak menggandakan data; untuk mengulang dari nol pakai
+`bin/loco db reset` lalu seed.
+
+- **Masuk tanpa password**: `bin/loco task dev_login email:owner@agentgate.test` mencetak link
+  `http://localhost:<PORT>/_dev/login?token=...` yang berlaku 10 menit. Buka di browser. Link ini
+  setara password: jangan dibagikan atau di-commit. Hanya jalan di environment development.
+- **Mencoba form login**: beri password ke user seed dengan
+  `bin/loco task user:set_password email:dev@agentgate.test` (password dibaca dari prompt tanpa echo,
+  dua kali, minimal 12 karakter; semua sesi user itu dicabut).
+- **User baru**: `bin/loco task user:create email:ana@contoh.test name:"Ana"` (terverifikasi, tanpa password).
+- **Email** (verifikasi, reset password, undangan) dikirim oleh worker antrean yang ikut jalan di
+  `bin/dev`; buka hasilnya di Mailpit.
+- **Pembersihan harian** (sesi kedaluwarsa, token lama, undangan selesai, workspace yang lewat masa
+  tenggat 30 hari): `bin/loco task cleanup` (dry run) lalu `bin/loco task cleanup confirm:yes`.
+  Di staging/production dijadwalkan scheduler pukul 03:00 UTC.
+
+## Environment variable (staging/production)
+
+Development dan test memakai nilai bawaan di `server/config/*.yaml`. Staging dan production wajib
+mengisi:
+
+| Variabel | Isi |
+|---|---|
+| `DATABASE_URL` | URL Postgres |
+| `SESSION_SECRET` | kunci tanda tangan cookie sesi, 64+ karakter acak (`openssl rand -base64 64`); mengganti me-logout semua user |
+| `ENCRYPTION_KEY` | base64 dari tepat 32 byte (`openssl rand -base64 32`) untuk enkripsi secret TOTP; mengganti membuat 2FA aktif tak bisa dibuka |
+| `APP_URL` | URL publik, dipakai untuk link di email dan callback OAuth |
+| `MAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD` | pengiriman email |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | login Google/GitHub; provider yang `CLIENT_ID`-nya kosong tidak diaktifkan |
+| `PORT`, `BINDING`, `LOG_LEVEL`, `DB_*`, `AUTH_MAX_CONCURRENT_HASHES` | opsional, ada default |
+
 ## Kerja paralel dengan worktree
 
 ```bash

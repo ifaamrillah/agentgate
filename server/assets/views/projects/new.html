@@ -1,0 +1,20 @@
+{#- Buat project. Variabel: form (views::projects::ProjectFormView: key, name, description,
+    errors), action (POST). -#}
+{% extends "layouts/app.html" %}
+{% block title %}{{ t(key="project-new-title", lang="id") }}{% endblock title %}
+{% block content %}
+<div class="mx-auto grid max-w-xl gap-6">
+  {{ <page_header title={t(key="project-new-title", lang="id")} description={t(key="project-new-description", lang="id")}/> }}
+  {% <card> %}
+    <form method="post" action="{{ action }}" class="form grid gap-6">
+      {{ <field id="project-name" name="name" label={t(key="project-name", lang="id")} value={form.name} error={form.errors.name.code} error_min={form.errors.name.min} error_max={form.errors.name.max} required={true} autofocus={true}/> }}
+      <div class="grid gap-2">
+        {{ <field id="project-key" name="key" label={t(key="project-key", lang="id")} value={form.key} error={form.errors.key.code} error_min={form.errors.key.min} error_max={form.errors.key.max} autocomplete="off" required={true}/> }}
+        <p class="text-sm text-muted-foreground">{{ t(key="project-key-hint", lang="id") }}</p>
+      </div>
+      {% include "projects/_description_field.html" %}
+      <div>{{ <button label={t(key="project-create-submit", lang="id")} type="submit"/> }}</div>
+    </form>
+  {% </card> %}
+</div>
+{% endblock content %}

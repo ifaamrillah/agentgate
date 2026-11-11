@@ -1,0 +1,57 @@
+{#- Satu tim. Variabel: page (views::teams::TeamPage: title, form (name, errors.name), members
+    ([{user_id, name, email}]), candidates ([{id, name}]: anggota workspace yang belum di tim),
+    action (POST ganti nama), delete_action, add_action, remove_action, back), flash (dirender
+    layout). -#}
+{% extends "layouts/app.html" %}
+{% block title %}{{ page.title }}{% endblock title %}
+{% block content %}
+<div class="mx-auto grid max-w-2xl gap-6" data-team-page>
+  {% <page_header title={page.title}> %}
+    <a href="{{ page.back }}" class="btn" data-variant="ghost">{{ icon(name="arrow-left", class="size-4") }}{{ t(key="team-back", lang="id") }}</a>
+  {% </page_header> %}
+  {% <card title={t(key="team-name", lang="id")}> %}
+    <form method="post" action="{{ page.action }}" class="form flex flex-wrap items-end gap-3">
+      {{ <field id="team-name" name="name" label={t(key="team-name", lang="id")} value={page.form.name} error={page.form.errors.name.code} error_min={page.form.errors.name.min} error_max={page.form.errors.name.max} required={true} class="min-w-48 flex-1"/> }}
+      {{ <button label={t(key="team-rename", lang="id")} variant="outline" type="submit"/> }}
+    </form>
+  {% </card> %}
+  {% <card title={t(key="team-members-title", lang="id")}> %}
+    <div class="grid gap-4">
+      {%- if page.candidates %}
+      <form method="post" action="{{ page.add_action }}" class="form flex flex-wrap items-end gap-3">
+        <div class="field min-w-56 flex-1">
+          <label for="team-member">{{ t(key="team-member-add-label", lang="id") }}</label>
+          <select class="select" id="team-member" name="user_id" required>
+            {%- for person in page.candidates %}<option value="{{ person.id }}">{{ person.name }}</option>{% endfor %}
+          </select>
+        </div>
+        {{ <button label={t(key="team-member-add", lang="id")} type="submit" icon="plus"/> }}
+      </form>
+      {%- endif %}
+      {%- if page.members %}
+      <ul class="grid gap-2">
+        {%- for member in page.members %}
+        <li class="flex flex-wrap items-center justify-between gap-2" data-team-member>
+          <div class="grid">
+            <span class="font-medium">{{ member.name }}</span>
+            <span class="text-sm text-muted-foreground">{{ member.email }}</span>
+          </div>
+          <form method="post" action="{{ page.remove_action }}">
+            <input type="hidden" name="user_id" value="{{ member.user_id }}">
+            {{ <button label={t(key="team-member-remove", lang="id")} variant="ghost" size="sm" type="submit"/> }}
+          </form>
+        </li>
+        {%- endfor %}
+      </ul>
+      {%- else %}
+      <p class="text-sm text-muted-foreground">{{ t(key="team-members-empty", lang="id") }}</p>
+      {%- endif %}
+    </div>
+  {% </card> %}
+  {% <card title={t(key="team-delete-title", lang="id")} description={t(key="team-delete-description", lang="id")}> %}
+    <form method="post" action="{{ page.delete_action }}" hx-confirm="{{ t(key="team-delete-confirm", lang="id") }}">
+      {{ <button label={t(key="team-delete", lang="id")} variant="destructive" type="submit"/> }}
+    </form>
+  {% </card> %}
+</div>
+{% endblock content %}

@@ -1,0 +1,22 @@
+{#- Komponen tabel. Dipanggil sebagai blok; body = baris `<tr><td>…</td></tr>` untuk tbody.
+      {% <table headers={["Nama", "Email"]}> %}{% for u in users %}<tr>…</tr>{% endfor %}{% </table> %}
+    Parameter:
+      headers: array            judul kolom (string, sudah diterjemahkan pemanggil)
+      caption: string           keterangan tabel untuk pembaca layar dan di bawah tabel
+                                (default "")
+      class: hanya untuk layout (margin, lebar), bukan warna/ukuran -#}
+{% component table(headers: array, caption: string = "", class: string = "") %}
+<div class="table-container {{ class }}">
+  <table class="table">
+    {%- if caption %}<caption>{{ caption }}</caption>{% endif %}
+    <thead>
+      <tr>
+        {%- for header in headers %}<th scope="col">{{ header }}</th>{% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {%- if body is defined %}{{ body }}{% endif %}
+    </tbody>
+  </table>
+</div>
+{%- endcomponent table %}

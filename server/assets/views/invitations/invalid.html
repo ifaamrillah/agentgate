@@ -1,0 +1,12 @@
+{#- Undangan yang tidak berlaku (tidak ada, kedaluwarsa, dibatalkan, atau sudah dipakai;
+    alasannya sengaja tidak dibedakan). Status 404. Tidak membutuhkan variabel. -#}
+{% extends "auth/_layout_card.html" %}
+{% block title %}{{ t(key="invitation-invalid-title", lang="id") }}{% endblock title %}
+{% block heading %}{{ t(key="invitation-invalid-title", lang="id") }}{% endblock heading %}
+{% block description %}{% endblock description %}
+{% block card %}
+<div data-page="invitation-invalid">
+  <p class="text-sm">{{ t(key="invitation-invalid-body", lang="id") }}</p>
+  <a href="/" class="btn mt-6 w-full" data-variant="outline">{{ t(key="invitation-invalid-action", lang="id") }}</a>
+</div>
+{% endblock card %}

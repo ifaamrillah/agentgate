@@ -1,0 +1,34 @@
+{#- 2FA aktif. Variabel: remaining_codes (integer, kode pemulihan belum dipakai), errors
+    (field current_password dan code → {code, min, max}). Password tidak pernah dirender ulang. -#}
+{% extends "layouts/app.html" %}
+{% block title %}{{ t(key="totp-status-title", lang="id") }}{% endblock title %}
+{% block content %}
+<div class="mx-auto grid max-w-md gap-6">
+  <h1 class="text-2xl font-semibold">{{ t(key="totp-status-title", lang="id") }}</h1>
+  <section class="card">
+    <header>
+      <h2 class="text-lg font-semibold">{{ t(key="totp-recovery-title", lang="id") }}</h2>
+      <p class="text-sm text-muted-foreground">{{ t(key="totp-recovery-remaining", lang="id", count=remaining_codes) }}</p>
+    </header>
+    <section>
+      <form method="post" action="/account/2fa/recovery-codes">
+        {{ <button label={t(key="totp-recovery-regenerate", lang="id")} variant="outline" type="submit"/> }}
+      </form>
+    </section>
+  </section>
+  <section class="card">
+    <header>
+      <h2 class="text-lg font-semibold">{{ t(key="totp-disable-title", lang="id") }}</h2>
+      <p class="text-sm text-muted-foreground">{{ t(key="totp-disable-description", lang="id") }}</p>
+    </header>
+    <section>
+      <form method="post" action="/account/2fa/disable" class="form grid gap-6">
+        {{ <field id="totp-disable-password" name="current_password" type="password" label={t(key="change-password-current", lang="id")} error={errors.current_password.code} autocomplete="current-password" required={true}/> }}
+        {{ <field id="totp-disable-code" name="code" label={t(key="totp-disable-code", lang="id")} error={errors.code.code} autocomplete="one-time-code" required={true}/> }}
+        {{ <button label={t(key="totp-disable-submit", lang="id")} variant="destructive" type="submit" class="w-full"/> }}
+      </form>
+    </section>
+  </section>
+  <a href="/account" class="text-sm underline underline-offset-4">{{ t(key="totp-back", lang="id") }}</a>
+</div>
+{% endblock content %}

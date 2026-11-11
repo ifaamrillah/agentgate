@@ -37,7 +37,10 @@ server:
       enable: true
       preset: github
       overrides:
-        Content-Security-Policy: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+        # form-action memuat domain authorize Google dan GitHub: tombol login OAuth adalah form
+        # POST ke /auth/{provider} yang dijawab 303 ke provider, dan Chrome menerapkan
+        # form-action juga pada redirect setelah submit form.
+        Content-Security-Policy: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self' https://accounts.google.com https://github.com; frame-ancestors 'none'"
 
 workers:
   mode: BackgroundQueue
@@ -47,6 +50,32 @@ queue:
   # Queue selalu di database yang sama dengan aplikasi (per checkout/worktree), tanpa default.
   uri: <%= get_env(name="DATABASE_URL") %>
   dangerously_flush: false
+  retention:
+    # Job mailer membawa token mentah reset/verifikasi di args-nya (rules §8): job selesai
+    # dihapus pada sapuan berikutnya (completed_days 0), jauh sebelum token reset (30 menit)
+    # kedaluwarsa. Job gagal disimpan sebentar untuk diperiksa, lalu ikut dihapus.
+    completed_days: 0
+    failed_days: 7
+    interval_seconds: 300
+
+# Scheduler (rules §8): berjalan di tepat satu proses, ikut di container worker
+# (`start --worker --scheduler`, disiapkan di M12). Bila worker diskalakan lebih dari satu,
+# scheduler pindah ke container sendiri yang berjumlah satu, supaya job harian tidak jalan dua
+# kali.
+scheduler:
+  output: stdout
+  jobs:
+    # Pembersihan harian (task `cleanup`, services::cleanup): sesi kedaluwarsa, rate limit login
+    # basi, token email > 7 hari, undangan selesai > 30 hari, dan workspace yang masa tenggang
+    # hapusnya (30 hari) lewat. Idempoten: jadwal yang terlewat cukup menunggu hari berikutnya.
+    cleanup:
+      run: cleanup confirm:yes
+      # 03:00 UTC (10:00 WIB): pekerjaannya ringan (DELETE berindeks), jadi tidak perlu jam
+      # sepi; jalan di jam kerja WIB supaya kegagalan (baris FAIL, exit code bukan nol)
+      # langsung terlihat tim, dan jauh dari pergantian hari UTC tempat tenggat dihitung.
+      # Format Loco: detik menit jam tanggal bulan hari, selalu UTC.
+      schedule: "0 0 3 * * *"
+      tags: ["maintenance"]
 
 mailer:
   smtp:
@@ -73,5 +102,77 @@ database:
   dangerously_truncate: false
   dangerously_recreate: false
 
+auth:
+  # Sesi server-side Loco (rules §7): cookie hanya membawa id acak bertanda tangan, datanya di
+  # tabel loco_sessions, sehingga logout/ganti password/nonaktifkan user mengakhiri sesi seketika.
+  # Tanpa `jwt` (tidak bisa dicabut) dan tanpa `remember_for` (remember-me mati).
+  session:
+    store: database
+    # Kunci tanda tangan cookie sesi (64+ karakter acak, `openssl rand -base64 64`), tanpa default.
+    # Mengganti nilainya me-logout semua user.
+    secret: <%= get_env(name="SESSION_SECRET") %>
+    # `__Host-`: browser menolak cookie ini tanpa HTTPS, dengan Domain, atau dari subdomain lain.
+    cookie_name: __Host-agentgate_session
+    # Ditulis eksplisit: Loco menurunkan Secure dari `server.host`, yang mudah tertulis http://
+    # di belakang proxy TLS. Cookie __Host- tanpa Secure ditolak browser dan tidak ada yang bisa login.
+    secure: true
+    # Idle timeout 1 hari, bergulir setiap sesi dipakai. Umur mutlak ada di settings.auth.
+    ttl: 86400
+
+  # Login Google/GitHub (services::auth::oauth; route bawaan Loco tidak dipasang). Provider
+  # hanya ada bila client id-nya di-set: tanpa env var itu tombolnya tersembunyi dan config tetap
+  # ter-load. Client id tanpa secret menggagalkan boot. Tag template if/endif ditaruh di komentar
+  # YAML supaya file tetap YAML valid sebelum di-render. Callback yang didaftarkan di provider:
+  # {base_url}/auth/google/callback dan {base_url}/auth/github/callback.
+  oauth:
+    # Sama dengan settings.public_base_url.
+    base_url: <%= get_env(name="APP_URL") %>
+    # <% if get_env(name="GOOGLE_CLIENT_ID", default="") != "" or get_env(name="GITHUB_CLIENT_ID", default="") != "" %>
+    providers:
+      # <% if get_env(name="GOOGLE_CLIENT_ID", default="") != "" %>
+      google:
+        client_id: <%= get_env(name="GOOGLE_CLIENT_ID") %>
+        client_secret: <%= get_env(name="GOOGLE_CLIENT_SECRET") %>
+      # <% endif %>
+      # <% if get_env(name="GITHUB_CLIENT_ID", default="") != "" %>
+      github:
+        client_id: <%= get_env(name="GITHUB_CLIENT_ID") %>
+        client_secret: <%= get_env(name="GITHUB_CLIENT_SECRET") %>
+      # <% endif %>
+    # <% endif %>
+
 settings:
   app_name: Agent Gate
+  # Basis link di email (verifikasi, reset, undangan), tanpa `/` di akhir.
+  public_base_url: <%= get_env(name="APP_URL") %>
+  # Pengirim semua email aplikasi (header From), alamat yang diizinkan relay SMTP; tanpa default.
+  mail_from: <%= get_env(name="MAIL_FROM") %>
+  auth:
+    # argon2id m = 19 MiB, t = 2, p = 1: baseline OWASP argon2id.
+    argon2_memory_kib: 19456
+    argon2_iterations: 2
+    argon2_parallelism: 1
+    # Hash bersamaan maksimal; 4 × 19 MiB ≈ 76 MiB puncak. Tanpa batas, pool spawn_blocking
+    # (512 thread) bisa memakan ~9,7 GB saat serangan login dari banyak IP.
+    max_concurrent_hashes: <%= get_env(name="AUTH_MAX_CONCURRENT_HASHES", default="4") %>
+    # Request yang menunggu izin hash lebih lama dari ini dijawab 503, bukan antre tanpa batas.
+    hash_wait_seconds: 5
+    # Umur mutlak sesi (30 hari) sejak login; Loco hanya punya idle timeout (auth.session.ttl).
+    absolute_lifetime_hours: 720
+    # Rate limit login: 5 gagal per email atau 20 gagal per IP dalam 15 menit mengunci 15 menit.
+    # Per IP lebih longgar karena satu NAT kantor bisa berisi banyak user.
+    login_max_failures_per_email: 5
+    login_max_failures_per_ip: 20
+    login_window_minutes: 15
+    login_lockout_minutes: 15
+    # Umur token email: reset pendek (30 menit) karena setara password; verifikasi 24 jam dan
+    # undangan 7 hari karena penerima belum tentu langsung membuka email.
+    reset_token_minutes: 30
+    verification_token_hours: 24
+    invitation_days: 7
+    # Pendaftaran publik terbuka (spec: siapa pun bisa daftar dan membuat workspace).
+    registration_open: true
+    # Kunci XChaCha20-Poly1305 (base64, 32 byte: `openssl rand -base64 32`) untuk secret TOTP di
+    # database, tanpa default. Boot gagal bila bukan base64 dari tepat 32 byte. Mengganti kunci
+    # membuat 2FA yang sudah aktif tidak bisa dibuka.
+    encryption_key: <%= get_env(name="ENCRYPTION_KEY") %>

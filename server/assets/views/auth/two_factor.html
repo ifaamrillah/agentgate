@@ -1,0 +1,16 @@
+{#- Langkah kedua login: kode TOTP atau kode pemulihan di satu field. Variabel: error (kunci
+    Fluent atau ""), flash opsional (dirender layout). Kode yang dikirim tidak dirender ulang. -#}
+{% extends "auth/_layout_card.html" %}
+{% block title %}{{ t(key="two-factor-title", lang="id") }}{% endblock title %}
+{% block heading %}{{ t(key="two-factor-title", lang="id") }}{% endblock heading %}
+{% block description %}{{ t(key="two-factor-description", lang="id") }}{% endblock description %}
+{% block card %}
+<form method="post" action="/login/2fa" class="form grid gap-6">
+  {{ <field id="two-factor-code" name="code" label={t(key="two-factor-code", lang="id")} error={error} autocomplete="one-time-code" required={true} autofocus={true}/> }}
+  <p class="text-sm text-muted-foreground">{{ t(key="two-factor-recovery-hint", lang="id") }}</p>
+  {{ <button label={t(key="two-factor-submit", lang="id")} type="submit" class="w-full"/> }}
+</form>
+{% endblock card %}
+{% block below %}
+<a href="/login" class="underline underline-offset-4">{{ t(key="two-factor-back", lang="id") }}</a>
+{% endblock below %}

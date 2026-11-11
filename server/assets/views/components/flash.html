@@ -1,0 +1,25 @@
+{#- Komponen pesan (flash/alert) di atas form atau halaman.
+    Parameter:
+      message: string           teks pesan (sudah diterjemahkan pemanggil)
+      kind: info|success|error  (default info). `error` diumumkan screen reader (role=alert),
+                                lainnya role=status.
+      class: hanya untuk layout (margin, lebar), bukan warna/ukuran -#}
+{% component flash(message: string, kind: string = "info", class: string = "") %}
+{%- if kind not in ["info", "success", "error"] %}{{ throw(message="flash: kind tidak dikenal: " ~ kind) }}{% endif -%}
+{%- if kind == "error" -%}
+<div class="alert {{ class }}" data-variant="destructive" data-flash="error" role="alert">
+  {{ icon(name="alert-triangle", class="size-4") }}
+  <section><p>{{ message }}</p></section>
+</div>
+{%- elif kind == "success" -%}
+<div class="alert {{ class }}" data-flash="success" role="status">
+  {{ icon(name="check", class="size-4") }}
+  <section><p>{{ message }}</p></section>
+</div>
+{%- else -%}
+<div class="alert {{ class }}" data-flash="info" role="status">
+  {{ icon(name="info-circle", class="size-4") }}
+  <section><p>{{ message }}</p></section>
+</div>
+{%- endif -%}
+{%- endcomponent flash %}

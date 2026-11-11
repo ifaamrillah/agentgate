@@ -1,0 +1,26 @@
+{#- Pengaturan → Tim. Variabel: teams ([views::teams::TeamLink]: name, href), create (form
+    tambah: name, errors.name), action (POST tambah), flash (dirender layout). -#}
+{% extends "layouts/app.html" %}
+{% block title %}{{ t(key="settings-teams-title", lang="id") }}{% endblock title %}
+{% block content %}
+<div class="mx-auto grid max-w-2xl gap-6" data-teams-index>
+  {{ <page_header title={t(key="settings-teams-title", lang="id")} description={t(key="settings-teams-description", lang="id")}/> }}
+  {% <card title={t(key="team-add", lang="id")}> %}
+    <form method="post" action="{{ action }}" class="form flex flex-wrap items-end gap-3">
+      {{ <field id="team-name" name="name" label={t(key="team-name", lang="id")} value={create.name} error={create.errors.name.code} error_min={create.errors.name.min} error_max={create.errors.name.max} required={true} class="min-w-48 flex-1"/> }}
+      {{ <button label={t(key="team-add", lang="id")} type="submit" icon="plus"/> }}
+    </form>
+  {% </card> %}
+  {%- if teams %}
+  {% <card> %}
+    <ul class="grid gap-2">
+      {%- for team in teams %}
+      <li data-team><a href="{{ team.href }}" class="btn w-full justify-start" data-variant="ghost">{{ icon(name="users", class="size-4") }}{{ team.name }}</a></li>
+      {%- endfor %}
+    </ul>
+  {% </card> %}
+  {%- else %}
+  {{ <empty_state title={t(key="teams-empty-title", lang="id")} description={t(key="teams-empty-description", lang="id")} icon="users" variant="dashed"/> }}
+  {%- endif %}
+</div>
+{% endblock content %}
