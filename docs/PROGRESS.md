@@ -67,6 +67,15 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 - Daftar pengecualian CSRF ada di `server/src/controllers/middleware/csrf.rs` (`EXEMPT_PATHS`), bukan di `app.rs`
   seperti di rencana M0 — satu tempat yang sama dengan aturannya.
 
+- **Keamanan akun (setelah M1)**: event keamanan akun (aktif/nonaktif 2FA, ganti/reset password, tautkan
+  OAuth) belum diaudit karena audit log per workspace; perlu log keamanan per user. Mengaktifkan 2FA dan
+  membuat ulang kode pemulihan belum meminta autentikasi ulang dan belum mencabut sesi lain; reset password
+  belum menghapus TOTP. Undangan (kirim/ulang/cabut) masih memakai role pelaku dari awal request.
+- **Deploy**: lockout login per IP memakai IP klien dari proxy; pastikan reverse proxy meneruskan IP asli,
+  kalau tidak satu IP proxy bisa mengunci login semua orang.
+- Role custom tidak pernah menjadi "admin di semua project": hanya Owner/Admin bawaan yang boleh menugaskan
+  role Admin bawaan (termasuk di grant project) dan mengubah izin role yang dipakai grant project.
+
 ## Perlu dari user (dikumpulkan untuk akhir)
 
 - Remote GitHub untuk repo ini (CI GitHub Actions baru jalan setelah di-push).
