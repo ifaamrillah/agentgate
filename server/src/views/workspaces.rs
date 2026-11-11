@@ -69,11 +69,13 @@ pub fn home(v: &impl ViewRenderer, shell: &AppShell, name: &str) -> Result<Respo
     )
 }
 
+/// Indeks Pengaturan. `form` = bagian Umum (nama, slug), `None` bila role tidak memegang
+/// `ManageWorkspace`.
 pub fn settings(
     v: &impl ViewRenderer,
     shell: &AppShell,
     action: &str,
-    form: &WorkspaceFormView,
+    form: Option<&WorkspaceFormView>,
     flash: Option<Flash>,
     status: StatusCode,
 ) -> Result<Response> {

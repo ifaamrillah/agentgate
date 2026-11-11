@@ -4,7 +4,9 @@
 use agentgate_server::{
     app::App,
     models::{
-        audit_events::AuditAction, identities::IdentityProvider, roles::RoleKey,
+        audit_events::{AuditAction, AuditSubject},
+        identities::IdentityProvider,
+        roles::RoleKey,
         user_tokens::TokenPurpose,
     },
 };
@@ -74,7 +76,7 @@ async fn identity_provider_check_matches_enum() {
 async fn insert_role_key(db: &sea_orm::DatabaseConnection, workspace_id: Uuid, key: &str) -> bool {
     db.execute_raw(Statement::from_sql_and_values(
         DbBackend::Postgres,
-        "INSERT INTO roles (workspace_id, key, name) VALUES ($1, $2, $3)",
+        "INSERT INTO roles (workspace_id, key, name, builtin) VALUES ($1, $2, $3, true)",
         [
             Value::from(workspace_id),
             Value::from(key),
@@ -86,11 +88,24 @@ async fn insert_role_key(db: &sea_orm::DatabaseConnection, workspace_id: Uuid, k
 }
 
 async fn insert_audit(db: &sea_orm::DatabaseConnection, workspace_id: Uuid, action: &str) -> bool {
+    insert_audit_row(db, workspace_id, action, "workspace").await
+}
+
+async fn insert_audit_row(
+    db: &sea_orm::DatabaseConnection,
+    workspace_id: Uuid,
+    action: &str,
+    subject_type: &str,
+) -> bool {
     db.execute_raw(Statement::from_sql_and_values(
         DbBackend::Postgres,
         "INSERT INTO audit_events (workspace_id, action, subject_type, subject_id) \
-         VALUES ($1, $2, 'workspace', $1)",
-        [Value::from(workspace_id), Value::from(action)],
+         VALUES ($1, $2, $3, $1)",
+        [
+            Value::from(workspace_id),
+            Value::from(action),
+            Value::from(subject_type),
+        ],
     ))
     .await
     .is_ok()
@@ -138,4 +153,42 @@ async fn audit_action_check_matches_enum() {
         );
     }
     assert!(!insert_audit(db, workspace_id, "workspace.bogus").await);
+}
+
+#[tokio::test]
+async fn audit_subject_check_matches_enum() {
+    let boot = boot_test::<App>().await.unwrap();
+    let db = &boot.app_context.db;
+    let workspace_id = bare_workspace(db).await;
+    for subject in AuditSubject::iter() {
+        assert!(
+            insert_audit_row(db, workspace_id, "workspace.updated", &subject.to_value()).await,
+            "{subject:?}"
+        );
+    }
+    assert!(!insert_audit_row(db, workspace_id, "workspace.updated", "bogus").await);
+}
+
+#[tokio::test]
+async fn builtin_flag_must_match_role_key() {
+    let boot = boot_test::<App>().await.unwrap();
+    let db = &boot.app_context.db;
+    let workspace_id = bare_workspace(db).await;
+    let insert = |key: Option<&'static str>, builtin: bool| async move {
+        db.execute_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "INSERT INTO roles (workspace_id, key, name, builtin) VALUES ($1, $2, $3, $4)",
+            [
+                Value::from(workspace_id),
+                Value::from(key),
+                Value::from(Uuid::now_v7().to_string()),
+                Value::from(builtin),
+            ],
+        ))
+        .await
+        .is_ok()
+    };
+    assert!(!insert(Some("owner"), false).await, "key tanpa builtin");
+    assert!(!insert(None, true).await, "builtin tanpa key");
+    assert!(insert(None, false).await);
 }

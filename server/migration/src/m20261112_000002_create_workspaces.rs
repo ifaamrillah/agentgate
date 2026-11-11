@@ -5,7 +5,7 @@
 //! cascade ini untuk membersihkan semua baris turunannya.
 //!
 //! Himpunan nilai enum dijaga CHECK (rules §4): `roles.key`, setiap elemen `roles.permissions`
-//! (`<@` terhadap daftar permission), dan `audit_events.action`. Menambah varian berarti satu
+//! (`<@` terhadap daftar permission), `audit_events.action`, dan `audit_events.subject_type`. Menambah varian berarti satu
 //! migrasi yang mengganti constraint-nya, di commit yang sama dengan enum Rust-nya (dijaga
 //! `tests/models/{permission,enums}.rs`).
 
@@ -43,7 +43,9 @@ const UP: &[&str] = &[
         ]::text[]),
         builtin boolean NOT NULL DEFAULT false,
         created_at timestamptz NOT NULL DEFAULT now(),
-        updated_at timestamptz NOT NULL DEFAULT now()
+        updated_at timestamptz NOT NULL DEFAULT now(),
+        -- Role bawaan tepat yang punya key; role custom tanpa key.
+        CHECK (builtin = (key IS NOT NULL))
     )",
     "CREATE UNIQUE INDEX roles_workspace_id_name_lower_key ON roles (workspace_id, lower(name))",
     // Target FK komposit (role_id, workspace_id) dari workspace_members dan invitations.
@@ -134,7 +136,10 @@ const UP: &[&str] = &[
             'project.access_granted', 'project.access_changed', 'project.access_revoked',
             'repo.added', 'repo.updated', 'repo.removed'
         )),
-        subject_type text NOT NULL,
+        subject_type text NOT NULL CHECK (subject_type IN (
+            'workspace', 'member', 'role', 'job_title', 'team', 'project', 'project_grant',
+            'repo', 'invitation'
+        )),
         subject_id uuid NOT NULL,
         changes jsonb NOT NULL DEFAULT '{}',
         request_id text,

@@ -70,13 +70,38 @@ pub enum AuditAction {
     RepoRemoved,
 }
 
+/// Jenis subjek yang diubah (`subject_type`). Disimpan sebagai string dengan CHECK constraint
+/// (rules §4, dijaga `tests/models/enums.rs`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum)]
+#[sea_orm(rs_type = "String", db_type = "Text")]
+pub enum AuditSubject {
+    #[sea_orm(string_value = "workspace")]
+    Workspace,
+    #[sea_orm(string_value = "member")]
+    Member,
+    #[sea_orm(string_value = "role")]
+    Role,
+    #[sea_orm(string_value = "job_title")]
+    JobTitle,
+    #[sea_orm(string_value = "team")]
+    Team,
+    #[sea_orm(string_value = "project")]
+    Project,
+    #[sea_orm(string_value = "project_grant")]
+    ProjectGrant,
+    #[sea_orm(string_value = "repo")]
+    Repo,
+    #[sea_orm(string_value = "invitation")]
+    Invitation,
+}
+
 /// Data satu baris audit untuk [`ActiveModel::append`].
 #[derive(Debug)]
 pub struct NewAuditEvent {
     pub workspace_id: WorkspaceId,
     pub actor_id: Option<Uuid>,
     pub action: AuditAction,
-    pub subject_type: String,
+    pub subject_type: AuditSubject,
     pub subject_id: Uuid,
     pub changes: serde_json::Value,
     pub request_id: Option<String>,
@@ -117,6 +142,15 @@ impl Model {
         AuditAction::try_from_value(&self.action)
     }
 
+    /// Jenis subjek bertipe dari kolom string. Gagal hanya bila CHECK constraint dilewati.
+    ///
+    /// # Errors
+    ///
+    /// Nilai kolom bukan varian [`AuditSubject`].
+    pub fn subject(&self) -> Result<AuditSubject, DbErr> {
+        AuditSubject::try_from_value(&self.subject_type)
+    }
+
     /// `limit` kejadian terbaru di workspace ini (total order `created_at`, lalu `id`).
     ///
     /// # Errors
@@ -145,10 +179,10 @@ impl ActiveModel {
     /// Error database.
     pub async fn append<C: ConnectionTrait>(db: &C, new: NewAuditEvent) -> Result<Model, DbErr> {
         Self {
-            workspace_id: Set(new.workspace_id.0),
+            workspace_id: Set(new.workspace_id.get()),
             actor_id: Set(new.actor_id),
             action: Set(new.action.to_value()),
-            subject_type: Set(new.subject_type),
+            subject_type: Set(new.subject_type.to_value()),
             subject_id: Set(new.subject_id),
             changes: Set(new.changes),
             request_id: Set(new.request_id),

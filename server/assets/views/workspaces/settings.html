@@ -1,15 +1,26 @@
-{#- Pengaturan workspace (ManageWorkspace). Variabel: action (path POST form), form
-    (views::workspaces::WorkspaceFormView), flash (dirender layout). -#}
+{#- Indeks Pengaturan workspace (role dengan salah satu izin Pengaturan). Variabel: action (path
+    POST bagian Umum), form (views::workspaces::WorkspaceFormView, atau null bila role tidak
+    memegang ManageWorkspace), flash (dirender layout).
+    Bagian baru (anggota, role, tim: Task 10–12; 2FA wajib, hapus workspace: Task 13) ditambahkan
+    di dalam [data-settings-index], masing-masing dengan flag izinnya sendiri dari controller. -#}
 {% extends "layouts/app.html" %}
 {% block title %}{{ t(key="workspace-settings-title", lang="id") }}{% endblock title %}
 {% block content %}
-<div class="mx-auto grid max-w-2xl gap-6">
+<div class="mx-auto grid max-w-2xl gap-6" data-settings-index>
   {{ <page_header title={t(key="workspace-settings-title", lang="id")}/> }}
-  {% <card title={t(key="workspace-settings-general", lang="id")} description={t(key="workspace-settings-general-description", lang="id")}> %}
-    <form method="post" action="{{ action }}" class="form grid gap-6">
-      {% include "workspaces/_form.html" %}
-      <div>{{ <button label={t(key="workspace-settings-save", lang="id")} type="submit"/> }}</div>
-    </form>
-  {% </card> %}
+  {%- if form %}
+  <div data-settings-general>
+    {% <card title={t(key="workspace-settings-general", lang="id")} description={t(key="workspace-settings-general-description", lang="id")}> %}
+      <form method="post" action="{{ action }}" class="form grid gap-6">
+        {% include "workspaces/_form.html" %}
+        <div>{{ <button label={t(key="workspace-settings-save", lang="id")} type="submit"/> }}</div>
+      </form>
+    {% </card> %}
+  </div>
+  {%- else %}
+  {#- Sampai bagian anggota/role/tim ada (Task 10–12), role tanpa ManageWorkspace melihat
+      penjelasan ini. -#}
+  {{ <empty_state title={t(key="workspace-settings-empty-title", lang="id")} description={t(key="workspace-settings-empty-description", lang="id")} icon="settings" variant="dashed"/> }}
+  {%- endif %}
 </div>
 {% endblock content %}

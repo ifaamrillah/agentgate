@@ -3,7 +3,7 @@
 use agentgate_server::{
     app::App,
     models::{
-        audit_events::{self, AuditAction},
+        audit_events::{self, AuditAction, AuditSubject},
         workspaces,
     },
 };
@@ -50,6 +50,7 @@ async fn owner_updates_name_and_slug_and_audit_is_written() {
             .await
             .unwrap();
         assert_eq!(events[0].action().unwrap(), AuditAction::WorkspaceUpdated);
+        assert_eq!(events[0].subject().unwrap(), AuditSubject::Workspace);
         assert_eq!(events[0].actor_id, Some(owner.id));
         assert_eq!(
             events[0].changes,

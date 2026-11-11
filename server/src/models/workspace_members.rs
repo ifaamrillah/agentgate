@@ -121,7 +121,7 @@ impl ActiveModel {
         role_id: Uuid,
     ) -> Result<Model, DbErr> {
         Self {
-            workspace_id: Set(workspace_id.0),
+            workspace_id: Set(workspace_id.get()),
             user_id: Set(user_id),
             role_id: Set(role_id),
             ..Default::default()

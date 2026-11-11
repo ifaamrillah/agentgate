@@ -15,7 +15,6 @@ use sea_orm::{
     entity::prelude::*,
     sea_query::{ExprTrait, Func},
 };
-use serde::{Deserialize, Serialize};
 use validator::{ValidationError, ValidationErrors};
 
 pub use super::_entities::workspaces::{ActiveModel, Column, Entity, Model};
@@ -32,9 +31,18 @@ pub const SLUG_RESERVED: &str = "slug-reserved";
 pub const ERROR_CODES: &[&str] = &[SLUG_TAKEN, SLUG_RESERVED];
 
 /// Id workspace bertipe: parameter wajib setiap query tabel milik workspace, sehingga query
-/// tanpa tenant tidak bisa ditulis tanpa sengaja melewatkan argumen.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct WorkspaceId(pub Uuid);
+/// tanpa tenant tidak bisa ditulis tanpa sengaja melewatkan argumen. Field-nya privat: nilai
+/// ini hanya dibuat dari workspace yang sudah dimuat ([`Model::workspace_id`], dan lewat itu
+/// `Tenant`), tidak dari UUID sembarang (mis. input request).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct WorkspaceId(Uuid);
+
+impl WorkspaceId {
+    #[must_use]
+    pub fn get(self) -> Uuid {
+        self.0
+    }
+}
 
 impl From<WorkspaceId> for sea_orm::Value {
     fn from(id: WorkspaceId) -> Self {

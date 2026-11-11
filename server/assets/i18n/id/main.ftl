@@ -31,6 +31,8 @@ workspace-settings-title = Pengaturan workspace
 workspace-settings-general = Umum
 workspace-settings-general-description = Nama dan alamat URL workspace. Mengganti alamat URL membuat tautan lama tidak berlaku.
 workspace-settings-save = Simpan
+workspace-settings-empty-title = Belum ada pengaturan untuk role kamu
+workspace-settings-empty-description = Pengaturan anggota, role, dan tim segera hadir di halaman ini.
 flash-workspace-settings-saved = Pengaturan workspace disimpan.
 
 login-title = Masuk

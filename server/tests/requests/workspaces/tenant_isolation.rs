@@ -80,7 +80,7 @@ async fn viewer_cannot_open_settings_gets_404() {
             .slug("acme")
             .create(&ctx)
             .await;
-        for key in [RoleKey::Viewer, RoleKey::Member, RoleKey::Admin] {
+        for key in [RoleKey::Viewer, RoleKey::Member] {
             let user = a_user().create(&ctx).await;
             add_member(&ctx, &workspace, &user, key).await;
             let cookie = sign_in_as(&request, &user).await;
@@ -106,6 +106,56 @@ async fn viewer_cannot_open_settings_gets_404() {
                 .await;
             assert_eq!(res.status_code(), 404, "{key:?}");
         }
+        let unchanged = agentgate_server::models::workspaces::Model::find_by_slug(&ctx.db, "acme")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(unchanged.name, "Acme");
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn admin_opens_settings_index_without_workspace_form() {
+    request::<App, _, _>(|request, ctx| async move {
+        let owner = a_user().create(&ctx).await;
+        let admin = a_user().create(&ctx).await;
+        let workspace = a_workspace(&owner)
+            .name("Acme")
+            .slug("acme")
+            .create(&ctx)
+            .await;
+        add_member(&ctx, &workspace, &admin, RoleKey::Admin).await;
+
+        // Admin: indeks Pengaturan terbuka (izin anggota/role/tim), tanpa form nama/slug.
+        let cookie = sign_in_as(&request, &admin).await;
+        let res = request
+            .get("/w/acme/settings")
+            .add_cookie(cookie.clone())
+            .await;
+        assert_eq!(res.status_code(), 200);
+        let html = res.text();
+        assert_css_exists(&html, "[data-settings-index]");
+        assert_css_not_exists(&html, "[data-settings-general]");
+        assert_css_not_exists(&html, "input#workspace-name");
+        // Mengubah nama/slug tetap butuh ManageWorkspace: 404 sebelum body dibaca.
+        let res = request
+            .post("/w/acme/settings")
+            .add_cookie(cookie)
+            .form(&[("name", "Dibajak"), ("slug", "acme")])
+            .await;
+        assert_eq!(res.status_code(), 404);
+
+        // Owner: form nama/slug ada di indeks yang sama.
+        let cookie = sign_in_as(&request, &owner).await;
+        let html = request
+            .get("/w/acme/settings")
+            .add_cookie(cookie)
+            .await
+            .text();
+        assert_css_exists(&html, "[data-settings-index] [data-settings-general]");
+        assert_css_exists(&html, "input#workspace-name[value=\"Acme\"]");
+
         let unchanged = agentgate_server::models::workspaces::Model::find_by_slug(&ctx.db, "acme")
             .await
             .unwrap()

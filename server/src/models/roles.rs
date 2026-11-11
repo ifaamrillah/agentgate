@@ -197,7 +197,7 @@ impl ActiveModel {
         let mut roles = Vec::with_capacity(BUILTIN_ROLES.len());
         for builtin in BUILTIN_ROLES {
             let role = Self {
-                workspace_id: Set(workspace_id.0),
+                workspace_id: Set(workspace_id.get()),
                 key: Set(Some(builtin.key.to_value())),
                 name: Set(builtin.key.default_name().to_string()),
                 permissions: Set(to_strings(builtin.permissions)),
@@ -230,7 +230,7 @@ impl ActiveModel {
             return Err(RoleError::Invalid(errors.into()));
         }
         Self {
-            workspace_id: Set(workspace_id.0),
+            workspace_id: Set(workspace_id.get()),
             name: Set(name),
             permissions: Set(to_strings(&permissions)),
             ..Default::default()

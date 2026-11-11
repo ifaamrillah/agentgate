@@ -1,12 +1,18 @@
-//! `GET|POST /w/{slug}/settings`: nama dan slug workspace (`ManageWorkspace`). Pengaturan lain
-//! (2FA wajib, hapus workspace) datang di Task 13.
+//! `GET /w/{slug}/settings`: indeks Pengaturan, terbuka untuk role yang memegang salah satu izin
+//! Pengaturan (`Require<AnySettings>`, sama dengan tautan di sidebar). Setiap bagian tampil
+//! sesuai izinnya sendiri: kini nama/slug (`ManageWorkspace`); anggota, role, dan tim (Task
+//! 10–12) menambah bagiannya di sini, 2FA wajib dan hapus workspace di Task 13.
+//! `POST /w/{slug}/settings` mengubah nama/slug dan butuh `ManageWorkspace`.
 use axum::http::StatusCode;
 use loco_rs::prelude::*;
 
 use super::WorkspaceForm;
 use crate::{
     controllers::{
-        extractors::{RequestId, Require, ValidForm, require::ManageWorkspace},
+        extractors::{
+            PermissionMarker, RequestId, Require, Tenant, ValidForm,
+            require::{AnySettings, ManageWorkspace},
+        },
         flash,
         shell::app_shell,
     },
@@ -23,22 +29,29 @@ fn settings_path(slug: &str) -> String {
 pub(super) async fn show(
     State(ctx): State<AppContext>,
     ViewEngine(v): ViewEngine<TeraView>,
-    access: Require<ManageWorkspace>,
+    access: Require<AnySettings>,
     session: Session,
 ) -> Result<Response> {
     let tenant = &access.tenant;
     let (session, flash) = flash::take(session);
     let shell = app_shell(&ctx, &tenant.user, Some(tenant)).await?;
-    let form = WorkspaceFormView::new(&tenant.workspace.name, &tenant.workspace.slug, None);
+    let form = general_form(tenant)
+        .then(|| WorkspaceFormView::new(&tenant.workspace.name, &tenant.workspace.slug, None));
     let res = views::workspaces::settings(
         &v,
         &shell,
         &settings_path(&tenant.workspace.slug),
-        &form,
+        form.as_ref(),
         flash,
         StatusCode::OK,
     )?;
     Ok((session, res).into_response())
+}
+
+/// Bagian Umum (nama, slug) tampil hanya untuk `ManageWorkspace`: aturan yang sama dengan guard
+/// `POST`.
+fn general_form(tenant: &Tenant) -> bool {
+    ManageWorkspace::allows(&tenant.role)
 }
 
 /// `Require` sebelum `ValidForm`: tanpa izin → 404 sebelum body dibaca (rules §6).
@@ -83,7 +96,7 @@ pub(super) async fn update(
                 &v,
                 &shell,
                 &settings_path(&tenant.workspace.slug),
-                &form,
+                Some(&form),
                 None,
                 StatusCode::UNPROCESSABLE_ENTITY,
             )

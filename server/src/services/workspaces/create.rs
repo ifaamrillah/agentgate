@@ -3,7 +3,7 @@
 //! pun yang login boleh membuat workspace (spec: pendaftaran terbuka seperti Jira).
 
 use loco_rs::app::AppContext;
-use sea_orm::TransactionTrait;
+use sea_orm::{ConnectionTrait, TransactionTrait};
 
 use crate::{
     models::{
@@ -11,7 +11,7 @@ use crate::{
         users, workspace_members,
         workspaces::{self, CreateWorkspace, WorkspaceError},
     },
-    services::audit::{self, AuditAction, AuditEntry},
+    services::audit::{self, AuditAction, AuditEntry, AuditSubject},
 };
 
 /// Isian form. `slug` kosong = dibentuk dari nama.
@@ -32,8 +32,25 @@ pub async fn run(
     request_id: Option<String>,
 ) -> Result<workspaces::Model, WorkspaceError> {
     let txn = ctx.db.begin().await?;
+    let workspace = run_in(&txn, owner, new, request_id).await?;
+    txn.commit().await?;
+    Ok(workspace)
+}
+
+/// Langkah [`run`] di dalam transaksi milik pemanggil `txn` (mis. seed dev, yang menambah
+/// anggota lain di transaksi yang sama). Tidak commit sendiri.
+///
+/// # Errors
+///
+/// Sama dengan [`run`].
+pub async fn run_in<C: ConnectionTrait>(
+    txn: &C,
+    owner: &users::Model,
+    new: NewWorkspace,
+    request_id: Option<String>,
+) -> Result<workspaces::Model, WorkspaceError> {
     let workspace = workspaces::ActiveModel::create(
-        &txn,
+        txn,
         CreateWorkspace {
             name: new.name,
             slug: new.slug,
@@ -42,24 +59,23 @@ pub async fn run(
     )
     .await?;
     let wid = workspace.workspace_id();
-    let roles = roles::ActiveModel::create_builtin_set(&txn, wid).await?;
+    let roles = roles::ActiveModel::create_builtin_set(txn, wid).await?;
     let owner_role = roles
         .iter()
         .find(|r| r.role_key().ok().flatten() == Some(RoleKey::Owner))
         .ok_or_else(|| sea_orm::DbErr::RecordNotFound("owner role".to_string()))?;
-    workspace_members::ActiveModel::add(&txn, wid, owner.id, owner_role.id).await?;
+    workspace_members::ActiveModel::add(txn, wid, owner.id, owner_role.id).await?;
     audit::record(
-        &txn,
+        txn,
         AuditEntry {
             workspace_id: wid,
             actor_id: Some(owner.id),
             action: AuditAction::WorkspaceCreated,
-            subject: ("workspace", workspace.id),
+            subject: (AuditSubject::Workspace, workspace.id),
             changes: serde_json::json!({ "name": workspace.name, "slug": workspace.slug }),
             request_id,
         },
     )
     .await?;
-    txn.commit().await?;
     Ok(workspace)
 }

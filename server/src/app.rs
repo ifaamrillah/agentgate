@@ -17,7 +17,7 @@ use loco_rs::{
     task::Tasks,
 };
 use migration::Migrator;
-use sea_orm::{ConnectionTrait, DbBackend, Statement, Value};
+use sea_orm::{ConnectionTrait, DbBackend, Statement, TransactionTrait, Value};
 
 use crate::{
     common::settings::Settings,
@@ -189,8 +189,10 @@ impl Hooks for App {
     }
 }
 
-/// Workspace contoh lewat jalur produksi (`create::run`), sehingga isinya sama dengan workspace
-/// yang dibuat user. Anggota lain dan jabatan ditambahkan lewat model.
+/// Workspace contoh lewat jalur produksi (`create::run_in`), sehingga isinya sama dengan
+/// workspace yang dibuat user. Anggota lain dan jabatan ditambahkan lewat model. Semuanya satu
+/// transaksi: bila satu langkah gagal tidak ada yang tersimpan, jadi seed berikutnya (yang
+/// melewati workspace bila slug-nya sudah ada) tidak meninggalkan PT Contoh setengah jadi.
 async fn seed_workspace(ctx: &AppContext) -> Result<()> {
     if workspaces::Model::find_by_slug(&ctx.db, SEED_WORKSPACE_SLUG)
         .await?
@@ -205,8 +207,9 @@ async fn seed_workspace(ctx: &AppContext) -> Result<()> {
             .ok_or_else(|| loco_rs::Error::string(&format!("user seed {email} tidak ada")))
     };
     let owner = seed_user(SEED_MARKER_EMAIL).await?;
-    let workspace = create::run(
-        ctx,
+    let txn = ctx.db.begin().await?;
+    let workspace = create::run_in(
+        &txn,
         &owner,
         NewWorkspace {
             name: "PT Contoh".to_string(),
@@ -218,25 +221,26 @@ async fn seed_workspace(ctx: &AppContext) -> Result<()> {
     let wid = workspace.workspace_id();
     let mut titles = Vec::with_capacity(SEED_JOB_TITLES.len());
     for name in SEED_JOB_TITLES {
-        titles.push(job_titles::ActiveModel::create(&ctx.db, wid, name).await?);
+        titles.push(job_titles::ActiveModel::create(&txn, wid, name).await?);
     }
     for (email, key, title) in SEED_MEMBERS {
         let user = seed_user(email).await?;
         let member = if *key == RoleKey::Owner {
-            workspace_members::Model::find_with_role(&ctx.db, wid, user.id)
+            workspace_members::Model::find_with_role(&txn, wid, user.id)
                 .await?
                 .map(|(member, _)| member)
                 .ok_or_else(|| loco_rs::Error::string("owner seed bukan anggota"))?
         } else {
-            let role = roles::Model::find_builtin(&ctx.db, wid, *key)
+            let role = roles::Model::find_builtin(&txn, wid, *key)
                 .await?
                 .ok_or_else(|| loco_rs::Error::string("role bawaan tidak ada"))?;
-            workspace_members::ActiveModel::add(&ctx.db, wid, user.id, role.id).await?
+            workspace_members::ActiveModel::add(&txn, wid, user.id, role.id).await?
         };
         let title_id = title.and_then(|t| titles.iter().find(|j| j.name == t).map(|j| j.id));
         if title_id.is_some() {
-            member.set_job_title(&ctx.db, title_id).await?;
+            member.set_job_title(&txn, title_id).await?;
         }
     }
+    txn.commit().await?;
     Ok(())
 }

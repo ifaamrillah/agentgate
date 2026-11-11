@@ -96,7 +96,7 @@ impl ActiveModel {
             return Err(JobTitleError::Invalid(errors.into()));
         }
         Self {
-            workspace_id: Set(workspace_id.0),
+            workspace_id: Set(workspace_id.get()),
             name: Set(name),
             ..Default::default()
         }

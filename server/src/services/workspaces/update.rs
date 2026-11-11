@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use crate::{
     models::workspaces::{self, WorkspaceError},
-    services::audit::{self, AuditAction, AuditEntry},
+    services::audit::{self, AuditAction, AuditEntry, AuditSubject},
 };
 
 /// Isian form Pengaturan.
@@ -30,7 +30,7 @@ pub async fn run(
     request_id: Option<String>,
 ) -> Result<workspaces::Model, WorkspaceError> {
     let txn = ctx.db.begin().await?;
-    let current = workspaces::Entity::find_by_id(workspace_id.0)
+    let current = workspaces::Entity::find_by_id(workspace_id.get())
         .lock_exclusive()
         .one(&txn)
         .await?
@@ -57,7 +57,7 @@ pub async fn run(
             workspace_id,
             actor_id: Some(actor_id),
             action: AuditAction::WorkspaceUpdated,
-            subject: ("workspace", updated.id),
+            subject: (AuditSubject::Workspace, updated.id),
             changes: serde_json::Value::Object(changes),
             request_id,
         },

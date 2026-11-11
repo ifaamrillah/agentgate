@@ -2,7 +2,9 @@
 //! user tanpa izin mendapat 404 sebelum body dibaca dan divalidasi (tidak pernah melihat pesan
 //! validasi). Memakai `Tenant`, jadi penolakan tenant (404, 2FA wajib) berlaku lebih dulu.
 //!
-//! Satu marker type per izin workspace (`Require<ManageMembers>`). Izin project
+//! Satu marker type per izin workspace (`Require<ManageMembers>`), ditambah
+//! [`AnySettings`] (salah satu izin yang punya halaman Pengaturan, untuk indeks Pengaturan).
+//! Izin project
 //! (`AdministerProject`, `EditProject`, `ViewProject`) dicek per project lewat `ProjectAccess`
 //! (Task 12), bukan lewat role workspace, jadi tidak punya marker di sini.
 
@@ -16,11 +18,11 @@ use axum::{
 use loco_rs::app::AppContext;
 
 use super::Tenant;
-use crate::models::permission::Permission;
+use crate::models::{permission::Permission, roles};
 
-/// Izin yang diwakili marker type.
+/// Aturan izin yang diwakili marker type; jawabannya selalu dari model role.
 pub trait PermissionMarker {
-    const PERMISSION: Permission;
+    fn allows(role: &roles::Model) -> bool;
 }
 
 macro_rules! permission_markers {
@@ -31,7 +33,9 @@ macro_rules! permission_markers {
             pub struct $name;
 
             impl PermissionMarker for $name {
-                const PERMISSION: Permission = Permission::$name;
+                fn allows(role: &roles::Model) -> bool {
+                    role.has(Permission::$name)
+                }
             }
         )*
     };
@@ -46,7 +50,18 @@ permission_markers!(
     ViewAuditLog,
 );
 
-/// Tenant yang role-nya memegang izin `P`.
+/// Marker `Require<AnySettings>`: role membuka setidaknya satu halaman Pengaturan
+/// (`roles::Model::has_settings_access`, predikat yang sama dengan tautan Pengaturan di sidebar).
+#[derive(Debug, Clone, Copy)]
+pub struct AnySettings;
+
+impl PermissionMarker for AnySettings {
+    fn allows(role: &roles::Model) -> bool {
+        role.has_settings_access()
+    }
+}
+
+/// Tenant yang role-nya memenuhi aturan `P`.
 #[derive(Debug, Clone)]
 pub struct Require<P> {
     pub tenant: Tenant,
@@ -63,7 +78,7 @@ where
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
         let tenant = Tenant::from_request_parts(parts, state).await?;
-        if !tenant.can(P::PERMISSION) {
+        if !P::allows(&tenant.role) {
             return Err(StatusCode::NOT_FOUND.into_response());
         }
         Ok(Self {
