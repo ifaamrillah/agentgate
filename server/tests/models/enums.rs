@@ -3,7 +3,10 @@
 
 use agentgate_server::{
     app::App,
-    models::{identities::IdentityProvider, user_tokens::TokenPurpose},
+    models::{
+        audit_events::AuditAction, identities::IdentityProvider, roles::RoleKey,
+        user_tokens::TokenPurpose,
+    },
 };
 use loco_rs::testing::prelude::*;
 use sea_orm::{ActiveEnum, ConnectionTrait, DbBackend, Iterable, Statement, Value};
@@ -66,4 +69,73 @@ async fn identity_provider_check_matches_enum() {
         );
     }
     assert!(!insert_identity(db, user.id, "bogus").await);
+}
+
+async fn insert_role_key(db: &sea_orm::DatabaseConnection, workspace_id: Uuid, key: &str) -> bool {
+    db.execute_raw(Statement::from_sql_and_values(
+        DbBackend::Postgres,
+        "INSERT INTO roles (workspace_id, key, name) VALUES ($1, $2, $3)",
+        [
+            Value::from(workspace_id),
+            Value::from(key),
+            Value::from(Uuid::now_v7().to_string()),
+        ],
+    ))
+    .await
+    .is_ok()
+}
+
+async fn insert_audit(db: &sea_orm::DatabaseConnection, workspace_id: Uuid, action: &str) -> bool {
+    db.execute_raw(Statement::from_sql_and_values(
+        DbBackend::Postgres,
+        "INSERT INTO audit_events (workspace_id, action, subject_type, subject_id) \
+         VALUES ($1, $2, 'workspace', $1)",
+        [Value::from(workspace_id), Value::from(action)],
+    ))
+    .await
+    .is_ok()
+}
+
+/// Workspace lewat raw SQL, tanpa role bawaan, supaya setiap key bisa dipakai sekali.
+async fn bare_workspace(db: &sea_orm::DatabaseConnection) -> Uuid {
+    let id = Uuid::now_v7();
+    db.execute_raw(Statement::from_sql_and_values(
+        DbBackend::Postgres,
+        "INSERT INTO workspaces (id, name, slug) VALUES ($1, 'Enum', $2)",
+        [
+            Value::from(id),
+            Value::from(format!("enum-{}", id.simple())),
+        ],
+    ))
+    .await
+    .unwrap();
+    id
+}
+
+#[tokio::test]
+async fn role_key_check_matches_enum() {
+    let boot = boot_test::<App>().await.unwrap();
+    let db = &boot.app_context.db;
+    let workspace_id = bare_workspace(db).await;
+    for key in RoleKey::iter() {
+        assert!(
+            insert_role_key(db, workspace_id, &key.to_value()).await,
+            "{key:?}"
+        );
+    }
+    assert!(!insert_role_key(db, workspace_id, "bogus").await);
+}
+
+#[tokio::test]
+async fn audit_action_check_matches_enum() {
+    let boot = boot_test::<App>().await.unwrap();
+    let db = &boot.app_context.db;
+    let workspace_id = bare_workspace(db).await;
+    for action in AuditAction::iter() {
+        assert!(
+            insert_audit(db, workspace_id, &action.to_value()).await,
+            "{action:?}"
+        );
+    }
+    assert!(!insert_audit(db, workspace_id, "workspace.bogus").await);
 }

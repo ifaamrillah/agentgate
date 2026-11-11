@@ -106,7 +106,11 @@ async fn user_with_totp_needs_second_step_before_session() {
         );
         // Sesi pending lama tidak menjadi sesi login.
         assert_eq!(
-            request.get("/").add_cookie(pending).await.status_code(),
+            request
+                .get("/account")
+                .add_cookie(pending)
+                .await
+                .status_code(),
             303
         );
     })
@@ -211,7 +215,14 @@ async fn totp_code_cannot_be_replayed_in_same_step() {
         let res = submit_code(&request, &second, &code).await;
         assert_eq!(res.status_code(), 422);
         // Masih sesi pending: belum login.
-        assert_eq!(request.get("/").add_cookie(second).await.status_code(), 303);
+        assert_eq!(
+            request
+                .get("/account")
+                .add_cookie(second)
+                .await
+                .status_code(),
+            303
+        );
     })
     .await;
 }

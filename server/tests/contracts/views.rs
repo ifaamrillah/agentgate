@@ -46,7 +46,10 @@ fn shell_with_workspaces(can_manage: bool) -> AppShell {
 fn render_home(shell: &AppShell) -> String {
     build_view_engine()
         .unwrap()
-        .render("home/index.html", serde_json::json!({ "shell": shell }))
+        .render(
+            "workspaces/home.html",
+            serde_json::json!({ "shell": shell, "workspace_name": "Acme" }),
+        )
         .unwrap()
 }
 

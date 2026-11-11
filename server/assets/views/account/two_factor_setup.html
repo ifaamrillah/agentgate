@@ -1,10 +1,14 @@
 {#- Setup 2FA. Variabel (views::account::TwoFactorSetupPage): qr_svg (markup <svg> buatan
-    server), secret (base32 untuk input manual), error (kunci Fluent atau ""). -#}
+    server), secret (base32 untuk input manual), error (kunci Fluent atau ""), required (bool:
+    dibuka dari workspace yang mewajibkan 2FA). -#}
 {% extends "layouts/app.html" %}
 {% block title %}{{ t(key="totp-setup-title", lang="id") }}{% endblock title %}
 {% block content %}
 <div class="mx-auto grid max-w-md gap-6">
   <h1 class="text-2xl font-semibold">{{ t(key="totp-setup-title", lang="id") }}</h1>
+  {%- if required %}
+  <div data-two-factor-required>{{ <flash kind="info" message={t(key="totp-required-notice", lang="id")}/> }}</div>
+  {%- endif %}
   <section class="card">
     <header>
       <p class="text-sm text-muted-foreground">{{ t(key="totp-setup-description", lang="id") }}</p>

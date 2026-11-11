@@ -1,10 +1,18 @@
 //! Builder data tes. Default-nya user yang bisa login: email unik, password `TEST_PASSWORD`,
 //! email terverifikasi, aktif, tanpa 2FA. Setiap method mengubah satu hal dari default itu.
+//! Workspace dibangun lewat [`a_workspace`] dan anggotanya lewat [`add_member`].
 
 use agentgate_server::{
     common::{crypto, settings::Settings},
-    models::users::{self, NewUser},
-    services::auth::password,
+    models::{
+        roles::{self, RoleKey},
+        users::{self, NewUser},
+        workspace_members, workspaces,
+    },
+    services::{
+        auth::password,
+        workspaces::create::{self, NewWorkspace},
+    },
 };
 use loco_rs::app::AppContext;
 use sea_orm::{ActiveModelTrait, ActiveValue::Set, IntoActiveModel};
@@ -121,4 +129,67 @@ impl UserBuilder {
         }
         active.update(&ctx.db).await.unwrap()
     }
+}
+
+/// Workspace baru milik `owner`, dibuat lewat jalur produksi (`create::run`: workspace, empat
+/// role bawaan, `owner` sebagai Owner, audit). Slug default dari nama.
+pub struct WorkspaceBuilder<'a> {
+    owner: &'a users::Model,
+    name: String,
+    slug: String,
+}
+
+#[must_use]
+pub fn a_workspace(owner: &users::Model) -> WorkspaceBuilder<'_> {
+    let suffix = uuid::Uuid::now_v7().simple().to_string();
+    WorkspaceBuilder {
+        owner,
+        name: "Acme".to_string(),
+        slug: format!("ws-{}", &suffix[suffix.len() - 12..]),
+    }
+}
+
+impl WorkspaceBuilder<'_> {
+    #[must_use]
+    pub fn name(mut self, name: &str) -> Self {
+        self.name = name.to_string();
+        self
+    }
+
+    #[must_use]
+    pub fn slug(mut self, slug: &str) -> Self {
+        self.slug = slug.to_string();
+        self
+    }
+
+    pub async fn create(self, ctx: &AppContext) -> workspaces::Model {
+        create::run(
+            ctx,
+            self.owner,
+            NewWorkspace {
+                name: self.name,
+                slug: self.slug,
+            },
+            None,
+        )
+        .await
+        .unwrap()
+    }
+}
+
+/// Jadikan `user` anggota `workspace` dengan role bawaan `key`.
+pub async fn add_member(
+    ctx: &AppContext,
+    workspace: &workspaces::Model,
+    user: &users::Model,
+    key: RoleKey,
+) -> workspace_members::Model {
+    let wid = workspace.workspace_id();
+    let role = roles::Model::find_builtin(&ctx.db, wid, key)
+        .await
+        .unwrap()
+        .unwrap();
+    workspace_members::ActiveModel::add(&ctx.db, wid, user.id, role.id)
+        .await
+        .unwrap()
 }

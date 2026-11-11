@@ -1,0 +1,14 @@
+{#- Beranda workspace. Variabel: workspace_name (string). Daftar project datang di Task 12;
+    sampai itu selalu empty state dengan tombol buat project nonaktif. -#}
+{% extends "layouts/app.html" %}
+{% block title %}{{ workspace_name }}{% endblock title %}
+{% block content %}
+<div class="grid gap-6">
+  {% <page_header title={workspace_name}> %}
+    <span data-create-project>{{ <button label={t(key="workspace-create-project", lang="id")} icon="plus" disabled={true}/> }}</span>
+  {% </page_header> %}
+  {% <empty_state title={t(key="workspace-no-projects-title", lang="id")} description={t(key="workspace-no-projects-description", lang="id")} variant="dashed"> %}
+    {{ <button label={t(key="workspace-create-project", lang="id")} icon="plus" variant="outline" disabled={true}/> }}
+  {% </empty_state> %}
+</div>
+{% endblock content %}

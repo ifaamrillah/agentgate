@@ -12,7 +12,7 @@ async fn logout_ends_the_session() {
         assert_eq!(res.status_code(), 303);
         assert_eq!(res.header("location"), "/login");
         // Cookie lama tidak lagi membuka halaman.
-        let home = request.get("/").add_cookie(cookie).await;
+        let home = request.get("/account").add_cookie(cookie).await;
         assert_eq!(home.status_code(), 303);
     })
     .await;
@@ -25,7 +25,7 @@ async fn get_logout_does_not_sign_out() {
         let cookie = sign_in_as(&request, &user).await;
         let res = request.get("/logout").add_cookie(cookie.clone()).await;
         assert_eq!(res.status_code(), 405);
-        let home = request.get("/").add_cookie(cookie).await;
+        let home = request.get("/account").add_cookie(cookie).await;
         assert_eq!(home.status_code(), 200);
     })
     .await;

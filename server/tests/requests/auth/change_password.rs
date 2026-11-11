@@ -65,7 +65,14 @@ async fn change_password_requires_current_password() {
             .unwrap();
         assert_eq!(still.password_hash, user.password_hash);
         // Sesi tetap berlaku.
-        assert_eq!(request.get("/").add_cookie(cookie).await.status_code(), 200);
+        assert_eq!(
+            request
+                .get("/account")
+                .add_cookie(cookie)
+                .await
+                .status_code(),
+            200
+        );
     })
     .await;
 }
@@ -116,7 +123,14 @@ async fn change_password_keeps_only_current_device_signed_in() {
         );
         // Sesi lama perangkat ini dan sesi perangkat lain berakhir.
         for cookie in [this_device, other_device] {
-            assert_eq!(request.get("/").add_cookie(cookie).await.status_code(), 303);
+            assert_eq!(
+                request
+                    .get("/account")
+                    .add_cookie(cookie)
+                    .await
+                    .status_code(),
+                303
+            );
         }
 
         let changed = users::Model::find_by_id(&ctx.db, user.id)

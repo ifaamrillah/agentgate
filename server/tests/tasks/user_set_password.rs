@@ -21,7 +21,7 @@ async fn set_password_hashes_it_and_signs_the_user_out_everywhere() {
         let cookie = sign_in_as(&request, &user).await;
         assert_eq!(
             request
-                .get("/")
+                .get("/account")
                 .add_cookie(cookie.clone())
                 .await
                 .status_code(),
@@ -47,7 +47,11 @@ async fn set_password_hashes_it_and_signs_the_user_out_everywhere() {
         .unwrap();
         assert_ne!(verdict, Verify::Mismatch);
         assert_eq!(
-            request.get("/").add_cookie(cookie).await.status_code(),
+            request
+                .get("/account")
+                .add_cookie(cookie)
+                .await
+                .status_code(),
             303,
             "sesi lama harus dicabut"
         );

@@ -4,9 +4,9 @@ use std::{collections::HashSet, path::Path};
 
 use agentgate_server::{
     common::text,
-    models::users,
+    models::{job_titles, roles, users, workspaces},
     services::auth::{oauth, password, password_change},
-    views::{account, auth, errors::MESSAGE_KEYS},
+    views::{self, account, auth, errors::MESSAGE_KEYS},
 };
 
 fn fluent_keys() -> HashSet<String> {
@@ -59,6 +59,9 @@ fn every_validation_error_code_has_a_message() {
     let codes = [
         text::ERROR_CODES,
         users::ERROR_CODES,
+        workspaces::ERROR_CODES,
+        roles::ERROR_CODES,
+        job_titles::ERROR_CODES,
         password::ERROR_CODES,
         password_change::ERROR_CODES,
     ]
@@ -73,6 +76,7 @@ fn every_auth_message_key_has_a_translation() {
     let missing: Vec<_> = [
         auth::MESSAGE_KEYS,
         account::MESSAGE_KEYS,
+        views::workspaces::MESSAGE_KEYS,
         oauth::ERROR_CODES,
     ]
     .concat()

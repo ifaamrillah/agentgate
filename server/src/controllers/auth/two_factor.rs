@@ -6,6 +6,8 @@
 //!
 //! Pengaturan (butuh sesi login penuh, `CurrentUser`; sesi pending ditolak):
 //! - `GET /account/2fa`: QR code dan secret untuk setup, atau status bila sudah aktif.
+//!   `?required=<slug>` (dari extractor `Tenant`, workspace yang mewajibkan 2FA) hanya
+//!   menampilkan pemberitahuan; nilainya tidak dipakai.
 //! - `POST /account/2fa`: konfirmasi setup dengan kode; menampilkan kode pemulihan sekali.
 //! - `POST /account/2fa/disable`: matikan 2FA (butuh password saat ini).
 //! - `POST /account/2fa/recovery-codes`: buat ulang kode pemulihan.
@@ -50,6 +52,12 @@ pub struct CodeForm {
 pub struct DisableForm {
     #[serde(default = "empty_secret")]
     current_password: SecretString,
+}
+
+/// Query `GET /account/2fa`. Field lain diabaikan.
+#[derive(Debug, Deserialize)]
+pub struct SettingsQuery {
+    required: Option<String>,
 }
 
 fn empty_secret() -> SecretString {
@@ -122,12 +130,13 @@ async fn settings(
     ViewEngine(v): ViewEngine<TeraView>,
     CurrentUser(user): CurrentUser,
     session: Session,
+    Query(query): Query<SettingsQuery>,
 ) -> Result<Response> {
     if user.totp_enabled_at.is_some() {
         let remaining = recovery_codes::count_unused(&ctx.db, user.id).await?;
         return views::account::two_factor_status(
             &v,
-            &app_shell(&user),
+            &app_shell(&ctx, &user, None).await?,
             remaining,
             None,
             StatusCode::OK,
@@ -146,8 +155,14 @@ async fn settings(
         qr_svg: setup.qr_svg,
         secret: setup.secret_base32,
         error: "",
+        required: query.required.is_some(),
     };
-    let res = views::account::two_factor_setup(&v, &app_shell(&user), &page, StatusCode::OK)?;
+    let res = views::account::two_factor_setup(
+        &v,
+        &app_shell(&ctx, &user, None).await?,
+        &page,
+        StatusCode::OK,
+    )?;
     Ok((session, res).into_response())
 }
 
@@ -166,7 +181,8 @@ async fn confirm(
     match totp::confirm(&ctx, &user, &sealed, form.code.expose_secret()).await? {
         Confirmed::Enabled(codes) => {
             let session = session.remove(SETUP_SECRET);
-            let res = views::account::recovery_codes(&v, &app_shell(&user), &codes)?;
+            let res =
+                views::account::recovery_codes(&v, &app_shell(&ctx, &user, None).await?, &codes)?;
             Ok((session, res).into_response())
         }
         // Klik ganda: request pertama sudah mengaktifkan 2FA dan menampilkan kodenya.
@@ -187,10 +203,11 @@ async fn confirm(
                 qr_svg: setup.qr_svg,
                 secret: setup.secret_base32,
                 error: views::account::TOTP_CODE_INVALID,
+                required: false,
             };
             let res = views::account::two_factor_setup(
                 &v,
-                &app_shell(&user),
+                &app_shell(&ctx, &user, None).await?,
                 &page,
                 StatusCode::UNPROCESSABLE_ENTITY,
             )?;
@@ -225,7 +242,7 @@ async fn disable(
     let remaining = recovery_codes::count_unused(&ctx.db, user.id).await?;
     views::account::two_factor_status(
         &v,
-        &app_shell(&user),
+        &app_shell(&ctx, &user, None).await?,
         remaining,
         Some(&wrong.into()),
         StatusCode::UNPROCESSABLE_ENTITY,
@@ -239,7 +256,9 @@ async fn regenerate_recovery_codes(
     CurrentUser(user): CurrentUser,
 ) -> Result<Response> {
     match totp::regenerate_recovery_codes(&ctx, &user).await? {
-        Some(codes) => views::account::recovery_codes(&v, &app_shell(&user), &codes),
+        Some(codes) => {
+            views::account::recovery_codes(&v, &app_shell(&ctx, &user, None).await?, &codes)
+        }
         None => format::redirect(SETTINGS),
     }
 }

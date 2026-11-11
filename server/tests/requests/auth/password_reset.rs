@@ -128,7 +128,7 @@ async fn reset_revokes_other_sessions() {
         assert_eq!(res.header("location"), "/login");
 
         // Sesi lama berakhir.
-        let home = request.get("/").add_cookie(other_device).await;
+        let home = request.get("/account").add_cookie(other_device).await;
         assert_eq!(home.status_code(), 303);
 
         // Password lama ditolak, yang baru berlaku; password_changed_at terisi.

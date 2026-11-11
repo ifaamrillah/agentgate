@@ -41,7 +41,7 @@ async fn valid_token_signs_in_and_opens_protected_pages() {
         assert_eq!(res.status_code(), 303);
         assert_eq!(res.header("location"), "/");
         let cookie = session_cookie(&res).expect("cookie sesi");
-        let home = request.get("/").add_cookie(cookie).await;
+        let home = request.get("/account").add_cookie(cookie).await;
         assert_eq!(home.status_code(), 200);
     })
     .await;
@@ -57,7 +57,7 @@ async fn token_of_user_with_totp_goes_to_second_factor_without_login() {
         assert_eq!(res.header("location"), "/login/2fa");
         let cookie = session_cookie(&res).expect("cookie sesi pending");
         // Sesi pending bukan sesi login: halaman terlindungi masih mengarah ke login.
-        let home = request.get("/").add_cookie(cookie).await;
+        let home = request.get("/account").add_cookie(cookie).await;
         assert_eq!(home.status_code(), 303);
         assert!(
             home.header("location")

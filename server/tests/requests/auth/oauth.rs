@@ -317,7 +317,14 @@ async fn new_verified_identity_creates_user() {
         assert_eq!(linked[0].provider_uid, sub);
 
         let cookie = session_cookie(&res).unwrap();
-        assert_eq!(request.get("/").add_cookie(cookie).await.status_code(), 200);
+        assert_eq!(
+            request
+                .get("/account")
+                .add_cookie(cookie)
+                .await
+                .status_code(),
+            200
+        );
 
         // Login berikutnya memakai identitas yang sama, tanpa user baru.
         let again = sign_in_with(&request, "google", None, None).await;
@@ -518,7 +525,11 @@ async fn oauth_user_with_totp_still_needs_second_step() {
         // Sesi pending, bukan sesi login.
         let pending = session_cookie(&res).unwrap();
         assert_eq!(
-            request.get("/").add_cookie(pending).await.status_code(),
+            request
+                .get("/account")
+                .add_cookie(pending)
+                .await
+                .status_code(),
             303
         );
     })
@@ -541,8 +552,22 @@ async fn oauth_sign_in_renews_session() {
         assert_eq!(res.status_code(), 303, "{}", res.text());
         let after = session_cookie(&res).unwrap();
         assert_ne!(after.value(), before.value());
-        assert_eq!(request.get("/").add_cookie(before).await.status_code(), 303);
-        assert_eq!(request.get("/").add_cookie(after).await.status_code(), 200);
+        assert_eq!(
+            request
+                .get("/account")
+                .add_cookie(before)
+                .await
+                .status_code(),
+            303
+        );
+        assert_eq!(
+            request
+                .get("/account")
+                .add_cookie(after)
+                .await
+                .status_code(),
+            200
+        );
     })
     .await;
 }

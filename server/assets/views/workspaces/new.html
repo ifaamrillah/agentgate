@@ -1,0 +1,14 @@
+{#- Buat workspace. Variabel: form (views::workspaces::WorkspaceFormView). -#}
+{% extends "layouts/app.html" %}
+{% block title %}{{ t(key="workspace-new-title", lang="id") }}{% endblock title %}
+{% block content %}
+<div class="mx-auto grid max-w-xl gap-6">
+  {{ <page_header title={t(key="workspace-new-title", lang="id")} description={t(key="workspace-new-description", lang="id")}/> }}
+  {% <card> %}
+    <form method="post" action="/w/new" class="form grid gap-6">
+      {% include "workspaces/_form.html" %}
+      <div>{{ <button label={t(key="workspace-create-submit", lang="id")} type="submit"/> }}</div>
+    </form>
+  {% </card> %}
+</div>
+{% endblock content %}

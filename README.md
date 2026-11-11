@@ -37,7 +37,9 @@ Katalog komponen UI ada di <http://localhost:5150/_dev/ui> (hanya development).
 
 `bin/loco db seed` mengisi database dev dengan lima user (terverifikasi, **tanpa password**):
 `owner@agentgate.test`, `admin@agentgate.test`, `dev@agentgate.test`, `qa@agentgate.test`, dan
-`viewer@agentgate.test`. Menjalankannya lagi tidak menggandakan data; untuk mengulang dari nol pakai
+`viewer@agentgate.test`, semuanya anggota workspace **PT Contoh** (`/w/pt-contoh`) dengan role
+Owner, Admin, Member, Member, dan Viewer (jabatan: owner PM, dev Dev, qa QA). Menjalankannya lagi
+tidak menggandakan data; untuk mengulang dari nol pakai
 `bin/loco db reset` lalu seed.
 
 - **Masuk tanpa password**: `bin/loco task dev_login email:owner@agentgate.test` mencetak link

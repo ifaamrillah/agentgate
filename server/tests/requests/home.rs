@@ -4,15 +4,15 @@ use loco_rs::testing::prelude::*;
 use crate::support::{a_user, sign_in_as};
 
 #[tokio::test]
-async fn home_page_renders_with_layout_and_translations() {
+async fn app_page_renders_with_layout_and_translations() {
     request::<App, _, _>(|request, ctx| async move {
         let user = a_user().create(&ctx).await;
         let cookie = sign_in_as(&request, &user).await;
-        let res = request.get("/").add_cookie(cookie).await;
+        let res = request.get("/w/new").add_cookie(cookie).await;
         assert_eq!(res.status_code(), 200);
         let html = res.text();
         assert!(
-            html.contains("<title>Beranda · Agent Gate</title>"),
+            html.contains("<title>Buat workspace · Agent Gate</title>"),
             "{html}"
         );
         assert!(html.contains("hx-boost:inherited=\"true\""));
@@ -38,7 +38,8 @@ async fn app_layout_renders_with_minimal_shell() {
     request::<App, _, _>(|request, ctx| async move {
         let user = a_user().name("Budi Santoso").create(&ctx).await;
         let cookie = sign_in_as(&request, &user).await;
-        let html = request.get("/").add_cookie(cookie).await.text();
+        // User tanpa workspace: `/` mengarah ke `/w/new`, yang memakai shell tanpa workspace.
+        let html = request.get("/w/new").add_cookie(cookie).await.text();
         assert_css_exists(
             &html,
             "aside.sidebar#app-sidebar > nav[hx-preload\\:inherited=\"mouseover\"]",

@@ -98,9 +98,9 @@ async fn unverified_user_gets_verify_page_not_session() {
         );
         // Sesi hanya mengingat user untuk tombol kirim ulang verifikasi, bukan sesi login.
         let cookie = session_cookie(&res).expect("sesi menunggu verifikasi");
-        let home = request.get("/").add_cookie(cookie).await;
+        let home = request.get("/account").add_cookie(cookie).await;
         assert_eq!(home.status_code(), 303);
-        assert_eq!(home.header("location"), "/login?return_to=%2F");
+        assert_eq!(home.header("location"), "/login?return_to=%2Faccount");
     })
     .await;
 }
@@ -183,7 +183,7 @@ async fn two_factor_user_gets_pending_session_not_sign_in() {
         assert_eq!(res.header("location"), "/login/2fa");
         let pending = session_cookie(&res).unwrap();
         // Sesi pending bukan sesi login.
-        let home = request.get("/").add_cookie(pending).await;
+        let home = request.get("/account").add_cookie(pending).await;
         assert_eq!(home.status_code(), 303);
     })
     .await;

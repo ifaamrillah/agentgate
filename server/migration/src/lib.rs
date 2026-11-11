@@ -3,6 +3,7 @@
 pub use sea_orm_migration::prelude::*;
 mod m20261111_000001_enable_extensions;
 mod m20261112_000001_create_users_and_auth;
+mod m20261112_000002_create_workspaces;
 
 pub struct Migrator;
 
@@ -12,6 +13,7 @@ impl MigratorTrait for Migrator {
         vec![
             Box::new(m20261111_000001_enable_extensions::Migration),
             Box::new(m20261112_000001_create_users_and_auth::Migration),
+            Box::new(m20261112_000002_create_workspaces::Migration),
             // inject-above (do not remove this comment)
         ]
     }

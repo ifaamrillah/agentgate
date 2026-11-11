@@ -1,0 +1,65 @@
+//! Membuat workspace baru: satu transaksi berisi workspace, empat role bawaan, pembuatnya
+//! sebagai Owner, dan audit `workspace.created`. Dipanggil `POST /w/new` dan seed dev. Siapa
+//! pun yang login boleh membuat workspace (spec: pendaftaran terbuka seperti Jira).
+
+use loco_rs::app::AppContext;
+use sea_orm::TransactionTrait;
+
+use crate::{
+    models::{
+        roles::{self, RoleKey},
+        users, workspace_members,
+        workspaces::{self, CreateWorkspace, WorkspaceError},
+    },
+    services::audit::{self, AuditAction, AuditEntry},
+};
+
+/// Isian form. `slug` kosong = dibentuk dari nama.
+#[derive(Debug)]
+pub struct NewWorkspace {
+    pub name: String,
+    pub slug: String,
+}
+
+/// # Errors
+///
+/// [`WorkspaceError::Invalid`] untuk nama/slug tidak valid atau slug terpakai,
+/// [`WorkspaceError::Db`] untuk error database lain. Tidak ada yang tersimpan bila gagal.
+pub async fn run(
+    ctx: &AppContext,
+    owner: &users::Model,
+    new: NewWorkspace,
+    request_id: Option<String>,
+) -> Result<workspaces::Model, WorkspaceError> {
+    let txn = ctx.db.begin().await?;
+    let workspace = workspaces::ActiveModel::create(
+        &txn,
+        CreateWorkspace {
+            name: new.name,
+            slug: new.slug,
+            created_by: Some(owner.id),
+        },
+    )
+    .await?;
+    let wid = workspace.workspace_id();
+    let roles = roles::ActiveModel::create_builtin_set(&txn, wid).await?;
+    let owner_role = roles
+        .iter()
+        .find(|r| r.role_key().ok().flatten() == Some(RoleKey::Owner))
+        .ok_or_else(|| sea_orm::DbErr::RecordNotFound("owner role".to_string()))?;
+    workspace_members::ActiveModel::add(&txn, wid, owner.id, owner_role.id).await?;
+    audit::record(
+        &txn,
+        AuditEntry {
+            workspace_id: wid,
+            actor_id: Some(owner.id),
+            action: AuditAction::WorkspaceCreated,
+            subject: ("workspace", workspace.id),
+            changes: serde_json::json!({ "name": workspace.name, "slug": workspace.slug }),
+            request_id,
+        },
+    )
+    .await?;
+    txn.commit().await?;
+    Ok(workspace)
+}

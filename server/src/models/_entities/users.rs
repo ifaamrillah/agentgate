@@ -27,17 +27,37 @@ pub struct Model {
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
+    #[sea_orm(has_many = "super::audit_events::Entity")]
+    AuditEvents,
     #[sea_orm(has_many = "super::identities::Entity")]
     Identities,
+    #[sea_orm(has_many = "super::invitations::Entity")]
+    Invitations,
     #[sea_orm(has_many = "super::recovery_codes::Entity")]
     RecoveryCodes,
     #[sea_orm(has_many = "super::user_tokens::Entity")]
     UserTokens,
+    #[sea_orm(has_many = "super::workspace_members::Entity")]
+    WorkspaceMembers,
+    #[sea_orm(has_many = "super::workspaces::Entity")]
+    Workspaces,
+}
+
+impl Related<super::audit_events::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::AuditEvents.def()
+    }
 }
 
 impl Related<super::identities::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Identities.def()
+    }
+}
+
+impl Related<super::invitations::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Invitations.def()
     }
 }
 
@@ -50,5 +70,17 @@ impl Related<super::recovery_codes::Entity> for Entity {
 impl Related<super::user_tokens::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::UserTokens.def()
+    }
+}
+
+impl Related<super::workspace_members::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::WorkspaceMembers.def()
+    }
+}
+
+impl Related<super::workspaces::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Workspaces.def()
     }
 }

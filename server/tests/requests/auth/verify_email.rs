@@ -70,7 +70,7 @@ async fn verified_user_can_sign_in() {
         assert_eq!(res.header("location"), "/login");
         // Tidak login otomatis: sesi hanya membawa flash.
         let cookie = session_cookie(&res).expect("flash disimpan di sesi");
-        let home = request.get("/").add_cookie(cookie.clone()).await;
+        let home = request.get("/account").add_cookie(cookie.clone()).await;
         assert_eq!(home.status_code(), 303);
 
         // Flash tampil sekali di halaman login.

@@ -11,7 +11,7 @@ async fn disabled_user_existing_session_is_rejected() {
         let cookie = sign_in_as(&request, &user).await;
         assert_eq!(
             request
-                .get("/")
+                .get("/account")
                 .add_cookie(cookie.clone())
                 .await
                 .status_code(),
@@ -22,9 +22,9 @@ async fn disabled_user_existing_session_is_rejected() {
         active.disabled_at = Set(Some(chrono::Utc::now().into()));
         active.update(&ctx.db).await.unwrap();
 
-        let res = request.get("/").add_cookie(cookie.clone()).await;
+        let res = request.get("/account").add_cookie(cookie.clone()).await;
         assert_eq!(res.status_code(), 303);
-        assert_eq!(res.header("location"), "/login?return_to=%2F");
+        assert_eq!(res.header("location"), "/login?return_to=%2Faccount");
         // Sesinya ikut dihapus: cookie dihapus di browser.
         let removed = session_cookie(&res).unwrap();
         assert_eq!(removed.value(), "");
@@ -57,8 +57,22 @@ async fn session_cookie_from_before_login_is_not_valid_after() {
         assert_ne!(after.value(), before.value());
 
         // Cookie lama tidak ikut menjadi sesi login.
-        assert_eq!(request.get("/").add_cookie(before).await.status_code(), 303);
-        assert_eq!(request.get("/").add_cookie(after).await.status_code(), 200);
+        assert_eq!(
+            request
+                .get("/account")
+                .add_cookie(before)
+                .await
+                .status_code(),
+            303
+        );
+        assert_eq!(
+            request
+                .get("/account")
+                .add_cookie(after)
+                .await
+                .status_code(),
+            200
+        );
     })
     .await;
 }
@@ -71,9 +85,9 @@ async fn session_older_than_absolute_lifetime_is_rejected() {
         |request, ctx| async move {
             let user = a_user().create(&ctx).await;
             let cookie = sign_in_as(&request, &user).await;
-            let res = request.get("/").add_cookie(cookie).await;
+            let res = request.get("/account").add_cookie(cookie).await;
             assert_eq!(res.status_code(), 303);
-            assert_eq!(res.header("location"), "/login?return_to=%2F");
+            assert_eq!(res.header("location"), "/login?return_to=%2Faccount");
         },
     )
     .await;

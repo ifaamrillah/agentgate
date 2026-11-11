@@ -98,6 +98,8 @@ pub struct TwoFactorSetupPage {
     pub secret: String,
     /// Kunci Fluent error kode, atau kosong.
     pub error: &'static str,
+    /// Dibuka dari workspace yang mewajibkan 2FA: tampilkan pemberitahuannya.
+    pub required: bool,
 }
 
 /// Setup 2FA: QR code, secret, dan form kode konfirmasi.

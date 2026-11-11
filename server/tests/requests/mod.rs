@@ -6,3 +6,4 @@ mod errors;
 mod health;
 mod home;
 mod security_headers;
+mod workspaces;

@@ -2,8 +2,14 @@
 
 pub mod prelude;
 
+pub mod audit_events;
 pub mod identities;
+pub mod invitations;
+pub mod job_titles;
 pub mod login_throttles;
 pub mod recovery_codes;
+pub mod roles;
 pub mod user_tokens;
 pub mod users;
+pub mod workspace_members;
+pub mod workspaces;
