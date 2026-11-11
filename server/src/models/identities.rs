@@ -50,6 +50,26 @@ impl Model {
             .await
     }
 
+    /// Apakah `user_id` sudah punya identitas `provider` dengan uid selain `provider_uid`.
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn has_other_uid<C: ConnectionTrait>(
+        db: &C,
+        user_id: Uuid,
+        provider: IdentityProvider,
+        provider_uid: &str,
+    ) -> Result<bool, DbErr> {
+        let count = Entity::find()
+            .filter(Column::UserId.eq(user_id))
+            .filter(Column::Provider.eq(provider.to_value()))
+            .filter(Column::ProviderUid.ne(provider_uid))
+            .count(db)
+            .await?;
+        Ok(count > 0)
+    }
+
     /// Tautkan `(provider, provider_uid)` ke `user_id` lewat insert bersyarat
     /// (`ON CONFLICT DO NOTHING` pada unique `(provider, provider_uid)`): callback bersamaan
     /// tidak membuat dua baris, dan yang kalah tidak gagal. Mengembalikan baris yang berlaku,

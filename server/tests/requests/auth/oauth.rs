@@ -63,8 +63,10 @@ where
     with_fake(&["google"], |_| {}, f).await;
 }
 
+/// Nama cookie transaksi OAuth di test (dev/test: suffix worktree sama dengan cookie sesi).
 fn state_cookie_name(provider: &str) -> String {
-    format!("loco_oauth_state_{provider}")
+    let suffix = std::env::var("SESSION_COOKIE_SUFFIX").unwrap_or_default();
+    format!("agentgate_oauth_{provider}{suffix}")
 }
 
 /// `POST /auth/{provider}`: cookie state dan URL authorize provider.
@@ -184,6 +186,35 @@ async fn oauth_start_requires_post() {
                 .form(&Vec::<(&str, &str)>::new())
                 .await;
             assert_eq!(res.status_code(), 404, "{name}");
+        }
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn flow_cookie_is_encrypted() {
+    use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
+
+    with_google(|request, _ctx, _fake| async move {
+        let (cookie, location) = start(&request, "google", Some("/account")).await;
+        let url = reqwest::Url::parse(&location).unwrap();
+        let state = url
+            .query_pairs()
+            .find(|(k, _)| k == "state")
+            .map(|(_, v)| v.into_owned())
+            .unwrap();
+        let value = cookie.value();
+        assert!(!value.contains(&state), "state terbaca di cookie");
+        // Tidak ada bagian nilai cookie yang ter-decode menjadi JSON transaksi (verifier PKCE,
+        // state, return_to): cookie bertanda tangan saja berisi `signature || base64(json)`.
+        for start in 0..value.len() {
+            if let Ok(bytes) = URL_SAFE_NO_PAD.decode(&value[start..]) {
+                let text = String::from_utf8_lossy(&bytes);
+                assert!(
+                    !text.contains("verifier") && !text.contains(&state),
+                    "transaksi OAuth terbaca: {text}"
+                );
+            }
         }
     })
     .await;
@@ -391,6 +422,40 @@ async fn unverified_email_does_not_link_existing_account() {
         assert_eq!(
             res.header("location"),
             "/login?oauth_error=oauth-email-unverified"
+        );
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn second_identity_of_same_provider_is_not_linked() {
+    with_google(|request, ctx, fake| async move {
+        let user = a_user().create(&ctx).await;
+        fake.set_identity(google_profile(&uid(), &user.email, true));
+        assert_eq!(
+            sign_in_with(&request, "google", None, None)
+                .await
+                .header("location"),
+            "/"
+        );
+
+        // Akun Google lain mengklaim email yang sama (mis. alamat dipindahtangankan di
+        // provider): tidak ditautkan ke user yang sudah punya identitas Google.
+        fake.set_identity(google_profile(&uid(), &user.email, true));
+        let res = sign_in_with(&request, "google", None, None).await;
+        assert_eq!(
+            res.header("location"),
+            "/login?oauth_error=oauth-identity-conflict"
+        );
+        assert!(session_cookie(&res).is_none_or(|c| c.value().is_empty()));
+        assert_eq!(identities_of(&ctx, user.id).await.len(), 1);
+        let page = request
+            .get("/login?oauth_error=oauth-identity-conflict")
+            .await;
+        assert!(
+            page.text().contains("sudah tertaut ke akun lain"),
+            "{}",
+            page.text()
         );
     })
     .await;
@@ -608,14 +673,21 @@ async fn concurrent_callbacks_create_one_user_and_identity() {
         assert_eq!(ids.len(), 1, "{ids:?}");
         assert_eq!(identities_of(&ctx, ids[0]).await.len(), 1);
 
-        // Identitas lain dengan email yang sama, bersamaan: tertaut ke user yang sama.
+        // Tiga akun GitHub berbeda dengan email yang sama, bersamaan: hanya satu yang tertaut,
+        // sisanya konflik (user sudah punya identitas GitHub dengan uid lain).
         let others: Vec<_> = (0..3).map(|_| identity("github", &uid(), &email)).collect();
         let results =
             futures::future::join_all(others.iter().map(|i| oauth::resolve_user(&ctx, i))).await;
+        let (mut linked, mut conflicts) = (0, 0);
         for result in results {
-            assert!(matches!(result.unwrap(), OAuthOutcome::SignedIn(u) if u.id == ids[0]));
+            match result.unwrap() {
+                OAuthOutcome::SignedIn(u) if u.id == ids[0] => linked += 1,
+                OAuthOutcome::Rejected(oauth::IDENTITY_CONFLICT) => conflicts += 1,
+                other => panic!("{other:?}"),
+            }
         }
-        assert_eq!(identities_of(&ctx, ids[0]).await.len(), 4);
+        assert_eq!((linked, conflicts), (1, 2));
+        assert_eq!(identities_of(&ctx, ids[0]).await.len(), 2);
     })
     .await;
 }

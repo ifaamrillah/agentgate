@@ -4,8 +4,9 @@
 //! sehingga melewati 2FA dan `signed_in_at`. Di sini callback berakhir di
 //! [`resolve_user`] lalu `sign_in::complete`, entry point yang sama dengan login password.
 //!
-//! - Transaksi login (`state`, PKCE verifier, `return_to`) ada di cookie bertanda tangan
-//!   berumur [`STATE_TTL_SECONDS`] yang dihapus di callback apa pun hasilnya (controller).
+//! - Transaksi login (`state`, PKCE verifier, `return_to`) ada di cookie terenkripsi
+//!   (AES-256-GCM, `EncryptedCookies` Loco) berumur [`STATE_TTL_SECONDS`] yang dihapus di
+//!   callback apa pun hasilnya (controller). Namanya milik aplikasi ([`cookie_name`]).
 //! - Kedua preset Loco memakai endpoint userinfo dengan access token, bukan verifikasi
 //!   `id_token`: identitas datang langsung dari provider lewat TLS, jadi tidak ada JWT yang
 //!   perlu diverifikasi. GitHub: preset membaca `/user/emails` dan hanya memberi
@@ -13,7 +14,7 @@
 //! - Email dari provider hanya menautkan ke akun lama bila `email_verified == Some(true)`
 //!   (account takeover).
 
-pub use loco_rs::auth::oauth::state::{STATE_TTL_SECONDS, cookie_name};
+pub use loco_rs::auth::oauth::state::STATE_TTL_SECONDS;
 use loco_rs::{
     Error, Result,
     app::AppContext,
@@ -47,6 +48,9 @@ pub const EMAIL_UNVERIFIED: &str = "oauth-email-unverified";
 pub const REGISTRATION_CLOSED: &str = "oauth-registration-closed";
 /// User dinonaktifkan.
 pub const USER_DISABLED: &str = "oauth-user-disabled";
+/// User tujuan tautan sudah punya identitas provider ini dengan uid lain (mis. email
+/// dipindahtangankan di provider ke akun lain).
+pub const IDENTITY_CONFLICT: &str = "oauth-identity-conflict";
 /// Semua kode `?oauth_error=` halaman login; masing-masing punya pesan Fluent (dijaga tes i18n).
 pub const ERROR_CODES: &[&str] = &[
     CANCELLED,
@@ -55,6 +59,7 @@ pub const ERROR_CODES: &[&str] = &[
     EMAIL_UNVERIFIED,
     REGISTRATION_CLOSED,
     USER_DISABLED,
+    IDENTITY_CONFLICT,
 ];
 
 /// Kode error dari query string, hanya bila termasuk [`ERROR_CODES`] (nilai lain dibuang).
@@ -100,6 +105,25 @@ pub enum Callback {
         kind: FailureKind,
         detail: Option<String>,
     },
+}
+
+/// Nama cookie transaksi OAuth untuk `provider`, mengikuti nama cookie sesi: staging/production
+/// `__Host-agentgate_oauth_{provider}` (browser menolak cookie itu dari subdomain lain atau
+/// tanpa HTTPS, jadi tidak bisa ditanam dari situs saudara), dev/test
+/// `agentgate_oauth_{provider}<SESSION_COOKIE_SUFFIX>` (per worktree).
+#[must_use]
+pub fn cookie_name(ctx: &AppContext, provider: &str) -> String {
+    flow_cookie_name(&loco_rs::auth::session::Session::cookie_name(ctx), provider)
+}
+
+fn flow_cookie_name(session_cookie: &str, provider: &str) -> String {
+    if session_cookie.starts_with("__Host-") {
+        return format!("__Host-agentgate_oauth_{provider}");
+    }
+    let suffix = session_cookie
+        .strip_prefix("agentgate_session")
+        .unwrap_or("");
+    format!("agentgate_oauth_{provider}{suffix}")
 }
 
 fn oauth_config(ctx: &AppContext) -> Option<&OAuthConfig> {
@@ -237,7 +261,8 @@ pub async fn finish(
 /// User untuk identitas dari provider:
 /// - identitas `(provider, uid)` yang sudah ditautkan → user-nya;
 /// - email `email_verified == Some(true)` milik user lokal → tautkan (email user ditandai
-///   terverifikasi, lihat `users::Model::verify_email_from_provider`);
+///   terverifikasi, lihat `users::Model::verify_email_from_provider`), kecuali user itu sudah
+///   punya identitas provider yang sama dengan uid lain ([`IDENTITY_CONFLICT`]);
 /// - email terverifikasi tanpa akun dan `registration_open` → user baru terverifikasi tanpa
 ///   password, plus identitasnya;
 /// - selain itu [`OAuthOutcome::Rejected`].
@@ -295,6 +320,12 @@ async fn link_existing(
     // Kunci baris user lebih dulu: insert identitas mengambil KEY SHARE lewat FK, dan
     // menaikkannya ke FOR UPDATE setelahnya membuat dua callback bersamaan deadlock.
     let user = users::Model::lock_for_update(&txn, user_id).await?;
+    // Satu identitas per provider per user: akun provider lain yang kini memegang email ini
+    // (alamat dipindahtangankan di provider) tidak boleh ikut masuk ke akun ini.
+    if identities::Model::has_other_uid(&txn, user_id, provider, &identity.uid).await? {
+        txn.rollback().await?;
+        return Ok(OAuthOutcome::Rejected(IDENTITY_CONFLICT));
+    }
     let linked =
         identities::Model::link(&txn, user_id, provider, &identity.uid, Some(email)).await?;
     if linked.user_id == user_id
@@ -387,6 +418,22 @@ mod tests {
         }
         assert_eq!(error_code("auth-invalid-credentials"), None);
         assert_eq!(error_code(""), None);
+    }
+
+    #[test]
+    fn flow_cookie_follows_session_cookie_name() {
+        assert_eq!(
+            flow_cookie_name("__Host-agentgate_session", "google"),
+            "__Host-agentgate_oauth_google"
+        );
+        assert_eq!(
+            flow_cookie_name("agentgate_session", "github"),
+            "agentgate_oauth_github"
+        );
+        assert_eq!(
+            flow_cookie_name("agentgate_session_wt3", "github"),
+            "agentgate_oauth_github_wt3"
+        );
     }
 
     #[test]

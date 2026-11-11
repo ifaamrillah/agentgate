@@ -5,7 +5,7 @@
 use axum::extract::{Path, Query};
 use loco_rs::{
     auth::{
-        cookies::{self, SignedCookies},
+        cookies::{self, EncryptedCookies},
         oauth::{CallbackParams, state::FlowState},
     },
     prelude::*,
@@ -31,7 +31,7 @@ pub struct StartForm {
 async fn start(
     State(ctx): State<AppContext>,
     Path(name): Path<String>,
-    jar: SignedCookies,
+    jar: EncryptedCookies,
     ValidForm(form): ValidForm<StartForm>,
 ) -> Result<Response> {
     let provider = oauth::provider(&ctx, &name)?.ok_or(Error::NotFound)?;
@@ -41,7 +41,7 @@ async fn start(
         .clone()
         .with_max_age(Some(oauth::STATE_TTL_SECONDS))
         .cookie(
-            oauth::cookie_name(&name),
+            oauth::cookie_name(&ctx, &name),
             cookies::seal(&flow, oauth::STATE_TTL_SECONDS)?,
         );
     Ok((jar.add(cookie), format::redirect(&location)?).into_response())
@@ -52,16 +52,16 @@ async fn callback(
     State(ctx): State<AppContext>,
     Path(name): Path<String>,
     Query(params): Query<CallbackParams>,
-    jar: SignedCookies,
+    jar: EncryptedCookies,
     session: Session,
 ) -> Result<Response> {
     let provider = oauth::provider(&ctx, &name)?.ok_or(Error::NotFound)?;
-    let cookie_name = oauth::cookie_name(&name);
+    let cookie_name = oauth::cookie_name(&ctx, &name);
     let flow = jar
         .get(&cookie_name)
         .and_then(|c| cookies::unseal::<FlowState>(c.value()));
-    // State sekali pakai: dihapus apa pun hasilnya.
-    let session = session.map_jar(|jar| jar.remove(&cookie_name));
+    // Transaksi sekali pakai: cookie dihapus di setiap respons di bawah, apa pun hasilnya.
+    let jar = jar.remove(&cookie_name);
 
     let (identity, return_to) = match oauth::finish(&ctx, &provider, params, flow).await? {
         Callback::Identity {
@@ -73,29 +73,41 @@ async fn callback(
             // tetap hanya di level debug, yang mati di staging/production.
             let detail = detail.as_deref().unwrap_or("");
             tracing::debug!(provider = %name, kind = kind.as_str(), detail, "oauth detail");
-            return failure(session, &name, kind.as_str(), oauth::failure_code(kind));
+            return failure(
+                session,
+                jar,
+                &name,
+                kind.as_str(),
+                oauth::failure_code(kind),
+            );
         }
     };
     let user = match oauth::resolve_user(&ctx, &identity).await? {
         OAuthOutcome::SignedIn(user) => user,
-        OAuthOutcome::Rejected(code) => return failure(session, &name, code, code),
+        OAuthOutcome::Rejected(code) => return failure(session, jar, &name, code, code),
     };
     match sign_in::complete(&ctx, session, &user, return_to.as_deref())? {
         SignInStep::Done(session) => {
             let target = return_to.as_deref().unwrap_or(HOME);
-            Ok((session, format::redirect(target)?).into_response())
+            Ok((session, jar, format::redirect(target)?).into_response())
         }
         SignInStep::NeedsSecondFactor(session) => {
-            Ok((session, format::redirect(sign_in::SECOND_FACTOR_PATH)?).into_response())
+            Ok((session, jar, format::redirect(sign_in::SECOND_FACTOR_PATH)?).into_response())
         }
     }
 }
 
 /// `303 /login?oauth_error=<code>`. Log hanya provider dan jenis kegagalan, tanpa token.
-fn failure(session: Session, provider: &str, kind: &str, code: &str) -> Result<Response> {
+fn failure(
+    session: Session,
+    jar: EncryptedCookies,
+    provider: &str,
+    kind: &str,
+    code: &str,
+) -> Result<Response> {
     tracing::warn!(provider, kind, "oauth sign-in failed");
     let location = format!("/login?oauth_error={code}");
-    Ok((session, format::redirect(&location)?).into_response())
+    Ok((session, jar, format::redirect(&location)?).into_response())
 }
 
 pub fn routes() -> Routes {

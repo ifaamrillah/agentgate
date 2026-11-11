@@ -23,7 +23,7 @@ const EXACT: &[&str] = &[
 const PREFIXES: &[&str] = &[
     // Lupa dan reset password.
     "/password",
-    // OAuth: redirect ke provider dan callback-nya (M1 Task 5).
+    // OAuth: redirect ke provider dan callback-nya (M1 Task 7).
     "/auth",
     // Halaman undangan dibuka sebelum login (M1 Task 8).
     "/invitations",

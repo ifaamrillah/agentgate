@@ -23,7 +23,7 @@ use loco_rs::{
 use tracing::Instrument;
 
 /// Path yang query string-nya berisi token sekali pakai (email, atau `dev_login` yang setara
-/// password selama 10 menit).
+/// password selama 10 menit). Callback OAuth (path dinamis) dicek `is_oauth_callback`.
 const TOKEN_PATHS: &[&str] = &["/verify-email", "/password/reset", "/_dev/login"];
 
 pub struct RequestLog {
@@ -103,10 +103,18 @@ async fn layer(State(environment): State<Environment>, req: Request, next: Next)
 
 /// URI untuk log: query string route bertoken diganti `[redacted]`.
 fn logged_uri(uri: &Uri) -> String {
+    let path = uri.path();
     match uri.query() {
-        Some(_) if TOKEN_PATHS.contains(&uri.path()) => format!("{}?[redacted]", uri.path()),
+        Some(_) if TOKEN_PATHS.contains(&path) || is_oauth_callback(path) => {
+            format!("{path}?[redacted]")
+        }
         _ => uri.to_string(),
     }
+}
+
+/// `/auth/{provider}/callback`: query-nya berisi authorization code dan state OAuth.
+fn is_oauth_callback(path: &str) -> bool {
+    path.starts_with("/auth/") && path.ends_with("/callback")
 }
 
 #[cfg(test)]
@@ -128,6 +136,16 @@ mod tests {
             logged_uri(&uri("/_dev/login?token=x")),
             "/_dev/login?[redacted]"
         );
+        // Callback OAuth membawa authorization code dan state.
+        assert_eq!(
+            logged_uri(&uri("/auth/google/callback?code=c0de&state=s7ate")),
+            "/auth/google/callback?[redacted]"
+        );
+        assert_eq!(
+            logged_uri(&uri("/auth/github/callback?error=access_denied")),
+            "/auth/github/callback?[redacted]"
+        );
+        assert_eq!(logged_uri(&uri("/auth/google?x=1")), "/auth/google?x=1");
         assert_eq!(logged_uri(&uri("/verify-email")), "/verify-email");
         assert_eq!(logged_uri(&uri("/projects?tab=a")), "/projects?tab=a");
     }

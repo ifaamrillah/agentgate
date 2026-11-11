@@ -32,6 +32,7 @@ oauth-failed = Login gagal. Silakan coba lagi.
 oauth-email-unverified = Email akun ini belum diverifikasi oleh Google atau GitHub. Verifikasi email di sana, atau masuk dengan email dan password.
 oauth-registration-closed = Belum ada akun Agent Gate untuk email ini, dan pendaftaran sedang ditutup.
 oauth-user-disabled = Akun ini dinonaktifkan.
+oauth-identity-conflict = Email ini sudah tertaut ke akun lain di penyedia yang sama. Masuk dengan akun yang dulu dipakai, atau dengan email dan password.
 
 two-factor-title = Verifikasi dua langkah
 two-factor-description = Masukkan kode 6 digit dari aplikasi authenticator kamu.
