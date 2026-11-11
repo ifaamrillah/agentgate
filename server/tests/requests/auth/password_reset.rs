@@ -8,6 +8,8 @@ use agentgate_server::{
 use chrono::Duration;
 use loco_rs::testing::prelude::*;
 
+use agentgate_server::services::auth::password;
+
 use crate::support::{TEST_PASSWORD, a_user, mail_to, sent_mail, sign_in_as, token_in};
 
 const NEW_PASSWORD: &str = "kuda baterai staples benar";
@@ -245,6 +247,77 @@ async fn reset_with_short_password_keeps_the_token() {
                 .await
                 .unwrap()
         );
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn bogus_reset_token_is_rejected_without_hashing() {
+    request::<App, _, _>(|request, _ctx| async move {
+        let before = password::hashes_started();
+        let res = request
+            .post("/password/reset")
+            .form(&[("token", "tidak-ada"), ("password", NEW_PASSWORD)])
+            .await;
+        assert_eq!(res.status_code(), 422);
+        assert_css_exists(&res.text(), r#"[data-page="token-invalid"]"#);
+        // Token dicek sebelum argon2: request tanpa token sah tidak memakai izin hash.
+        assert_eq!(password::hashes_started(), before);
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn reset_attempts_are_throttled_per_ip() {
+    request::<App, _, _>(|request, ctx| async move {
+        let mut last = 0;
+        for i in 0..21 {
+            last = request
+                .post("/password/reset")
+                .form(&[
+                    ("token", format!("tebakan-{i}").as_str()),
+                    ("password", NEW_PASSWORD),
+                ])
+                .await
+                .status_code()
+                .as_u16();
+        }
+        assert_eq!(last, 429);
+        // Token yang sah pun ditolak selama IP terkunci.
+        let user = a_user().create(&ctx).await;
+        let raw = user_tokens::issue(&ctx.db, user.id, TokenPurpose::PasswordReset, TTL)
+            .await
+            .unwrap();
+        let res = request
+            .post("/password/reset")
+            .form(&[("token", raw.as_str()), ("password", NEW_PASSWORD)])
+            .await;
+        assert_eq!(res.status_code(), 429);
+        assert!(
+            user_tokens::peek(&ctx.db, &raw, TokenPurpose::PasswordReset)
+                .await
+                .unwrap()
+        );
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn disabled_user_cannot_reset_password() {
+    request::<App, _, _>(|request, ctx| async move {
+        let user = a_user().disabled().create(&ctx).await;
+        let raw = user_tokens::issue(&ctx.db, user.id, TokenPurpose::PasswordReset, TTL)
+            .await
+            .unwrap();
+        let page = request.get(&format!("/password/reset?token={raw}")).await;
+        assert_css_exists(&page.text(), r#"[data-page="token-invalid"]"#);
+        let res = request
+            .post("/password/reset")
+            .form(&[("token", raw.as_str()), ("password", NEW_PASSWORD)])
+            .await;
+        assert_eq!(res.status_code(), 422);
+        assert_css_exists(&res.text(), r#"[data-page="token-invalid"]"#);
+        assert_eq!(reload(&ctx, &user).await.password_hash, user.password_hash);
     })
     .await;
 }

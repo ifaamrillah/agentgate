@@ -57,3 +57,19 @@ fn every_auth_template_folder_is_listed() {
     listed.sort();
     assert_eq!(dirs, listed);
 }
+
+/// Nama user masuk ke versi HTML lewat autoescape, tidak pernah sebagai markup.
+#[tokio::test]
+async fn user_name_is_escaped_in_the_html_part() {
+    let boot = boot_test::<App>().await.unwrap();
+    let ctx = &boot.app_context;
+    let user = a_user().name("<b>x</b>&").create(ctx).await;
+    AuthMailer::send_password_reset(ctx, &user, "tok")
+        .await
+        .unwrap();
+
+    let message = &sent_mail(ctx)[0];
+    let html = &message[message.find("Content-Type: text/html").unwrap()..];
+    assert!(html.contains("&lt;b&gt;x&lt;/b&gt;&amp;"), "{html}");
+    assert!(!html.contains("<b>x</b>"), "{html}");
+}

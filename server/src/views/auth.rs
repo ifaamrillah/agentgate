@@ -152,11 +152,13 @@ pub fn forgot(v: &impl ViewRenderer, page: &ForgotPage, status: StatusCode) -> R
         .view(v, "auth/forgot.html", page)
 }
 
-/// Form password baru untuk token reset yang masih berlaku.
+/// Form password baru untuk token reset yang masih berlaku. `error`: kunci Fluent pesan
+/// form (rate limit) atau kosong.
 pub fn reset(
     v: &impl ViewRenderer,
     token: &str,
     errors: Option<&ModelValidationErrors>,
+    error: &str,
     status: StatusCode,
 ) -> Result<Response> {
     format::render()
@@ -165,6 +167,10 @@ pub fn reset(
         .view(
             v,
             "auth/reset.html",
-            data!({ "token": token, "errors": field_errors(RESET_FIELDS, errors) }),
+            data!({
+                "token": token,
+                "errors": field_errors(RESET_FIELDS, errors),
+                "error": error,
+            }),
         )
 }

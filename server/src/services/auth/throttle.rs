@@ -2,9 +2,9 @@
 //! `login_throttles` (rules §7, tanpa Redis).
 //!
 //! Satu baris per kunci (`email:<lower>` / `ip:<addr>` untuk login, `mail-email:<lower>` /
-//! `mail-ip:<addr>` untuk permintaan email). Setiap percobaan dipesan lebih dulu
-//! ([`reserve`]) di jendela `login_window_minutes`; mencapai batas mengunci kunci itu
-//! `login_lockout_minutes`. Percobaan yang berhasil dikembalikan ([`succeeded`]).
+//! `mail-ip:<addr>` untuk permintaan email, `reset-ip:<addr>` untuk percobaan reset).
+//! Setiap percobaan dipesan lebih dulu ([`reserve`]) di jendela `login_window_minutes`;
+//! mencapai batas mengunci kunci itu `login_lockout_minutes`. Percobaan yang berhasil dikembalikan ([`succeeded`]).
 //! Kunci email berlaku untuk string email apa pun, terdaftar atau tidak, supaya "terlalu
 //! banyak percobaan" tidak membocorkan email mana yang punya akun. Baris kedaluwarsa
 //! dibersihkan job harian (M1 Task 9), bukan di sini.
@@ -34,6 +34,10 @@ pub enum ThrottleKey {
     MailEmail(String),
     /// Permintaan yang mengirim email per IP, batas `login_max_failures_per_ip`.
     MailIp(IpAddr),
+    /// Percobaan `POST /password/reset` per IP (setiap percobaan dihitung), batas
+    /// `login_max_failures_per_ip`: menahan tebakan token dan banjir request yang memakai
+    /// izin hash.
+    ResetIp(IpAddr),
 }
 
 impl ThrottleKey {
@@ -45,13 +49,14 @@ impl ThrottleKey {
             Self::Ip(ip) => format!("ip:{ip}"),
             Self::MailEmail(email) => format!("mail-email:{}", users::normalize_email(email)),
             Self::MailIp(ip) => format!("mail-ip:{ip}"),
+            Self::ResetIp(ip) => format!("reset-ip:{ip}"),
         }
     }
 
     fn max_failures(&self, settings: &AuthSettings) -> i32 {
         match self {
             Self::Email(_) | Self::MailEmail(_) => settings.login_max_failures_per_email,
-            Self::Ip(_) | Self::MailIp(_) => settings.login_max_failures_per_ip,
+            Self::Ip(_) | Self::MailIp(_) | Self::ResetIp(_) => settings.login_max_failures_per_ip,
         }
     }
 }
@@ -169,7 +174,7 @@ pub async fn succeeded<C: ConnectionTrait>(
                     .exec(db)
                     .await?;
             }
-            ThrottleKey::Ip(_) | ThrottleKey::MailIp(_) => {
+            ThrottleKey::Ip(_) | ThrottleKey::MailIp(_) | ThrottleKey::ResetIp(_) => {
                 db.execute_raw(Statement::from_sql_and_values(
                     DbBackend::Postgres,
                     RELEASE_SQL,
@@ -211,6 +216,10 @@ mod tests {
         assert_eq!(
             ThrottleKey::MailIp("::1".parse().unwrap()).key(),
             "mail-ip:::1"
+        );
+        assert_eq!(
+            ThrottleKey::ResetIp("10.0.0.1".parse().unwrap()).key(),
+            "reset-ip:10.0.0.1"
         );
     }
 }

@@ -5,7 +5,7 @@ use std::{path::Path, str::FromStr};
 
 use agentgate_server::common::settings::Settings;
 use loco_rs::{
-    config::{Config, SessionStoreKind, WorkerMode},
+    config::{Config, QueueConfig, SessionStoreKind, WorkerMode},
     environment::Environment,
 };
 
@@ -204,6 +204,28 @@ fn deployed_environments_are_locked_down() {
             assert!(
                 !overrides.contains_key("Strict-Transport-Security"),
                 "{env}: HSTS dari preset"
+            );
+        }
+    });
+}
+
+/// Job mailer membawa token mentah di args-nya (rules §8): job selesai harus dihapus, bukan
+/// disimpan dengan status `completed`.
+#[test]
+fn deployed_environments_purge_finished_jobs() {
+    with_deploy_env(|| {
+        for env in ["development", "staging", "production"] {
+            let Some(QueueConfig::Postgres(queue)) = load(env).unwrap().queue else {
+                panic!("{env}: queue Postgres");
+            };
+            let retention = queue
+                .retention
+                .unwrap_or_else(|| panic!("{env}: queue.retention"));
+            assert_eq!(retention.completed_days, Some(0), "{env}: completed_days");
+            assert!(retention.failed_days.is_some(), "{env}: failed_days");
+            assert!(
+                retention.interval_seconds <= 600,
+                "{env}: interval_seconds harus jauh di bawah umur token reset"
             );
         }
     });

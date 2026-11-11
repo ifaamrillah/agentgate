@@ -123,11 +123,25 @@ pub async fn peek<C: ConnectionTrait>(
     raw: &str,
     purpose: TokenPurpose,
 ) -> Result<bool, DbErr> {
+    Ok(peek_owner(db, raw, purpose).await?.is_some())
+}
+
+/// Pemilik token yang masih bisa dipakai, tanpa mengonsumsinya. Untuk memeriksa token (dan
+/// pemiliknya) sebelum pekerjaan mahal; konsumsi tetap lewat [`consume`].
+///
+/// # Errors
+///
+/// Error database.
+pub async fn peek_owner<C: ConnectionTrait>(
+    db: &C,
+    raw: &str,
+    purpose: TokenPurpose,
+) -> Result<Option<Uuid>, DbErr> {
     Ok(Entity::find()
         .filter(usable(raw, purpose))
         .one(db)
         .await?
-        .is_some())
+        .map(|token| token.user_id))
 }
 
 /// Satu definisi "token berlaku", dipakai `consume` dan `peek` supaya tidak bisa menyimpang.

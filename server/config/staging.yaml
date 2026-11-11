@@ -47,6 +47,13 @@ queue:
   # Queue selalu di database yang sama dengan aplikasi (per checkout/worktree), tanpa default.
   uri: <%= get_env(name="DATABASE_URL") %>
   dangerously_flush: false
+  retention:
+    # Job mailer membawa token mentah reset/verifikasi di args-nya (rules §8): job selesai
+    # dihapus pada sapuan berikutnya (completed_days 0), jauh sebelum token reset (30 menit)
+    # kedaluwarsa. Job gagal disimpan sebentar untuk diperiksa, lalu ikut dihapus.
+    completed_days: 0
+    failed_days: 7
+    interval_seconds: 300
 
 mailer:
   smtp:

@@ -79,7 +79,7 @@ async fn show_reset(
     Query(params): Query<TokenParams>,
 ) -> Result<Response> {
     if password_reset::is_valid(&ctx.db, &params.token).await? {
-        views::auth::reset(&v, &params.token, None, StatusCode::OK)
+        views::auth::reset(&v, &params.token, None, "", StatusCode::OK)
     } else {
         views::auth::token_invalid(&v, TokenKind::Reset, StatusCode::OK)
     }
@@ -89,11 +89,12 @@ async fn show_reset(
 async fn reset(
     State(ctx): State<AppContext>,
     ViewEngine(v): ViewEngine<TeraView>,
+    ClientIp(ip): ClientIp,
     session: Session,
     ValidForm(form): ValidForm<ResetForm>,
 ) -> Result<Response> {
     let settings = Settings::from_ctx(&ctx)?;
-    match password_reset::reset(&ctx, &settings, &form.token, form.password).await? {
+    match password_reset::reset(&ctx, &settings, &form.token, form.password, ip).await? {
         Reset::Done => {
             // Semua sesi user sudah dicabut (termasuk sesi browser ini bila miliknya): flash
             // ditaruh di sesi baru.
@@ -107,7 +108,15 @@ async fn reset(
             &v,
             &form.token,
             Some(&errors),
+            "",
             StatusCode::UNPROCESSABLE_ENTITY,
+        ),
+        Reset::Locked => views::auth::reset(
+            &v,
+            &form.token,
+            None,
+            views::auth::TOO_MANY_REQUESTS,
+            StatusCode::TOO_MANY_REQUESTS,
         ),
         Reset::InvalidToken => {
             views::auth::token_invalid(&v, TokenKind::Reset, StatusCode::UNPROCESSABLE_ENTITY)

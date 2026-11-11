@@ -9,7 +9,10 @@
 //! tidak melepas izin sementara hash-nya masih berjalan.
 
 use std::{
-    sync::{Arc, OnceLock},
+    sync::{
+        Arc, OnceLock,
+        atomic::{AtomicU64, Ordering},
+    },
     time::Duration,
 };
 
@@ -52,6 +55,9 @@ pub enum Verify {
 }
 
 static LIMITER: OnceLock<Arc<Semaphore>> = OnceLock::new();
+/// Jumlah [`hash`] yang dimulai sejak proses berjalan. Dipakai tes untuk membuktikan
+/// jalur tanpa autentikasi (mis. token reset palsu) tidak menjalankan argon2.
+static HASHES_STARTED: AtomicU64 = AtomicU64::new(0);
 static DUMMY_HASH: OnceLock<String> = OnceLock::new();
 
 /// Aturan panjang password (`field = "password"`, kode `password-too-short` /
@@ -86,6 +92,7 @@ pub fn validate(password: &SecretString) -> std::result::Result<(), ModelValidat
 /// `Error::Validation` bila panjangnya di luar batas; 503 bila antrean hash penuh terlalu lama.
 pub async fn hash(settings: &AuthSettings, password: SecretString) -> Result<String> {
     validate(&password)?;
+    HASHES_STARTED.fetch_add(1, Ordering::Relaxed);
     let argon = hasher(settings)?;
     limited(settings, move || {
         hash_blocking(&argon, password.expose_secret().as_bytes())
@@ -142,6 +149,12 @@ pub async fn verify_dummy(settings: &AuthSettings, password: &SecretString) -> R
         Ok(())
     })
     .await?
+}
+
+/// Berapa kali [`hash`] dimulai di proses ini (lihat `HASHES_STARTED`).
+#[must_use]
+pub fn hashes_started() -> u64 {
+    HASHES_STARTED.load(Ordering::Relaxed)
 }
 
 fn too_long(password: &SecretString) -> bool {
