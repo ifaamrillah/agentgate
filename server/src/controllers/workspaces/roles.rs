@@ -152,7 +152,7 @@ pub(super) async fn new(
 ) -> Result<Response> {
     let tenant = &access.tenant;
     let action = format!("{}/new", roles_path(&tenant.workspace.slug));
-    let form = RoleFormView::new("", &[], None);
+    let form = RoleFormView::new("", &[], &tenant.role, None);
     render_form(&ctx, &v, tenant, &form, &action, false, StatusCode::OK).await
 }
 
@@ -170,7 +170,14 @@ pub(super) async fn create(
     let form = RoleForm::from(pairs);
     let result = match roles::parse_permissions(&form.permissions) {
         Ok(permissions) => {
-            service::create(&ctx.db, &actor(tenant, request_id), &form.name, permissions).await
+            service::create(
+                &ctx.db,
+                &actor(tenant, request_id),
+                &tenant.role,
+                &form.name,
+                permissions,
+            )
+            .await
         }
         Err(e) => Err(e),
     };
@@ -178,7 +185,12 @@ pub(super) async fn create(
         Ok(_) => redirect_with(session, tenant, views::roles::FLASH_CREATED).await,
         Err(RoleError::Invalid(errors)) => {
             let action = format!("{}/new", roles_path(&tenant.workspace.slug));
-            let view = RoleFormView::new(form.name.trim(), &form.permissions, Some(&errors));
+            let view = RoleFormView::new(
+                form.name.trim(),
+                &form.permissions,
+                &tenant.role,
+                Some(&errors),
+            );
             render_form(
                 &ctx,
                 &v,
@@ -207,7 +219,7 @@ pub(super) async fn edit(
         return rejected(&ctx, &v, tenant, e).await;
     }
     let action = edit_path(tenant, role.id);
-    let form = RoleFormView::new(&role.name, &role.permissions, None);
+    let form = RoleFormView::new(&role.name, &role.permissions, &tenant.role, None);
     render_form(&ctx, &v, tenant, &form, &action, true, StatusCode::OK).await
 }
 
@@ -232,6 +244,7 @@ pub(super) async fn update(
             service::update(
                 &ctx.db,
                 &actor(tenant, request_id),
+                &tenant.role,
                 role.id,
                 &form.name,
                 permissions,
@@ -243,7 +256,12 @@ pub(super) async fn update(
     match result {
         Ok(_) => redirect_with(session, tenant, views::roles::FLASH_UPDATED).await,
         Err(RoleError::Invalid(errors)) => {
-            let view = RoleFormView::new(form.name.trim(), &form.permissions, Some(&errors));
+            let view = RoleFormView::new(
+                form.name.trim(),
+                &form.permissions,
+                &tenant.role,
+                Some(&errors),
+            );
             render_form(
                 &ctx,
                 &v,

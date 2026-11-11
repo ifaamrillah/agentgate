@@ -2,9 +2,10 @@
 //! email; database menyimpan digest SHA-256-nya (rules §7). Satu undangan aktif (belum
 //! diterima, belum dibatalkan) per email per workspace, dijaga partial unique index.
 
-use loco_rs::model::TenantEntity;
+use loco_rs::model::{TenantEntity, TenantQueryExt};
 use sea_orm::{
     ActiveValue::{self, Set},
+    Condition,
     entity::prelude::*,
 };
 
@@ -35,5 +36,34 @@ impl ActiveModelBehavior for ActiveModel {
             self.updated_at = Set(chrono::Utc::now().into());
         }
         Ok(self)
+    }
+}
+
+impl Model {
+    /// Hapus undangan `role_id` yang sudah selesai (diterima, dibatalkan, atau kedaluwarsa),
+    /// supaya tidak menahan penghapusan role lewat FK. Undangan aktif tidak disentuh dan tetap
+    /// menahan role (`role-in-use`). Dipanggil di transaksi hapus role.
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn delete_finished_for_role<C: ConnectionTrait>(
+        txn: &C,
+        workspace_id: WorkspaceId,
+        role_id: Uuid,
+    ) -> Result<u64, DbErr> {
+        let now: DateTimeWithTimeZone = chrono::Utc::now().into();
+        Entity::delete_many()
+            .in_tenant(workspace_id)
+            .filter(Column::RoleId.eq(role_id))
+            .filter(
+                Condition::any()
+                    .add(Column::AcceptedAt.is_not_null())
+                    .add(Column::RevokedAt.is_not_null())
+                    .add(Column::ExpiresAt.lte(now)),
+            )
+            .exec(txn)
+            .await
+            .map(|res| res.rows_affected)
     }
 }

@@ -94,13 +94,15 @@ impl RoleRow {
     }
 }
 
-/// Satu checkbox izin.
+/// Satu checkbox izin. `grantable = false`: pelaku tidak memegang izin ini, jadi checkbox
+/// nonaktif dan nilainya (bila terpilih) dikirim lewat input hidden supaya tetap utuh.
 #[derive(Debug, Serialize)]
 pub struct PermissionOption {
     pub value: String,
     pub label_key: &'static str,
     pub description_key: &'static str,
     pub checked: bool,
+    pub grantable: bool,
 }
 
 /// Isian form role: nama, semua izin dengan tanda terpilih, error per field.
@@ -112,9 +114,16 @@ pub struct RoleFormView {
 }
 
 impl RoleFormView {
-    /// `selected` = nilai izin terpilih (string dari form atau dari role).
+    /// `selected` = nilai izin terpilih (string dari form atau dari role); `actor` = role
+    /// pelaku (izin yang tidak ia pegang tampil nonaktif, aturan
+    /// `roles::ensure_permissions_grantable`).
     #[must_use]
-    pub fn new(name: &str, selected: &[String], errors: Option<&ModelValidationErrors>) -> Self {
+    pub fn new(
+        name: &str,
+        selected: &[String],
+        actor: &roles::Model,
+        errors: Option<&ModelValidationErrors>,
+    ) -> Self {
         Self {
             name: name.to_string(),
             permissions: Permission::iter()
@@ -123,6 +132,7 @@ impl RoleFormView {
                     let value = p.to_string();
                     PermissionOption {
                         checked: selected.contains(&value),
+                        grantable: actor.has(p),
                         value,
                         label_key,
                         description_key,

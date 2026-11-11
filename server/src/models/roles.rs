@@ -27,15 +27,18 @@ pub const ROLE_NAME_TAKEN: &str = "role-name-taken";
 pub const ROLE_PERMISSIONS_EMPTY: &str = "role-permissions-empty";
 /// Isian izin bukan varian [`Permission`] (form yang diubah di luar browser).
 pub const ROLE_PERMISSION_UNKNOWN: &str = "role-permission-unknown";
+/// Pelaku memberi atau mencabut izin yang tidak ia pegang ([`ensure_permissions_grantable`]).
+pub const ROLE_PERMISSION_NOT_HELD: &str = "role-permission-not-held";
 /// Role bawaan tidak bisa diubah atau dihapus ([`RoleError::Builtin`]).
 pub const ROLE_BUILTIN: &str = "role-builtin";
-/// Role masih dipegang member atau undangan ([`RoleError::InUse`]).
+/// Role masih dipegang member atau undangan aktif ([`RoleError::InUse`]).
 pub const ROLE_IN_USE: &str = "role-in-use";
 /// Kode error milik model ini; masing-masing punya pesan di Fluent (dijaga tes i18n).
 pub const ERROR_CODES: &[&str] = &[
     ROLE_NAME_TAKEN,
     ROLE_PERMISSIONS_EMPTY,
     ROLE_PERMISSION_UNKNOWN,
+    ROLE_PERMISSION_NOT_HELD,
     ROLE_BUILTIN,
     ROLE_IN_USE,
 ];
@@ -78,7 +81,7 @@ pub enum RoleError {
     /// Role bawaan: nama dan izinnya tetap ([`ensure_role_editable`]).
     #[error("built-in role is immutable")]
     Builtin,
-    /// Masih dipakai member atau undangan (FK `role_id`), jadi tidak bisa dihapus.
+    /// Masih dipakai member atau undangan aktif (FK `role_id`), jadi tidak bisa dihapus.
     #[error("role is in use")]
     InUse,
     #[error(transparent)]
@@ -120,6 +123,30 @@ pub fn ensure_role_editable(role: &Model) -> Result<(), RoleError> {
         return Err(RoleError::Builtin);
     }
     Ok(())
+}
+
+/// Satu-satunya aturan "izin apa yang boleh diubah pelaku": setiap izin yang ditambah atau
+/// dicabut (`before` → `after`) harus dipegang role pelaku (`actor`). Mencegah eskalasi lewat
+/// role custom (pemegang `ManageRoles` menambah `ManageWorkspace` ke role-nya sendiri). Owner
+/// memegang semua izin, jadi tidak dibatasi.
+///
+/// # Errors
+///
+/// [`RoleError::Invalid`] dengan [`ROLE_PERMISSION_NOT_HELD`] di field `permissions`.
+pub fn ensure_permissions_grantable(
+    actor: &Model,
+    before: &[Permission],
+    after: &[Permission],
+) -> Result<(), RoleError> {
+    let changed = before
+        .iter()
+        .filter(|p| !after.contains(p))
+        .chain(after.iter().filter(|p| !before.contains(p)));
+    if changed.into_iter().all(|p| actor.has(*p)) {
+        Ok(())
+    } else {
+        Err(field_error("permissions", ROLE_PERMISSION_NOT_HELD))
+    }
 }
 
 /// Isian izin dari form menjadi [`Permission`]. Nilai tak dikenal ditolak (bukan diabaikan),
@@ -342,8 +369,10 @@ impl ActiveModel {
 
     /// Hapus role custom. Role yang masih dipegang member atau undangan ditolak oleh FK
     /// `role_id` (NO ACTION) di database, bukan oleh SELECT lebih dulu, jadi tidak ada celah
-    /// race. Task 12: `project_grants.role_id` juga harus FK ke `roles` tanpa ON DELETE supaya
-    /// grant ikut menahan penghapusan lewat jalur yang sama.
+    /// race. Undangan yang sudah selesai dihapus pemanggil lebih dulu
+    /// (`services::workspaces::roles::delete`), jadi hanya undangan aktif yang menahan. Task 12:
+    /// `project_grants.role_id` juga harus FK ke `roles` tanpa ON DELETE supaya grant ikut
+    /// menahan penghapusan lewat jalur yang sama.
     ///
     /// # Errors
     ///
@@ -398,4 +427,38 @@ fn field_error(field: &'static str, code: &'static str) -> RoleError {
 
 fn to_strings(permissions: &[Permission]) -> Vec<String> {
     permissions.iter().map(|p| p.to_value()).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn role_holding(permissions: &[Permission]) -> Model {
+        let now = chrono::Utc::now().into();
+        Model {
+            id: Uuid::now_v7(),
+            workspace_id: Uuid::now_v7(),
+            key: None,
+            name: "x".to_string(),
+            permissions: to_strings(permissions),
+            builtin: false,
+            created_at: now,
+            updated_at: now,
+        }
+    }
+
+    #[test]
+    fn only_held_permissions_can_be_granted_or_revoked() {
+        use Permission::{ManageRoles, ManageWorkspace, ViewAuditLog, ViewProject};
+        let actor = role_holding(&[ManageRoles, ViewProject]);
+        let check = |before: &[Permission], after: &[Permission]| {
+            ensure_permissions_grantable(&actor, before, after).is_ok()
+        };
+        assert!(check(&[], &[ViewProject, ManageRoles]));
+        assert!(check(&[ViewAuditLog, ViewProject], &[ViewAuditLog]));
+        assert!(!check(&[], &[ManageWorkspace]));
+        assert!(!check(&[ViewAuditLog, ViewProject], &[ViewProject]));
+        let owner = role_holding(&Permission::iter().collect::<Vec<_>>());
+        assert!(ensure_permissions_grantable(&owner, &[ViewAuditLog], &[ManageWorkspace]).is_ok());
+    }
 }

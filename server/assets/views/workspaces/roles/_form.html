@@ -1,15 +1,22 @@
 {#- Field form role: nama dan pemilih izin (checkbox per izin, label + deskripsi dari Fluent).
-    Variabel: form ({name, permissions: [{value, label_key, description_key, checked}],
-    errors: field name/permissions → {code, min, max}}). -#}
+    Variabel: form ({name, permissions: [{value, label_key, description_key, checked, grantable}],
+    errors: field name/permissions → {code, min, max}}). Izin yang tidak dipegang pelaku
+    (grantable false) nonaktif; bila terpilih, nilainya ikut lewat input hidden. -#}
 {{ <field id="role-name" name="name" label={t(key="role-name", lang="id")} value={form.name} error={form.errors.name.code} error_min={form.errors.name.min} error_max={form.errors.name.max} required={true} autofocus={true}/> }}
 <fieldset class="grid gap-3"{% if form.errors.permissions.code %} data-invalid="true" aria-describedby="role-permissions-error"{% endif %}>
   <legend class="mb-3 text-sm font-medium">{{ t(key="role-permissions", lang="id") }}</legend>
   {%- for permission in form.permissions %}
   <label class="flex items-start gap-3 font-normal">
-    <input type="checkbox" class="input mt-0.5" name="permissions" value="{{ permission.value }}"{% if permission.checked %} checked{% endif %}>
+    <input type="checkbox" class="input mt-0.5" name="permissions" value="{{ permission.value }}"{% if permission.checked %} checked{% endif %}{% if not permission.grantable %} disabled{% endif %}>
+    {%- if not permission.grantable and permission.checked %}
+    <input type="hidden" name="permissions" value="{{ permission.value }}">
+    {%- endif %}
     <span class="grid gap-0.5">
       <span class="text-sm font-medium">{{ t(key=permission.label_key, lang="id") }}</span>
       <span class="text-sm text-muted-foreground">{{ t(key=permission.description_key, lang="id") }}</span>
+      {%- if not permission.grantable %}
+      <span class="text-sm text-muted-foreground" data-permission-not-held>{{ t(key="role-permission-not-held-hint", lang="id") }}</span>
+      {%- endif %}
     </span>
   </label>
   {%- endfor %}

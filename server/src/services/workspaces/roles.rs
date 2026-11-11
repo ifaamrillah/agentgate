@@ -1,5 +1,6 @@
 //! Role custom (Pengaturan → Role, `ManageRoles`): buat, ubah, hapus, masing-masing dengan audit
-//! `role.*` di transaksi yang sama. Aturan role (bawaan tidak bisa diubah, nama unik, masih
+//! `role.*` di transaksi yang sama. Buat dan ubah hanya boleh menambah atau mencabut izin yang
+//! dipegang role pelaku (`roles::ensure_permissions_grantable`). Aturan role (bawaan tidak bisa diubah, nama unik, masih
 //! dipakai) ada di `models::roles`; di sini hanya transaksi dan audit-nya. Ubah tanpa perubahan
 //! tidak menulis apa pun, seperti Pengaturan workspace.
 
@@ -9,6 +10,7 @@ use uuid::Uuid;
 use super::Actor;
 use crate::{
     models::{
+        invitations,
         permission::Permission,
         roles::{self, RoleError},
     },
@@ -17,13 +19,16 @@ use crate::{
 
 /// # Errors
 ///
-/// Seperti `roles::ActiveModel::create_custom`.
+/// `role-permission-not-held` bila `actor_role` tidak memegang salah satu izin, lalu seperti
+/// `roles::ActiveModel::create_custom`.
 pub async fn create(
     db: &sea_orm::DatabaseConnection,
     actor: &Actor,
+    actor_role: &roles::Model,
     name: &str,
     permissions: Vec<Permission>,
 ) -> Result<roles::Model, RoleError> {
+    roles::ensure_permissions_grantable(actor_role, &[], &permissions)?;
     let txn = db.begin().await?;
     let role =
         roles::ActiveModel::create_custom(&txn, actor.workspace_id, name, permissions).await?;
@@ -42,17 +47,20 @@ pub async fn create(
 
 /// # Errors
 ///
-/// `DbErr::RecordNotFound` bila role `id` sudah tidak ada di workspace ini, lalu seperti
+/// `DbErr::RecordNotFound` bila role `id` sudah tidak ada di workspace ini,
+/// `role-permission-not-held` bila izin yang berubah tidak dipegang `actor_role`, lalu seperti
 /// `roles::ActiveModel::update_custom`.
 pub async fn update(
     db: &sea_orm::DatabaseConnection,
     actor: &Actor,
+    actor_role: &roles::Model,
     id: Uuid,
     name: &str,
     permissions: Vec<Permission>,
 ) -> Result<roles::Model, RoleError> {
     let txn = db.begin().await?;
     let current = locked(&txn, actor, id).await?;
+    roles::ensure_permissions_grantable(actor_role, &current.permissions()?, &permissions)?;
     let (old_name, old_permissions) = (current.name.clone(), current.permissions.clone());
     let updated = roles::ActiveModel::update_custom(&txn, current, name, permissions).await?;
     let mut changes = serde_json::Map::new();
@@ -82,7 +90,9 @@ pub async fn update(
 /// # Errors
 ///
 /// `DbErr::RecordNotFound` bila role `id` sudah tidak ada di workspace ini, lalu seperti
-/// `roles::ActiveModel::delete_custom` (`InUse`, `Builtin`).
+/// `roles::ActiveModel::delete_custom` (`InUse`, `Builtin`). Undangan yang sudah selesai
+/// dihapus lebih dulu di transaksi yang sama, jadi hanya member dan undangan aktif yang
+/// menahan role; bila penghapusan gagal, undangan itu ikut kembali (rollback).
 pub async fn delete(
     db: &sea_orm::DatabaseConnection,
     actor: &Actor,
@@ -91,6 +101,8 @@ pub async fn delete(
     let txn = db.begin().await?;
     let current = locked(&txn, actor, id).await?;
     let changes = serde_json::json!({ "name": current.name, "permissions": current.permissions });
+    roles::ensure_role_editable(&current)?;
+    invitations::Model::delete_finished_for_role(&txn, actor.workspace_id, id).await?;
     roles::ActiveModel::delete_custom(&txn, current).await?;
     audit::record(
         &txn,

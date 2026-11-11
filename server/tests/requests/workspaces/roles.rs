@@ -5,6 +5,7 @@ use agentgate_server::{
     app::App,
     models::{
         audit_events::{self, AuditAction, AuditSubject},
+        invitations,
         permission::Permission,
         roles::{self, RoleKey},
         workspace_members, workspaces,
@@ -389,6 +390,224 @@ async fn duplicate_role_name_gets_422() {
             .await;
         assert_eq!(res.status_code(), 422);
         assert_css_exists(&res.text(), "#role-name-error");
+    })
+    .await;
+}
+
+async fn role_with(
+    ctx: &loco_rs::app::AppContext,
+    workspace: &workspaces::Model,
+    name: &str,
+    permissions: Vec<Permission>,
+) -> roles::Model {
+    roles::ActiveModel::create_custom(&ctx.db, workspace.workspace_id(), name, permissions)
+        .await
+        .unwrap()
+}
+
+#[tokio::test]
+async fn non_owner_cannot_grant_or_revoke_permissions_they_lack() {
+    request::<App, _, _>(|request, ctx| async move {
+        let owner = a_user().create(&ctx).await;
+        let workspace = a_workspace(&owner).slug("acme").create(&ctx).await;
+        let wid = workspace.workspace_id();
+        let manager_role = role_with(
+            &ctx,
+            &workspace,
+            "Pengelola",
+            vec![Permission::ManageRoles, Permission::ViewProject],
+        )
+        .await;
+        let auditor = role_with(
+            &ctx,
+            &workspace,
+            "Auditor",
+            vec![Permission::ViewAuditLog, Permission::ViewProject],
+        )
+        .await;
+
+        // Admin (tanpa ManageWorkspace) tidak bisa membuat role dengan ManageWorkspace.
+        let admin = a_user().create(&ctx).await;
+        add_member(&ctx, &workspace, &admin, RoleKey::Admin).await;
+        let cookie = sign_in_as(&request, &admin).await;
+        let html = request
+            .get("/w/acme/settings/roles/new")
+            .add_cookie(cookie.clone())
+            .await
+            .text();
+        assert_css_exists(
+            &html,
+            "input[type=\"checkbox\"][value=\"manage_workspace\"][disabled]",
+        );
+        assert_css_not_exists(
+            &html,
+            "input[type=\"checkbox\"][value=\"manage_roles\"][disabled]",
+        );
+        let res = request
+            .post("/w/acme/settings/roles/new")
+            .add_cookie(cookie)
+            .form(&[("name", "Bos"), ("permissions", "manage_workspace")])
+            .await;
+        assert_eq!(res.status_code(), 422);
+        assert_css_exists(&res.text(), "#role-permissions-error");
+
+        // Pemegang role custom dengan ManageRoles: tidak bisa menambah izin ke role-nya sendiri.
+        let manager = a_user().create(&ctx).await;
+        workspace_members::ActiveModel::add(&ctx.db, wid, manager.id, manager_role.id)
+            .await
+            .unwrap();
+        let cookie = sign_in_as(&request, &manager).await;
+        let own = format!("/w/acme/settings/roles/{}/edit", manager_role.id);
+        let res = request
+            .post(&own)
+            .add_cookie(cookie.clone())
+            .form(&[
+                ("name", "Pengelola"),
+                ("permissions", "manage_roles"),
+                ("permissions", "view_project"),
+                ("permissions", "manage_workspace"),
+            ])
+            .await;
+        assert_eq!(res.status_code(), 422);
+        assert_css_exists(&res.text(), "#role-permissions-error");
+
+        // Mencabut izin yang tidak dipegang (ViewAuditLog) juga ditolak.
+        let edit = format!("/w/acme/settings/roles/{}/edit", auditor.id);
+        let html = request.get(&edit).add_cookie(cookie.clone()).await.text();
+        assert_css_exists(
+            &html,
+            "input[type=\"checkbox\"][value=\"view_audit_log\"][checked][disabled]",
+        );
+        assert_css_exists(
+            &html,
+            "input[type=\"hidden\"][name=\"permissions\"][value=\"view_audit_log\"]",
+        );
+        let res = request
+            .post(&edit)
+            .add_cookie(cookie.clone())
+            .form(&[("name", "Auditor"), ("permissions", "view_project")])
+            .await;
+        assert_eq!(res.status_code(), 422);
+        // Izin yang tidak dipegang tetap terbawa (input hidden): ganti nama lolos.
+        let res = request
+            .post(&edit)
+            .add_cookie(cookie)
+            .form(&[
+                ("name", "Pemeriksa"),
+                ("permissions", "view_audit_log"),
+                ("permissions", "view_project"),
+            ])
+            .await;
+        assert_eq!(res.status_code(), 303, "{}", res.text());
+        let unchanged = roles::Model::find_in(&ctx.db, wid, manager_role.id)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(!unchanged.has(Permission::ManageWorkspace));
+
+        // Owner memegang semua izin: semuanya boleh.
+        let cookie = sign_in_as(&request, &owner).await;
+        let html = request
+            .get("/w/acme/settings/roles/new")
+            .add_cookie(cookie.clone())
+            .await
+            .text();
+        assert_css_not_exists(&html, "input[type=\"checkbox\"][disabled]");
+        let res = request
+            .post("/w/acme/settings/roles/new")
+            .add_cookie(cookie.clone())
+            .form(&[("name", "Bos"), ("permissions", "manage_workspace")])
+            .await;
+        assert_eq!(res.status_code(), 303, "{}", res.text());
+        let res = request
+            .post(&edit)
+            .add_cookie(cookie.clone())
+            .form(&[("name", "Pemeriksa"), ("permissions", "view_project")])
+            .await;
+        assert_eq!(res.status_code(), 303, "{}", res.text());
+        let res = request
+            .post(&own)
+            .add_cookie(cookie)
+            .form(&[
+                ("name", "Pengelola"),
+                ("permissions", "manage_roles"),
+                ("permissions", "manage_workspace"),
+            ])
+            .await;
+        assert_eq!(res.status_code(), 303, "{}", res.text());
+    })
+    .await;
+}
+
+async fn invite(
+    ctx: &loco_rs::app::AppContext,
+    workspace: &workspaces::Model,
+    role: &roles::Model,
+    state: &str,
+) {
+    use sea_orm::{ActiveModelTrait, ActiveValue::Set};
+    let now = chrono::Utc::now();
+    let mut invitation = invitations::ActiveModel {
+        workspace_id: Set(workspace.id),
+        email: Set(format!(
+            "{state}-{}@example.test",
+            uuid::Uuid::now_v7().simple()
+        )),
+        role_id: Set(role.id),
+        token_digest: Set(uuid::Uuid::now_v7().simple().to_string()),
+        expires_at: Set((now + chrono::Duration::days(7)).into()),
+        ..Default::default()
+    };
+    match state {
+        "accepted" => invitation.accepted_at = Set(Some(now.into())),
+        "revoked" => invitation.revoked_at = Set(Some(now.into())),
+        "expired" => invitation.expires_at = Set((now - chrono::Duration::hours(1)).into()),
+        _ => {}
+    }
+    invitation.insert(&ctx.db).await.unwrap();
+}
+
+#[tokio::test]
+async fn only_active_invitations_block_role_deletion() {
+    request::<App, _, _>(|request, ctx| async move {
+        let owner = a_user().create(&ctx).await;
+        let workspace = a_workspace(&owner).slug("acme").create(&ctx).await;
+        let wid = workspace.workspace_id();
+        let cookie = sign_in_as(&request, &owner).await;
+
+        for state in ["accepted", "revoked", "expired"] {
+            let role = custom_role(&ctx, &workspace, state).await;
+            invite(&ctx, &workspace, &role, state).await;
+            let res = request
+                .post(&format!("/w/acme/settings/roles/{}/delete", role.id))
+                .add_cookie(cookie.clone())
+                .await;
+            assert_eq!(res.status_code(), 303, "{state}: {}", res.text());
+            assert!(
+                roles::Model::find_in(&ctx.db, wid, role.id)
+                    .await
+                    .unwrap()
+                    .is_none()
+            );
+        }
+
+        let role = custom_role(&ctx, &workspace, "aktif").await;
+        invite(&ctx, &workspace, &role, "accepted").await;
+        invite(&ctx, &workspace, &role, "active").await;
+        let res = request
+            .post(&format!("/w/acme/settings/roles/{}/delete", role.id))
+            .add_cookie(cookie)
+            .await;
+        assert_eq!(res.status_code(), 422);
+        assert!(res.text().contains("undangan aktif"));
+        // Transaksi dibatalkan: undangan yang sudah selesai pun tetap ada.
+        use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
+        let left = invitations::Entity::find()
+            .filter(invitations::Column::RoleId.eq(role.id))
+            .count(&ctx.db)
+            .await
+            .unwrap();
+        assert_eq!(left, 2);
     })
     .await;
 }
