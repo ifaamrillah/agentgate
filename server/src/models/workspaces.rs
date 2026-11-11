@@ -29,6 +29,11 @@ pub const RESERVED_SLUGS: &[&str] = &["new", "settings", "admin", "api", "auth"]
 /// membatalkan; setelahnya job pembersihan menghapus workspace permanen.
 pub const DELETION_GRACE_DAYS: i64 = 30;
 
+/// Jam (UTC) job pembersihan harian berjalan: `scheduler.jobs.cleanup.schedule` di
+/// `config/{development,staging,production}.yaml` (dijaga tes kontrak config). Banner hapus
+/// workspace memakainya untuk menampilkan kapan penghapusan permanen mulai.
+pub const PURGE_HOUR_UTC: u32 = 3;
+
 pub const SLUG_TAKEN: &str = "slug-taken";
 pub const SLUG_RESERVED: &str = "slug-reserved";
 /// Kode error field milik model ini (kode slug umum ada di `common::text`).
@@ -166,11 +171,15 @@ impl Model {
         self.require_2fa_at.is_some() && user.totp_enabled_at.is_none()
     }
 
-    /// Saat workspace terjadwal hapus akan dihapus permanen (jadwal + masa tenggang).
+    /// Saat workspace terjadwal hapus mulai dihapus permanen: run pertama job pembersihan
+    /// (`PURGE_HOUR_UTC`) setelah tenggat (jadwal + masa tenggang).
     #[must_use]
-    pub fn purge_on(&self) -> Option<DateTimeWithTimeZone> {
-        self.deletion_scheduled_at
-            .map(|at| at + chrono::Duration::days(DELETION_GRACE_DAYS))
+    pub fn purge_starts_at(&self) -> Option<chrono::DateTime<chrono::Utc>> {
+        self.deletion_scheduled_at.map(|at| {
+            first_cleanup_after(
+                at.with_timezone(&chrono::Utc) + chrono::Duration::days(DELETION_GRACE_DAYS),
+            )
+        })
     }
 
     /// Set atau kosongkan `require_2fa_at`. Mengembalikan workspace tanpa menulis bila nilainya
@@ -349,5 +358,35 @@ fn slug_taken_or_db(e: DbErr) -> WorkspaceError {
         WorkspaceError::Invalid(errors.into())
     } else {
         WorkspaceError::Db(e)
+    }
+}
+
+/// Run job pembersihan pertama yang menghapus workspace dengan tenggat `deadline`. Job
+/// menghapus bila `deletion_scheduled_at < now - tenggang` (`purge_if_due`), jadi run tepat di
+/// tenggat belum menghapus: run itu harus sesudah tenggat.
+fn first_cleanup_after(deadline: chrono::DateTime<chrono::Utc>) -> chrono::DateTime<chrono::Utc> {
+    let same_day = (deadline.date_naive().and_time(chrono::NaiveTime::MIN)
+        + chrono::Duration::hours(i64::from(PURGE_HOUR_UTC)))
+    .and_utc();
+    if same_day > deadline {
+        same_day
+    } else {
+        same_day + chrono::Duration::days(1)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use chrono::{TimeZone, Utc};
+
+    use super::first_cleanup_after;
+
+    #[test]
+    fn purge_starts_at_first_cleanup_run_after_deadline() {
+        let at = |d, h, m, s| Utc.with_ymd_and_hms(2026, 12, d, h, m, s).unwrap();
+        assert_eq!(first_cleanup_after(at(11, 2, 59, 59)), at(11, 3, 0, 0));
+        assert_eq!(first_cleanup_after(at(11, 3, 0, 0)), at(12, 3, 0, 0));
+        assert_eq!(first_cleanup_after(at(11, 15, 30, 0)), at(12, 3, 0, 0));
+        assert_eq!(first_cleanup_after(at(11, 0, 0, 0)), at(11, 3, 0, 0));
     }
 }

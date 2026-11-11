@@ -1,18 +1,23 @@
-//! `POST /w/{slug}/settings/require-2fa`: workspace mewajibkan 2FA (`ManageWorkspace`). Redirect
+//! `POST /w/{slug}/settings/require-2fa`: workspace mewajibkan 2FA (role bawaan Owner). Redirect
 //! anggota tanpa 2FA ke setup dilakukan extractor `Tenant` (lihat juga `tenant_isolation`).
 
 use agentgate_server::{
     app::App,
     models::{
         audit_events::{self, AuditAction, AuditSubject},
+        permission::Permission,
         roles::RoleKey,
-        users, workspaces,
+        users, workspace_members, workspaces,
+    },
+    services::workspaces::{
+        Acting,
+        require_two_factor::{self, RequireTwoFactorError},
     },
 };
 use loco_rs::{app::AppContext, testing::prelude::*};
-use sea_orm::{ActiveModelTrait, ActiveValue::Set, IntoActiveModel};
+use sea_orm::{ActiveModelTrait, ActiveValue::Set, ConnectionTrait, IntoActiveModel};
 
-use crate::support::{a_user, a_workspace, add_member, sign_in_as};
+use crate::support::{a_user, a_workspace, add_member, builtin_role, custom_role, sign_in_as};
 
 const TOGGLE: &str = "/w/acme/settings/require-2fa";
 
@@ -198,4 +203,63 @@ async fn member_with_totp_unaffected_by_require_2fa() {
         assert_eq!(res.status_code(), 200, "{}", res.text());
     })
     .await;
+}
+
+/// Service memeriksa ulang role bawaan Owner di bawah kunci: pemegang `ManageWorkspace` lewat
+/// role custom (yang lolos guard lama) tetap ditolak seperti tanpa izin.
+#[tokio::test]
+async fn service_rejects_non_owner_with_manage_workspace() {
+    let boot = boot_test::<App>().await.unwrap();
+    let ctx = &boot.app_context;
+    let owner = a_user().create(ctx).await;
+    let manager = a_user().create(ctx).await;
+    let workspace = a_workspace(&owner).create(ctx).await;
+    let role = custom_role(ctx, &workspace, "Pengelola", &[Permission::ManageWorkspace]).await;
+    workspace_members::ActiveModel::add(&ctx.db, workspace.workspace_id(), manager.id, role.id)
+        .await
+        .unwrap();
+    enable_totp(ctx, &manager).await;
+    let manager = users::Model::find_by_id(&ctx.db, manager.id)
+        .await
+        .unwrap()
+        .unwrap();
+    let acting = Acting {
+        workspace: &workspace,
+        user: &manager,
+        role: &role,
+        request_id: None,
+    };
+    let res = require_two_factor::set(&ctx.db, &acting, true).await;
+    assert!(
+        matches!(res, Err(RequireTwoFactorError::NotFound)),
+        "{res:?}"
+    );
+}
+
+/// Workspace dihapus permanen oleh job pembersihan setelah `Tenant` memuatnya: 404, bukan 500.
+#[tokio::test]
+async fn toggle_after_purge_is_not_found() {
+    let boot = boot_test::<App>().await.unwrap();
+    let ctx = &boot.app_context;
+    let owner = a_user().create(ctx).await;
+    let workspace = a_workspace(&owner).create(ctx).await;
+    let owner_role = builtin_role(ctx, &workspace, RoleKey::Owner).await;
+    ctx.db
+        .execute_unprepared(&format!(
+            "DELETE FROM workspaces WHERE id = '{}'",
+            workspace.id
+        ))
+        .await
+        .unwrap();
+    let acting = Acting {
+        workspace: &workspace,
+        user: &owner,
+        role: &owner_role,
+        request_id: None,
+    };
+    let res = require_two_factor::set(&ctx.db, &acting, false).await;
+    assert!(
+        matches!(res, Err(RequireTwoFactorError::NotFound)),
+        "{res:?}"
+    );
 }

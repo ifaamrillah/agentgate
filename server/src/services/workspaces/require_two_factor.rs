@@ -1,5 +1,9 @@
-//! Workspace mewajibkan 2FA (Pengaturan → Zona berbahaya, `ManageWorkspace`). Penegakannya ada
-//! di extractor `Tenant`: anggota tanpa 2FA diarahkan ke setup 2FA di setiap halaman workspace.
+//! Workspace mewajibkan 2FA (Pengaturan → Zona berbahaya). Penegakannya ada di extractor
+//! `Tenant`: anggota tanpa 2FA diarahkan ke setup 2FA di setiap halaman workspace.
+//!
+//! Hanya role bawaan Owner (spec: "bisa diwajibkan Owner"), bukan sekadar `ManageWorkspace`:
+//! role custom pemegang `ManageWorkspace` tidak boleh bisa mematikan kebijakan keamanan ini.
+//! Role pelaku dibaca ulang setelah baris workspace dikunci.
 //!
 //! Mewajibkan 2FA butuh pelaku yang sudah ber-2FA, supaya ia tidak mengunci dirinya sendiri
 //! dari workspace. Mematikannya selalu boleh. Nilai yang sama tidak menulis dan tidak diaudit.
@@ -8,7 +12,7 @@ use sea_orm::{DatabaseConnection, DbErr, TransactionTrait};
 
 use super::{Acting, lock_as};
 use crate::{
-    models::{permission::Permission, workspaces},
+    models::{roles, workspaces},
     services::audit::{self, AuditAction, AuditSubject},
 };
 
@@ -19,7 +23,7 @@ pub const ERROR_CODES: &[&str] = &[REQUIRE_2FA_ACTOR_MISSING];
 
 #[derive(Debug, thiserror::Error)]
 pub enum RequireTwoFactorError {
-    /// Pelaku sudah bukan anggota atau tidak lagi memegang `ManageWorkspace`.
+    /// Pelaku sudah bukan anggota, bukan Owner, atau workspace sudah dihapus permanen.
     #[error("not found")]
     NotFound,
     #[error("actor has no 2FA")]
@@ -44,7 +48,7 @@ pub async fn set(
         return Err(RequireTwoFactorError::ActorMissing);
     }
     let txn = db.begin().await?;
-    let workspace = lock_as(&txn, acting, |role| role.has(Permission::ManageWorkspace))
+    let workspace = lock_as(&txn, acting, roles::Model::is_owner)
         .await?
         .ok_or(RequireTwoFactorError::NotFound)?;
     let before = workspace.require_2fa_at.is_some();

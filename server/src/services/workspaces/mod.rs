@@ -89,14 +89,21 @@ impl Acting<'_> {
 
 /// Kunci baris workspace `acting` di `txn`, lalu baca ulang role pelaku sesudah kunci (role
 /// dari awal request bisa sudah basi). Mengembalikan workspace terbaru bila pelaku masih
-/// anggota dan role terbarunya memenuhi `allowed`, `None` bila tidak (pemanggil menjawab 404).
+/// anggota dan role terbarunya memenuhi `allowed`, `None` bila tidak atau workspace sudah tidak
+/// ada (pemanggil menjawab 404).
 pub(crate) async fn lock_as<C: ConnectionTrait>(
     txn: &C,
     acting: &Acting<'_>,
     allowed: impl Fn(&role_model::Model) -> bool,
 ) -> Result<Option<workspaces::Model>, DbErr> {
     let wid = acting.workspace_id();
-    let workspace = workspaces::Model::lock_for_membership(txn, wid).await?;
+    // Kalah balapan dengan job pembersihan (workspace dihapus permanen setelah `Tenant`
+    // memuatnya): sama dengan workspace yang tidak ada, 404 bukan 500.
+    let workspace = match workspaces::Model::lock_for_membership(txn, wid).await {
+        Ok(workspace) => workspace,
+        Err(DbErr::RecordNotFound(_)) => return Ok(None),
+        Err(e) => return Err(e),
+    };
     let role = workspace_members::Model::find_with_role(txn, wid, acting.user.id)
         .await?
         .map(|(_, role)| role);

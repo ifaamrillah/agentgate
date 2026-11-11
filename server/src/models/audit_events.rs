@@ -7,6 +7,7 @@
 //! Baris audit ikut terhapus saat workspace-nya dihapus permanen (FK `ON DELETE CASCADE`, job
 //! pembersihan): audit log adalah milik workspace, bukan arsip di luar workspace.
 
+use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use loco_rs::model::{TenantEntity, TenantQueryExt};
 use sea_orm::{
     ActiveValue::Set, Iterable, QueryOrder, QuerySelect, entity::prelude::*, sea_query::ExprTrait,
@@ -164,8 +165,9 @@ impl AuditAction {
 }
 
 /// Posisi keyset: baris terakhir yang sudah tampil. Halaman berikutnya berisi baris yang
-/// `(created_at, id)`-nya lebih kecil. Di URL berbentuk `<mikrodetik unix>_<uuid>` (presisi
-/// `timestamptz` Postgres adalah mikrodetik, jadi nilainya kembali persis).
+/// `(created_at, id)`-nya lebih kecil. Di URL berupa base64url tanpa padding dari
+/// `<mikrodetik unix>_<uuid>` (presisi `timestamptz` Postgres adalah mikrodetik, jadi nilainya
+/// kembali persis). Opaque supaya tidak dianggap API yang bisa dirakit sendiri.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AuditCursor {
     pub created_at: DateTimeWithTimeZone,
@@ -184,18 +186,27 @@ impl AuditCursor {
     /// Nilai `?before=`.
     #[must_use]
     pub fn to_param(&self) -> String {
-        format!(
+        URL_SAFE_NO_PAD.encode(format!(
             "{}_{}",
             self.created_at.timestamp_micros(),
             self.id.simple()
-        )
+        ))
     }
 
     /// Kursor dari `?before=`; bentuk yang tidak valid → `None` (kembali ke halaman pertama).
+    /// Waktu di luar `[epoch, sekarang + 1 hari]` juga `None`: tidak ada baris audit di luar
+    /// rentang itu, dan nilai buatan di luar rentang `timestamptz` Postgres akan membuat query
+    /// gagal (500) alih-alih diabaikan.
     #[must_use]
     pub fn parse(value: &str) -> Option<Self> {
-        let (micros, id) = value.split_once('_')?;
-        let created_at = chrono::DateTime::from_timestamp_micros(micros.parse().ok()?)?;
+        let raw = URL_SAFE_NO_PAD.decode(value).ok()?;
+        let (micros, id) = std::str::from_utf8(&raw).ok()?.split_once('_')?;
+        let micros: i64 = micros.parse().ok()?;
+        let latest = (chrono::Utc::now() + chrono::Duration::days(1)).timestamp_micros();
+        if !(0..=latest).contains(&micros) {
+            return None;
+        }
+        let created_at = chrono::DateTime::from_timestamp_micros(micros)?;
         Some(Self {
             created_at: created_at.into(),
             id: Uuid::try_parse(id).ok()?,
@@ -372,5 +383,63 @@ impl ActiveModel {
         }
         .insert(db)
         .await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
+    use sea_orm::prelude::Uuid;
+
+    use super::AuditCursor;
+
+    fn cursor(micros: i64) -> AuditCursor {
+        AuditCursor {
+            created_at: chrono::DateTime::from_timestamp_micros(micros)
+                .unwrap()
+                .into(),
+            id: Uuid::now_v7(),
+        }
+    }
+
+    #[test]
+    fn cursor_param_is_opaque_and_round_trips() {
+        let c = cursor(chrono::Utc::now().timestamp_micros());
+        let param = c.to_param();
+        assert!(
+            param
+                .chars()
+                .all(|ch| ch.is_ascii_alphanumeric() || ch == '-' || ch == '_')
+        );
+        assert!(!param.contains('='));
+        let raw = String::from_utf8(URL_SAFE_NO_PAD.decode(&param).unwrap()).unwrap();
+        assert_eq!(
+            raw,
+            format!("{}_{}", c.created_at.timestamp_micros(), c.id.simple())
+        );
+        assert_eq!(AuditCursor::parse(&param), Some(c));
+        // Batas bawah (epoch) masih sah.
+        let epoch = cursor(0);
+        assert_eq!(AuditCursor::parse(&epoch.to_param()), Some(epoch));
+    }
+
+    #[test]
+    fn cursor_outside_range_or_not_encoded_is_none() {
+        let id = Uuid::now_v7().simple();
+        let enc = |s: String| URL_SAFE_NO_PAD.encode(s);
+        let tomorrow_plus = (chrono::Utc::now() + chrono::Duration::days(2)).timestamp_micros();
+        for value in [
+            enc(format!("-1_{id}")),
+            enc(format!("{}_{id}", i64::MIN)),
+            enc(format!("{tomorrow_plus}_{id}")),
+            enc(format!("{}_{id}", i64::MAX)),
+            format!("{}_{id}", chrono::Utc::now().timestamp_micros()),
+            "%%%".to_string(),
+            String::new(),
+            enc("bukan".to_string()),
+        ] {
+            assert_eq!(AuditCursor::parse(&value), None, "{value}");
+        }
+        assert!(AuditCursor::parse(&enc(format!("0_{id}"))).is_some());
     }
 }

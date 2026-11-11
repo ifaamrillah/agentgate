@@ -80,10 +80,11 @@ pub struct WorkspaceView {
     pub deletion: Option<DeletionBanner>,
 }
 
-/// Banner workspace terjadwal hapus: tanggal hapus permanen (WIB) dan form batalkan.
+/// Banner workspace terjadwal hapus: kapan hapus permanen mulai (tanggal dan jam WIB) dan form
+/// batalkan.
 #[derive(Debug, Clone, Serialize)]
 pub struct DeletionBanner {
-    pub purge_on: String,
+    pub purge_at: String,
     pub cancel_action: String,
 }
 
@@ -100,14 +101,14 @@ impl WorkspaceView {
         }
     }
 
-    /// Workspace terjadwal hapus permanen pada `purge_on` (`None` = tidak terjadwal).
+    /// Workspace terjadwal hapus permanen mulai `purge_at` (`None` = tidak terjadwal).
     #[must_use]
     pub fn scheduled_for_deletion<Tz: chrono::TimeZone>(
         mut self,
-        purge_on: Option<&chrono::DateTime<Tz>>,
+        purge_at: Option<&chrono::DateTime<Tz>>,
     ) -> Self {
-        self.deletion = purge_on.map(|at| DeletionBanner {
-            purge_on: super::time::wib_date(at),
+        self.deletion = purge_at.map(|at| DeletionBanner {
+            purge_at: super::time::wib_datetime(at),
             cancel_action: format!("{}/settings/delete/cancel", self.href),
         });
         self

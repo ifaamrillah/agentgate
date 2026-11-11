@@ -116,7 +116,7 @@ pub struct DeleteWorkspaceView {
     pub error: String,
 }
 
-/// Zona berbahaya: toggle 2FA (`ManageWorkspace`) dan hapus workspace (Owner bawaan).
+/// Zona berbahaya: toggle 2FA dan hapus workspace (keduanya Owner bawaan).
 #[derive(Debug, Default, Serialize)]
 pub struct DangerZoneView {
     pub require_2fa: Option<RequireTwoFactorView>,

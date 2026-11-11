@@ -64,7 +64,8 @@ impl PermissionMarker for AnySettings {
 }
 
 /// Marker `Require<WorkspaceOwner>`: role bawaan Owner, bukan sekadar pemegang
-/// `ManageWorkspace` (hapus workspace dan pembatalannya: spec menyebut Owner).
+/// `ManageWorkspace` (hapus workspace dan pembatalannya, serta wajibkan 2FA: spec menyebut
+/// Owner).
 #[derive(Debug, Clone, Copy)]
 pub struct WorkspaceOwner;
 

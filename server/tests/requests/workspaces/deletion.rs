@@ -10,10 +10,15 @@ use agentgate_server::{
         roles::RoleKey,
         workspace_members, workspaces,
     },
+    services::workspaces::{
+        Acting,
+        deletion::{self, DeletionError},
+    },
 };
 use loco_rs::{app::AppContext, testing::prelude::*};
+use sea_orm::ConnectionTrait;
 
-use crate::support::{a_user, a_workspace, add_member, custom_role, sign_in_as};
+use crate::support::{a_user, a_workspace, add_member, builtin_role, custom_role, sign_in_as};
 
 const DELETE: &str = "/w/acme/settings/delete";
 const CANCEL: &str = "/w/acme/settings/delete/cancel";
@@ -86,11 +91,19 @@ async fn owner_schedules_deletion_after_typing_slug() {
             &html,
             "[data-deletion-banner] form[method=\"post\"][action=\"/w/acme/settings/delete/cancel\"]",
         );
-        let purge_on = (scheduled + chrono::Duration::days(30))
-            .with_timezone(&chrono::FixedOffset::east_opt(7 * 3600).unwrap())
-            .format("%d/%m/%Y")
-            .to_string();
-        assert!(html.contains(&purge_on), "{purge_on}: {html}");
+        // Job pembersihan berjalan 03:00 UTC (10:00 WIB): hapus permanen mulai run pertama
+        // setelah tenggat 30 hari, ditampilkan dengan jam WIB.
+        let deadline = (scheduled + chrono::Duration::days(30)).with_timezone(&chrono::Utc);
+        let mut run = deadline.date_naive().and_hms_opt(3, 0, 0).unwrap().and_utc();
+        if run <= deadline {
+            run += chrono::Duration::days(1);
+        }
+        let expected = format!(
+            "akan dihapus permanen mulai {} WIB",
+            run.with_timezone(&chrono::FixedOffset::east_opt(7 * 3600).unwrap())
+                .format("%d/%m/%Y 10:00")
+        );
+        assert!(html.contains(&expected), "{expected}: {html}");
         // Penjadwalan ulang tidak memperpanjang tenggat dan tidak menulis audit lagi.
         request
             .post(DELETE)
@@ -208,6 +221,8 @@ async fn only_builtin_owner_can_schedule_or_cancel_deletion() {
                 .await
                 .text();
             assert_css_not_exists(&html, "form[action=\"/w/acme/settings/delete\"]");
+            // Wajibkan 2FA juga milik Owner (spec "bisa diwajibkan Owner"), bukan ManageWorkspace.
+            assert_css_not_exists(&html, "form[action=\"/w/acme/settings/require-2fa\"]");
             let res = request
                 .post(DELETE)
                 .add_cookie(cookie.clone())
@@ -215,16 +230,18 @@ async fn only_builtin_owner_can_schedule_or_cancel_deletion() {
                 .await;
             assert_eq!(res.status_code(), 404);
             assert!(reload(&ctx).await.deletion_scheduled_at.is_none());
+            for enabled in ["true", "false"] {
+                let res = request
+                    .post("/w/acme/settings/require-2fa")
+                    .add_cookie(cookie.clone())
+                    .form(&[("enabled", enabled)])
+                    .await;
+                assert_eq!(res.status_code(), 404, "{enabled}");
+            }
+            assert!(reload(&ctx).await.require_2fa_at.is_none());
         }
 
-        // Pemegang ManageWorkspace non-Owner tetap melihat toggle 2FA.
         let cookie = sign_in_as(&request, &manager).await;
-        let html = request
-            .get("/w/acme/settings")
-            .add_cookie(cookie.clone())
-            .await
-            .text();
-        assert_css_exists(&html, "form[action=\"/w/acme/settings/require-2fa\"]");
 
         let owner_cookie = sign_in_as(&request, &owner).await;
         request
@@ -238,4 +255,31 @@ async fn only_builtin_owner_can_schedule_or_cancel_deletion() {
         assert!(reload(&ctx).await.deletion_scheduled_at.is_some());
     })
     .await;
+}
+
+/// Workspace dihapus permanen oleh job pembersihan setelah `Tenant` memuatnya: 404, bukan 500.
+#[tokio::test]
+async fn schedule_or_cancel_after_purge_is_not_found() {
+    let boot = boot_test::<App>().await.unwrap();
+    let ctx = &boot.app_context;
+    let owner = a_user().create(ctx).await;
+    let workspace = a_workspace(&owner).slug("acme").create(ctx).await;
+    let owner_role = builtin_role(ctx, &workspace, RoleKey::Owner).await;
+    ctx.db
+        .execute_unprepared(&format!(
+            "DELETE FROM workspaces WHERE id = '{}'",
+            workspace.id
+        ))
+        .await
+        .unwrap();
+    let acting = Acting {
+        workspace: &workspace,
+        user: &owner,
+        role: &owner_role,
+        request_id: None,
+    };
+    let res = deletion::schedule(&ctx.db, &acting, "acme").await;
+    assert!(matches!(res, Err(DeletionError::NotFound)), "{res:?}");
+    let res = deletion::cancel(&ctx.db, &acting).await;
+    assert!(matches!(res, Err(DeletionError::NotFound)), "{res:?}");
 }

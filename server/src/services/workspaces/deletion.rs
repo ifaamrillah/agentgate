@@ -24,7 +24,7 @@ pub const ERROR_CODES: &[&str] = &[DELETE_CONFIRM_MISMATCH];
 
 #[derive(Debug, thiserror::Error)]
 pub enum DeletionError {
-    /// Pelaku sudah bukan anggota atau bukan Owner.
+    /// Pelaku sudah bukan anggota, bukan Owner, atau workspace sudah dihapus permanen.
     #[error("not found")]
     NotFound,
     #[error("confirmation does not match the slug")]

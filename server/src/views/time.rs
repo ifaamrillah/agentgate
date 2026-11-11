@@ -15,12 +15,6 @@ pub fn wib_datetime<Tz: TimeZone>(at: &DateTime<Tz>) -> String {
     at.with_timezone(&WIB).format("%d/%m/%Y %H:%M").to_string()
 }
 
-/// `dd/mm/yyyy` di WIB.
-#[must_use]
-pub fn wib_date<Tz: TimeZone>(at: &DateTime<Tz>) -> String {
-    at.with_timezone(&WIB).format("%d/%m/%Y").to_string()
-}
-
 #[cfg(test)]
 mod tests {
     use chrono::Utc;
@@ -31,6 +25,5 @@ mod tests {
     fn formats_in_jakarta_time() {
         let at = Utc.with_ymd_and_hms(2026, 11, 11, 20, 5, 0).unwrap();
         assert_eq!(wib_datetime(&at), "12/11/2026 03:05");
-        assert_eq!(wib_date(&at), "12/11/2026");
     }
 }

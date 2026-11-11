@@ -327,6 +327,15 @@ fn deployed_environments_schedule_daily_cleanup() {
                 .get("cleanup")
                 .unwrap_or_else(|| panic!("{env}: job cleanup"));
             assert_eq!(job.run, "cleanup confirm:yes", "{env}");
+            // Jam yang sama dengan yang ditampilkan banner hapus workspace (`PURGE_HOUR_UTC`).
+            assert_eq!(
+                job.cron,
+                format!(
+                    "0 0 {} * * *",
+                    agentgate_server::models::workspaces::PURGE_HOUR_UTC
+                ),
+                "{env}: 03:00 UTC"
+            );
             assert_eq!(job.cron, "0 0 3 * * *", "{env}: 03:00 UTC");
             assert!(!job.shell, "{env}");
             loco_rs::scheduler::Scheduler::new::<agentgate_server::app::App>(

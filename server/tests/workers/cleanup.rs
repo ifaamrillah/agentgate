@@ -423,16 +423,119 @@ async fn cleanup_is_idempotent() {
     }
 }
 
+/// Jumlah baris `loco_sessions` dengan `id_hash` ini.
+async fn sessions_with(ctx: &AppContext, id_hash: &str) -> i64 {
+    ctx.db
+        .query_one_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "SELECT count(*) AS n FROM loco_sessions WHERE id_hash = $1",
+            [id_hash.into()],
+        ))
+        .await
+        .unwrap()
+        .unwrap()
+        .try_get::<i64>("", "n")
+        .unwrap()
+}
+
+/// Baris basi untuk setiap langkah pembersihan masih ada (`true`) atau sudah hilang semua.
+async fn stale_rows_left(
+    ctx: &AppContext,
+    token: uuid::Uuid,
+    invitation: uuid::Uuid,
+    workspace: &workspaces::Model,
+) -> [bool; 5] {
+    [
+        sessions_with(ctx, "basi").await == 1,
+        login_throttles::Entity::find_by_id("email:basi@example.test")
+            .one(&ctx.db)
+            .await
+            .unwrap()
+            .is_some(),
+        user_tokens::Entity::find_by_id(token)
+            .one(&ctx.db)
+            .await
+            .unwrap()
+            .is_some(),
+        invitations::Entity::find_by_id(invitation)
+            .one(&ctx.db)
+            .await
+            .unwrap()
+            .is_some(),
+        exists(ctx, workspace).await,
+    ]
+}
+
 #[tokio::test]
 async fn cleanup_task_is_dry_run_without_confirm() {
     let boot = boot_test::<App>().await.unwrap();
     let ctx = &boot.app_context;
+    let now = Utc::now();
+    let ago = |d: Duration| -> sea_orm::prelude::DateTimeWithTimeZone { (now - d).into() };
     let owner = a_user().create(ctx).await;
     let due = a_workspace(&owner).slug("lama").create(ctx).await;
     let due = scheduled_days_ago(ctx, &due, 31).await;
+
+    // Satu baris basi untuk setiap langkah: throttle, token, undangan selesai, workspace.
+    login_throttles::ActiveModel {
+        key: Set("email:basi@example.test".to_string()),
+        failures: Set(3),
+        window_started_at: Set(ago(Duration::hours(2))),
+        locked_until: Set(None),
+        created_at: Set(ago(Duration::hours(2))),
+        updated_at: Set(ago(Duration::hours(2))),
+    }
+    .insert(&ctx.db)
+    .await
+    .unwrap();
+    let token = user_tokens::ActiveModel {
+        id: Set(uuid::Uuid::now_v7()),
+        user_id: Set(owner.id),
+        purpose: Set("password_reset".to_string()),
+        token_digest: Set("basi".to_string()),
+        expires_at: Set(ago(Duration::days(8))),
+        used_at: Set(None),
+        ..Default::default()
+    }
+    .insert(&ctx.db)
+    .await
+    .unwrap()
+    .id;
+    let role = builtin_role(ctx, &due, RoleKey::Member).await;
+    let (invitation, _) = invitations::ActiveModel::issue(
+        &ctx.db,
+        due.workspace_id(),
+        NewInvitation {
+            email: "kedaluwarsa-lama@example.test".to_string(),
+            role_id: role.id,
+            job_title_id: None,
+            invited_by: owner.id,
+            ttl: Duration::days(-31),
+        },
+    )
+    .await
+    .unwrap();
+    let invitation = invitation.id;
+
     // Database baru: tabel sesi belum dibuat store Loco; dry run tetap berhasil.
     ctx.db
         .execute_unprepared("DROP TABLE IF EXISTS loco_sessions")
+        .await
+        .unwrap();
+    Cleanup
+        .run(ctx, &Vars::from_cli_args(vec![]))
+        .await
+        .unwrap();
+
+    // Sesi kedaluwarsa (tabel dibuat store Loco saat pertama dipakai).
+    loco_rs::auth::session_store::of(ctx).await.unwrap();
+    ctx.db
+        .execute_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "INSERT INTO loco_sessions (id_hash, user_key, data, expires_at) \
+             VALUES ('basi', NULL, '{}', $1)",
+            [(now.timestamp() - 60).into()],
+        ))
         .await
         .unwrap();
 
@@ -440,7 +543,11 @@ async fn cleanup_task_is_dry_run_without_confirm() {
         .run(ctx, &Vars::from_cli_args(vec![]))
         .await
         .unwrap();
-    assert!(exists(ctx, &due).await, "dry run tidak menghapus");
+    assert_eq!(
+        stale_rows_left(ctx, token, invitation, &due).await,
+        [true; 5],
+        "dry run tidak menghapus (sesi, throttle, token, undangan, workspace)"
+    );
     Cleanup
         .run(
             ctx,
@@ -448,7 +555,11 @@ async fn cleanup_task_is_dry_run_without_confirm() {
         )
         .await
         .unwrap();
-    assert!(exists(ctx, &due).await, "hanya confirm:yes yang memutasi");
+    assert_eq!(
+        stale_rows_left(ctx, token, invitation, &due).await,
+        [true; 5],
+        "hanya confirm:yes yang memutasi (sesi, throttle, token, undangan, workspace)"
+    );
 
     Cleanup
         .run(
@@ -457,6 +568,9 @@ async fn cleanup_task_is_dry_run_without_confirm() {
         )
         .await
         .unwrap();
-    assert!(!exists(ctx, &due).await);
+    assert_eq!(
+        stale_rows_left(ctx, token, invitation, &due).await,
+        [false; 5]
+    );
     assert_eq!(workspaces::Entity::find().count(&ctx.db).await.unwrap(), 0);
 }

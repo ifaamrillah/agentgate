@@ -13,6 +13,7 @@ use agentgate_server::{
     },
     services::audit::{self, AuditEntry},
 };
+use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use loco_rs::{app::AppContext, testing::prelude::*};
 
 use crate::support::{a_user, a_workspace, add_member, builtin_role, custom_role, sign_in_as};
@@ -178,11 +179,26 @@ async fn audit_page_paginates_and_filters() {
         assert!(actions.iter().all(|a| a == "member.invited"));
 
         // Nilai tak dikenal (filter maupun kursor) diabaikan: halaman pertama tanpa filter.
+        // Kursor buatan dengan waktu di luar rentang (negatif, jauh di masa depan) atau yang
+        // tidak di-encode tidak boleh sampai ke database (dulu: 500).
+        let id = uuid::Uuid::now_v7().simple().to_string();
+        let crafted = |payload: String| format!("?before={}", URL_SAFE_NO_PAD.encode(payload));
+        let future = (chrono::Utc::now() + chrono::Duration::days(2)).timestamp_micros();
+        // Sekitar 7500 SM: masih bisa dibaca chrono, tetapi di luar rentang `timestamptz` Postgres.
+        let before_postgres: i64 = -300_000_000_000_000_000;
         for query in [
-            "?group=hacker",
-            "?before=bukan-kursor",
-            "?before=",
-            "?group=",
+            "?group=hacker".to_string(),
+            "?before=bukan-kursor".to_string(),
+            "?before=".to_string(),
+            "?group=".to_string(),
+            crafted(format!("-1_{id}")),
+            crafted(format!("{before_postgres}_{id}")),
+            crafted(format!("{}_{id}", i64::MIN)),
+            crafted(format!("{future}_{id}")),
+            crafted(format!("{}_{id}", i64::MAX)),
+            format!("?before={before_postgres}_{id}"),
+            format!("?before={}_{id}", chrono::Utc::now().timestamp_micros()),
+            "?before=%25%25%25".to_string(),
         ] {
             let res = request
                 .get(&format!("{AUDIT}{query}"))

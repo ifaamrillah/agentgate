@@ -42,7 +42,7 @@ pub async fn app_shell(
     let shell = shell
         .with_current_workspace(
             WorkspaceView::new(&tenant.workspace.name, slug)
-                .scheduled_for_deletion(tenant.workspace.purge_on().as_ref()),
+                .scheduled_for_deletion(tenant.workspace.purge_starts_at().as_ref()),
         )
         .can_manage_workspace(tenant.role.has_settings_access())
         .with_projects(projects);

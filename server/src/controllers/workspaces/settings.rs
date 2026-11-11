@@ -1,12 +1,12 @@
 //! `GET /w/{slug}/settings`: indeks Pengaturan, terbuka untuk role yang memegang salah satu izin
 //! Pengaturan (`Require<AnySettings>`, sama dengan tautan di sidebar). Setiap bagian tampil
-//! sesuai izinnya sendiri: nama/slug dan toggle "Wajibkan 2FA" (`ManageWorkspace`), tautan
-//! Anggota dan Jabatan (`ManageMembers`), Role (`ManageRoles`), Tim (`ManageTeams`), Audit log
-//! (`ViewAuditLog`), dan "Hapus workspace" (role bawaan Owner).
+//! sesuai izinnya sendiri: nama/slug (`ManageWorkspace`), tautan Anggota dan Jabatan
+//! (`ManageMembers`), Role (`ManageRoles`), Tim (`ManageTeams`), Audit log (`ViewAuditLog`),
+//! serta toggle "Wajibkan 2FA" dan "Hapus workspace" (keduanya role bawaan Owner).
 //!
 //! POST, masing-masing dengan guard yang sama dengan bagiannya:
 //! - `/settings`: nama/slug (`ManageWorkspace`);
-//! - `/settings/require-2fa`: wajibkan/berhenti mewajibkan 2FA (`ManageWorkspace`);
+//! - `/settings/require-2fa`: wajibkan/berhenti mewajibkan 2FA (Owner);
 //! - `/settings/delete`: jadwalkan hapus setelah slug diketik (Owner), lalu 303 ke beranda
 //!   workspace yang menampilkan banner tenggat dan tombol batalkan;
 //! - `/settings/delete/cancel`: batalkan jadwal hapus (Owner).
@@ -127,7 +127,7 @@ fn general_form(tenant: &Tenant) -> bool {
 fn danger_zone(tenant: &Tenant, delete_error: Option<&str>) -> DangerZoneView {
     let base = settings_path(&tenant.workspace.slug);
     DangerZoneView {
-        require_2fa: ManageWorkspace::allows(&tenant.role).then(|| RequireTwoFactorView {
+        require_2fa: WorkspaceOwner::allows(&tenant.role).then(|| RequireTwoFactorView {
             action: format!("{base}/require-2fa"),
             enabled: tenant.workspace.require_2fa_at.is_some(),
         }),
@@ -192,7 +192,7 @@ pub(super) async fn update(
 pub(super) async fn require_2fa(
     State(ctx): State<AppContext>,
     ViewEngine(v): ViewEngine<TeraView>,
-    access: Require<ManageWorkspace>,
+    access: Require<WorkspaceOwner>,
     session: Session,
     RequestId(request_id): RequestId,
     ValidForm(form): ValidForm<RequireTwoFactorForm>,

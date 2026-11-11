@@ -3,7 +3,7 @@
     Variabel:
       shell (wajib, views::layout::AppShell dari controllers::shell::app_shell): user {name,
         email, initials}, workspaces [{name, slug, href}], current_workspace ({name, slug, href,
-        settings_href, leave_href, deletion ({purge_on, cancel_action} atau null)} atau null), projects [{name, key, href}], current_project ({name, key,
+        settings_href, leave_href, deletion ({purge_at, cancel_action} atau null)} atau null), projects [{name, key, href}], current_project ({name, key,
         href} atau null), can_manage_workspace (bool).
       flash (opsional, {kind, key}: pesan sekali tampil dari controllers::flash).
     Mobile (< md): sidebar tersembunyi dan dibuka tombol menu (static/js/sidebar-toggle.js).
@@ -152,7 +152,7 @@
       {{ icon(name="alert-triangle", class="size-4") }}
       <h2>{{ t(key="workspace-deletion-banner-title", lang="id") }}</h2>
       <section>
-        <p>{{ t(key="workspace-deletion-banner-body", lang="id", date=shell.current_workspace.deletion.purge_on) }}</p>
+        <p>{{ t(key="workspace-deletion-banner-body", lang="id", datetime=shell.current_workspace.deletion.purge_at) }}</p>
         <form method="post" action="{{ shell.current_workspace.deletion.cancel_action }}" class="mt-2">
           {{ <button label={t(key="workspace-deletion-cancel", lang="id")} type="submit" variant="outline" size="sm"/> }}
         </form>
