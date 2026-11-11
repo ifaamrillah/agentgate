@@ -4,7 +4,10 @@
 use std::{path::Path, str::FromStr};
 
 use agentgate_server::common::settings::Settings;
-use loco_rs::{config::Config, environment::Environment};
+use loco_rs::{
+    config::{Config, SessionStoreKind, WorkerMode},
+    environment::Environment,
+};
 
 const CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
 
@@ -15,7 +18,20 @@ const DEPLOY_ENV: &[(&str, &str)] = &[
     ("SMTP_PORT", "587"),
     ("SMTP_USER", "user"),
     ("SMTP_PASSWORD", "secret"),
+    (
+        "SESSION_SECRET",
+        "deploy-session-secret-for-contract-tests-only-0123456789abcdef",
+    ),
+    // base64 dari 32 byte nol.
+    (
+        "ENCRYPTION_KEY",
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+    ),
 ];
+
+/// Parameter argon2 minimal OWASP (m = 19 MiB, t = 2); staging/production tidak boleh di bawahnya.
+const ARGON2_MIN_MEMORY_KIB: u32 = 19456;
+const ARGON2_MIN_ITERATIONS: u32 = 2;
 
 fn load(env: &str) -> loco_rs::Result<Config> {
     Config::from_folder(&Environment::from_str(env).unwrap(), Path::new("config"))
@@ -60,9 +76,106 @@ fn every_environment_config_has_required_sections() {
                 Some(CSP),
                 "{env}: CSP"
             );
+            let session = config
+                .auth
+                .as_ref()
+                .and_then(|a| a.session.as_ref())
+                .unwrap_or_else(|| panic!("{env}: auth.session"));
+            assert_eq!(
+                session.store,
+                SessionStoreKind::Database,
+                "{env}: auth.session.store"
+            );
+            assert!(session.secret.is_some(), "{env}: auth.session.secret");
+            assert!(
+                session.cookie_name.is_some(),
+                "{env}: auth.session.cookie_name"
+            );
+            assert!(session.ttl.is_some(), "{env}: auth.session.ttl");
+            assert!(
+                session.remember_for.is_none(),
+                "{env}: remember-me mati (remember_for tidak di-set)"
+            );
+            assert!(
+                config.auth.as_ref().is_some_and(|a| a.jwt.is_none()),
+                "{env}: tanpa auth.jwt (rules §7)"
+            );
             Settings::from_json(config.settings.as_ref()).unwrap_or_else(|e| panic!("{env}: {e}"));
         }
     });
+}
+
+#[test]
+fn deployed_environments_use_secure_host_cookies_and_baseline_argon2() {
+    with_deploy_env(|| {
+        for env in ["staging", "production"] {
+            let config = load(env).unwrap();
+            let session = config.auth.unwrap().session.unwrap();
+            assert_eq!(session.secure, Some(true), "{env}: auth.session.secure");
+            assert!(
+                session
+                    .cookie_name
+                    .as_deref()
+                    .is_some_and(|n| n.starts_with("__Host-")),
+                "{env}: cookie_name berawalan __Host-"
+            );
+            let settings = Settings::from_json(config.settings.as_ref()).unwrap();
+            assert!(
+                settings.auth.argon2_memory_kib >= ARGON2_MIN_MEMORY_KIB,
+                "{env}: argon2_memory_kib"
+            );
+            assert!(
+                settings.auth.argon2_iterations >= ARGON2_MIN_ITERATIONS,
+                "{env}: argon2_iterations"
+            );
+        }
+    });
+}
+
+#[test]
+fn deployed_environments_have_no_default_secrets() {
+    for env in ["staging", "production"] {
+        let raw = std::fs::read_to_string(format!("config/{env}.yaml")).unwrap();
+        for name in ["SESSION_SECRET", "ENCRYPTION_KEY"] {
+            assert!(
+                raw.contains(&format!(r#"get_env(name="{name}") "#)),
+                "{env}: {name} dibaca dari env tanpa default"
+            );
+        }
+    }
+}
+
+#[test]
+fn test_environment_stubs_mail_and_runs_jobs_inline() {
+    let config = load("test").unwrap();
+    assert!(
+        config.mailer.as_ref().is_some_and(|m| m.stub),
+        "test: mailer.stub"
+    );
+    assert!(
+        matches!(config.workers.mode, WorkerMode::ForegroundBlocking),
+        "test: workers.mode"
+    );
+}
+
+#[test]
+fn settings_reject_an_encryption_key_that_is_not_32_bytes() {
+    let mut value = load_settings_value("test");
+    for bad in [
+        "not base64!",
+        "AAAA",
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+    ] {
+        value["auth"]["encryption_key"] = serde_json::Value::String(bad.into());
+        assert!(
+            Settings::from_json(Some(&value)).is_err(),
+            "encryption_key {bad:?} harus ditolak"
+        );
+    }
+}
+
+fn load_settings_value(env: &str) -> serde_json::Value {
+    load(env).unwrap().settings.unwrap()
 }
 
 #[test]

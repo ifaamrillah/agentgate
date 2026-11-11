@@ -73,5 +73,53 @@ database:
   dangerously_truncate: false
   dangerously_recreate: false
 
+auth:
+  # Sesi server-side Loco (rules §7): cookie hanya membawa id acak bertanda tangan, datanya di
+  # tabel loco_sessions, sehingga logout/ganti password/nonaktifkan user mengakhiri sesi seketika.
+  # Tanpa `jwt` (tidak bisa dicabut) dan tanpa `remember_for` (remember-me mati).
+  session:
+    store: database
+    # Kunci tanda tangan cookie sesi (64+ karakter acak, `openssl rand -base64 64`), tanpa default.
+    # Mengganti nilainya me-logout semua user.
+    secret: <%= get_env(name="SESSION_SECRET") %>
+    # `__Host-`: browser menolak cookie ini tanpa HTTPS, dengan Domain, atau dari subdomain lain.
+    cookie_name: __Host-agentgate_session
+    # Ditulis eksplisit: Loco menurunkan Secure dari `server.host`, yang mudah tertulis http://
+    # di belakang proxy TLS. Cookie __Host- tanpa Secure ditolak browser dan tidak ada yang bisa login.
+    secure: true
+    # Idle timeout 1 hari, bergulir setiap sesi dipakai. Umur mutlak ada di settings.auth.
+    ttl: 86400
+
 settings:
   app_name: Agent Gate
+  # Basis link di email (verifikasi, reset, undangan), tanpa `/` di akhir.
+  public_base_url: <%= get_env(name="APP_URL") %>
+  auth:
+    # argon2id m = 19 MiB, t = 2, p = 1: baseline OWASP argon2id.
+    argon2_memory_kib: 19456
+    argon2_iterations: 2
+    argon2_parallelism: 1
+    # Hash bersamaan maksimal; 4 × 19 MiB ≈ 76 MiB puncak. Tanpa batas, pool spawn_blocking
+    # (512 thread) bisa memakan ~9,7 GB saat serangan login dari banyak IP.
+    max_concurrent_hashes: <%= get_env(name="AUTH_MAX_CONCURRENT_HASHES", default="4") %>
+    # Request yang menunggu izin hash lebih lama dari ini dijawab 503, bukan antre tanpa batas.
+    hash_wait_seconds: 5
+    # Umur mutlak sesi (30 hari) sejak login; Loco hanya punya idle timeout (auth.session.ttl).
+    absolute_lifetime_hours: 720
+    # Rate limit login: 5 gagal per email atau 20 gagal per IP dalam 15 menit mengunci 15 menit.
+    # Per IP lebih longgar karena satu NAT kantor bisa berisi banyak user.
+    login_max_failures_per_email: 5
+    login_max_failures_per_ip: 20
+    login_window_minutes: 15
+    login_lockout_minutes: 15
+    # Umur token email: reset pendek (30 menit) karena setara password; verifikasi 24 jam dan
+    # undangan 7 hari karena penerima belum tentu langsung membuka email.
+    reset_token_minutes: 30
+    verification_token_hours: 24
+    invitation_days: 7
+    # Pendaftaran publik terbuka (spec: siapa pun bisa daftar dan membuat workspace).
+    registration_open: true
+    # Kunci XChaCha20-Poly1305 (base64, 32 byte: `openssl rand -base64 32`) untuk secret TOTP di
+    # database, tanpa default. Boot gagal bila bukan base64 dari tepat 32 byte. Mengganti kunci
+    # membuat 2FA yang sudah aktif tidak bisa dibuka.
+    encryption_key: <%= get_env(name="ENCRYPTION_KEY") %>

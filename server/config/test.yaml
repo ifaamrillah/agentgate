@@ -72,5 +72,51 @@ database:
   dangerously_truncate: true
   dangerously_recreate: false
 
+auth:
+  # Sesi server-side Loco (rules §7): cookie hanya membawa id acak bertanda tangan, datanya di
+  # tabel loco_sessions, sehingga logout/ganti password/nonaktifkan user mengakhiri sesi seketika.
+  # Tanpa `jwt` (tidak bisa dicabut) dan tanpa `remember_for` (remember-me mati).
+  session:
+    store: database
+    # Kunci tanda tangan cookie sesi. Default di bawah KHUSUS test, bukan rahasia; staging dan
+    # production membacanya dari env tanpa default. Mengganti nilainya me-logout semua user.
+    secret: <%= get_env(name="SESSION_SECRET", default="agentgate-test-only-session-secret-not-a-secret-0123456789abcdef") %>
+    # Suffix per worktree (bin/_lib.sh: kosong di checkout utama, `_<id>` di worktree) supaya
+    # login di satu worktree tidak menimpa cookie worktree lain di localhost yang sama.
+    cookie_name: agentgate_session<%= get_env(name="SESSION_COOKIE_SUFFIX", default="") %>
+    # Idle timeout 1 hari, bergulir setiap sesi dipakai. Umur mutlak ada di settings.auth.
+    ttl: 86400
+
 settings:
   app_name: Agent Gate
+  # Basis link di email; dev/test dilayani di localhost:PORT.
+  public_base_url: http://localhost:<%= get_env(name="PORT") %>
+  auth:
+    # Parameter argon2 minimal: suite tes membuat banyak user berpassword. Tes kontrak config
+    # memastikan staging/production tidak memakai angka ini.
+    argon2_memory_kib: 8
+    argon2_iterations: 1
+    argon2_parallelism: 1
+    # Cukup untuk tes yang berjalan satu thread.
+    max_concurrent_hashes: 2
+    # Request yang menunggu izin hash lebih lama dari ini dijawab 503, bukan antre tanpa batas.
+    hash_wait_seconds: 5
+    # Umur mutlak sesi (30 hari) sejak login; Loco hanya punya idle timeout (auth.session.ttl).
+    absolute_lifetime_hours: 720
+    # Rate limit login: 5 gagal per email atau 20 gagal per IP dalam 15 menit mengunci 15 menit.
+    # Per IP lebih longgar karena satu NAT kantor bisa berisi banyak user.
+    login_max_failures_per_email: 5
+    login_max_failures_per_ip: 20
+    login_window_minutes: 15
+    login_lockout_minutes: 15
+    # Umur token email: reset pendek (30 menit) karena setara password; verifikasi 24 jam dan
+    # undangan 7 hari karena penerima belum tentu langsung membuka email.
+    reset_token_minutes: 30
+    verification_token_hours: 24
+    invitation_days: 7
+    # Pendaftaran publik terbuka (spec: siapa pun bisa daftar dan membuat workspace).
+    registration_open: true
+    # Kunci XChaCha20-Poly1305 (base64, 32 byte) untuk secret TOTP di database. Default di
+    # bawah KHUSUS test, bukan rahasia; staging/production dari env tanpa default.
+    # Boot gagal bila nilainya bukan base64 dari tepat 32 byte.
+    encryption_key: <%= get_env(name="ENCRYPTION_KEY", default="YWdlbnRnYXRlLXRlc3Qtb25seS1ub3Qtc2VjcmV0ISE=") %>

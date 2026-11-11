@@ -2,3 +2,4 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)] // tes boleh panic (rules §2).
 mod contracts;
 mod requests;
+mod support;

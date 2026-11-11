@@ -18,7 +18,9 @@ path = "src/bin/main.rs"
 
 [dependencies]
 # Framework: routing, view Tera, queue Postgres, worker, mailer, CLI migrasi.
-loco-rs = { workspace = true, features = ["cli", "with-db", "cache_inmem", "worker", "db-postgres", "compression", "generators", "mailer"] }
+# auth_session: sesi server-side (store database); auth_oauth: building block provider/state OAuth;
+# multi-tenancy: trait TenantEntity untuk query per workspace.
+loco-rs = { workspace = true, features = ["cli", "with-db", "cache_inmem", "worker", "db-postgres", "compression", "generators", "mailer", "auth_session", "auth_oauth", "multi-tenancy"] }
 # Migrasi SeaORM milik server.
 migration = { path = "migration" }
 # Type dan versi bersama dengan CLI.
@@ -45,6 +47,30 @@ unic-langid = { version = "0.9", features = ["macros"] }
 tera = "2.4"
 # Error domain bertipe.
 thiserror = "2"
+# Hash password argon2id (PHC string) dengan parameter dari settings.auth.
+argon2 = { version = "0.5", features = ["std"] }
+# Digest SHA-256 untuk token email yang disimpan di database.
+sha2 = "0.10"
+# Perbandingan rahasia constant-time.
+subtle = "2"
+# CSPRNG (OsRng) untuk token dan nonce.
+rand = { version = "0.9", features = ["os_rng"] }
+# Password di struct form dengan Debug yang disamarkan.
+secrecy = { version = "0.10", features = ["serde"] }
+# TOTP untuk 2FA: QR provisioning dan pembuatan secret.
+totp-rs = { version = "5", features = ["qr", "gen_secret"] }
+# Enkripsi XChaCha20-Poly1305 untuk secret TOTP di database (kunci ENCRYPTION_KEY).
+chacha20poly1305 = "0.10"
+# HMAC-SHA256 untuk token dev_login bertanda tangan.
+hmac = "0.12"
+# Encoding token (base64url) dan kunci enkripsi (base64).
+base64 = "0.22"
+# Validasi form bertipe.
+validator = { version = "0.20", features = ["derive"] }
+# Id UUID v7 untuk semua tabel.
+uuid = { version = "1", features = ["v7", "serde"] }
+# Timestamp (timestamptz) dan perhitungan umur token/sesi.
+chrono = "0.4"
 
 [dev-dependencies]
 # Helper tes request/boot dan assertion selector HTML (`assert_css_*`).
