@@ -490,3 +490,38 @@ async fn member_cannot_manage_members_gets_404() {
     })
     .await;
 }
+
+/// Role pelaku dibaca ulang di bawah kunci: pelaku yang kehilangan `ManageMembers` di tengah
+/// jalan (role-nya diganti setelah `Tenant` di-resolve) ditolak seperti tanpa izin.
+#[tokio::test]
+async fn actor_who_lost_manage_members_is_rejected() {
+    let boot = boot_test::<App>().await.unwrap();
+    let ctx = &boot.app_context;
+    let owner = a_user().create(ctx).await;
+    let workspace = a_workspace(&owner).create(ctx).await;
+    let admin = a_user().create(ctx).await;
+    let admin_member = add_member(ctx, &workspace, &admin, RoleKey::Admin).await;
+    let budi = a_user().create(ctx).await;
+    let target = add_member(ctx, &workspace, &budi, RoleKey::Member).await;
+    let admin_role = builtin_role(ctx, &workspace, RoleKey::Admin).await;
+    let viewer_role = builtin_role(ctx, &workspace, RoleKey::Viewer).await;
+    // Role di DB sudah Viewer, tetapi Acting masih membawa role Admin dari awal request.
+    admin_member
+        .set_role(&ctx.db, viewer_role.id)
+        .await
+        .unwrap();
+    let acting = Acting {
+        workspace: &workspace,
+        user: &admin,
+        role: &admin_role,
+        request_id: None,
+    };
+    let res = membership::change_role(ctx, &acting, target.id, viewer_role.id).await;
+    assert!(matches!(res, Err(MembershipError::NotFound)), "{res:?}");
+    let res = membership::remove(ctx, &acting, target.id).await;
+    assert!(matches!(res, Err(MembershipError::NotFound)), "{res:?}");
+    assert_eq!(role_of(ctx, &workspace, &budi).await, Some(RoleKey::Member));
+    // Keluar tetap boleh.
+    membership::leave(ctx, &acting).await.unwrap();
+    assert_eq!(role_of(ctx, &workspace, &admin).await, None);
+}

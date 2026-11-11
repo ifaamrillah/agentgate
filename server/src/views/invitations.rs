@@ -5,10 +5,10 @@ use axum::http::StatusCode;
 use loco_rs::{prelude::*, validation::ModelValidationErrors};
 use serde::Serialize;
 
-use super::form::{FieldErrors, field_errors};
-
-/// Token di path: header `Referer` ke situs lain tidak boleh membawanya (rules §7).
-const NO_REFERRER: (&str, &str) = ("referrer-policy", "no-referrer");
+use super::{
+    NO_REFERRER,
+    form::{FieldErrors, field_errors},
+};
 
 /// Field form daftar lewat undangan (email terkunci, tidak dikirim).
 pub const REGISTER_FIELDS: &[&str] = &["name", "password"];

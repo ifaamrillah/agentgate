@@ -11,3 +11,7 @@ pub mod layout;
 pub mod members;
 pub mod roles;
 pub mod workspaces;
+
+/// Header untuk halaman yang membawa token di URL (reset, verifikasi, undangan, login dengan
+/// `return_to` halaman undangan): `Referer` ke situs lain tidak boleh membawanya (rules §7).
+pub(crate) const NO_REFERRER: (&str, &str) = ("referrer-policy", "no-referrer");

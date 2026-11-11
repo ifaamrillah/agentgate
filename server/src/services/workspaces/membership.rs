@@ -9,8 +9,11 @@
 //!   sehingga dua Owner yang turun bersamaan berjalan berurutan dan yang kedua melihat dirinya
 //!   Owner terakhir. Tanpa kunci, keduanya menghitung dua Owner dan workspace kehilangan Owner.
 //! - **Penugasan role** (`roles::can_assign`): pelaku hanya memberi atau mencabut role yang boleh
-//!   ia berikan, jadi non-Owner tidak bisa menyentuh Owner. Role pelaku dibaca ulang setelah
-//!   kunci, bukan dari awal request.
+//!   ia berikan, jadi non-Owner tidak bisa menyentuh Owner.
+//! - **Izin pelaku dibaca ulang setelah kunci**, bukan dari awal request: pelaku yang role-nya
+//!   tidak lagi memegang `ManageMembers` (diturunkan di tengah jalan) mendapat `NotFound`, sama
+//!   dengan guard `Require<ManageMembers>`. Pengecualian: [`leave`], yang terbuka untuk semua
+//!   anggota.
 
 use loco_rs::app::AppContext;
 use sea_orm::{DatabaseTransaction, DbErr, ModelTrait, TransactionTrait};
@@ -20,6 +23,7 @@ use super::Acting;
 use crate::{
     models::{
         job_titles,
+        permission::Permission,
         roles::{self, MEMBER_ROLE_NOT_ASSIGNABLE},
         workspace_members,
         workspaces::{self, WorkspaceId},
@@ -84,7 +88,7 @@ pub async fn change_role(
     role_id: Uuid,
 ) -> Result<workspace_members::Model, MembershipError> {
     let wid = acting.workspace_id();
-    let locked = Locked::begin(ctx, acting).await?;
+    let locked = Locked::begin(ctx, acting, Need::ManageMembers).await?;
     let (member, current) = find_member(&locked.txn, wid, member_id).await?;
     let target = roles::Model::find_in(&locked.txn, wid, role_id)
         .await?
@@ -132,7 +136,7 @@ pub async fn set_job_title(
     job_title_id: Option<Uuid>,
 ) -> Result<workspace_members::Model, MembershipError> {
     let wid = acting.workspace_id();
-    let locked = Locked::begin(ctx, acting).await?;
+    let locked = Locked::begin(ctx, acting, Need::ManageMembers).await?;
     let (member, current_role) = find_member(&locked.txn, wid, member_id).await?;
     if !roles::can_assign(&locked.actor_role, &current_role) {
         return Err(MembershipError::NotAssignable);
@@ -173,7 +177,7 @@ pub async fn remove(
     member_id: Uuid,
 ) -> Result<(), MembershipError> {
     let wid = acting.workspace_id();
-    let locked = Locked::begin(ctx, acting).await?;
+    let locked = Locked::begin(ctx, acting, Need::ManageMembers).await?;
     let (member, role) = find_member(&locked.txn, wid, member_id).await?;
     if !roles::can_assign(&locked.actor_role, &role) {
         return Err(MembershipError::NotAssignable);
@@ -203,7 +207,7 @@ pub async fn remove(
 /// anggota, atau error database.
 pub async fn leave(ctx: &AppContext, acting: &Acting<'_>) -> Result<(), MembershipError> {
     let wid = acting.workspace_id();
-    let locked = Locked::begin(ctx, acting).await?;
+    let locked = Locked::begin(ctx, acting, Need::Membership).await?;
     ensure_not_last_owner(&locked.txn, wid, &locked.actor_role, None).await?;
     let changes = serde_json::json!({
         "user_id": locked.actor_member.user_id,
@@ -246,6 +250,15 @@ pub async fn ensure_not_last_owner(
     Ok(())
 }
 
+/// Izin pelaku yang dicek ulang [`Locked::begin`] setelah kunci.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Need {
+    /// Kelola anggota lain (`ManageMembers`).
+    ManageMembers,
+    /// Cukup masih anggota (keluar sendiri).
+    Membership,
+}
+
 /// Transaksi dengan baris workspace terkunci, beserta keanggotaan dan role pelaku terbaru
 /// (dibaca setelah kunci).
 struct Locked {
@@ -255,7 +268,12 @@ struct Locked {
 }
 
 impl Locked {
-    async fn begin(ctx: &AppContext, acting: &Acting<'_>) -> Result<Self, MembershipError> {
+    /// `NotFound` bila pelaku sudah bukan anggota, atau role terbarunya tidak memenuhi `need`.
+    async fn begin(
+        ctx: &AppContext,
+        acting: &Acting<'_>,
+        need: Need,
+    ) -> Result<Self, MembershipError> {
         let wid = acting.workspace_id();
         let txn = ctx.db.begin().await?;
         workspaces::Model::lock_for_membership(&txn, wid).await?;
@@ -263,6 +281,9 @@ impl Locked {
             workspace_members::Model::find_with_role(&txn, wid, acting.user.id)
                 .await?
                 .ok_or(MembershipError::NotFound)?;
+        if need == Need::ManageMembers && !actor_role.has(Permission::ManageMembers) {
+            return Err(MembershipError::NotFound);
+        }
         Ok(Self {
             txn,
             actor_member,

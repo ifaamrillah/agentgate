@@ -2,8 +2,8 @@
       members ([MemberRow]: id, name, email, role_id, role_name, job_title_id ("" = tanpa),
         job_title_name, joined, manageable (form ubah/keluarkan hanya bila true), role_action,
         job_title_action, remove_href),
-      invitations ([InvitationRow]: email, role_name, expires, expired, resend_action,
-        revoke_action),
+      invitations ([InvitationRow]: manageable (tombol hanya bila true), email, role_name,
+        expires, expired, resend_action, revoke_action),
       roles ([{id, name}]: role yang boleh diberikan pelaku), job_titles ([{id, name}]),
       invite (form undang: email, role_id, job_title_id, errors.email/role_id {code, min, max}),
       invite_action (POST undang), flash (dirender layout; penolakan aturan datang lewat sini
@@ -109,6 +109,7 @@
           {%- if invitation.expired %} {{ <badge label={t(key="invitation-expired", lang="id")} variant="destructive"/> }}{% endif %}
         </td>
         <td class="align-top">
+          {%- if invitation.manageable %}
           <div class="flex flex-wrap items-center gap-2">
             <form method="post" action="{{ invitation.resend_action }}">
               {{ <button label={t(key="invitation-resend", lang="id")} variant="outline" size="sm" type="submit"/> }}
@@ -117,6 +118,7 @@
               {{ <button label={t(key="invitation-revoke", lang="id")} variant="ghost" size="sm" type="submit"/> }}
             </form>
           </div>
+          {%- endif %}
         </td>
       </tr>
       {%- endfor %}

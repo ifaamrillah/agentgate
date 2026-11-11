@@ -106,9 +106,11 @@ impl MemberRow {
     }
 }
 
-/// Satu undangan tertunda.
+/// Satu undangan tertunda. `manageable` = pelaku boleh mengirim ulang atau membatalkannya
+/// (role undangan boleh ia berikan, dihitung controller).
 #[derive(Debug, Serialize)]
 pub struct InvitationRow {
+    pub manageable: bool,
     pub email: String,
     pub role_name: String,
     pub expires: String,
@@ -120,8 +122,14 @@ pub struct InvitationRow {
 impl InvitationRow {
     /// `invite_action` = path POST undang (`…/members/invitations`).
     #[must_use]
-    pub fn new(invitation: &invitations::Model, role_name: &str, invite_action: &str) -> Self {
+    pub fn new(
+        invitation: &invitations::Model,
+        role_name: &str,
+        manageable: bool,
+        invite_action: &str,
+    ) -> Self {
         Self {
+            manageable,
             email: invitation.email.clone(),
             role_name: role_name.to_string(),
             expires: invitation.expires_at.format(DATE_FORMAT).to_string(),

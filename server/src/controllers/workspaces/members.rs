@@ -96,11 +96,10 @@ pub(super) async fn render_index(
         .await?
         .iter()
         .map(|invitation| {
-            let role_name = roles
-                .iter()
-                .find(|r| r.id == invitation.role_id)
-                .map_or("", |r| r.name.as_str());
-            InvitationRow::new(invitation, role_name, &invite_action)
+            let role = roles.iter().find(|r| r.id == invitation.role_id);
+            let role_name = role.map_or("", |r| r.name.as_str());
+            let manageable = role.is_some_and(|r| roles::can_assign(&tenant.role, r));
+            InvitationRow::new(invitation, role_name, manageable, &invite_action)
         })
         .collect();
     let page = MembersPage {

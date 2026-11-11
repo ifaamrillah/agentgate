@@ -6,6 +6,7 @@ use loco_rs::{prelude::*, validation::ModelValidationErrors};
 use serde::Serialize;
 
 use super::{
+    NO_REFERRER,
     flash::Flash,
     form::{FieldErrors, field_errors},
 };
@@ -39,10 +40,6 @@ pub const REGISTER_FIELDS: &[&str] = &["name", "email", "password"];
 /// Field form reset password.
 pub const RESET_FIELDS: &[&str] = &["password"];
 
-/// Halaman yang membawa token di URL: `Referrer-Policy: no-referrer`, supaya token tidak
-/// ikut terkirim ke situs lain lewat header `Referer` (rules §7 Reset password).
-const NO_REFERRER: (&str, &str) = ("referrer-policy", "no-referrer");
-
 /// Data `auth/login.html`.
 #[derive(Debug, Serialize)]
 pub struct LoginPage {
@@ -66,9 +63,11 @@ impl LoginPage {
     }
 }
 
+/// Selalu `no-referrer`: `return_to` bisa membawa token (halaman undangan).
 pub fn login(v: &impl ViewRenderer, page: &LoginPage, status: StatusCode) -> Result<Response> {
     format::render()
         .status(status)
+        .header(NO_REFERRER.0, NO_REFERRER.1)
         .view(v, "auth/login.html", page)
 }
 

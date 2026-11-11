@@ -131,6 +131,26 @@ impl Model {
             .await
     }
 
+    /// Undangan tertunda untuk `email` di workspace ini, dikunci (`FOR UPDATE`) sampai
+    /// transaksi `txn` selesai: dicek sebelum [`Self::revoke_pending_for`] membatalkannya.
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn lock_pending_for<C: ConnectionTrait>(
+        txn: &C,
+        workspace_id: WorkspaceId,
+        email: &str,
+    ) -> Result<Vec<Self>, DbErr> {
+        Entity::find()
+            .in_tenant(workspace_id)
+            .filter(Column::Email.eq(super::users::normalize_email(email)))
+            .filter(pending())
+            .lock_exclusive()
+            .all(txn)
+            .await
+    }
+
     /// Batalkan semua undangan tertunda untuk `email` di workspace ini, supaya undangan baru
     /// lolos partial unique index. Mengembalikan jumlah yang dibatalkan.
     ///

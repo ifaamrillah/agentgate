@@ -17,7 +17,7 @@ use sea_orm::{ActiveModelTrait, ActiveValue::Set, EntityTrait, IntoActiveModel};
 
 use crate::support::{
     TEST_PASSWORD, a_user, a_workspace, add_member, builtin_role, invitation_token_in, mail_to,
-    sent_mail, session_cookie, sign_in_as,
+    request_with_settings, sent_mail, session_cookie, sign_in_as,
 };
 
 const MEMBERS: &str = "/w/acme/settings/members";
@@ -360,6 +360,22 @@ async fn invite_link_get_does_not_accept() {
                 .unwrap()
                 .is_none()
         );
+
+        // Halaman login dengan return_to membawa token di URL: no-referrer, juga saat 422.
+        let login = format!("/login?return_to=%2Finvitations%2F{token}");
+        let res = request.get(&login).await;
+        assert_eq!(res.status_code(), 200);
+        assert_eq!(res.header("referrer-policy"), "no-referrer");
+        let res = request
+            .post("/login")
+            .form(&[
+                ("email", "dodi@example.test"),
+                ("password", "password yang salah sekali"),
+                ("return_to", path.as_str()),
+            ])
+            .await;
+        assert_eq!(res.status_code(), 422);
+        assert_eq!(res.header("referrer-policy"), "no-referrer");
 
         // Masuk lewat link undangan: login kembali ke halaman undangan.
         let res = request
@@ -794,5 +810,120 @@ async fn admin_cannot_invite_with_a_role_above_their_own() {
             .await;
         assert_eq!(res.status_code(), 404);
     })
+    .await;
+}
+
+#[tokio::test]
+async fn admin_cannot_touch_owner_invitation() {
+    request::<App, _, _>(|request, ctx| async move {
+        let owner = a_user().create(&ctx).await;
+        let workspace = a_workspace(&owner).slug("acme").create(&ctx).await;
+        let admin = a_user().create(&ctx).await;
+        add_member(&ctx, &workspace, &admin, RoleKey::Admin).await;
+        let owner_role = builtin_role(&ctx, &workspace, RoleKey::Owner).await;
+        let member_role = builtin_role(&ctx, &workspace, RoleKey::Member).await;
+        let owner_cookie = sign_in_as(&request, &owner).await;
+        let token = invite(
+            &request,
+            &ctx,
+            &owner_cookie,
+            "oki@example.test",
+            owner_role.id,
+        )
+        .await;
+        let pending = invitations_for(&ctx, "oki@example.test").await.remove(0);
+        let cookie = sign_in_as(&request, &admin).await;
+
+        // Baris undangan Owner tanpa tombol kirim ulang/batalkan untuk Admin.
+        let html = request.get(MEMBERS).add_cookie(cookie.clone()).await.text();
+        assert!(html.contains("oki@example.test"));
+        assert_css_not_exists(
+            &html,
+            &format!("form[action=\"{INVITE}/{}/resend\"]", pending.id),
+        );
+        assert_css_not_exists(
+            &html,
+            &format!("form[action=\"{INVITE}/{}/revoke\"]", pending.id),
+        );
+
+        for action in ["resend", "revoke"] {
+            let res = request
+                .post(&format!("{INVITE}/{}/{action}", pending.id))
+                .add_cookie(cookie.clone())
+                .await;
+            assert_eq!(res.status_code(), 422, "{action}");
+            assert!(res.text().contains("tidak bisa memberikan"), "{action}");
+        }
+        // Undang ulang email yang sama sebagai Member tidak membatalkan undangan Owner.
+        let res = request
+            .post(INVITE)
+            .add_cookie(cookie.clone())
+            .form(&[
+                ("email", "oki@example.test"),
+                ("role_id", &member_role.id.to_string()),
+                ("job_title_id", ""),
+            ])
+            .await;
+        assert_eq!(res.status_code(), 422);
+        assert_css_exists(&res.text(), "#invite-email-error");
+        let all = invitations_for(&ctx, "oki@example.test").await;
+        assert_eq!(all.len(), 1);
+        assert!(all[0].revoked_at.is_none());
+        assert_eq!(
+            request
+                .get(&format!("/invitations/{token}"))
+                .await
+                .status_code(),
+            200
+        );
+        assert_eq!(mail_to(&ctx, "oki@example.test").len(), 1);
+    })
+    .await;
+}
+
+/// Undangan adalah jalan masuk yang disengaja: tetap bisa daftar walau pendaftaran publik
+/// ditutup.
+#[tokio::test]
+async fn register_via_invite_works_when_registration_is_closed() {
+    request_with_settings(
+        |s| s["auth"]["registration_open"] = serde_json::Value::Bool(false),
+        |request, ctx| async move {
+            assert_eq!(request.get("/register").await.status_code(), 404);
+            let owner = a_user().create(&ctx).await;
+            let workspace = a_workspace(&owner).slug("acme").create(&ctx).await;
+            let member_role = builtin_role(&ctx, &workspace, RoleKey::Member).await;
+            let owner_cookie = sign_in_as(&request, &owner).await;
+            let token = invite(
+                &request,
+                &ctx,
+                &owner_cookie,
+                "tutup@example.test",
+                member_role.id,
+            )
+            .await;
+            let register = format!("/invitations/{token}/register");
+            assert_eq!(request.get(&register).await.status_code(), 200);
+            let res = request
+                .post(&register)
+                .form(&[("name", "Tutup"), ("password", TEST_PASSWORD)])
+                .await;
+            assert_eq!(res.status_code(), 303, "{}", res.text());
+            assert_eq!(res.header("location"), "/w/acme");
+            let user = users::Model::find_by_email(&ctx.db, "tutup@example.test")
+                .await
+                .unwrap()
+                .unwrap();
+            assert!(
+                workspace_members::Model::find_with_role(
+                    &ctx.db,
+                    workspace.workspace_id(),
+                    user.id
+                )
+                .await
+                .unwrap()
+                .is_some()
+            );
+        },
+    )
     .await;
 }

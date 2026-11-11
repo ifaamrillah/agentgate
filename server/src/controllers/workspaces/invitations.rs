@@ -76,31 +76,45 @@ pub(super) async fn resend(
     let tenant = &access.tenant;
     match invite::resend(&ctx, &acting(tenant, request_id), path.id).await {
         Ok(_) => redirect_with(session, tenant, views::members::FLASH_INVITATION_RESENT).await,
-        Err(InviteError::NotAssignable) => {
-            let invite = empty_invite(&ctx, tenant).await?;
-            render_index(
-                &ctx,
-                &v,
-                tenant,
-                invite,
-                Some(Flash::error(MEMBER_ROLE_NOT_ASSIGNABLE)),
-                StatusCode::UNPROCESSABLE_ENTITY,
-            )
-            .await
-        }
-        Err(e) => Err(e.into()),
+        Err(e) => rejected(&ctx, &v, tenant, e).await,
     }
+}
+
+/// Undangan yang role-nya tidak boleh diberikan pelaku → 422 halaman anggota dengan pesannya,
+/// sama dengan penolakan di tabel anggota; lainnya error biasa (404, 500).
+async fn rejected(
+    ctx: &AppContext,
+    v: &TeraView,
+    tenant: &crate::controllers::extractors::Tenant,
+    err: InviteError,
+) -> Result<Response> {
+    let InviteError::NotAssignable = err else {
+        return Err(err.into());
+    };
+    let invite = empty_invite(ctx, tenant).await?;
+    render_index(
+        ctx,
+        v,
+        tenant,
+        invite,
+        Some(Flash::error(MEMBER_ROLE_NOT_ASSIGNABLE)),
+        StatusCode::UNPROCESSABLE_ENTITY,
+    )
+    .await
 }
 
 #[debug_handler]
 pub(super) async fn revoke(
     State(ctx): State<AppContext>,
+    ViewEngine(v): ViewEngine<TeraView>,
     access: Require<ManageMembers>,
     path: IdOr404<invitations::Entity>,
     session: Session,
     RequestId(request_id): RequestId,
 ) -> Result<Response> {
     let tenant = &access.tenant;
-    invite::revoke(&ctx, &acting(tenant, request_id), path.id).await?;
-    redirect_with(session, tenant, views::members::FLASH_INVITATION_REVOKED).await
+    match invite::revoke(&ctx, &acting(tenant, request_id), path.id).await {
+        Ok(()) => redirect_with(session, tenant, views::members::FLASH_INVITATION_REVOKED).await,
+        Err(e) => rejected(&ctx, &v, tenant, e).await,
+    }
 }

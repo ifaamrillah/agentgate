@@ -7,6 +7,10 @@
 //!   `member.invited` dengan `resent: true`.
 //! - [`revoke`]: batalkan undangan tertunda, audit `member.invitation_revoked`.
 //!
+//! Undangan yang role-nya tidak boleh diberikan pelaku (mis. undangan Owner bagi Admin) tidak
+//! bisa disentuh pelaku itu: kirim ulang, batalkan, maupun undang ulang email yang sama (yang
+//! akan membatalkannya) ditolak `member-role-not-assignable`.
+//!
 //! Email dikirim **setelah** commit lewat job (rules §5, §8). Kelas efek samping: best-effort.
 //! Bila antrean gagal, kegagalannya dicatat dan request tetap berhasil; pengundang bisa
 //! "kirim ulang" dari halaman Anggota. Token mentah hanya ada di args job email, tidak di log
@@ -133,6 +137,11 @@ pub async fn run(
             {
                 txn.rollback().await?;
             }
+            Err(InviteError::NotAssignable) => {
+                let mut errors = ValidationErrors::new();
+                errors.add("email", ValidationError::new(MEMBER_ROLE_NOT_ASSIGNABLE));
+                return Err(InviteError::Invalid(errors.into()));
+            }
             Err(e) => return Err(e),
         }
     };
@@ -156,12 +165,7 @@ pub async fn resend(
     let current = invitations::Model::lock_pending_in(&txn, wid, id)
         .await?
         .ok_or(InviteError::NotFound)?;
-    let role = roles::Model::find_in(&txn, wid, current.role_id)
-        .await?
-        .ok_or(InviteError::NotFound)?;
-    if !roles::can_assign(acting.role, &role) {
-        return Err(InviteError::NotAssignable);
-    }
+    let role = ensure_can_touch(&txn, acting, &current).await?;
     let new = NewInvitation {
         email: current.email,
         role_id: current.role_id,
@@ -179,12 +183,14 @@ pub async fn resend(
 ///
 /// # Errors
 ///
-/// [`InviteError::NotFound`] (bukan undangan tertunda di workspace ini) atau error database.
+/// [`InviteError::NotFound`] (bukan undangan tertunda di workspace ini),
+/// [`InviteError::NotAssignable`], atau error database.
 pub async fn revoke(ctx: &AppContext, acting: &Acting<'_>, id: Uuid) -> Result<(), InviteError> {
     let txn = ctx.db.begin().await?;
     let current = invitations::Model::lock_pending_in(&txn, acting.workspace_id(), id)
         .await?
         .ok_or(InviteError::NotFound)?;
+    ensure_can_touch(&txn, acting, &current).await?;
     let revoked = current.revoke(&txn).await?;
     audit::record(
         &txn,
@@ -199,7 +205,25 @@ pub async fn revoke(ctx: &AppContext, acting: &Acting<'_>, id: Uuid) -> Result<(
     Ok(())
 }
 
+/// Pelaku boleh memberikan role undangan `invitation` (`roles::can_assign`).
+async fn ensure_can_touch(
+    txn: &DatabaseTransaction,
+    acting: &Acting<'_>,
+    invitation: &invitations::Model,
+) -> Result<roles::Model, InviteError> {
+    let role = roles::Model::find_in(txn, acting.workspace_id(), invitation.role_id)
+        .await?
+        .ok_or(InviteError::NotFound)?;
+    if roles::can_assign(acting.role, &role) {
+        Ok(role)
+    } else {
+        Err(InviteError::NotAssignable)
+    }
+}
+
 /// Batalkan undangan tertunda untuk email itu, buat yang baru, dan tulis audit-nya di `txn`.
+/// Undangan tertunda yang role-nya tidak boleh diberikan pelaku tidak dibatalkan diam-diam:
+/// [`InviteError::NotAssignable`].
 async fn issue_in(
     txn: &DatabaseTransaction,
     acting: &Acting<'_>,
@@ -208,6 +232,9 @@ async fn issue_in(
     resent: bool,
 ) -> Result<(invitations::Model, String), InviteError> {
     let wid = acting.workspace_id();
+    for pending in invitations::Model::lock_pending_for(txn, wid, &new.email).await? {
+        ensure_can_touch(txn, acting, &pending).await?;
+    }
     invitations::Model::revoke_pending_for(txn, wid, &new.email).await?;
     let (invitation, raw) = invitations::ActiveModel::issue(txn, wid, new).await?;
     let mut changes = serde_json::json!({ "email": invitation.email, "role": role.name });
