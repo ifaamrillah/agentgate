@@ -6,7 +6,8 @@
 
 use loco_rs::validation::ModelValidationErrors;
 use sea_orm::{
-    ActiveValue::Set, Condition, IntoActiveModel, SqlErr, entity::prelude::*, sea_query::Expr,
+    ActiveValue::Set, Condition, IntoActiveModel, QuerySelect, SqlErr, entity::prelude::*,
+    sea_query::Expr,
 };
 use validator::{ValidateEmail, ValidationError, ValidationErrors};
 
@@ -186,23 +187,45 @@ impl Model {
         Ok(user.update(db).await?)
     }
 
-    /// Aktifkan 2FA dengan secret terenkripsi `secret_encrypted`. `step` adalah langkah kode
-    /// konfirmasi, supaya kode itu tidak bisa dipakai lagi untuk login.
+    /// Kunci baris user ini (`SELECT … FOR UPDATE`) sampai transaksi `db` selesai, dan
+    /// kembalikan nilainya yang terbaru. Untuk perubahan yang harus berurutan per user
+    /// (aktifkan 2FA, buat ulang kode pemulihan): request kedua menunggu yang pertama commit,
+    /// lalu melihat hasilnya.
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn lock_for_update<C: ConnectionTrait>(
+        db: &C,
+        id: Uuid,
+    ) -> Result<Option<Self>, DbErr> {
+        Entity::find_by_id(id).lock_exclusive().one(db).await
+    }
+
+    /// Aktifkan 2FA dengan secret terenkripsi `secret_encrypted`, hanya bila belum aktif
+    /// (`UPDATE` bersyarat). `step` adalah langkah kode konfirmasi, supaya kode itu tidak bisa
+    /// dipakai lagi untuk login. `false`: 2FA sudah aktif (mis. klik ganda).
     ///
     /// # Errors
     ///
     /// Error database.
     pub async fn enable_totp<C: ConnectionTrait>(
-        self,
+        &self,
         db: &C,
         secret_encrypted: Vec<u8>,
         step: i64,
-    ) -> Result<Self, DbErr> {
-        let mut user = self.into_active_model();
-        user.totp_secret_encrypted = Set(Some(secret_encrypted));
-        user.totp_enabled_at = Set(Some(chrono::Utc::now().into()));
-        user.totp_last_step = Set(Some(step));
-        user.update(db).await
+    ) -> Result<bool, DbErr> {
+        let now = chrono::Utc::now();
+        let res = Entity::update_many()
+            .col_expr(Column::TotpSecretEncrypted, Expr::value(secret_encrypted))
+            .col_expr(Column::TotpEnabledAt, Expr::value(now))
+            .col_expr(Column::TotpLastStep, Expr::value(step))
+            .col_expr(Column::UpdatedAt, Expr::value(now))
+            .filter(Column::Id.eq(self.id))
+            .filter(Column::TotpEnabledAt.is_null())
+            .exec(db)
+            .await?;
+        Ok(res.rows_affected == 1)
     }
 
     /// Matikan 2FA: secret, waktu aktif, dan langkah terakhir dikosongkan.

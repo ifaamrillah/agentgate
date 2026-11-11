@@ -62,6 +62,17 @@ pub struct SetupSecret {
     pub sealed: String,
 }
 
+/// Hasil [`confirm`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Confirmed {
+    /// 2FA aktif; berisi kode pemulihan mentah untuk ditampilkan sekali.
+    Enabled(Vec<String>),
+    /// Kode salah, atau `sealed` tidak bisa dibuka.
+    WrongCode,
+    /// 2FA sudah aktif (mis. klik ganda pada tombol konfirmasi): tidak ada yang diubah.
+    AlreadyEnabled,
+}
+
 /// Hasil [`second_step`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SecondStep {
@@ -74,8 +85,10 @@ pub enum SecondStep {
 }
 
 /// Mulai (atau lanjutkan) setup 2FA. Bila `sealed` (dari data sesi) masih bisa dibuka,
-/// secret yang sama dipakai lagi, sehingga membuka ulang halaman setup (reload, preload) tidak
-/// mengganti secret yang mungkin sudah dipindai. Selain itu secret baru dibuat.
+/// secret yang sama dipakai lagi dan [`SetupSecret::sealed`] sama persis dengan `sealed`,
+/// sehingga membuka ulang halaman setup (reload, preload) tidak mengganti secret yang mungkin
+/// sudah dipindai dan tidak menulis sesi. Selain itu (kosong, rusak, kunci diganti) secret
+/// baru dibuat dengan `sealed` baru yang harus disimpan pemanggil.
 ///
 /// # Errors
 ///
@@ -86,13 +99,18 @@ pub fn begin_setup(
     sealed: Option<&str>,
 ) -> Result<SetupSecret> {
     let key = settings.auth.encryption_key_bytes()?;
-    let secret = sealed
-        .and_then(|s| unseal(&key, s))
-        .unwrap_or_else(|| crypto::random_bytes::<SECRET_BYTES>().to_vec());
+    let reused = sealed.and_then(|s| unseal(&key, s).map(|secret| (secret, s.to_string())));
+    let (secret, sealed) = match reused {
+        Some(pair) => pair,
+        None => {
+            let secret = crypto::random_bytes::<SECRET_BYTES>().to_vec();
+            let base32 = totp(secret.clone(), None, "")?.get_secret_base32();
+            (secret, STANDARD.encode(encrypt(&key, &base32)?))
+        }
+    };
     let totp = totp(secret, Some(&settings.app_name), &user.email)?;
     let otpauth_uri = totp.get_url();
     let secret_base32 = totp.get_secret_base32();
-    let sealed = STANDARD.encode(encrypt(&key, &secret_base32)?);
     Ok(SetupSecret {
         qr_svg: qr_svg(&otpauth_uri)?,
         otpauth_uri,
@@ -102,8 +120,9 @@ pub fn begin_setup(
 }
 
 /// Konfirmasi setup dengan kode dari authenticator. Kode benar: secret disimpan terenkripsi,
-/// 2FA aktif, dan 10 kode pemulihan baru dibuat dalam satu transaksi; mengembalikan kode
-/// pemulihan mentah untuk ditampilkan sekali. `None`: kode salah atau `sealed` rusak.
+/// 2FA aktif, dan 10 kode pemulihan baru dibuat dalam satu transaksi yang mengunci baris user
+/// lebih dulu, sehingga konfirmasi bersamaan berurutan: yang kedua melihat 2FA sudah aktif
+/// ([`Confirmed::AlreadyEnabled`]) dan tidak menambah kode.
 ///
 /// # Errors
 ///
@@ -113,23 +132,29 @@ pub async fn confirm(
     user: &users::Model,
     sealed: &str,
     code: &str,
-) -> Result<Option<Vec<String>>> {
+) -> Result<Confirmed> {
     let key = auth_settings(ctx)?.encryption_key_bytes()?;
     let Some(secret) = unseal(&key, sealed) else {
-        return Ok(None);
+        return Ok(Confirmed::WrongCode);
     };
     let totp = totp(secret, None, "")?;
     let Some(step) = matching_step(&totp, code, unix_now()) else {
-        return Ok(None);
+        return Ok(Confirmed::WrongCode);
     };
-    let (codes, digests) = new_recovery_codes();
+    let encrypted = encrypt(&key, &totp.get_secret_base32())?;
     let txn = ctx.db.begin().await?;
-    user.clone()
-        .enable_totp(&txn, encrypt(&key, &totp.get_secret_base32())?, step)
-        .await?;
+    let locked = users::Model::lock_for_update(&txn, user.id).await?;
+    // Dicek lagi setelah kunci: `user` dimuat sebelum transaksi.
+    let Some(locked) = locked.filter(|u| u.totp_enabled_at.is_none()) else {
+        return Ok(Confirmed::AlreadyEnabled);
+    };
+    if !locked.enable_totp(&txn, encrypted, step).await? {
+        return Ok(Confirmed::AlreadyEnabled);
+    }
+    let (codes, digests) = new_recovery_codes();
     recovery_codes::replace_for_user(&txn, user.id, &digests).await?;
     txn.commit().await?;
-    Ok(Some(codes))
+    Ok(Confirmed::Enabled(codes))
 }
 
 /// Kode TOTP benar untuk `user` dan langkahnya lebih baru dari langkah terakhir yang
@@ -169,7 +194,9 @@ pub async fn use_recovery_code(ctx: &AppContext, user: &users::Model, code: &str
 }
 
 /// Ganti semua kode pemulihan `user` dengan 10 kode baru; kode lama tidak berlaku lagi.
-/// Mengembalikan kode mentah untuk ditampilkan sekali.
+/// Mengembalikan kode mentah untuk ditampilkan sekali, atau `None` bila 2FA tidak (lagi)
+/// aktif. Baris user dikunci lebih dulu, sehingga penggantian bersamaan (atau bersamaan
+/// dengan mematikan 2FA) berurutan dan tidak meninggalkan lebih dari satu set kode.
 ///
 /// # Errors
 ///
@@ -177,12 +204,16 @@ pub async fn use_recovery_code(ctx: &AppContext, user: &users::Model, code: &str
 pub async fn regenerate_recovery_codes(
     ctx: &AppContext,
     user: &users::Model,
-) -> Result<Vec<String>> {
-    let (codes, digests) = new_recovery_codes();
+) -> Result<Option<Vec<String>>> {
     let txn = ctx.db.begin().await?;
+    let locked = users::Model::lock_for_update(&txn, user.id).await?;
+    if !locked.is_some_and(|u| u.totp_enabled_at.is_some()) {
+        return Ok(None);
+    }
+    let (codes, digests) = new_recovery_codes();
     recovery_codes::replace_for_user(&txn, user.id, &digests).await?;
     txn.commit().await?;
-    Ok(codes)
+    Ok(Some(codes))
 }
 
 /// Matikan 2FA bila `current_password` benar: secret, `totp_enabled_at`, `totp_last_step`,
@@ -205,6 +236,7 @@ pub async fn disable(
         return Ok(false);
     }
     let txn = ctx.db.begin().await?;
+    users::Model::lock_for_update(&txn, user.id).await?;
     user.clone().disable_totp(&txn).await?;
     recovery_codes::delete_for_user(&txn, user.id).await?;
     txn.commit().await?;

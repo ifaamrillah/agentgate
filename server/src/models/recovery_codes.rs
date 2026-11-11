@@ -22,8 +22,10 @@ impl ActiveModelBehavior for ActiveModel {
     }
 }
 
-/// Ganti semua kode user dengan `digests`. Pemanggil menjalankannya di dalam transaksi
-/// bersama perubahan lain (aktifkan 2FA), sehingga user tidak pernah tanpa kode.
+/// Ganti semua kode user dengan `digests`. Pemanggil menjalankannya di dalam transaksi yang
+/// sudah mengunci baris user (`users::Model::lock_for_update`): tanpa kunci itu, dua
+/// penggantian bersamaan sama-sama tidak melihat insert yang lain (READ COMMITTED), dan kedua
+/// set kode tersisa.
 ///
 /// # Errors
 ///

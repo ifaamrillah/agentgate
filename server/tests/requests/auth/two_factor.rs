@@ -220,7 +220,10 @@ async fn totp_code_cannot_be_replayed_in_same_step() {
 async fn recovery_code_works_once() {
     request::<App, _, _>(|request, ctx| async move {
         let user = a_user().with_totp().create(&ctx).await;
-        let codes = totp::regenerate_recovery_codes(&ctx, &user).await.unwrap();
+        let codes = totp::regenerate_recovery_codes(&ctx, &user)
+            .await
+            .unwrap()
+            .unwrap();
 
         let first = pending_login(&request, &user).await;
         let res = submit_code(&request, &first, &codes[0]).await;
@@ -269,6 +272,8 @@ async fn setup_shows_qr_and_confirms_with_a_code() {
         // Membuka halaman lagi (mis. preload) tidak mengganti secret yang sudah dipindai.
         let again = request.get("/account/2fa").add_cookie(cookie.clone()).await;
         assert_eq!(text_after(&again.text(), r#"id="totp-secret""#)[0], secret);
+        // ... dan tidak menulis sesi lagi (tidak ada Set-Cookie sesi).
+        assert!(session_cookie(&again).is_none());
 
         let wrong = request
             .post("/account/2fa")
@@ -345,7 +350,10 @@ async fn disable_2fa_requires_password() {
 async fn regenerate_recovery_codes_shows_new_codes_once() {
     request::<App, _, _>(|request, ctx| async move {
         let user = a_user().with_totp().create(&ctx).await;
-        let old = totp::regenerate_recovery_codes(&ctx, &user).await.unwrap();
+        let old = totp::regenerate_recovery_codes(&ctx, &user)
+            .await
+            .unwrap()
+            .unwrap();
         let pending = pending_login(&request, &user).await;
         let res = submit_code(&request, &pending, &current_code()).await;
         let cookie = session_cookie(&res).unwrap();

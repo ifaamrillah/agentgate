@@ -26,7 +26,7 @@ use crate::{
     services::auth::{
         password_change::CURRENT_PASSWORD_WRONG,
         sign_in::{self, PendingSecondFactor},
-        totp::{self, SecondStep},
+        totp::{self, Confirmed, SecondStep},
     },
     views::{self, account::TwoFactorSetupPage, flash::Flash},
 };
@@ -156,18 +156,35 @@ async fn confirm(
     let (false, Some(sealed)) = (user.totp_enabled_at.is_some(), sealed) else {
         return format::redirect(SETTINGS);
     };
-    if let Some(codes) = totp::confirm(&ctx, &user, &sealed, form.code.expose_secret()).await? {
-        let session = session.remove(SETUP_SECRET);
-        return Ok((session, views::account::recovery_codes(&v, &codes)?).into_response());
+    match totp::confirm(&ctx, &user, &sealed, form.code.expose_secret()).await? {
+        Confirmed::Enabled(codes) => {
+            let session = session.remove(SETUP_SECRET);
+            Ok((session, views::account::recovery_codes(&v, &codes)?).into_response())
+        }
+        // Klik ganda: request pertama sudah mengaktifkan 2FA dan menampilkan kodenya.
+        Confirmed::AlreadyEnabled => {
+            Ok((session.remove(SETUP_SECRET), format::redirect(SETTINGS)?).into_response())
+        }
+        Confirmed::WrongCode => {
+            let settings = Settings::from_ctx(&ctx)?;
+            let setup = totp::begin_setup(&settings, &user, Some(&sealed))?;
+            // Secret di sesi tidak bisa dibuka lagi (mis. kunci enkripsi diganti): QR baru
+            // ditampilkan, jadi secret-nya harus disimpan, atau konfirmasi tidak pernah cocok.
+            let session = if setup.sealed == sealed {
+                session
+            } else {
+                session.insert(SETUP_SECRET, &setup.sealed)?
+            };
+            let page = TwoFactorSetupPage {
+                qr_svg: setup.qr_svg,
+                secret: setup.secret_base32,
+                error: views::account::TOTP_CODE_INVALID,
+            };
+            let res =
+                views::account::two_factor_setup(&v, &page, StatusCode::UNPROCESSABLE_ENTITY)?;
+            Ok((session, res).into_response())
+        }
     }
-    let settings = Settings::from_ctx(&ctx)?;
-    let setup = totp::begin_setup(&settings, &user, Some(&sealed))?;
-    let page = TwoFactorSetupPage {
-        qr_svg: setup.qr_svg,
-        secret: setup.secret_base32,
-        error: views::account::TOTP_CODE_INVALID,
-    };
-    views::account::two_factor_setup(&v, &page, StatusCode::UNPROCESSABLE_ENTITY)
 }
 
 #[debug_handler]
@@ -208,11 +225,10 @@ async fn regenerate_recovery_codes(
     ViewEngine(v): ViewEngine<TeraView>,
     CurrentUser(user): CurrentUser,
 ) -> Result<Response> {
-    if user.totp_enabled_at.is_none() {
-        return format::redirect(SETTINGS);
+    match totp::regenerate_recovery_codes(&ctx, &user).await? {
+        Some(codes) => views::account::recovery_codes(&v, &codes),
+        None => format::redirect(SETTINGS),
     }
-    let codes = totp::regenerate_recovery_codes(&ctx, &user).await?;
-    views::account::recovery_codes(&v, &codes)
 }
 
 pub fn routes() -> Routes {
