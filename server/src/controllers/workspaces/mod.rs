@@ -1,9 +1,12 @@
 //! Workspace: pilih (`/`), buat (`/w/new`), beranda (`/w/{slug}`), dan Pengaturan
-//! (`/w/{slug}/settings`). Semua route di bawah `/w/{slug}` memakai extractor `Tenant`.
+//! (`/w/{slug}/settings`, dengan Role dan Jabatan di bawahnya). Semua route di bawah
+//! `/w/{slug}` memakai extractor `Tenant`.
 use loco_rs::prelude::*;
 use serde::Deserialize;
 
 mod home;
+mod job_titles;
+mod roles;
 mod settings;
 
 /// Isian form nama + slug (buat workspace dan Pengaturan). Field yang tidak dikirim dianggap
@@ -16,6 +19,18 @@ pub struct WorkspaceForm {
     slug: String,
 }
 
+fn settings_path(slug: &str) -> String {
+    format!("/w/{slug}/settings")
+}
+
+fn roles_path(slug: &str) -> String {
+    format!("/w/{slug}/settings/roles")
+}
+
+fn job_titles_path(slug: &str) -> String {
+    format!("/w/{slug}/settings/job-titles")
+}
+
 pub fn routes() -> Routes {
     Routes::new()
         .add("/", get(home::choose))
@@ -25,5 +40,28 @@ pub fn routes() -> Routes {
         .add(
             "/w/{slug}/settings",
             get(settings::show).post(settings::update),
+        )
+        .add("/w/{slug}/settings/roles", get(roles::index))
+        // Rute statis `new` menang atas `{id}`.
+        .add(
+            "/w/{slug}/settings/roles/new",
+            get(roles::new).post(roles::create),
+        )
+        .add(
+            "/w/{slug}/settings/roles/{id}/edit",
+            get(roles::edit).post(roles::update),
+        )
+        .add("/w/{slug}/settings/roles/{id}/delete", post(roles::delete))
+        .add(
+            "/w/{slug}/settings/job-titles",
+            get(job_titles::index).post(job_titles::create),
+        )
+        .add(
+            "/w/{slug}/settings/job-titles/{id}",
+            post(job_titles::rename),
+        )
+        .add(
+            "/w/{slug}/settings/job-titles/{id}/delete",
+            post(job_titles::delete),
         )
 }

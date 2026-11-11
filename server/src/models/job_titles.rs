@@ -1,20 +1,26 @@
 //! Jabatan tim (PM, Dev, QA, …): label bebas per workspace untuk default assignment. Nama unik
-//! per workspace tanpa membedakan huruf besar. Halaman pengelolaannya di Task 10.
+//! per workspace tanpa membedakan huruf besar. Dikelola di Pengaturan → Jabatan.
+//!
+//! Hapus jabatan tidak dicek di sini: FK `(job_title_id, workspace_id)` di `workspace_members`
+//! dan `invitations` memakai `ON DELETE SET NULL (job_title_id)`, sehingga member dan undangan
+//! yang memakainya menjadi tanpa jabatan.
 
 use loco_rs::{
     model::{TenantEntity, TenantQueryExt},
     validation::ModelValidationErrors,
 };
-use sea_orm::{ActiveValue::Set, QueryOrder, SqlErr, entity::prelude::*};
+use sea_orm::{
+    ActiveValue::Set, IntoActiveModel, QueryOrder, QuerySelect, SqlErr, entity::prelude::*,
+};
 use validator::{ValidationError, ValidationErrors};
 
 pub use super::_entities::job_titles::{ActiveModel, Column, Entity, Model};
 use super::workspaces::WorkspaceId;
 use crate::common::text;
 
-pub const JOB_TITLE_TAKEN: &str = "job-title-taken";
+pub const JOB_TITLE_NAME_TAKEN: &str = "job-title-name-taken";
 /// Kode error field milik model ini; masing-masing punya pesan di Fluent (dijaga tes i18n).
-pub const ERROR_CODES: &[&str] = &[JOB_TITLE_TAKEN];
+pub const ERROR_CODES: &[&str] = &[JOB_TITLE_NAME_TAKEN];
 
 #[derive(Debug, thiserror::Error)]
 pub enum JobTitleError {
@@ -75,6 +81,37 @@ impl Model {
             .all(db)
             .await
     }
+
+    /// Jabatan `id` di workspace ini; jabatan workspace lain tidak ditemukan.
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn find_in<C: ConnectionTrait>(
+        db: &C,
+        workspace_id: WorkspaceId,
+        id: Uuid,
+    ) -> Result<Option<Self>, DbErr> {
+        Entity::find_by_id(id).in_tenant(workspace_id).one(db).await
+    }
+
+    /// Seperti [`Self::find_in`], dengan baris dikunci (`FOR UPDATE`) sampai transaksi `txn`
+    /// selesai.
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn lock_in<C: ConnectionTrait>(
+        txn: &C,
+        workspace_id: WorkspaceId,
+        id: Uuid,
+    ) -> Result<Option<Self>, DbErr> {
+        Entity::find_by_id(id)
+            .in_tenant(workspace_id)
+            .lock_exclusive()
+            .one(txn)
+            .await
+    }
 }
 
 impl ActiveModel {
@@ -89,12 +126,7 @@ impl ActiveModel {
         workspace_id: WorkspaceId,
         name: &str,
     ) -> Result<Model, JobTitleError> {
-        let name = text::normalize_name(name);
-        if let Err(e) = text::validate_name("job_title", &name) {
-            let mut errors = ValidationErrors::new();
-            errors.add("name", e);
-            return Err(JobTitleError::Invalid(errors.into()));
-        }
+        let name = validated(name)?;
         Self {
             workspace_id: Set(workspace_id.get()),
             name: Set(name),
@@ -102,14 +134,42 @@ impl ActiveModel {
         }
         .insert(db)
         .await
-        .map_err(|e| {
-            if matches!(e.sql_err(), Some(SqlErr::UniqueConstraintViolation(_))) {
-                let mut errors = ValidationErrors::new();
-                errors.add("name", ValidationError::new(JOB_TITLE_TAKEN));
-                JobTitleError::Invalid(errors.into())
-            } else {
-                JobTitleError::Db(e)
-            }
-        })
+        .map_err(name_taken_or_db)
+    }
+
+    /// Ganti nama jabatan. Validasi sama dengan [`Self::create`].
+    ///
+    /// # Errors
+    ///
+    /// Seperti [`Self::create`].
+    pub async fn rename<C: ConnectionTrait>(
+        db: &C,
+        title: Model,
+        name: &str,
+    ) -> Result<Model, JobTitleError> {
+        let name = validated(name)?;
+        let mut active = title.into_active_model();
+        active.name = Set(name);
+        active.update(db).await.map_err(name_taken_or_db)
+    }
+}
+
+fn validated(name: &str) -> Result<String, JobTitleError> {
+    let name = text::normalize_name(name);
+    text::validate_name("job_title", &name).map_err(|e| {
+        let mut errors = ValidationErrors::new();
+        errors.add("name", e);
+        JobTitleError::Invalid(errors.into())
+    })?;
+    Ok(name)
+}
+
+fn name_taken_or_db(e: DbErr) -> JobTitleError {
+    if matches!(e.sql_err(), Some(SqlErr::UniqueConstraintViolation(_))) {
+        let mut errors = ValidationErrors::new();
+        errors.add("name", ValidationError::new(JOB_TITLE_NAME_TAKEN));
+        JobTitleError::Invalid(errors.into())
+    } else {
+        JobTitleError::Db(e)
     }
 }

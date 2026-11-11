@@ -9,7 +9,10 @@ use loco_rs::{
     model::{TenantEntity, TenantQueryExt},
     validation::ModelValidationErrors,
 };
-use sea_orm::{ActiveValue::Set, QueryOrder, SqlErr, entity::prelude::*};
+use sea_orm::{
+    ActiveValue::Set, IntoActiveModel, Iterable, QueryOrder, QuerySelect, SqlErr,
+    entity::prelude::*,
+};
 use validator::{ValidationError, ValidationErrors};
 
 pub use super::_entities::roles::{ActiveModel, Column, Entity, Model};
@@ -20,8 +23,22 @@ use super::{
 use crate::common::text;
 
 pub const ROLE_NAME_TAKEN: &str = "role-name-taken";
-/// Kode error field milik model ini; masing-masing punya pesan di Fluent (dijaga tes i18n).
-pub const ERROR_CODES: &[&str] = &[ROLE_NAME_TAKEN];
+/// Role custom tanpa izin sama sekali (field `permissions`).
+pub const ROLE_PERMISSIONS_EMPTY: &str = "role-permissions-empty";
+/// Isian izin bukan varian [`Permission`] (form yang diubah di luar browser).
+pub const ROLE_PERMISSION_UNKNOWN: &str = "role-permission-unknown";
+/// Role bawaan tidak bisa diubah atau dihapus ([`RoleError::Builtin`]).
+pub const ROLE_BUILTIN: &str = "role-builtin";
+/// Role masih dipegang member atau undangan ([`RoleError::InUse`]).
+pub const ROLE_IN_USE: &str = "role-in-use";
+/// Kode error milik model ini; masing-masing punya pesan di Fluent (dijaga tes i18n).
+pub const ERROR_CODES: &[&str] = &[
+    ROLE_NAME_TAKEN,
+    ROLE_PERMISSIONS_EMPTY,
+    ROLE_PERMISSION_UNKNOWN,
+    ROLE_BUILTIN,
+    ROLE_IN_USE,
+];
 
 /// Key role bawaan. Disimpan sebagai string dengan CHECK constraint (rules §4, dijaga
 /// `tests/models/enums.rs`).
@@ -54,20 +71,68 @@ impl RoleKey {
 
 #[derive(Debug, thiserror::Error)]
 pub enum RoleError {
-    /// Validasi field (`name`) gagal, termasuk nama yang sudah dipakai di workspace ini.
+    /// Validasi field (`name`, `permissions`) gagal, termasuk nama yang sudah dipakai di
+    /// workspace ini.
     #[error("invalid role: {0}")]
     Invalid(ModelValidationErrors),
+    /// Role bawaan: nama dan izinnya tetap ([`ensure_role_editable`]).
+    #[error("built-in role is immutable")]
+    Builtin,
+    /// Masih dipakai member atau undangan (FK `role_id`), jadi tidak bisa dihapus.
+    #[error("role is in use")]
+    InUse,
     #[error(transparent)]
     Db(#[from] DbErr),
+}
+
+impl RoleError {
+    /// Kode Fluent untuk penolakan yang bukan error field (`Builtin`, `InUse`).
+    #[must_use]
+    pub fn code(&self) -> Option<&'static str> {
+        match self {
+            Self::Builtin => Some(ROLE_BUILTIN),
+            Self::InUse => Some(ROLE_IN_USE),
+            Self::Invalid(_) | Self::Db(_) => None,
+        }
+    }
 }
 
 impl From<RoleError> for loco_rs::Error {
     fn from(err: RoleError) -> Self {
         match err {
             RoleError::Invalid(errors) => Self::Validation(errors),
+            RoleError::Builtin | RoleError::InUse => Self::BadRequest(err.to_string()),
             RoleError::Db(e) => Self::DB(e),
         }
     }
+}
+
+/// Satu-satunya aturan "role ini boleh diubah/dihapus": role bawaan tidak pernah (namanya dan
+/// izinnya tetap; ini juga yang menjaga Owner tidak kehilangan `ManageWorkspace`). Dipanggil
+/// setiap handler ubah/hapus role dan oleh [`ActiveModel::update_custom`]/
+/// [`ActiveModel::delete_custom`].
+///
+/// # Errors
+///
+/// [`RoleError::Builtin`] untuk role bawaan.
+pub fn ensure_role_editable(role: &Model) -> Result<(), RoleError> {
+    if role.builtin {
+        return Err(RoleError::Builtin);
+    }
+    Ok(())
+}
+
+/// Isian izin dari form menjadi [`Permission`]. Nilai tak dikenal ditolak (bukan diabaikan),
+/// karena form yang sah hanya mengirim nilai dari daftar checkbox.
+///
+/// # Errors
+///
+/// [`RoleError::Invalid`] dengan [`ROLE_PERMISSION_UNKNOWN`] di field `permissions`.
+pub fn parse_permissions(raw: &[String]) -> Result<Vec<Permission>, RoleError> {
+    raw.iter()
+        .map(Permission::try_from_value)
+        .collect::<Result<_, _>>()
+        .map_err(|_| field_error("permissions", ROLE_PERMISSION_UNKNOWN))
 }
 
 impl TenantEntity for Entity {
@@ -165,6 +230,24 @@ impl Model {
         Entity::find_by_id(id).in_tenant(workspace_id).one(db).await
     }
 
+    /// Seperti [`Self::find_in`], dengan baris dikunci (`FOR UPDATE`) sampai transaksi `txn`
+    /// selesai, supaya perubahan dan audit-nya dihitung dari nilai terbaru.
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn lock_in<C: ConnectionTrait>(
+        txn: &C,
+        workspace_id: WorkspaceId,
+        id: Uuid,
+    ) -> Result<Option<Self>, DbErr> {
+        Entity::find_by_id(id)
+            .in_tenant(workspace_id)
+            .lock_exclusive()
+            .one(txn)
+            .await
+    }
+
     /// Role bawaan `key` di workspace ini.
     ///
     /// # Errors
@@ -211,42 +294,106 @@ impl ActiveModel {
         Ok(roles)
     }
 
-    /// Role custom dengan nama dan izin bebas.
+    /// Role custom dengan nama dan izin bebas (minimal satu izin; urutan dan duplikat
+    /// dinormalkan ke urutan [`Permission`]).
     ///
     /// # Errors
     ///
     /// [`RoleError::Invalid`] untuk nama tidak valid atau sudah dipakai di workspace ini
-    /// (unique index `(workspace_id, lower(name))`), [`RoleError::Db`] untuk error lain.
+    /// (unique index `(workspace_id, lower(name))`, termasuk nama role bawaan) dan izin kosong,
+    /// [`RoleError::Db`] untuk error lain.
     pub async fn create_custom<C: ConnectionTrait>(
         db: &C,
         workspace_id: WorkspaceId,
         name: &str,
         permissions: Vec<Permission>,
     ) -> Result<Model, RoleError> {
-        let name = text::normalize_name(name);
-        if let Err(e) = text::validate_name("role", &name) {
-            let mut errors = ValidationErrors::new();
-            errors.add("name", e);
-            return Err(RoleError::Invalid(errors.into()));
-        }
+        let (name, permissions) = validated(name, permissions)?;
         Self {
             workspace_id: Set(workspace_id.get()),
             name: Set(name),
-            permissions: Set(to_strings(&permissions)),
+            permissions: Set(permissions),
             ..Default::default()
         }
         .insert(db)
         .await
-        .map_err(|e| {
-            if matches!(e.sql_err(), Some(SqlErr::UniqueConstraintViolation(_))) {
-                let mut errors = ValidationErrors::new();
-                errors.add("name", ValidationError::new(ROLE_NAME_TAKEN));
-                RoleError::Invalid(errors.into())
+        .map_err(name_taken_or_db)
+    }
+
+    /// Ganti nama dan izin role custom. Validasi sama dengan [`Self::create_custom`].
+    ///
+    /// # Errors
+    ///
+    /// [`RoleError::Builtin`] untuk role bawaan ([`ensure_role_editable`]), lalu seperti
+    /// [`Self::create_custom`].
+    pub async fn update_custom<C: ConnectionTrait>(
+        db: &C,
+        role: Model,
+        name: &str,
+        permissions: Vec<Permission>,
+    ) -> Result<Model, RoleError> {
+        ensure_role_editable(&role)?;
+        let (name, permissions) = validated(name, permissions)?;
+        let mut active = role.into_active_model();
+        active.name = Set(name);
+        active.permissions = Set(permissions);
+        active.update(db).await.map_err(name_taken_or_db)
+    }
+
+    /// Hapus role custom. Role yang masih dipegang member atau undangan ditolak oleh FK
+    /// `role_id` (NO ACTION) di database, bukan oleh SELECT lebih dulu, jadi tidak ada celah
+    /// race. Task 12: `project_grants.role_id` juga harus FK ke `roles` tanpa ON DELETE supaya
+    /// grant ikut menahan penghapusan lewat jalur yang sama.
+    ///
+    /// # Errors
+    ///
+    /// [`RoleError::Builtin`] untuk role bawaan, [`RoleError::InUse`] bila masih dipakai,
+    /// [`RoleError::Db`] untuk error lain. Pelanggaran FK membatalkan transaksi `db`.
+    pub async fn delete_custom<C: ConnectionTrait>(db: &C, role: Model) -> Result<(), RoleError> {
+        ensure_role_editable(&role)?;
+        role.delete(db).await.map_err(|e| {
+            if matches!(e.sql_err(), Some(SqlErr::ForeignKeyConstraintViolation(_))) {
+                RoleError::InUse
             } else {
                 RoleError::Db(e)
             }
-        })
+        })?;
+        Ok(())
     }
+}
+
+/// Nama ternormalisasi dan izin kanonis (urut [`Permission`], tanpa duplikat), atau error
+/// semua field yang tidak valid sekaligus.
+fn validated(name: &str, permissions: Vec<Permission>) -> Result<(String, Vec<String>), RoleError> {
+    let name = text::normalize_name(name);
+    let mut errors = ValidationErrors::new();
+    if let Err(e) = text::validate_name("role", &name) {
+        errors.add("name", e);
+    }
+    if permissions.is_empty() {
+        errors.add("permissions", ValidationError::new(ROLE_PERMISSIONS_EMPTY));
+    }
+    if !errors.is_empty() {
+        return Err(RoleError::Invalid(errors.into()));
+    }
+    let canonical: Vec<Permission> = Permission::iter()
+        .filter(|p| permissions.contains(p))
+        .collect();
+    Ok((name, to_strings(&canonical)))
+}
+
+fn name_taken_or_db(e: DbErr) -> RoleError {
+    if matches!(e.sql_err(), Some(SqlErr::UniqueConstraintViolation(_))) {
+        field_error("name", ROLE_NAME_TAKEN)
+    } else {
+        RoleError::Db(e)
+    }
+}
+
+fn field_error(field: &'static str, code: &'static str) -> RoleError {
+    let mut errors = ValidationErrors::new();
+    errors.add(field, ValidationError::new(code));
+    RoleError::Invalid(errors.into())
 }
 
 fn to_strings(permissions: &[Permission]) -> Vec<String> {

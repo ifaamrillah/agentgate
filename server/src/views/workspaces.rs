@@ -69,13 +69,21 @@ pub fn home(v: &impl ViewRenderer, shell: &AppShell, name: &str) -> Result<Respo
     )
 }
 
+/// Tautan ke halaman Pengaturan lain di indeks; `None` bila role tidak membuka halaman itu.
+#[derive(Debug, Default, Serialize)]
+pub struct SettingsLinks {
+    pub roles: Option<String>,
+    pub job_titles: Option<String>,
+}
+
 /// Indeks Pengaturan. `form` = bagian Umum (nama, slug), `None` bila role tidak memegang
-/// `ManageWorkspace`.
+/// `ManageWorkspace`; `links` = bagian lain yang boleh dibuka role.
 pub fn settings(
     v: &impl ViewRenderer,
     shell: &AppShell,
     action: &str,
     form: Option<&WorkspaceFormView>,
+    links: &SettingsLinks,
     flash: Option<Flash>,
     status: StatusCode,
 ) -> Result<Response> {
@@ -84,7 +92,7 @@ pub fn settings(
         "workspaces/settings.html",
         app_page(
             shell,
-            data!({ "action": action, "form": form, "flash": flash }),
+            data!({ "action": action, "form": form, "links": links, "flash": flash }),
         ),
     )
 }

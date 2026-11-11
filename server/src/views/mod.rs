@@ -5,5 +5,7 @@ pub mod dev;
 pub mod errors;
 pub mod flash;
 pub mod form;
+pub mod job_titles;
 pub mod layout;
+pub mod roles;
 pub mod workspaces;

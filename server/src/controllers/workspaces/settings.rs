@@ -1,12 +1,13 @@
 //! `GET /w/{slug}/settings`: indeks Pengaturan, terbuka untuk role yang memegang salah satu izin
 //! Pengaturan (`Require<AnySettings>`, sama dengan tautan di sidebar). Setiap bagian tampil
-//! sesuai izinnya sendiri: kini nama/slug (`ManageWorkspace`); anggota, role, dan tim (Task
-//! 10–12) menambah bagiannya di sini, 2FA wajib dan hapus workspace di Task 13.
+//! sesuai izinnya sendiri: nama/slug (`ManageWorkspace`), tautan Role (`ManageRoles`) dan
+//! Jabatan (`ManageMembers`); anggota dan tim (Task 11–12) menambah bagiannya di sini, 2FA wajib
+//! dan hapus workspace di Task 13.
 //! `POST /w/{slug}/settings` mengubah nama/slug dan butuh `ManageWorkspace`.
 use axum::http::StatusCode;
 use loco_rs::prelude::*;
 
-use super::WorkspaceForm;
+use super::{WorkspaceForm, job_titles, roles, settings_path};
 use crate::{
     controllers::{
         extractors::{
@@ -18,12 +19,12 @@ use crate::{
     },
     models::workspaces::WorkspaceError,
     services::workspaces::update::{self, WorkspaceDetails},
-    views::{self, flash::Flash, workspaces::WorkspaceFormView},
+    views::{
+        self,
+        flash::Flash,
+        workspaces::{SettingsLinks, WorkspaceFormView},
+    },
 };
-
-fn settings_path(slug: &str) -> String {
-    format!("/w/{slug}/settings")
-}
 
 #[debug_handler]
 pub(super) async fn show(
@@ -42,10 +43,19 @@ pub(super) async fn show(
         &shell,
         &settings_path(&tenant.workspace.slug),
         form.as_ref(),
+        &links(tenant),
         flash,
         StatusCode::OK,
     )?;
     Ok((session, res).into_response())
+}
+
+/// Tautan ke halaman Pengaturan lain, masing-masing menurut guard halaman itu sendiri.
+fn links(tenant: &Tenant) -> SettingsLinks {
+    SettingsLinks {
+        roles: roles::settings_link(tenant),
+        job_titles: job_titles::settings_link(tenant),
+    }
 }
 
 /// Bagian Umum (nama, slug) tampil hanya untuk `ManageWorkspace`: aturan yang sama dengan guard
@@ -97,6 +107,7 @@ pub(super) async fn update(
                 &shell,
                 &settings_path(&tenant.workspace.slug),
                 Some(&form),
+                &links(tenant),
                 None,
                 StatusCode::UNPROCESSABLE_ENTITY,
             )

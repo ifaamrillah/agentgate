@@ -130,6 +130,7 @@ const UP: &[&str] = &[
             'member.invited', 'member.joined', 'member.role_changed', 'member.removed',
             'member.left',
             'role.created', 'role.updated', 'role.deleted',
+            'job_title.created', 'job_title.updated', 'job_title.deleted',
             'team.created', 'team.updated', 'team.deleted', 'team.member_added',
             'team.member_removed',
             'project.created', 'project.updated', 'project.archived',

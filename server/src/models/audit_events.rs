@@ -40,6 +40,12 @@ pub enum AuditAction {
     RoleUpdated,
     #[sea_orm(string_value = "role.deleted")]
     RoleDeleted,
+    #[sea_orm(string_value = "job_title.created")]
+    JobTitleCreated,
+    #[sea_orm(string_value = "job_title.updated")]
+    JobTitleUpdated,
+    #[sea_orm(string_value = "job_title.deleted")]
+    JobTitleDeleted,
     #[sea_orm(string_value = "team.created")]
     TeamCreated,
     #[sea_orm(string_value = "team.updated")]

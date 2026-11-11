@@ -4,10 +4,11 @@ use std::{collections::HashSet, path::Path};
 
 use agentgate_server::{
     common::text,
-    models::{job_titles, roles, users, workspaces},
+    models::{job_titles, permission::Permission, roles, users, workspaces},
     services::auth::{oauth, password, password_change},
     views::{self, account, auth, errors::MESSAGE_KEYS},
 };
+use sea_orm::Iterable;
 
 fn fluent_keys() -> HashSet<String> {
     let src = std::fs::read_to_string("assets/i18n/id/main.ftl").unwrap();
@@ -71,12 +72,24 @@ fn every_validation_error_code_has_a_message() {
 }
 
 #[test]
+fn every_permission_has_label_and_description() {
+    let keys = fluent_keys();
+    for permission in Permission::iter() {
+        let (label, description) = views::roles::permission_keys(permission);
+        assert!(keys.contains(label), "{label}");
+        assert!(keys.contains(description), "{description}");
+    }
+}
+
+#[test]
 fn every_auth_message_key_has_a_translation() {
     let keys = fluent_keys();
     let missing: Vec<_> = [
         auth::MESSAGE_KEYS,
         account::MESSAGE_KEYS,
         views::workspaces::MESSAGE_KEYS,
+        views::roles::MESSAGE_KEYS,
+        views::job_titles::MESSAGE_KEYS,
         oauth::ERROR_CODES,
     ]
     .concat()

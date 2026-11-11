@@ -3,7 +3,8 @@
 //! validasi). Memakai `Tenant`, jadi penolakan tenant (404, 2FA wajib) berlaku lebih dulu.
 //!
 //! Satu marker type per izin workspace (`Require<ManageMembers>`), ditambah
-//! [`AnySettings`] (salah satu izin yang punya halaman Pengaturan, untuk indeks Pengaturan).
+//! [`AnySettings`] (salah satu izin yang punya halaman Pengaturan, untuk indeks Pengaturan) dan
+//! [`ManageJobTitles`] (jabatan tim, aturan `ManageMembers`).
 //! Izin project
 //! (`AdministerProject`, `EditProject`, `ViewProject`) dicek per project lewat `ProjectAccess`
 //! (Task 12), bukan lewat role workspace, jadi tidak punya marker di sini.
@@ -58,6 +59,17 @@ pub struct AnySettings;
 impl PermissionMarker for AnySettings {
     fn allows(role: &roles::Model) -> bool {
         role.has_settings_access()
+    }
+}
+
+/// Marker `Require<ManageJobTitles>`: jabatan adalah atribut member, jadi dikelola pemegang
+/// `ManageMembers`.
+#[derive(Debug, Clone, Copy)]
+pub struct ManageJobTitles;
+
+impl PermissionMarker for ManageJobTitles {
+    fn allows(role: &roles::Model) -> bool {
+        role.has(Permission::ManageMembers)
     }
 }
 

@@ -1,7 +1,8 @@
 {#- Indeks Pengaturan workspace (role dengan salah satu izin Pengaturan). Variabel: action (path
     POST bagian Umum), form (views::workspaces::WorkspaceFormView, atau null bila role tidak
-    memegang ManageWorkspace), flash (dirender layout).
-    Bagian baru (anggota, role, tim: Task 10–12; 2FA wajib, hapus workspace: Task 13) ditambahkan
+    memegang ManageWorkspace), links ({roles, job_titles}: href atau null bila role tidak membuka
+    halaman itu), flash (dirender layout).
+    Bagian baru (anggota, tim: Task 11–12; 2FA wajib, hapus workspace: Task 13) ditambahkan
     di dalam [data-settings-index], masing-masing dengan flag izinnya sendiri dari controller. -#}
 {% extends "layouts/app.html" %}
 {% block title %}{{ t(key="workspace-settings-title", lang="id") }}{% endblock title %}
@@ -17,9 +18,23 @@
       </form>
     {% </card> %}
   </div>
-  {%- else %}
-  {#- Sampai bagian anggota/role/tim ada (Task 10–12), role tanpa ManageWorkspace melihat
-      penjelasan ini. -#}
+  {%- endif %}
+  {%- if links.roles %}
+  <div data-settings-roles>
+    {% <card title={t(key="settings-roles-title", lang="id")} description={t(key="settings-roles-description", lang="id")}> %}
+      <a href="{{ links.roles }}" class="btn" data-variant="outline">{{ t(key="settings-roles-open", lang="id") }}</a>
+    {% </card> %}
+  </div>
+  {%- endif %}
+  {%- if links.job_titles %}
+  <div data-settings-job-titles>
+    {% <card title={t(key="settings-job-titles-title", lang="id")} description={t(key="settings-job-titles-description", lang="id")}> %}
+      <a href="{{ links.job_titles }}" class="btn" data-variant="outline">{{ t(key="settings-job-titles-open", lang="id") }}</a>
+    {% </card> %}
+  </div>
+  {%- endif %}
+  {%- if not form and not links.roles and not links.job_titles %}
+  {#- Role yang hanya memegang izin tanpa halaman di sini (mis. ManageTeams sampai Task 12). -#}
   {{ <empty_state title={t(key="workspace-settings-empty-title", lang="id")} description={t(key="workspace-settings-empty-description", lang="id")} icon="settings" variant="dashed"/> }}
   {%- endif %}
 </div>
