@@ -34,6 +34,11 @@ pub enum AuditAction {
     MemberRemoved,
     #[sea_orm(string_value = "member.left")]
     MemberLeft,
+    #[sea_orm(string_value = "member.job_title_changed")]
+    MemberJobTitleChanged,
+    /// Undangan dibatalkan sebelum diterima (Pengaturan → Anggota).
+    #[sea_orm(string_value = "member.invitation_revoked")]
+    MemberInvitationRevoked,
     #[sea_orm(string_value = "role.created")]
     RoleCreated,
     #[sea_orm(string_value = "role.updated")]

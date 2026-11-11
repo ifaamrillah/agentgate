@@ -5,7 +5,10 @@ use std::{collections::HashSet, path::Path};
 use agentgate_server::{
     common::text,
     models::{job_titles, permission::Permission, roles, users, workspaces},
-    services::auth::{oauth, password, password_change},
+    services::{
+        auth::{oauth, password, password_change},
+        workspaces::{accept_invite, invite, membership},
+    },
     views::{self, account, auth, errors::MESSAGE_KEYS},
 };
 use sea_orm::Iterable;
@@ -65,6 +68,9 @@ fn every_validation_error_code_has_a_message() {
         job_titles::ERROR_CODES,
         password::ERROR_CODES,
         password_change::ERROR_CODES,
+        invite::ERROR_CODES,
+        accept_invite::ERROR_CODES,
+        membership::ERROR_CODES,
     ]
     .concat();
     let missing: Vec<_> = codes.iter().filter(|c| !keys.contains(**c)).collect();
@@ -90,6 +96,7 @@ fn every_auth_message_key_has_a_translation() {
         views::workspaces::MESSAGE_KEYS,
         views::roles::MESSAGE_KEYS,
         views::job_titles::MESSAGE_KEYS,
+        views::members::MESSAGE_KEYS,
         oauth::ERROR_CODES,
     ]
     .concat()

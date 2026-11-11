@@ -1,7 +1,8 @@
 //! Pengganti middleware `logger` Loco: span `http-request` yang sama (method, URI, versi,
-//! user agent, environment, request id), tetapi query string route yang membawa token di
-//! URL tidak pernah ditulis ke log (rules §7 Reset password). Loco mencatat `request.uri()`
-//! utuh, sehingga `?token=…` akan ikut di setiap baris log di dalam span request itu.
+//! user agent, environment, request id), tetapi token di URL tidak pernah ditulis ke log (rules
+//! §7 Reset password): query string route yang membawa token, dan segmen token di path
+//! undangan (`/invitations/{token}/…`). Loco mencatat `request.uri()` utuh, sehingga token akan
+//! ikut di setiap baris log di dalam span request itu.
 //!
 //! Dipasang lewat `stack.replace("logger", …)` di `App::middlewares`, di posisi yang sama
 //! dengan logger Loco, dan mengikuti `server.middlewares.logger.enable` yang sama.
@@ -23,8 +24,12 @@ use loco_rs::{
 use tracing::Instrument;
 
 /// Path yang query string-nya berisi token sekali pakai (email, atau `dev_login` yang setara
-/// password selama 10 menit). Callback OAuth (path dinamis) dicek `is_oauth_callback`.
-const TOKEN_PATHS: &[&str] = &["/verify-email", "/password/reset", "/_dev/login"];
+/// password selama 10 menit). `/login`: `return_to` dari halaman undangan berisi path
+/// undangan beserta tokennya. Callback OAuth (path dinamis) dicek `is_oauth_callback`.
+const TOKEN_PATHS: &[&str] = &["/verify-email", "/password/reset", "/_dev/login", "/login"];
+
+/// Prefix path yang segmen berikutnya adalah token undangan (`/invitations/{token}/…`).
+const INVITATION_PREFIX: &str = "/invitations/";
 
 pub struct RequestLog {
     enable: bool,
@@ -101,14 +106,34 @@ async fn layer(State(environment): State<Environment>, req: Request, next: Next)
     .await
 }
 
-/// URI untuk log: query string route bertoken diganti `[redacted]`.
+/// URI untuk log: query string route bertoken dan token undangan di path diganti
+/// `[redacted]`.
 fn logged_uri(uri: &Uri) -> String {
-    let path = uri.path();
+    let raw_path = uri.path();
+    let path = redacted_path(raw_path);
     match uri.query() {
-        Some(_) if TOKEN_PATHS.contains(&path) || is_oauth_callback(path) => {
+        Some(_)
+            if TOKEN_PATHS.contains(&raw_path)
+                || is_oauth_callback(raw_path)
+                || path != raw_path =>
+        {
             format!("{path}?[redacted]")
         }
-        _ => uri.to_string(),
+        Some(query) => format!("{path}?{query}"),
+        None => path,
+    }
+}
+
+/// Path untuk log: segmen token undangan (`/invitations/{token}/…`) diganti `[redacted]`.
+/// Dipakai juga log lain yang mencatat path (mis. penolakan CSRF).
+#[must_use]
+pub fn redacted_path(path: &str) -> String {
+    match path.strip_prefix(INVITATION_PREFIX) {
+        Some(rest) if !rest.is_empty() => {
+            let tail = rest.find('/').map_or("", |i| &rest[i..]);
+            format!("{INVITATION_PREFIX}[redacted]{tail}")
+        }
+        _ => path.to_string(),
     }
 }
 
@@ -148,5 +173,33 @@ mod tests {
         assert_eq!(logged_uri(&uri("/auth/google?x=1")), "/auth/google?x=1");
         assert_eq!(logged_uri(&uri("/verify-email")), "/verify-email");
         assert_eq!(logged_uri(&uri("/projects?tab=a")), "/projects?tab=a");
+    }
+
+    #[test]
+    fn invitation_tokens_in_the_path_are_redacted() {
+        let uri = |s: &str| s.parse::<Uri>().unwrap();
+        assert_eq!(
+            logged_uri(&uri("/invitations/s3cr3t")),
+            "/invitations/[redacted]"
+        );
+        assert_eq!(
+            logged_uri(&uri("/invitations/s3cr3t/register")),
+            "/invitations/[redacted]/register"
+        );
+        assert_eq!(
+            logged_uri(&uri("/invitations/s3cr3t/accept?x=1")),
+            "/invitations/[redacted]/accept?[redacted]"
+        );
+        assert_eq!(
+            redacted_path("/invitations/s3cr3t"),
+            "/invitations/[redacted]"
+        );
+        assert_eq!(redacted_path("/invitations"), "/invitations");
+        assert_eq!(redacted_path("/w/acme"), "/w/acme");
+        // `return_to` login dari halaman undangan membawa token.
+        assert_eq!(
+            logged_uri(&uri("/login?return_to=%2Finvitations%2Fs3cr3t")),
+            "/login?[redacted]"
+        );
     }
 }

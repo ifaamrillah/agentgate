@@ -11,9 +11,9 @@
 use loco_rs::validation::ModelValidationErrors;
 use sea_orm::{
     ActiveValue::Set,
-    IntoActiveModel, SqlErr,
+    IntoActiveModel, QuerySelect, SqlErr,
     entity::prelude::*,
-    sea_query::{ExprTrait, Func},
+    sea_query::{ExprTrait, Func, LockType},
 };
 use validator::{ValidationError, ValidationErrors};
 
@@ -117,6 +117,35 @@ impl Model {
             .filter(lower_slug().eq(slug.trim().to_lowercase()))
             .one(db)
             .await
+    }
+
+    /// Kunci baris workspace ini (`FOR NO KEY UPDATE`) sampai transaksi `txn` selesai. Dipakai
+    /// setiap perubahan keanggotaan yang bisa mengurangi Owner, supaya dua perubahan bersamaan
+    /// berjalan berurutan dan aturan "Owner terakhir" dihitung dari data terbaru. `NO KEY`:
+    /// insert anggota dan undangan (FK ke `workspaces`, `FOR KEY SHARE`) tidak ikut tertahan.
+    ///
+    /// # Errors
+    ///
+    /// Error database, termasuk `RecordNotFound` bila workspace sudah tidak ada.
+    pub async fn lock_for_membership<C: ConnectionTrait>(
+        txn: &C,
+        workspace_id: WorkspaceId,
+    ) -> Result<Self, DbErr> {
+        Entity::find_by_id(workspace_id.get())
+            .lock(LockType::NoKeyUpdate)
+            .one(txn)
+            .await?
+            .ok_or_else(|| DbErr::RecordNotFound("workspace".to_string()))
+    }
+
+    /// Workspace dengan id ini (mis. dari undangan). Hanya untuk jalur yang tidak punya
+    /// `Tenant`; halaman workspace memakai slug.
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn find_by_id<C: ConnectionTrait>(db: &C, id: Uuid) -> Result<Option<Self>, DbErr> {
+        Entity::find_by_id(id).one(db).await
     }
 
     /// Workspace boleh dibuka anggota dengan role `role`: selama dijadwalkan hapus, hanya

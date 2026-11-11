@@ -7,6 +7,7 @@ pub mod auth;
 pub mod dev;
 pub mod extractors;
 pub mod flash;
+pub mod invitations;
 pub mod middleware;
 pub mod public_routes;
 pub mod render;
@@ -17,6 +18,7 @@ pub fn routes(ctx: &AppContext) -> AppRoutes {
     let routes = AppRoutes::with_default_routes()
         .add_routes(auth::routes())
         .add_route(account::routes())
+        .add_route(invitations::routes())
         .add_route(workspaces::routes());
     add_dev_routes(routes, &ctx.environment)
 }

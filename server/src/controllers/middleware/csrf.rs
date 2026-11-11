@@ -24,7 +24,10 @@ pub async fn layer(req: Request, next: Next) -> Response {
     if is_allowed(req.method(), req.uri().path(), req.headers()) {
         next.run(req).await
     } else {
-        tracing::warn!(path = %req.uri().path(), "cross-origin request rejected");
+        tracing::warn!(
+            path = %super::request_log::redacted_path(req.uri().path()),
+            "cross-origin request rejected"
+        );
         StatusCode::FORBIDDEN.into_response()
     }
 }

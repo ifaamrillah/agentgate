@@ -193,3 +193,15 @@ pub async fn add_member(
         .await
         .unwrap()
 }
+
+/// Role bawaan `key` di `workspace`.
+pub async fn builtin_role(
+    ctx: &AppContext,
+    workspace: &workspaces::Model,
+    key: RoleKey,
+) -> roles::Model {
+    roles::Model::find_builtin(&ctx.db, workspace.workspace_id(), key)
+        .await
+        .unwrap()
+        .unwrap()
+}

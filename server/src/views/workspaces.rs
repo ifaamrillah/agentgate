@@ -72,6 +72,7 @@ pub fn home(v: &impl ViewRenderer, shell: &AppShell, name: &str) -> Result<Respo
 /// Tautan ke halaman Pengaturan lain di indeks; `None` bila role tidak membuka halaman itu.
 #[derive(Debug, Default, Serialize)]
 pub struct SettingsLinks {
+    pub members: Option<String>,
     pub roles: Option<String>,
     pub job_titles: Option<String>,
 }

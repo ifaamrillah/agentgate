@@ -66,13 +66,15 @@ impl WorkspaceLink {
     }
 }
 
-/// Workspace yang sedang dibuka: judul switcher, tujuan Beranda, dan Pengaturan.
+/// Workspace yang sedang dibuka: judul switcher, tujuan Beranda, Pengaturan, dan "Keluar dari
+/// workspace" (menu profil, terbuka untuk semua anggota).
 #[derive(Debug, Clone, Serialize)]
 pub struct WorkspaceView {
     pub name: String,
     pub slug: String,
     pub href: String,
     pub settings_href: String,
+    pub leave_href: String,
 }
 
 impl WorkspaceView {
@@ -83,6 +85,7 @@ impl WorkspaceView {
             slug: slug.to_string(),
             href: workspace_href(slug),
             settings_href: format!("{}/settings", workspace_href(slug)),
+            leave_href: format!("{}/leave", workspace_href(slug)),
         }
     }
 }

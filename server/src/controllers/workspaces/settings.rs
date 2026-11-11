@@ -1,13 +1,13 @@
 //! `GET /w/{slug}/settings`: indeks Pengaturan, terbuka untuk role yang memegang salah satu izin
 //! Pengaturan (`Require<AnySettings>`, sama dengan tautan di sidebar). Setiap bagian tampil
-//! sesuai izinnya sendiri: nama/slug (`ManageWorkspace`), tautan Role (`ManageRoles`) dan
-//! Jabatan (`ManageMembers`); anggota dan tim (Task 11–12) menambah bagiannya di sini, 2FA wajib
-//! dan hapus workspace di Task 13.
+//! sesuai izinnya sendiri: nama/slug (`ManageWorkspace`), tautan Anggota dan Jabatan
+//! (`ManageMembers`) dan Role (`ManageRoles`); tim (Task 12) menambah bagiannya di sini, 2FA
+//! wajib dan hapus workspace di Task 13.
 //! `POST /w/{slug}/settings` mengubah nama/slug dan butuh `ManageWorkspace`.
 use axum::http::StatusCode;
 use loco_rs::prelude::*;
 
-use super::{WorkspaceForm, job_titles, roles, settings_path};
+use super::{WorkspaceForm, job_titles, members, roles, settings_path};
 use crate::{
     controllers::{
         extractors::{
@@ -53,6 +53,7 @@ pub(super) async fn show(
 /// Tautan ke halaman Pengaturan lain, masing-masing menurut guard halaman itu sendiri.
 fn links(tenant: &Tenant) -> SettingsLinks {
     SettingsLinks {
+        members: members::settings_link(tenant),
         roles: roles::settings_link(tenant),
         job_titles: job_titles::settings_link(tenant),
     }

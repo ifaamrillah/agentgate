@@ -25,7 +25,7 @@ const PREFIXES: &[&str] = &[
     "/password",
     // OAuth: redirect ke provider dan callback-nya (M1 Task 7).
     "/auth",
-    // Halaman undangan dibuka sebelum login (M1 Task 8).
+    // Halaman undangan dibuka sebelum login; token di path (M1 Task 11).
     "/invitations",
     "/static",
     // Katalog UI, hanya ada di build debug (development/test).

@@ -1,0 +1,18 @@
+{#- Konfirmasi keluarkan anggota (pengganti dialog konfirmasi, tanpa JS). Variabel: member
+    (views::members::MemberRow: name, email, role_name, remove_href = action POST), back (path
+    halaman anggota). -#}
+{% extends "layouts/app.html" %}
+{% block title %}{{ t(key="member-remove-title", lang="id") }}{% endblock title %}
+{% block content %}
+<div class="mx-auto grid max-w-xl gap-6" data-member-remove>
+  {% <card title={t(key="member-remove-title", lang="id")}> %}
+    <p class="text-sm">{{ t(key="member-remove-body", lang="id", name=member.name, email=member.email) }}</p>
+    <div class="mt-6 flex flex-wrap gap-2">
+      <form method="post" action="{{ member.remove_href }}">
+        {{ <button label={t(key="member-remove", lang="id")} variant="destructive" type="submit"/> }}
+      </form>
+      <a href="{{ back }}" class="btn" data-variant="outline">{{ t(key="member-cancel", lang="id") }}</a>
+    </div>
+  {% </card> %}
+</div>
+{% endblock content %}

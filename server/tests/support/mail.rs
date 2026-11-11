@@ -37,3 +37,16 @@ pub fn token_in(message: &str, path: &str) -> Option<String> {
         .collect();
     (!token.is_empty()).then_some(token)
 }
+
+/// Token mentah di link undangan `/invitations/<token>` di dalam `message`, bila ada (token
+/// ada di path, bukan query string).
+#[must_use]
+pub fn invitation_token_in(message: &str) -> Option<String> {
+    let marker = "/invitations/";
+    let start = message.find(marker)? + marker.len();
+    let token: String = message[start..]
+        .chars()
+        .take_while(|c| c.is_ascii_alphanumeric() || *c == '-' || *c == '_')
+        .collect();
+    (!token.is_empty()).then_some(token)
+}

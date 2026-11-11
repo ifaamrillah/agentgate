@@ -5,7 +5,9 @@ use loco_rs::prelude::*;
 use serde::Deserialize;
 
 mod home;
+mod invitations;
 mod job_titles;
+mod members;
 mod roles;
 mod settings;
 
@@ -23,6 +25,18 @@ fn settings_path(slug: &str) -> String {
     format!("/w/{slug}/settings")
 }
 
+fn members_path(slug: &str) -> String {
+    format!("/w/{slug}/settings/members")
+}
+
+fn invitations_path(slug: &str) -> String {
+    format!("/w/{slug}/settings/members/invitations")
+}
+
+fn leave_path(slug: &str) -> String {
+    format!("/w/{slug}/leave")
+}
+
 fn roles_path(slug: &str) -> String {
     format!("/w/{slug}/settings/roles")
 }
@@ -38,8 +52,38 @@ pub fn routes() -> Routes {
         .add("/w/new", get(home::new).post(home::create))
         .add("/w/{slug}", get(home::show))
         .add(
+            "/w/{slug}/leave",
+            get(members::confirm_leave).post(members::leave),
+        )
+        .add(
             "/w/{slug}/settings",
             get(settings::show).post(settings::update),
+        )
+        .add("/w/{slug}/settings/members", get(members::index))
+        // Rute statis `invitations` menang atas `{id}`.
+        .add(
+            "/w/{slug}/settings/members/invitations",
+            post(invitations::create),
+        )
+        .add(
+            "/w/{slug}/settings/members/invitations/{id}/resend",
+            post(invitations::resend),
+        )
+        .add(
+            "/w/{slug}/settings/members/invitations/{id}/revoke",
+            post(invitations::revoke),
+        )
+        .add(
+            "/w/{slug}/settings/members/{id}/role",
+            post(members::change_role),
+        )
+        .add(
+            "/w/{slug}/settings/members/{id}/job-title",
+            post(members::set_job_title),
+        )
+        .add(
+            "/w/{slug}/settings/members/{id}/remove",
+            get(members::confirm_remove).post(members::remove),
         )
         .add("/w/{slug}/settings/roles", get(roles::index))
         // Rute statis `new` menang atas `{id}`.

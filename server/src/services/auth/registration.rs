@@ -119,8 +119,13 @@ pub async fn create_account(
     }
 }
 
-/// Semua aturan field form daftar sekaligus: email dan nama (model), panjang password.
-fn validate(form: &Registration) -> std::result::Result<(), ModelValidationErrors> {
+/// Semua aturan field form daftar sekaligus: email dan nama (model), panjang password. Juga
+/// dipakai daftar lewat undangan (`services::workspaces::accept_invite::register`).
+///
+/// # Errors
+///
+/// Kode error per field (`email`, `name`, `password`).
+pub fn validate(form: &Registration) -> std::result::Result<(), ModelValidationErrors> {
     let mut errors = users::check_new(&form.email, &form.name)
         .err()
         .map_or_else(Default::default, |e| e.errors);

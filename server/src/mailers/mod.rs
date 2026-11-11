@@ -19,6 +19,7 @@ use tera::{Context, Tera};
 use crate::common::{i18n, settings::Settings};
 
 pub mod auth;
+pub mod invitation;
 
 /// Glob semua template email. Nama template relatif terhadap `assets/views/mailers/`
 /// (mis. `auth/verify/html.t`), sehingga `html.t` bisa `extends "_layout.html.t"`.

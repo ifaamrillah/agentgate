@@ -33,8 +33,12 @@ pub const ROLE_PERMISSION_NOT_HELD: &str = "role-permission-not-held";
 pub const ROLE_BUILTIN: &str = "role-builtin";
 /// Role masih dipegang member atau undangan aktif ([`RoleError::InUse`]).
 pub const ROLE_IN_USE: &str = "role-in-use";
+/// Pelaku memberi atau mencabut role yang tidak boleh ia berikan ([`can_assign`]): mengundang
+/// dengan role itu, mengganti role member dari/ke role itu, atau mengeluarkan pemegangnya.
+pub const MEMBER_ROLE_NOT_ASSIGNABLE: &str = "member-role-not-assignable";
 /// Kode error milik model ini; masing-masing punya pesan di Fluent (dijaga tes i18n).
 pub const ERROR_CODES: &[&str] = &[
+    MEMBER_ROLE_NOT_ASSIGNABLE,
     ROLE_NAME_TAKEN,
     ROLE_PERMISSIONS_EMPTY,
     ROLE_PERMISSION_UNKNOWN,
@@ -147,6 +151,21 @@ pub fn ensure_permissions_grantable(
     } else {
         Err(field_error("permissions", ROLE_PERMISSION_NOT_HELD))
     }
+}
+
+/// Satu-satunya aturan "role ini boleh diberikan atau dicabut oleh pelaku": role Owner hanya
+/// oleh Owner, role lain hanya bila setiap izinnya dipegang role pelaku (`actor`), aturan yang
+/// sama dengan [`ensure_permissions_grantable`] untuk penugasan. Berlaku untuk role tujuan
+/// (undang, ganti role) dan role asal member (ganti role, keluarkan), sehingga non-Owner tidak
+/// bisa menurunkan atau mengeluarkan Owner maupun pemegang izin yang tidak ia punya.
+#[must_use]
+pub fn can_assign(actor: &Model, role: &Model) -> bool {
+    if role.is_owner() {
+        return actor.is_owner();
+    }
+    role.permissions
+        .iter()
+        .all(|p| actor.permissions.contains(p))
 }
 
 /// Isian izin dari form menjadi [`Permission`]. Nilai tak dikenal ditolak (bukan diabaikan),
@@ -460,5 +479,25 @@ mod tests {
         assert!(!check(&[ViewAuditLog, ViewProject], &[ViewProject]));
         let owner = role_holding(&Permission::iter().collect::<Vec<_>>());
         assert!(ensure_permissions_grantable(&owner, &[ViewAuditLog], &[ManageWorkspace]).is_ok());
+    }
+
+    #[test]
+    fn only_owner_assigns_owner_and_others_assign_held_permissions() {
+        use Permission::{ManageMembers, ManageWorkspace, ViewProject};
+        let all: Vec<Permission> = Permission::iter().collect();
+        let mut owner = role_holding(&all);
+        owner.key = Some(RoleKey::Owner.to_value());
+        // Role custom berizin lengkap tetap bukan Owner.
+        let full_custom = role_holding(&all);
+        let admin = role_holding(&[ManageMembers, ViewProject]);
+        let viewer = role_holding(&[ViewProject]);
+
+        assert!(can_assign(&owner, &owner));
+        assert!(!can_assign(&full_custom, &owner));
+        assert!(can_assign(&full_custom, &full_custom));
+        assert!(can_assign(&admin, &viewer));
+        assert!(can_assign(&admin, &admin));
+        assert!(!can_assign(&admin, &role_holding(&[ManageWorkspace])));
+        assert!(!can_assign(&viewer, &admin));
     }
 }

@@ -128,7 +128,7 @@ const UP: &[&str] = &[
             'workspace.created', 'workspace.updated', 'workspace.require_2fa_changed',
             'workspace.deletion_scheduled', 'workspace.deletion_cancelled',
             'member.invited', 'member.joined', 'member.role_changed', 'member.removed',
-            'member.left',
+            'member.left', 'member.job_title_changed', 'member.invitation_revoked',
             'role.created', 'role.updated', 'role.deleted',
             'job_title.created', 'job_title.updated', 'job_title.deleted',
             'team.created', 'team.updated', 'team.deleted', 'team.member_added',
