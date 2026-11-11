@@ -46,6 +46,7 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 | 2026-11-11 | Wajib 2FA dan hapus workspace hanya untuk Owner bawaan; hapus perlu ketik slug, tenggat 30 hari, purge oleh task `cleanup` 03:00 UTC (10:00 WIB) | Aksi paling berisiko tetap di tangan pemilik |
 | 2026-11-11 | Audit log ditulis di transaksi yang sama dengan perubahannya; kolom `changes` jsonb bebas bentuk | Payload berbeda per aksi |
 | 2026-11-11 | `bin/dev` menjalankan server + worker antrean (`--server-and-worker`); scheduler tidak jalan di dev | Email dev harus sampai ke Mailpit |
+| 2026-11-12 | Tata letak per halaman dipilih user (1A, 2A+card, 3B, 4A, 5A, 6C, 7A, 8B): kerangka `layouts/{project,project_settings,settings,account}.html`, layar masuk terbelah | Detail di `docs/reference/design-system.md` § Tata letak per halaman |
 
 ## Temuan spike yang mengubah rencana
 

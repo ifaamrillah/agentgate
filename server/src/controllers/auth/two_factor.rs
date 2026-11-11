@@ -141,7 +141,7 @@ async fn settings(
         let remaining = recovery_codes::count_unused(&ctx.db, user.id).await?;
         return views::account::two_factor_status(
             &v,
-            &app_shell(&ctx, &user, None, None).await?,
+            &app_shell(&ctx, &user, None, None).await?.at("two_factor"),
             remaining,
             None,
             StatusCode::OK,
@@ -164,7 +164,7 @@ async fn settings(
     };
     let res = views::account::two_factor_setup(
         &v,
-        &app_shell(&ctx, &user, None, None).await?,
+        &app_shell(&ctx, &user, None, None).await?.at("two_factor"),
         &page,
         StatusCode::OK,
     )?;
@@ -188,7 +188,7 @@ async fn confirm(
             let session = session.remove(SETUP_SECRET);
             let res = views::account::recovery_codes(
                 &v,
-                &app_shell(&ctx, &user, None, None).await?,
+                &app_shell(&ctx, &user, None, None).await?.at("two_factor"),
                 &codes,
             )?;
             Ok((session, res).into_response())
@@ -215,7 +215,7 @@ async fn confirm(
             };
             let res = views::account::two_factor_setup(
                 &v,
-                &app_shell(&ctx, &user, None, None).await?,
+                &app_shell(&ctx, &user, None, None).await?.at("two_factor"),
                 &page,
                 StatusCode::UNPROCESSABLE_ENTITY,
             )?;
@@ -263,7 +263,7 @@ async fn disable(
     let remaining = recovery_codes::count_unused(&ctx.db, user.id).await?;
     views::account::two_factor_status(
         &v,
-        &app_shell(&ctx, &user, None, None).await?,
+        &app_shell(&ctx, &user, None, None).await?.at("two_factor"),
         remaining,
         Some(&errors),
         status,
@@ -283,9 +283,11 @@ async fn regenerate_recovery_codes(
     CurrentUser(user): CurrentUser,
 ) -> Result<Response> {
     match totp::regenerate_recovery_codes(&ctx, &user).await? {
-        Some(codes) => {
-            views::account::recovery_codes(&v, &app_shell(&ctx, &user, None, None).await?, &codes)
-        }
+        Some(codes) => views::account::recovery_codes(
+            &v,
+            &app_shell(&ctx, &user, None, None).await?.at("two_factor"),
+            &codes,
+        ),
         None => format::redirect(SETTINGS),
     }
 }

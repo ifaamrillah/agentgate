@@ -1,10 +1,10 @@
 {#- Form buat/ubah role custom. Variabel: form (views::roles::RoleFormView), action (path POST),
     back_href (daftar role), title_key dan submit_key (kunci Fluent judul dan tombol: buat atau
     ubah). -#}
-{% extends "layouts/app.html" %}
+{% extends "layouts/settings.html" %}
 {% block title %}{{ t(key=title_key, lang="id") }}{% endblock title %}
-{% block content %}
-<div class="mx-auto grid max-w-2xl gap-6">
+{% block settings_content %}
+<div class="grid max-w-3xl gap-6">
   {% <page_header title={t(key=title_key, lang="id")}> %}
     <a href="{{ back_href }}" class="btn" data-variant="ghost">{{ t(key="role-back", lang="id") }}</a>
   {% </page_header> %}
@@ -15,4 +15,4 @@
     </form>
   {% </card> %}
 </div>
-{% endblock content %}
+{% endblock settings_content %}

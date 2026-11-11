@@ -1,0 +1,23 @@
+{#- Kerangka halaman Akun: menu kiri (Profil, Password, Autentikasi dua langkah) dan isi.
+    Block: title, account_content (judul halaman + isi, di kolom kanan).
+    Variabel: shell (lihat layouts/app.html): user, section (bagian aktif: profile, password,
+    two_factor). -#}
+{% extends "layouts/app.html" %}
+{% block content %}
+<div class="grid gap-6 md:grid-cols-[13rem_minmax(0,1fr)] md:gap-8" data-account-page>
+  <div class="grid content-start gap-3">
+    <div class="grid gap-0.5 px-3">
+      <span class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{{ t(key="account-title", lang="id") }}</span>
+      <span class="truncate text-sm font-medium">{{ shell.user.name }}</span>
+    </div>
+    <nav class="ag-subnav" aria-label="{{ t(key="account-title", lang="id") }}" data-account-nav>
+      <a href="/account"{% if shell.section == "profile" %} aria-current="page"{% endif %}>{{ icon(name="user", class="size-4") }}{{ t(key="account-profile", lang="id") }}</a>
+      <a href="/account/password"{% if shell.section == "password" %} aria-current="page"{% endif %}>{{ icon(name="lock", class="size-4") }}{{ t(key="account-password", lang="id") }}</a>
+      <a href="/account/2fa"{% if shell.section == "two_factor" %} aria-current="page"{% endif %}>{{ icon(name="shield-check", class="size-4") }}{{ t(key="account-two-factor", lang="id") }}</a>
+    </nav>
+  </div>
+  <div class="grid min-w-0 max-w-3xl content-start gap-6">
+    {% block account_content %}{% endblock account_content %}
+  </div>
+</div>
+{% endblock content %}

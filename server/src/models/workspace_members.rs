@@ -77,6 +77,18 @@ impl Model {
         Ok(found.and_then(|(member, role)| role.map(|role| (member, role))))
     }
 
+    /// Jumlah anggota workspace (statistik beranda).
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn count_in<C: ConnectionTrait>(
+        db: &C,
+        workspace_id: WorkspaceId,
+    ) -> Result<u64, DbErr> {
+        Entity::find().in_tenant(workspace_id).count(db).await
+    }
+
     /// Semua anggota workspace beserta user dan role-nya, urut waktu bergabung.
     ///
     /// # Errors

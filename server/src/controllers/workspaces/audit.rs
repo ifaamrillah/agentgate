@@ -29,6 +29,9 @@ pub struct AuditQuery {
     group: String,
     #[serde(default)]
     before: String,
+    /// Kejadian yang detailnya dibuka di panel (id di halaman ini; selain itu baris pertama).
+    #[serde(default)]
+    event: String,
 }
 
 pub(super) fn audit_path(slug: &str) -> String {
@@ -72,22 +75,35 @@ pub(super) async fn index(
     actor_ids.sort_unstable();
     actor_ids.dedup();
     let names = users::Model::names_by_id(&ctx.db, &actor_ids).await?;
+    let base = audit_path(&tenant.workspace.slug);
+    let here = page_href(&base, group, before.as_ref());
+    let sep = if here.contains('?') { '&' } else { '?' };
     let rows: Vec<AuditRow> = page
         .events
         .iter()
         .map(|e| {
             let actor = e.actor_id.and_then(|id| names.get(&id)).map(String::as_str);
-            AuditRow::new(e, actor)
+            let mut row = AuditRow::new(e, actor);
+            row.href = format!("{here}{sep}event={}", row.id);
+            row
         })
         .collect();
-    let base = audit_path(&tenant.workspace.slug);
+    let wanted = query.event.trim();
+    let selected = rows
+        .iter()
+        .find(|r| r.id == wanted)
+        .or_else(|| rows.first())
+        .map_or("", |r| r.id.as_str());
     let groups = views::audit::group_options(group);
-    let shell = app_shell(&ctx, &tenant.user, Some(tenant), None).await?;
+    let shell = app_shell(&ctx, &tenant.user, Some(tenant), None)
+        .await?
+        .at("audit");
     views::audit::index(
         &v,
         &shell,
         &AuditPageView {
             rows: &rows,
+            selected,
             groups: &groups,
             action: &base,
             older_href: page.next.as_ref().map(|c| page_href(&base, group, Some(c))),

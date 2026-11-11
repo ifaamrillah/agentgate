@@ -32,6 +32,25 @@ Acuan wajib untuk semua layar. Katalog hidup: `/_dev/ui` (development). Keputusa
 | Tombol utama | Solid indigo-600, teks putih |
 | Avatar | Kotak membulat, inisial indigo-700 di atas indigo-100 |
 
+## Tata letak per halaman (pilihan user, 2026-11-12)
+
+Opsi dari artifact "Agent Gate – Opsi Layout per Halaman". Halaman baru mengikuti pola yang sama.
+
+| Halaman | Pola | Kerangka |
+|---|---|---|
+| Halaman project | Kepala project (kunci di kotak tint, nama, deskripsi, akses) + tab bergaris bawah (Ringkasan, Board/Backlog/Knowledge/AI Office, Pengaturan); Ringkasan = board 2/3 + kolom Repo & Tentang project | `layouts/project.html` |
+| Pengaturan project | Tab project + menu kiri (Umum, Akses, Repo); isi dibungkus satu card putih dengan baris label (`ag-setting-row`: judul + penjelasan kiri, isian kanan); zona bahaya card merah (`ag-card-danger`) | `layouts/project_settings.html` |
+| Beranda workspace | Kartu statistik + tabel project dalam card | `workspaces/home.html` |
+| Pengaturan workspace (dan Anggota, Tim, Jabatan, Role, Audit log) | Menu kiri (`ag-subnav`) dari `shell.settings`, bagian aktif `shell.section` | `layouts/settings.html` |
+| Anggota | Tabel dalam card + menu aksi per baris (popover Basecoat: role, jabatan, keluarkan); undang = panel lipat `<details>` | `workspaces/members/index.html` |
+| Audit log | Tabel + panel detail kejadian terpilih (`?event=`, default baris pertama) | `workspaces/audit.html` |
+| Akun | Menu kiri (Profil, Password, Autentikasi dua langkah) | `layouts/account.html` |
+| Masuk/daftar/undangan/reset | Layar terbelah: panel merek indigo-900 (layar lebar) + form | `auth/_layout_card.html` |
+
+Komponen pola ada di `css/components/layout.css`: `ag-tabs` (tab link, `aria-current="page"`),
+`ag-subnav` (menu kiri, jadi baris geser di HP), `ag-setting-row`, `tr[aria-selected]`. Tabel di dalam
+card memakai `card py-0` (padding kolom tepi otomatis); card berisi popover diberi `overflow-visible`.
+
 ## Status (badge `variant`)
 
 | Variant | Arti | Latar / teks |

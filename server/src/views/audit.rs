@@ -99,6 +99,8 @@ pub struct AuditRow {
     pub actor: Option<String>,
     pub subject_key: String,
     pub summary: Vec<SummaryItem>,
+    /// Path halaman ini dengan baris ini terpilih (panel detail), diisi controller.
+    pub href: String,
 }
 
 impl AuditRow {
@@ -115,6 +117,7 @@ impl AuditRow {
             actor: actor.map(str::to_string),
             subject_key: event.subject().map_or_else(|_| String::new(), subject_key),
             summary: summarize(&event.changes),
+            href: String::new(),
         }
     }
 }
@@ -187,6 +190,9 @@ fn display(value: &serde_json::Value) -> SummaryValue {
 #[derive(Debug, Serialize)]
 pub struct AuditPageView<'a> {
     pub rows: &'a [AuditRow],
+    /// Id baris yang detailnya ditampilkan di panel (`?event=`, default baris pertama); `""`
+    /// bila tidak ada baris.
+    pub selected: &'a str,
     pub groups: &'a [GroupOption],
     /// Path halaman (form filter, link "Semua").
     pub action: &'a str,

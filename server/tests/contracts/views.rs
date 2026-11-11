@@ -48,7 +48,11 @@ fn render_home(shell: &AppShell) -> String {
         .unwrap()
         .render(
             "workspaces/home.html",
-            serde_json::json!({ "shell": shell, "workspace_name": "Acme" }),
+            serde_json::json!({
+                "shell": shell,
+                "workspace_name": "Acme",
+                "stats": { "active_projects": 2, "archived_projects": 0, "members": 3, "teams": 1 },
+            }),
         )
         .unwrap()
 }

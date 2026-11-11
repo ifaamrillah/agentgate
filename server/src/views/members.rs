@@ -74,6 +74,8 @@ pub struct MemberRow {
     pub id: String,
     pub name: String,
     pub email: String,
+    /// Inisial avatar (lihat `views::layout::UserView`).
+    pub initials: String,
     pub role_id: String,
     pub role_name: String,
     /// Id jabatan, `""` bila tanpa jabatan (nilai opsi "tanpa jabatan").
@@ -101,6 +103,7 @@ impl MemberRow {
             id: member.id.to_string(),
             name: user.name.clone(),
             email: user.email.clone(),
+            initials: super::layout::UserView::new(&user.name, &user.email).initials,
             role_id: role.id.to_string(),
             role_name: role.name.clone(),
             job_title_id: job_title.map(|t| t.id.to_string()).unwrap_or_default(),

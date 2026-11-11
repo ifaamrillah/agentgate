@@ -1,10 +1,10 @@
 {#- Pengaturan → Jabatan. Variabel: titles ([views::job_titles::JobTitleRow]: field_id, name,
     action (POST ganti nama), delete_action, error {code, min, max}), create (form tambah: name,
     errors.name), action (POST tambah), flash (dirender layout). -#}
-{% extends "layouts/app.html" %}
+{% extends "layouts/settings.html" %}
 {% block title %}{{ t(key="settings-job-titles-title", lang="id") }}{% endblock title %}
-{% block content %}
-<div class="mx-auto grid max-w-2xl gap-6" data-job-titles-index>
+{% block settings_content %}
+<div class="grid max-w-3xl gap-6" data-job-titles-index>
   {{ <page_header title={t(key="settings-job-titles-title", lang="id")} description={t(key="settings-job-titles-description", lang="id")}/> }}
   {% <card title={t(key="job-title-add", lang="id")}> %}
     <form method="post" action="{{ action }}" class="form flex flex-wrap items-end gap-3">
@@ -32,4 +32,4 @@
   {{ <empty_state title={t(key="job-titles-empty-title", lang="id")} description={t(key="job-titles-empty-description", lang="id")} icon="" variant="dashed"/> }}
   {%- endif %}
 </div>
-{% endblock content %}
+{% endblock settings_content %}

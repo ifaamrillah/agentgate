@@ -76,7 +76,9 @@ async fn render_index(
         .iter()
         .map(|team| TeamLink::new(team, &base))
         .collect();
-    let shell = app_shell(ctx, &tenant.user, Some(tenant), None).await?;
+    let shell = app_shell(ctx, &tenant.user, Some(tenant), None)
+        .await?
+        .at("teams");
     views::teams::index(v, &shell, &teams, create, &base, flash, status)
 }
 
@@ -109,7 +111,9 @@ async fn render_team(
         candidates,
         flash,
     );
-    let shell = app_shell(ctx, &tenant.user, Some(tenant), None).await?;
+    let shell = app_shell(ctx, &tenant.user, Some(tenant), None)
+        .await?
+        .at("teams");
     views::teams::show(v, &shell, &page, status)
 }
 

@@ -12,3 +12,22 @@
     border-radius: var(--radius-lg);
   }
 }
+
+/* Card zona berbahaya (hapus, arsipkan): garis merah muda. */
+@layer components {
+  .card.ag-card-danger {
+    --tw-ring-color: var(--ag-status-danger-bg);
+    box-shadow: 0 0 0 1px var(--ag-status-danger-bg);
+  }
+}
+
+/* Tabel di dalam card: kolom pertama/terakhir sejajar dengan padding card. */
+@layer components {
+  .card .table :is(th, td):first-child {
+    padding-inline-start: 1.5rem;
+  }
+
+  .card .table :is(th, td):last-child {
+    padding-inline-end: 1.5rem;
+  }
+}

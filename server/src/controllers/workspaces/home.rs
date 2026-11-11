@@ -11,9 +11,12 @@ use crate::{
         },
         shell::app_shell,
     },
-    models::workspaces::WorkspaceError,
+    models::{teams, workspace_members, workspaces::WorkspaceError},
     services::workspaces::create::{self, NewWorkspace},
-    views::{self, workspaces::WorkspaceFormView},
+    views::{
+        self,
+        workspaces::{HomeStats, WorkspaceFormView},
+    },
 };
 
 const NEW: &str = "/w/new";
@@ -84,5 +87,18 @@ pub(super) async fn show(
     let shell = app_shell(&ctx, &tenant.user, Some(&tenant), None).await?;
     let create = CreateProjects::allows(&tenant.role)
         .then(|| crate::controllers::projects::new_project_path(&tenant.workspace.slug));
-    views::workspaces::home(&v, &shell, &tenant.workspace.name, create.as_deref())
+    let archived = shell.projects.iter().filter(|p| p.archived).count();
+    let stats = HomeStats {
+        active_projects: shell.projects.len() - archived,
+        archived_projects: archived,
+        members: workspace_members::Model::count_in(&ctx.db, tenant.workspace_id()).await?,
+        teams: teams::Model::count_in(&ctx.db, tenant.workspace_id()).await?,
+    };
+    views::workspaces::home(
+        &v,
+        &shell,
+        &tenant.workspace.name,
+        create.as_deref(),
+        &stats,
+    )
 }

@@ -70,6 +70,15 @@ pub fn new(
     )
 }
 
+/// Statistik beranda workspace. Project = yang bisa dibuka user (`shell.projects`).
+#[derive(Debug, Serialize)]
+pub struct HomeStats {
+    pub active_projects: usize,
+    pub archived_projects: usize,
+    pub members: u64,
+    pub teams: u64,
+}
+
 /// Beranda workspace: daftar project yang bisa dibuka (`shell.projects`, sama dengan
 /// sidebar). `create_href` = form buat project, `None` bila role tidak memegang
 /// `CreateProjects`.
@@ -78,25 +87,16 @@ pub fn home(
     shell: &AppShell,
     name: &str,
     create_href: Option<&str>,
+    stats: &HomeStats,
 ) -> Result<Response> {
     format::render().view(
         v,
         "workspaces/home.html",
         app_page(
             shell,
-            data!({ "workspace_name": name, "create_href": create_href }),
+            data!({ "workspace_name": name, "create_href": create_href, "stats": stats }),
         ),
     )
-}
-
-/// Tautan ke halaman Pengaturan lain di indeks; `None` bila role tidak membuka halaman itu.
-#[derive(Debug, Default, Serialize)]
-pub struct SettingsLinks {
-    pub members: Option<String>,
-    pub roles: Option<String>,
-    pub job_titles: Option<String>,
-    pub teams: Option<String>,
-    pub audit: Option<String>,
 }
 
 /// Toggle "Wajibkan 2FA": `enabled` = status sekarang; form mengirim kebalikannya.
@@ -124,12 +124,11 @@ pub struct DangerZoneView {
 }
 
 /// Indeks Pengaturan. `form` = bagian Umum (nama, slug), `None` bila role tidak memegang
-/// `ManageWorkspace`; `links` = bagian lain yang boleh dibuka role; `danger` = zona berbahaya.
+/// `ManageWorkspace`; `danger` = zona berbahaya. Bagian lain ada di menu kiri (`shell.settings`).
 #[derive(Debug, Serialize)]
 pub struct SettingsPage<'a> {
     pub action: &'a str,
     pub form: Option<&'a WorkspaceFormView>,
-    pub links: &'a SettingsLinks,
     pub danger: &'a DangerZoneView,
 }
 
@@ -148,7 +147,6 @@ pub fn settings(
             data!({
                 "action": page.action,
                 "form": page.form,
-                "links": page.links,
                 "danger": page.danger,
                 "flash": flash,
             }),

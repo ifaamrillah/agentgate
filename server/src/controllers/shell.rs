@@ -37,7 +37,11 @@ pub async fn app_shell(
     let projects = projects::Model::accessible_for(&ctx.db, &tenant.accessor())
         .await?
         .iter()
-        .map(|p| ProjectLink::new(slug, &p.name, &p.key).archived(p.is_archived()))
+        .map(|p| {
+            ProjectLink::new(slug, &p.name, &p.key)
+                .archived(p.is_archived())
+                .described(&p.description)
+        })
         .collect();
     let shell = shell
         .with_current_workspace(
@@ -45,6 +49,12 @@ pub async fn app_shell(
                 .scheduled_for_deletion(tenant.workspace.purge_starts_at().as_ref()),
         )
         .can_manage_workspace(tenant.role.has_settings_access())
+        .with_settings(
+            tenant
+                .role
+                .has_settings_access()
+                .then(|| super::workspaces::settings_links(tenant)),
+        )
         .with_projects(projects);
     Ok(match project {
         Some(access) => shell.with_current_project(

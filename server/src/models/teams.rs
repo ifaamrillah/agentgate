@@ -82,6 +82,18 @@ impl Model {
             .await
     }
 
+    /// Jumlah tim workspace (statistik beranda).
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn count_in<C: ConnectionTrait>(
+        db: &C,
+        workspace_id: WorkspaceId,
+    ) -> Result<u64, DbErr> {
+        Entity::find().in_tenant(workspace_id).count(db).await
+    }
+
     /// Tim `id` di workspace ini; tim workspace lain tidak ditemukan.
     ///
     /// # Errors

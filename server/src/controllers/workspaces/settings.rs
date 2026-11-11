@@ -35,8 +35,9 @@ use crate::{
     views::{
         self,
         flash::Flash,
+        layout::SettingsLinks,
         workspaces::{
-            DangerZoneView, DeleteWorkspaceView, RequireTwoFactorView, SettingsLinks, SettingsPage,
+            DangerZoneView, DeleteWorkspaceView, RequireTwoFactorView, SettingsPage,
             WorkspaceFormView,
         },
     },
@@ -71,7 +72,9 @@ async fn render(
     rejected: Rejected<'_>,
     status: StatusCode,
 ) -> Result<Response> {
-    let shell = app_shell(ctx, &tenant.user, Some(tenant), None).await?;
+    let shell = app_shell(ctx, &tenant.user, Some(tenant), None)
+        .await?
+        .at("general");
     let current = general_form(tenant)
         .then(|| WorkspaceFormView::new(&tenant.workspace.name, &tenant.workspace.slug, None));
     let form = rejected.form.or(current.as_ref());
@@ -81,7 +84,6 @@ async fn render(
         &SettingsPage {
             action: &settings_path(&tenant.workspace.slug),
             form,
-            links: &links(tenant),
             danger: &danger_zone(tenant, rejected.delete_error),
         },
         rejected.flash,
@@ -105,8 +107,9 @@ pub(super) async fn show(
     Ok((session, res).into_response())
 }
 
-/// Tautan ke halaman Pengaturan lain, masing-masing menurut guard halaman itu sendiri.
-fn links(tenant: &Tenant) -> SettingsLinks {
+/// Tautan menu kiri Pengaturan, masing-masing menurut guard halaman itu sendiri (dipakai
+/// `controllers::shell::app_shell`).
+pub(crate) fn links(tenant: &Tenant) -> SettingsLinks {
     SettingsLinks {
         members: members::settings_link(tenant),
         roles: roles::settings_link(tenant),

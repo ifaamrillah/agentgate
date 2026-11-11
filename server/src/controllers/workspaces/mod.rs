@@ -14,6 +14,8 @@ mod roles;
 mod settings;
 mod teams;
 
+pub(crate) use settings::links as settings_links;
+
 /// Isian form nama + slug (buat workspace dan Pengaturan). Field yang tidak dikirim dianggap
 /// kosong, supaya form yang dipotong tetap dirender ulang dengan pesan validasi.
 #[derive(Debug, Deserialize)]

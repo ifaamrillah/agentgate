@@ -1,10 +1,10 @@
 {#- Konfirmasi keluarkan anggota (pengganti dialog konfirmasi, tanpa JS). Variabel: member
     (views::members::MemberRow: name, email, role_name, remove_href = action POST), back (path
     halaman anggota). -#}
-{% extends "layouts/app.html" %}
+{% extends "layouts/settings.html" %}
 {% block title %}{{ t(key="member-remove-title", lang="id") }}{% endblock title %}
-{% block content %}
-<div class="mx-auto grid max-w-xl gap-6" data-member-remove>
+{% block settings_content %}
+<div class="grid max-w-3xl gap-6" data-member-remove>
   {% <card title={t(key="member-remove-title", lang="id")}> %}
     <p class="text-sm">{{ t(key="member-remove-body", lang="id", name=member.name, email=member.email) }}</p>
     <div class="mt-6 flex flex-wrap gap-2">
@@ -15,4 +15,4 @@
     </div>
   {% </card> %}
 </div>
-{% endblock content %}
+{% endblock settings_content %}

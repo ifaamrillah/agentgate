@@ -2,10 +2,10 @@
     ([{user_id, name, email}]), candidates ([{id, name}]: anggota workspace yang belum di tim),
     action (POST ganti nama), delete_action, add_action, remove_action, back), flash (dirender
     layout). -#}
-{% extends "layouts/app.html" %}
+{% extends "layouts/settings.html" %}
 {% block title %}{{ page.title }}{% endblock title %}
-{% block content %}
-<div class="mx-auto grid max-w-2xl gap-6" data-team-page>
+{% block settings_content %}
+<div class="grid max-w-3xl gap-6" data-team-page>
   {% <page_header title={page.title}> %}
     <a href="{{ page.back }}" class="btn" data-variant="ghost">{{ icon(name="arrow-left", class="size-4") }}{{ t(key="team-back", lang="id") }}</a>
   {% </page_header> %}
@@ -54,4 +54,4 @@
     </form>
   {% </card> %}
 </div>
-{% endblock content %}
+{% endblock settings_content %}

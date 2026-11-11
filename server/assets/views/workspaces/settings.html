@@ -1,67 +1,27 @@
-{#- Indeks Pengaturan workspace (role dengan salah satu izin Pengaturan). Variabel: action (path
-    POST bagian Umum), form (views::workspaces::WorkspaceFormView, atau null bila role tidak
-    memegang ManageWorkspace), links ({members, roles, job_titles, teams, audit}: href atau null
-    bila role tidak membuka halaman itu), danger (views::workspaces::DangerZoneView: require_2fa
-    dan delete, masing-masing null bila role tidak boleh), flash (dirender layout).
-    Bagian baru ditambahkan di dalam [data-settings-index], masing-masing dengan flag izinnya
-    sendiri dari controller. -#}
-{% extends "layouts/app.html" %}
+{#- Pengaturan workspace → Umum (role dengan salah satu izin Pengaturan). Menu kiri ke bagian
+    lain datang dari layouts/settings.html (shell.settings). Variabel: action (path POST bagian
+    Umum), form (views::workspaces::WorkspaceFormView, atau null bila role tidak memegang
+    ManageWorkspace), danger (views::workspaces::DangerZoneView: require_2fa dan delete,
+    masing-masing null bila role tidak boleh), flash (dirender layout). -#}
+{% extends "layouts/settings.html" %}
 {% block title %}{{ t(key="workspace-settings-title", lang="id") }}{% endblock title %}
-{% block content %}
-<div class="mx-auto grid max-w-2xl gap-6" data-settings-index>
-  {{ <page_header title={t(key="workspace-settings-title", lang="id")}/> }}
+{% block settings_attrs %}data-settings-index{% endblock settings_attrs %}
+{% block settings_content %}
+  {{ <page_header title={t(key="workspace-settings-general", lang="id")} description={t(key="workspace-settings-general-description", lang="id")}/> }}
   {%- if form %}
   <div data-settings-general>
-    {% <card title={t(key="workspace-settings-general", lang="id")} description={t(key="workspace-settings-general-description", lang="id")}> %}
-      <form method="post" action="{{ action }}" class="form grid gap-6">
+    {% <card> %}
+      <form method="post" action="{{ action }}" class="form grid max-w-xl gap-6">
         {% include "workspaces/_form.html" %}
         <div>{{ <button label={t(key="workspace-settings-save", lang="id")} type="submit"/> }}</div>
       </form>
     {% </card> %}
   </div>
   {%- endif %}
-  {%- if links.members %}
-  <div data-settings-members>
-    {% <card title={t(key="settings-members-title", lang="id")} description={t(key="settings-members-description", lang="id")}> %}
-      <a href="{{ links.members }}" class="btn" data-variant="outline">{{ t(key="settings-members-open", lang="id") }}</a>
-    {% </card> %}
-  </div>
-  {%- endif %}
-  {%- if links.roles %}
-  <div data-settings-roles>
-    {% <card title={t(key="settings-roles-title", lang="id")} description={t(key="settings-roles-description", lang="id")}> %}
-      <a href="{{ links.roles }}" class="btn" data-variant="outline">{{ t(key="settings-roles-open", lang="id") }}</a>
-    {% </card> %}
-  </div>
-  {%- endif %}
-  {%- if links.job_titles %}
-  <div data-settings-job-titles>
-    {% <card title={t(key="settings-job-titles-title", lang="id")} description={t(key="settings-job-titles-description", lang="id")}> %}
-      <a href="{{ links.job_titles }}" class="btn" data-variant="outline">{{ t(key="settings-job-titles-open", lang="id") }}</a>
-    {% </card> %}
-  </div>
-  {%- endif %}
-  {%- if links.teams %}
-  <div data-settings-teams>
-    {% <card title={t(key="settings-teams-title", lang="id")} description={t(key="settings-teams-description", lang="id")}> %}
-      <a href="{{ links.teams }}" class="btn" data-variant="outline">{{ t(key="settings-teams-open", lang="id") }}</a>
-    {% </card> %}
-  </div>
-  {%- endif %}
-  {%- if links.audit %}
-  <div data-settings-audit>
-    {% <card title={t(key="settings-audit-title", lang="id")} description={t(key="settings-audit-description", lang="id")}> %}
-      <a href="{{ links.audit }}" class="btn" data-variant="outline">{{ t(key="settings-audit-open", lang="id") }}</a>
-    {% </card> %}
-  </div>
-  {%- endif %}
   {%- if danger.require_2fa or danger.delete %}
   {% include "workspaces/_danger.html" %}
   {%- endif %}
-  {%- if not form and not links.members and not links.roles and not links.job_titles and not links.teams and not links.audit and not danger.require_2fa %}
-  {#- Cadangan: setiap izin Pengaturan kini punya bagian, jadi ini hanya untuk izin baru yang
-      belum punya halaman. -#}
-  {{ <empty_state title={t(key="workspace-settings-empty-title", lang="id")} description={t(key="workspace-settings-empty-description", lang="id")} icon="settings" variant="dashed"/> }}
+  {%- if not form and not danger.require_2fa and not danger.delete %}
+  {{ <empty_state title={t(key="workspace-settings-pick-title", lang="id")} description={t(key="workspace-settings-pick-description", lang="id")} icon="settings" variant="dashed"/> }}
   {%- endif %}
-</div>
-{% endblock content %}
+{% endblock settings_content %}

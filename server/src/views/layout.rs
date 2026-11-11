@@ -123,6 +123,8 @@ pub struct ProjectLink {
     pub key: String,
     pub href: String,
     pub archived: bool,
+    /// Deskripsi project (tabel beranda workspace); `""` = tanpa deskripsi.
+    pub description: String,
 }
 
 impl ProjectLink {
@@ -133,7 +135,14 @@ impl ProjectLink {
             key: key.to_string(),
             href: format!("{}/p/{key}", workspace_href(workspace_slug)),
             archived: false,
+            description: String::new(),
         }
+    }
+
+    #[must_use]
+    pub fn described(mut self, description: &str) -> Self {
+        self.description = description.to_string();
+        self
     }
 
     #[must_use]
@@ -157,6 +166,23 @@ pub struct AppShell {
     pub current_project: Option<ProjectLink>,
     /// Tampilkan Pengaturan workspace (butuh `current_workspace`).
     pub can_manage_workspace: bool,
+    /// Menu kiri Pengaturan workspace: halaman yang boleh dibuka role (`None` bila role tidak
+    /// punya izin Pengaturan atau di luar workspace). Bagian Umum = `current_workspace.settings_href`.
+    pub settings: Option<SettingsLinks>,
+    /// Bagian halaman yang sedang dibuka, untuk menandai menu kiri (Pengaturan workspace, Akun):
+    /// `general`, `members`, `teams`, `job_titles`, `roles`, `audit`, `profile`, `password`,
+    /// `two_factor`; `""` = tidak ada.
+    pub section: &'static str,
+}
+
+/// Tautan halaman Pengaturan workspace; `None` bila role tidak membuka halaman itu.
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct SettingsLinks {
+    pub members: Option<String>,
+    pub roles: Option<String>,
+    pub job_titles: Option<String>,
+    pub teams: Option<String>,
+    pub audit: Option<String>,
 }
 
 impl AppShell {
@@ -170,6 +196,8 @@ impl AppShell {
             projects: Vec::new(),
             current_project: None,
             can_manage_workspace: false,
+            settings: None,
+            section: "",
         }
     }
 
@@ -205,6 +233,19 @@ impl AppShell {
     #[must_use]
     pub fn can_manage_workspace(mut self, allowed: bool) -> Self {
         self.can_manage_workspace = allowed;
+        self
+    }
+
+    #[must_use]
+    pub fn with_settings(mut self, links: Option<SettingsLinks>) -> Self {
+        self.settings = links;
+        self
+    }
+
+    /// Tandai bagian halaman yang sedang dibuka (lihat [`AppShell::section`]).
+    #[must_use]
+    pub fn at(mut self, section: &'static str) -> Self {
+        self.section = section;
         self
     }
 }

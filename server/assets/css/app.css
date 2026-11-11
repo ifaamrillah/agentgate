@@ -9,6 +9,7 @@
 @import "./components/badge.css";
 @import "./components/avatar.css";
 @import "./components/card.css";
+@import "./components/layout.css";
 
 @source "../views";
 @source "../../src";

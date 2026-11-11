@@ -2,9 +2,9 @@
     permission_keys (kunci Fluent label izin), edit_href dan delete_action (null untuk role
     bawaan)), new_href (path form role baru), flash (dirender layout; penolakan role-builtin /
     role-in-use datang lewat sini dengan status 422). -#}
-{% extends "layouts/app.html" %}
+{% extends "layouts/settings.html" %}
 {% block title %}{{ t(key="settings-roles-title", lang="id") }}{% endblock title %}
-{% block content %}
+{% block settings_content %}
 <div class="grid gap-6" data-roles-index>
   {% <page_header title={t(key="settings-roles-title", lang="id")} description={t(key="settings-roles-description", lang="id")}> %}
     <a href="{{ new_href }}" class="btn" data-variant="primary">{{ icon(name="plus", class="size-4") }}{{ t(key="role-new-title", lang="id") }}</a>
@@ -37,4 +37,4 @@
     {%- endfor %}
   {% </table> %}
 </div>
-{% endblock content %}
+{% endblock settings_content %}

@@ -67,7 +67,9 @@ async fn render_index(
             }
         })
         .collect();
-    let shell = app_shell(ctx, &tenant.user, Some(tenant), None).await?;
+    let shell = app_shell(ctx, &tenant.user, Some(tenant), None)
+        .await?
+        .at("job_titles");
     views::job_titles::index(v, &shell, &rows, create, &base, flash, status)
 }
 

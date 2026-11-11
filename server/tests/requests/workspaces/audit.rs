@@ -99,10 +99,26 @@ async fn audit_rows_written_for_invite_and_role_change() {
         );
         assert!(events.iter().all(|e| e.actor_id == Some(owner.id)));
 
-        let page = request.get(AUDIT).add_cookie(cookie).await;
+        let page = request.get(AUDIT).add_cookie(cookie.clone()).await;
         assert_eq!(page.status_code(), 200, "{}", page.text());
         let html = page.text();
         assert_css_exists(&html, "[data-audit-log]");
+        // Panel detail: default baris pertama; `?event=` membuka kejadian lain di halaman ini.
+        assert_css_exists(&html, &format!("[data-audit-detail=\"{}\"]", events[0].id));
+        let invited = request
+            .get(&format!("{AUDIT}?event={}", events[1].id))
+            .add_cookie(cookie)
+            .await
+            .text();
+        assert_css_exists(
+            &invited,
+            &format!(
+                "tr[data-audit-id=\"{}\"][aria-selected=\"true\"]",
+                events[1].id
+            ),
+        );
+        assert_css_exists(&invited, "[data-audit-changes]");
+        assert!(invited.contains("tamu@example.test"), "{invited}");
         let rows = select(&html, "tr[data-audit-row]");
         assert_eq!(
             attr_values(&rows, "data-action"),
@@ -112,7 +128,6 @@ async fn audit_rows_written_for_invite_and_role_change() {
         assert!(html.contains("Role anggota diganti"), "{html}");
         assert!(html.contains("Anggota diundang"), "{html}");
         assert!(html.contains("Olivia Owner"), "{html}");
-        assert!(html.contains("tamu@example.test"), "{html}");
         assert_css_exists(&html, "tr[data-audit-row] time[datetime]");
         assert_css_not_exists(&html, "a[data-audit-older]");
     })
@@ -265,7 +280,7 @@ async fn member_cannot_see_audit_log_gets_404() {
             .text();
         assert_css_exists(
             &html,
-            "[data-settings-audit] a[href=\"/w/acme/settings/audit\"]",
+            "a[data-settings-audit][href=\"/w/acme/settings/audit\"]",
         );
         assert_eq!(
             request.get(AUDIT).add_cookie(cookie).await.status_code(),
@@ -282,7 +297,7 @@ async fn member_cannot_see_audit_log_gets_404() {
             .text();
         assert_css_exists(
             &html,
-            "[data-settings-audit] a[href=\"/w/acme/settings/audit\"]",
+            "a[data-settings-audit][href=\"/w/acme/settings/audit\"]",
         );
         assert_css_not_exists(&html, "[data-settings-danger]");
         assert_eq!(

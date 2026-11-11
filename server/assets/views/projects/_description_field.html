@@ -2,7 +2,7 @@
     halaman buat project dan Pengaturan project. Variabel: form ({description, errors.description
     → {code, min, max}}). -#}
 <div class="field"{% if form.errors.description.code %} data-invalid="true"{% endif %}>
-  <label for="project-description">{{ t(key="project-description", lang="id") }}</label>
+  <label for="project-description"{% if hide_label is defined and hide_label %} class="sr-only"{% endif %}>{{ t(key="project-description", lang="id") }}</label>
   <textarea class="textarea" id="project-description" name="description" rows="3"
     {%- if form.errors.description.code %} aria-invalid="true" aria-describedby="project-description-error"{% endif %}>{{ form.description }}</textarea>
   {%- if form.errors.description.code %}

@@ -49,7 +49,7 @@ async fn show(
         user.totp_enabled_at.is_some(),
         flash,
     );
-    let shell = app_shell(&ctx, &user, None, None).await?;
+    let shell = app_shell(&ctx, &user, None, None).await?.at("profile");
     let res = views::account::show(&v, &shell, &page, StatusCode::OK)?;
     Ok((session, res).into_response())
 }
@@ -68,7 +68,7 @@ async fn update_profile(
         user.totp_enabled_at.is_some(),
         None,
     );
-    let shell = app_shell(&ctx, &user, None, None).await?;
+    let shell = app_shell(&ctx, &user, None, None).await?.at("profile");
     match user.rename(&ctx.db, &form.name).await {
         Ok(_) => {
             let session = flash::set(
@@ -93,7 +93,7 @@ async fn show_password(
     ViewEngine(v): ViewEngine<TeraView>,
     CurrentUser(user): CurrentUser,
 ) -> Result<Response> {
-    let shell = app_shell(&ctx, &user, None, None).await?;
+    let shell = app_shell(&ctx, &user, None, None).await?.at("password");
     views::account::password(&v, &shell, None, StatusCode::OK)
 }
 
@@ -108,7 +108,7 @@ async fn change_password(
     ValidForm(form): ValidForm<PasswordForm>,
 ) -> Result<Response> {
     let settings = Settings::from_ctx(&ctx)?;
-    let shell = app_shell(&ctx, &user, None, None).await?;
+    let shell = app_shell(&ctx, &user, None, None).await?.at("password");
     match password_change::change(&ctx, &settings, user, &form.current_password, form.password)
         .await?
     {

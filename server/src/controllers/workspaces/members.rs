@@ -112,7 +112,9 @@ pub(super) async fn render_index(
         invite_action,
         flash,
     };
-    let shell = app_shell(ctx, &tenant.user, Some(tenant), None).await?;
+    let shell = app_shell(ctx, &tenant.user, Some(tenant), None)
+        .await?
+        .at("members");
     views::members::index(v, &shell, &page, status)
 }
 
@@ -233,7 +235,9 @@ pub(super) async fn confirm_remove(
     let base = members_path(&tenant.workspace.slug);
     let manageable = roles::can_assign(&tenant.role, &role);
     let row = MemberRow::new(&member, &user, &role, None, manageable, &base);
-    let shell = app_shell(&ctx, &tenant.user, Some(tenant), None).await?;
+    let shell = app_shell(&ctx, &tenant.user, Some(tenant), None)
+        .await?
+        .at("members");
     views::members::confirm_remove(&v, &shell, &row, &base)
 }
 
