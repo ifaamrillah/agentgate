@@ -89,7 +89,8 @@ pub fn is_admin_everywhere(role: &roles::Model) -> bool {
 
 /// Satu-satunya aturan "pelaku boleh memberikan atau mencabut grant ber-role `role` di
 /// project ini": `role` boleh ia tugaskan di workspace (`roles::can_assign`: Owner hanya oleh
-/// Owner, role lain hanya bila semua izinnya dipegang role workspace pelaku), dan izin project
+/// Owner, Admin bawaan hanya oleh Owner/Admin bawaan, role lain hanya bila semua izinnya dipegang
+/// role workspace pelaku), dan izin project
 /// `role` tidak melebihi akses project pelaku (`access`). Berlaku untuk role tujuan (beri, ganti)
 /// dan role asal grant (ganti, cabut). Syarat `AdministerProject` dicek pemanggil lebih dulu.
 #[must_use]

@@ -254,14 +254,15 @@ pub(super) async fn remove(
 }
 
 /// Konfirmasi "Keluar dari workspace", terbuka untuk semua anggota, termasuk yang belum
-/// mengaktifkan 2FA di workspace yang mewajibkannya (`MemberIgnoring2fa`).
+/// mengaktifkan 2FA di workspace yang mewajibkannya (`MemberIgnoring2fa`). Shell dirender tanpa
+/// konteks workspace supaya daftar project tidak terlihat sebelum syarat 2FA dipenuhi.
 #[debug_handler]
 pub(super) async fn confirm_leave(
     State(ctx): State<AppContext>,
     ViewEngine(v): ViewEngine<TeraView>,
     MemberIgnoring2fa(tenant): MemberIgnoring2fa,
 ) -> Result<Response> {
-    let shell = app_shell(&ctx, &tenant.user, Some(&tenant), None).await?;
+    let shell = app_shell(&ctx, &tenant.user, None, None).await?;
     views::members::confirm_leave(
         &v,
         &shell,
@@ -286,7 +287,7 @@ pub(super) async fn leave(
             let Some(code) = e.code() else {
                 return Err(e.into());
             };
-            let shell = app_shell(&ctx, &tenant.user, Some(&tenant), None).await?;
+            let shell = app_shell(&ctx, &tenant.user, None, None).await?;
             views::members::confirm_leave(
                 &v,
                 &shell,

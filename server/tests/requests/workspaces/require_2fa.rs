@@ -6,6 +6,7 @@ use agentgate_server::{
     models::{
         audit_events::{AuditAction, AuditSubject},
         permission::Permission,
+        project_grants::GrantSubject,
         roles::RoleKey,
         users, workspace_members, workspaces,
     },
@@ -276,6 +277,16 @@ async fn member_without_totp_can_still_leave() {
         let outsider = a_user().create(&ctx).await;
         let workspace = a_workspace(&owner).slug("acme").create(&ctx).await;
         add_member(&ctx, &workspace, &member, RoleKey::Member).await;
+        let project = crate::support::a_project(&ctx, &workspace, "RHS").await;
+        let viewer = builtin_role(&ctx, &workspace, RoleKey::Viewer).await;
+        crate::support::grant(
+            &ctx,
+            &workspace,
+            &project,
+            GrantSubject::User(member.id),
+            &viewer,
+        )
+        .await;
         let mut active = workspace.clone().into_active_model();
         active.require_2fa_at = Set(Some(chrono::Utc::now().into()));
         active.update(&ctx.db).await.unwrap();
@@ -301,6 +312,11 @@ async fn member_without_totp_can_still_leave() {
         assert_css_exists(
             &page.text(),
             "form[method=\"post\"][action=\"/w/acme/leave\"]",
+        );
+        // Shell tanpa konteks workspace: belum memenuhi 2FA = tidak melihat isi workspace.
+        assert!(
+            !page.text().contains("/w/acme/p/RHS"),
+            "halaman keluar tidak boleh memuat navigasi workspace"
         );
         let res = request
             .post("/w/acme/leave")
