@@ -30,7 +30,8 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 | 2026-11-11 | Error respons di-render sebagai halaman HTML lengkap lewat layer `html_errors`; fallback Loco dimatikan | Error Loco berupa JSON/halaman Inggris dan ikut di-swap HTMX |
 | 2026-11-11 | `cargo deny`: lisensi yang diizinkan MIT, Apache-2.0 (+LLVM-exception), BSD-2/3, ISC, Unicode-3.0, Zlib, MPL-2.0, CC0-1.0, CDLA-Permissive-2.0, BSL-1.0, 0BSD; abaikan RUSTSEC-2024-0449 (unsafe-libyaml unmaintained, transitif lewat parser config Loco) | Tidak ada alternatif di Loco 1.3; bukan celah keamanan |
 | 2026-11-11 | Tanpa remote `origin`, `bin/worktree` membuat branch dari `staging` lokal dan menganggap branch "selesai" bila sudah di-merge ke `staging` lokal | Repo belum punya remote GitHub |
-| 2026-11-11 | Gaya visual Basecoat: **Vega** (default, `basecoat.css`) | Dipilih user dari perbandingan 8 gaya |
+| 2026-11-11 | Gaya visual Basecoat: **Vega** (default, `basecoat.css`), ditimpa token sistem desain di bawah | Dipilih user dari perbandingan 8 gaya |
+| 2026-11-11 | **Sistem desain**: sidebar indigo gelap, aksen indigo, netral slate, IBM Plex Sans + Plex Mono (di-vendor), gaya bernuansa warna, radius 6/8px, badge pill, avatar kotak. Acuan: `docs/reference/design-system.md` | Dipilih user lewat konfigurator 15 bagian |
 | 2026-11-11 | Editor WYSIWYG: **Milkdown Crepe 7.23.0** (bundle ESM dari esm.sh, `deps=codemirror@6.0.2`), tanpa import map | Hasil spike; lihat `docs/spikes/2026-11-11-wysiwyg-tanpa-bundler.md` |
 | 2026-11-11 | URL tenant berbasis path: `/w/{slug}`, project `/w/{slug}/p/{KEY}`; non-anggota selalu 404 | Satu domain, tanpa wildcard DNS |
 | 2026-11-11 | Role = himpunan permission (`text[]` + CHECK). Role bawaan Owner/Admin/Member/Viewer tidak bisa diubah; role custom tidak bisa memberi permission yang tidak dimiliki pembuatnya | Fleksibel tanpa celah eskalasi |

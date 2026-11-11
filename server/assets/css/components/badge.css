@@ -1,0 +1,14 @@
+/* Badge: pill lembut. Varian status semantik selain varian Basecoat (primary/secondary/outline/destructive). */
+@layer components {
+  .badge {
+    border-radius: 9999px;
+    font-weight: 600;
+  }
+
+  .badge[data-variant="info"] { background: var(--ag-status-info-bg); color: var(--ag-status-info-fg); }
+  .badge[data-variant="ai"] { background: var(--ag-status-ai-bg); color: var(--ag-status-ai-fg); }
+  .badge[data-variant="gate"] { background: var(--ag-status-gate-bg); color: var(--ag-status-gate-fg); }
+  .badge[data-variant="success"] { background: var(--ag-status-success-bg); color: var(--ag-status-success-fg); }
+  .badge[data-variant="neutral"] { background: var(--ag-status-neutral-bg); color: var(--ag-status-neutral-fg); }
+  .badge[data-variant="destructive"] { background: var(--ag-status-danger-bg); color: var(--ag-status-danger-fg); }
+}

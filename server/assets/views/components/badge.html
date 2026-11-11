@@ -2,8 +2,11 @@
     Parameter:
       label: string             teks badge (sudah diterjemahkan pemanggil)
       variant: primary|secondary|outline|destructive   (default secondary)
+               status semantik: info (siap) | ai | gate | success (selesai) | neutral
+               (warna dari token --ag-status-*; lihat docs/reference/design-system.md)
+      code: bool                isi berupa kode/ID (kunci project, slug): font mono (default false)
       class: hanya untuk layout (margin, posisi), bukan warna/ukuran -#}
-{% component badge(label: string, variant: string = "secondary", class: string = "") %}
-{%- if variant not in ["primary", "secondary", "outline", "destructive"] %}{{ throw(message="badge: variant tidak dikenal: " ~ variant) }}{% endif -%}
-<span class="badge {{ class }}" data-variant="{{ variant }}">{{ label }}</span>
+{% component badge(label: string, variant: string = "secondary", code: bool = false, class: string = "") %}
+{%- if variant not in ["primary", "secondary", "outline", "destructive", "info", "ai", "gate", "success", "neutral"] %}{{ throw(message="badge: variant tidak dikenal: " ~ variant) }}{% endif -%}
+<span class="badge{% if code %} font-mono{% endif %} {{ class }}" data-variant="{{ variant }}">{{ label }}</span>
 {%- endcomponent badge %}

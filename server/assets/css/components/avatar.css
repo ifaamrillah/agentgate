@@ -1,0 +1,14 @@
+/* Avatar: kotak membulat (6px), inisial di atas indigo muda. */
+@layer components {
+  .avatar,
+  .avatar > span:not(.avatar-badge),
+  .avatar > img {
+    border-radius: 6px;
+  }
+
+  .avatar > span:not(.avatar-badge) {
+    background: var(--ag-indigo-100);
+    color: var(--ag-indigo-700);
+    font-weight: 600;
+  }
+}

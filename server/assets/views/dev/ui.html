@@ -1,9 +1,53 @@
-{#- Katalog komponen /_dev/ui: setiap komponen di assets/views/components dengan semua variannya.
+{#- Katalog sistem desain /_dev/ui: token (warna, status, font, radius) lalu setiap komponen di
+    assets/views/components dengan semua variannya. Acuan tertulis: docs/reference/design-system.md.
     Variabel: shell (contoh statis dari views::dev, dengan workspace dan project). -#}
 {% extends "layouts/app.html" %}
 {% block title %}Katalog UI{% endblock title %}
 {% block content %}
-{{ <page_header title="Katalog UI" description="Setiap komponen di assets/views/components dengan semua variannya."/> }}
+{{ <page_header title="Katalog UI" description="Token sistem desain dan setiap komponen di assets/views/components dengan semua variannya."/> }}
+
+<section class="mt-8" id="tokens">
+  <h2 class="text-lg font-semibold">Token warna</h2>
+  <div class="mt-4 grid gap-6 md:grid-cols-2">
+    {%- set scales = [["Indigo (aksen)", "indigo"], ["Slate (netral)", "slate"]] %}
+    {%- for scale in scales %}
+    <div>
+      <h3 class="text-sm font-semibold">{{ scale[0] }}</h3>
+      <ul class="mt-2 flex flex-wrap gap-2">
+        {%- if scale[1] == "indigo" %}{% set steps = ["50", "100", "200", "600", "700", "800", "900"] %}{% else %}{% set steps = ["50", "100", "200", "300", "600", "900"] %}{% endif %}
+        {%- for step in steps %}
+        <li class="grid w-20 gap-1">
+          <span class="h-12 rounded-md border border-border" style="background: var(--ag-{{ scale[1] }}-{{ step }})"></span>
+          <span class="font-mono text-xs">{{ scale[1] }}-{{ step }}</span>
+        </li>
+        {%- endfor %}
+      </ul>
+    </div>
+    {% endfor %}
+  </div>
+  <h3 class="mt-6 text-sm font-semibold">Status</h3>
+  <div class="mt-2 flex flex-wrap items-center gap-3">
+    {{ <badge label="Siap dikerjakan" variant="info"/> }}
+    {{ <badge label="Dikerjakan AI" variant="ai"/> }}
+    {{ <badge label="Menunggu gate" variant="gate"/> }}
+    {{ <badge label="Selesai" variant="success"/> }}
+    {{ <badge label="Diarsipkan" variant="neutral"/> }}
+    {{ <badge label="Gagal" variant="destructive"/> }}
+  </div>
+  <h3 class="mt-6 text-sm font-semibold">Tipografi</h3>
+  <div class="mt-2 grid gap-2">
+    <p class="text-[1.375rem] font-bold tracking-tight">IBM Plex Sans 700 · judul halaman</p>
+    <p class="text-base font-semibold">IBM Plex Sans 600 · judul bagian</p>
+    <p class="text-sm">IBM Plex Sans 400 · teks dasar 14px untuk isi dan form.</p>
+    <p class="font-mono text-sm">IBM Plex Mono · KSR-24 · pt-contoh · PR #142</p>
+  </div>
+  <h3 class="mt-6 text-sm font-semibold">Permukaan</h3>
+  <div class="mt-2 grid gap-3 md:grid-cols-3">
+    <div class="ag-tint p-4 text-sm">Area bertint (ag-tint)</div>
+    {% <card size="sm"> %}<p>Kartu: putih, garis indigo-100</p>{% </card> %}
+    <div class="rounded-lg bg-sidebar p-4 text-sm text-sidebar-foreground">Sidebar indigo-900</div>
+  </div>
+</section>
 
 <section class="mt-8" id="button">
   <h2 class="text-lg font-semibold">button</h2>
@@ -67,9 +111,10 @@
 <section class="mt-8" id="badge">
   <h2 class="text-lg font-semibold">badge</h2>
   <div class="mt-4 flex flex-wrap items-center gap-3">
-    {% for variant in ["primary", "secondary", "outline", "destructive"] %}
+    {% for variant in ["primary", "secondary", "outline", "destructive", "info", "ai", "gate", "success", "neutral"] %}
       {{ <badge label={variant} variant={variant}/> }}
     {% endfor %}
+    {{ <badge label="KSR" variant="outline" code={true}/> }}
   </div>
 </section>
 

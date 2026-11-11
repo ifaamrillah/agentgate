@@ -1,0 +1,14 @@
+/* Card: putih bergaris indigo muda, tanpa bayangan (gaya "bernuansa warna"). */
+@layer components {
+  .card {
+    --tw-ring-color: var(--ag-card-border);
+    box-shadow: 0 0 0 1px var(--ag-card-border);
+    border-radius: var(--radius-lg);
+  }
+
+  /* Area bertint untuk mengelompokkan isi (kolom board, panel ringkasan). */
+  .ag-tint {
+    background: var(--ag-surface-tint);
+    border-radius: var(--radius-lg);
+  }
+}

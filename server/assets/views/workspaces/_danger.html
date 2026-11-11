@@ -7,7 +7,7 @@
   {% <card title={t(key="workspace-require-2fa-title", lang="id")} description={t(key="workspace-require-2fa-description", lang="id")}> %}
     <form method="post" action="{{ danger.require_2fa.action }}" class="flex flex-wrap items-center gap-3" data-require-2fa>
       {%- if danger.require_2fa.enabled %}
-      {{ <badge label={t(key="workspace-require-2fa-on", lang="id")} variant="primary"/> }}
+      {{ <badge label={t(key="workspace-require-2fa-on", lang="id")} variant="success"/> }}
       <input type="hidden" name="enabled" value="false">
       {{ <button label={t(key="workspace-require-2fa-disable", lang="id")} type="submit" variant="outline"/> }}
       {%- else %}

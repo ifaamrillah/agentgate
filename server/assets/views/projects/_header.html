@@ -1,9 +1,9 @@
 {#- Judul halaman di dalam project: nama, key, tanda arsip, dan label akses user. Variabel:
     project (views::projects::ProjectSummary: key, name, description, archived, role_label). -#}
 {% <page_header title={project.name} description={project.description}> %}
-  {{ <badge label={project.key} variant="outline"/> }}
+  {{ <badge label={project.key} variant="outline" code={true}/> }}
   {%- if project.archived %}
-  <span data-project-archived>{{ <badge label={t(key="project-archived", lang="id")} variant="secondary"/> }}</span>
+  <span data-project-archived>{{ <badge label={t(key="project-archived", lang="id")} variant="neutral"/> }}</span>
   {%- endif %}
   <span class="text-sm text-muted-foreground" data-project-role>{{ t(key="project-your-access", lang="id", role=project.role_label) }}</span>
 {% </page_header> %}
