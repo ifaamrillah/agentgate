@@ -75,9 +75,10 @@ pub fn complete(_ctx: &AppContext, session: Session, user: &users::Model) -> Res
 
 /// Login email + password dari IP `ip`.
 ///
-/// Urutannya menjaga dua hal: setiap percobaan memverifikasi satu hash (email tidak dikenal
-/// memakai hash dummy, sehingga durasinya setara), dan setiap kegagalan dicatat untuk email
-/// **dan** IP. Login berhasil mereset penghitung email saja.
+/// Urutannya menjaga dua hal: setiap percobaan dipesan di rate limit email **dan** IP sebelum
+/// verifikasi (jalur yang sama untuk email terdaftar dan tidak), dan setiap percobaan yang
+/// lolos memverifikasi satu hash (email tidak dikenal memakai hash dummy, sehingga durasinya
+/// setara). Password benar mengembalikan pesanan itu (`throttle::succeeded`).
 ///
 /// # Errors
 ///
@@ -90,7 +91,8 @@ pub async fn with_password<C: ConnectionTrait>(
     ip: IpAddr,
 ) -> Result<PasswordSignIn> {
     let keys = [ThrottleKey::Email(email.to_string()), ThrottleKey::Ip(ip)];
-    if throttle::check(db, &keys).await? == ThrottleState::Locked {
+    // Pesan percobaan dulu, atomik: burst paralel tidak bisa memverifikasi lebih dari batas.
+    if throttle::reserve(db, settings, &keys).await? == ThrottleState::Locked {
         return Ok(PasswordSignIn::Locked);
     }
 
@@ -102,12 +104,12 @@ pub async fn with_password<C: ConnectionTrait>(
             Verify::Mismatch
         }
     };
+    // Gagal: percobaan yang sudah dipesan tetap terhitung.
     let Some(user) = user.filter(|u| u.is_active() && verdict != Verify::Mismatch) else {
-        throttle::record_failure(db, settings, &keys).await?;
         return Ok(PasswordSignIn::Rejected);
     };
 
-    throttle::reset(db, &keys[0]).await?;
+    throttle::succeeded(db, settings, &keys).await?;
     let user = if verdict == Verify::OkNeedsRehash {
         let hash = password::hash(settings, password.clone()).await?;
         user.rehash_password(db, hash).await?

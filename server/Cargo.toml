@@ -81,6 +81,8 @@ tera = "2.4"
 tower = { version = "0.5", features = ["util"] }
 # Tipe `TestServer`/`TestResponse` yang dipakai helper tes Loco (versi sama dengan Loco).
 axum-test = "17.3"
+# `join_all` untuk tes request paralel (rate limit tidak bisa dilewati dengan burst).
+futures = "0.3"
 
 [lints]
 workspace = true

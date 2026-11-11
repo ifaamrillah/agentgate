@@ -1,7 +1,8 @@
 //! Rate limit login per email dan per IP di tabel `login_throttles` (rules §7, tanpa Redis).
 //!
-//! Satu baris per kunci (`email:<lower>` / `ip:<addr>`). Setiap gagal menambah `failures` di
-//! jendela `login_window_minutes`; mencapai batas mengunci kunci itu `login_lockout_minutes`.
+//! Satu baris per kunci (`email:<lower>` / `ip:<addr>`). Setiap percobaan dipesan lebih dulu
+//! ([`reserve`]) di jendela `login_window_minutes`; mencapai batas mengunci kunci itu
+//! `login_lockout_minutes`. Percobaan yang berhasil dikembalikan ([`succeeded`]).
 //! Kunci email berlaku untuk string email apa pun, terdaftar atau tidak, supaya "terlalu
 //! banyak percobaan" tidak membocorkan email mana yang punya akun. Baris kedaluwarsa
 //! dibersihkan job harian (M1 Task 9), bukan di sini.
@@ -9,9 +10,7 @@
 use std::net::IpAddr;
 
 use loco_rs::Result;
-use sea_orm::{
-    ConnectionTrait, DbBackend, ExprTrait, Statement, Value, entity::prelude::*, sea_query::Expr,
-};
+use sea_orm::{ConnectionTrait, DbBackend, Statement, Value, entity::prelude::*};
 
 use crate::{
     common::settings::AuthSettings,
@@ -46,40 +45,37 @@ impl ThrottleKey {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ThrottleState {
     Open,
-    /// Salah satu kunci sedang terkunci.
+    /// Salah satu kunci sudah melewati batas: percobaan ini tidak boleh diverifikasi.
     Locked,
 }
 
-/// `Locked` bila salah satu `keys` masih terkunci.
+/// Pesan satu percobaan login untuk setiap kunci **sebelum** password diverifikasi, dalam
+/// satu upsert atomik per kunci yang mengembalikan hitungan barunya (`RETURNING`). Percobaan
+/// dihitung sebagai gagal sejak awal; yang berhasil dikembalikan lewat [`succeeded`].
+///
+/// Karena hitungan dinaikkan dan dibaca dalam satu statement (baris dikunci `ON CONFLICT`),
+/// N request paralel mendapat hitungan 1..N, dan hanya yang hitungannya <= batas yang boleh
+/// lanjut ke verifikasi. Memeriksa lalu mencatat belakangan (dua langkah) bisa dilewati
+/// dengan burst: semua request lolos pemeriksaan sebelum ada yang tercatat.
+///
+/// Aturan per kunci:
+/// - percobaan yang membuat hitungan mencapai batas masih boleh, dan mulai mengunci kunci
+///   itu `login_lockout_minutes`; percobaan berikutnya selama terkunci ditolak (hitungan tetap
+///   naik, masa kunci tidak diperpanjang);
+/// - jendela `login_window_minutes` yang sudah lewat (tanpa kunci aktif), atau kunci yang
+///   sudah habis, mulai dihitung dari 1 lagi.
+///
+/// Semua kunci selalu dipesan, walau kunci pertama sudah terkunci: urutan dan jumlah query
+/// sama untuk email terdaftar dan tidak.
 ///
 /// # Errors
 ///
 /// Error database.
-pub async fn check<C: ConnectionTrait>(db: &C, keys: &[ThrottleKey]) -> Result<ThrottleState> {
-    let locked = login_throttles::Entity::find()
-        .filter(login_throttles::Column::Key.is_in(keys.iter().map(ThrottleKey::key)))
-        .filter(Expr::col(login_throttles::Column::LockedUntil).gt(Expr::current_timestamp()))
-        .count(db)
-        .await?;
-    Ok(if locked > 0 {
-        ThrottleState::Locked
-    } else {
-        ThrottleState::Open
-    })
-}
-
-/// Catat satu kegagalan untuk setiap kunci, dalam satu upsert atomik per kunci (dua request
-/// paralel tidak saling menimpa hitungan). Jendela yang sudah lewat, atau kunci yang masa
-/// kuncinya sudah habis, mulai dihitung dari 1 lagi.
-///
-/// # Errors
-///
-/// Error database.
-pub async fn record_failure<C: ConnectionTrait>(
+pub async fn reserve<C: ConnectionTrait>(
     db: &C,
     settings: &AuthSettings,
     keys: &[ThrottleKey],
-) -> Result<()> {
+) -> Result<ThrottleState> {
     // Semua ekspresi di `DO UPDATE SET` membaca nilai baris lama, jadi kondisi "mulai ulang"
     // ditulis ulang di setiap kolom.
     const SQL: &str = "
@@ -87,46 +83,91 @@ pub async fn record_failure<C: ConnectionTrait>(
         VALUES ($1, 1, now(),
                 CASE WHEN 1 >= $2 THEN now() + make_interval(mins => $4) END)
         ON CONFLICT (key) DO UPDATE SET
-            failures = CASE WHEN t.window_started_at <= now() - make_interval(mins => $3)
+            failures = CASE WHEN (t.locked_until IS NULL
+                                  AND t.window_started_at <= now() - make_interval(mins => $3))
                                  OR t.locked_until <= now()
                             THEN 1 ELSE t.failures + 1 END,
-            window_started_at = CASE WHEN t.window_started_at <= now() - make_interval(mins => $3)
+            window_started_at = CASE WHEN (t.locked_until IS NULL
+                                           AND t.window_started_at <= now() - make_interval(mins => $3))
                                           OR t.locked_until <= now()
                                      THEN now() ELSE t.window_started_at END,
             locked_until = CASE
-                WHEN t.window_started_at <= now() - make_interval(mins => $3)
+                WHEN (t.locked_until IS NULL
+                      AND t.window_started_at <= now() - make_interval(mins => $3))
                      OR t.locked_until <= now()
                     THEN CASE WHEN 1 >= $2 THEN now() + make_interval(mins => $4) END
-                WHEN t.failures + 1 >= $2 THEN now() + make_interval(mins => $4)
+                WHEN t.locked_until IS NULL AND t.failures + 1 >= $2
+                    THEN now() + make_interval(mins => $4)
                 ELSE t.locked_until END,
-            updated_at = now()";
+            updated_at = now()
+        RETURNING failures";
     let window = minutes(settings.login_window_minutes);
     let lockout = minutes(settings.login_lockout_minutes);
+    let mut state = ThrottleState::Open;
     for key in keys {
-        db.execute_raw(Statement::from_sql_and_values(
-            DbBackend::Postgres,
-            SQL,
-            [
-                Value::from(key.key()),
-                Value::from(key.max_failures(settings)),
-                Value::from(window),
-                Value::from(lockout),
-            ],
-        ))
-        .await?;
+        let max = key.max_failures(settings);
+        let row = db
+            .query_one_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                SQL,
+                [
+                    Value::from(key.key()),
+                    Value::from(max),
+                    Value::from(window),
+                    Value::from(lockout),
+                ],
+            ))
+            .await?
+            .ok_or_else(|| loco_rs::Error::string("login_throttles upsert returned no row"))?;
+        let failures: i32 = row.try_get_by_index(0)?;
+        if failures > max {
+            state = ThrottleState::Locked;
+        }
     }
-    Ok(())
+    Ok(state)
 }
 
-/// Hapus penghitung satu kunci (login berhasil mereset penghitung email-nya).
+/// Percobaan yang dipesan [`reserve`] ternyata berhasil (password benar).
+///
+/// - Kunci email dihapus: login berhasil mereset penghitung email itu (rules §7).
+/// - Kunci IP dikurangi satu, dan kuncinya dibuka bila hitungannya kembali di bawah batas:
+///   login berhasil **tidak** dihitung ke batas IP, supaya banyak user di balik satu NAT
+///   kantor tidak saling mengunci. Batas IP tetap menghitung semua percobaan gagal.
 ///
 /// # Errors
 ///
 /// Error database.
-pub async fn reset<C: ConnectionTrait>(db: &C, key: &ThrottleKey) -> Result<()> {
-    login_throttles::Entity::delete_by_id(key.key())
-        .exec(db)
-        .await?;
+pub async fn succeeded<C: ConnectionTrait>(
+    db: &C,
+    settings: &AuthSettings,
+    keys: &[ThrottleKey],
+) -> Result<()> {
+    const RELEASE_SQL: &str = "
+        UPDATE login_throttles SET
+            failures = GREATEST(failures - 1, 0),
+            locked_until = CASE WHEN failures - 1 < $2 THEN NULL ELSE locked_until END,
+            updated_at = now()
+        WHERE key = $1";
+    for key in keys {
+        match key {
+            ThrottleKey::Email(_) => {
+                login_throttles::Entity::delete_by_id(key.key())
+                    .exec(db)
+                    .await?;
+            }
+            ThrottleKey::Ip(_) => {
+                db.execute_raw(Statement::from_sql_and_values(
+                    DbBackend::Postgres,
+                    RELEASE_SQL,
+                    [
+                        Value::from(key.key()),
+                        Value::from(key.max_failures(settings)),
+                    ],
+                ))
+                .await?;
+            }
+        }
+    }
     Ok(())
 }
 
