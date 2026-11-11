@@ -7,7 +7,7 @@
 //! [`ManageJobTitles`] (jabatan tim, aturan `ManageMembers`).
 //! Izin project
 //! (`AdministerProject`, `EditProject`, `ViewProject`) dicek per project lewat `ProjectAccess`
-//! (Task 12), bukan lewat role workspace, jadi tidak punya marker di sini.
+//! dan `ProjectAdmin`, bukan lewat role workspace, jadi tidak punya marker di sini.
 
 use std::marker::PhantomData;
 

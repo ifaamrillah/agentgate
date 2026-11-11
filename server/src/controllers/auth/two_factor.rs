@@ -136,7 +136,7 @@ async fn settings(
         let remaining = recovery_codes::count_unused(&ctx.db, user.id).await?;
         return views::account::two_factor_status(
             &v,
-            &app_shell(&ctx, &user, None).await?,
+            &app_shell(&ctx, &user, None, None).await?,
             remaining,
             None,
             StatusCode::OK,
@@ -159,7 +159,7 @@ async fn settings(
     };
     let res = views::account::two_factor_setup(
         &v,
-        &app_shell(&ctx, &user, None).await?,
+        &app_shell(&ctx, &user, None, None).await?,
         &page,
         StatusCode::OK,
     )?;
@@ -181,8 +181,11 @@ async fn confirm(
     match totp::confirm(&ctx, &user, &sealed, form.code.expose_secret()).await? {
         Confirmed::Enabled(codes) => {
             let session = session.remove(SETUP_SECRET);
-            let res =
-                views::account::recovery_codes(&v, &app_shell(&ctx, &user, None).await?, &codes)?;
+            let res = views::account::recovery_codes(
+                &v,
+                &app_shell(&ctx, &user, None, None).await?,
+                &codes,
+            )?;
             Ok((session, res).into_response())
         }
         // Klik ganda: request pertama sudah mengaktifkan 2FA dan menampilkan kodenya.
@@ -207,7 +210,7 @@ async fn confirm(
             };
             let res = views::account::two_factor_setup(
                 &v,
-                &app_shell(&ctx, &user, None).await?,
+                &app_shell(&ctx, &user, None, None).await?,
                 &page,
                 StatusCode::UNPROCESSABLE_ENTITY,
             )?;
@@ -242,7 +245,7 @@ async fn disable(
     let remaining = recovery_codes::count_unused(&ctx.db, user.id).await?;
     views::account::two_factor_status(
         &v,
-        &app_shell(&ctx, &user, None).await?,
+        &app_shell(&ctx, &user, None, None).await?,
         remaining,
         Some(&wrong.into()),
         StatusCode::UNPROCESSABLE_ENTITY,
@@ -257,7 +260,7 @@ async fn regenerate_recovery_codes(
 ) -> Result<Response> {
     match totp::regenerate_recovery_codes(&ctx, &user).await? {
         Some(codes) => {
-            views::account::recovery_codes(&v, &app_shell(&ctx, &user, None).await?, &codes)
+            views::account::recovery_codes(&v, &app_shell(&ctx, &user, None, None).await?, &codes)
         }
         None => format::redirect(SETTINGS),
     }

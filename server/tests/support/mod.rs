@@ -7,7 +7,9 @@ pub mod fake_oauth;
 mod mail;
 mod session;
 
-pub use builders::{a_user, a_workspace, add_member, builtin_role};
+pub use builders::{
+    a_project, a_team, a_user, a_workspace, add_member, builtin_role, custom_role, grant,
+};
 pub use mail::{invitation_token_in, mail_to, sent_mail, token_in};
 pub use session::{
     request_as_development, request_with_config, request_with_settings, session_cookie, sign_in_as,

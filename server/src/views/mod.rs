@@ -9,7 +9,9 @@ pub mod invitations;
 pub mod job_titles;
 pub mod layout;
 pub mod members;
+pub mod projects;
 pub mod roles;
+pub mod teams;
 pub mod workspaces;
 
 /// Header untuk halaman yang membawa token di URL (reset, verifikasi, undangan, login dengan

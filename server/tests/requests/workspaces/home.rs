@@ -109,8 +109,11 @@ async fn workspace_home_shows_empty_projects_and_settings_only_for_managers() {
         assert_eq!(res.status_code(), 200);
         let html = res.text();
         assert!(html.contains("Belum ada project"), "{html}");
-        // Tombol buat project nonaktif sampai project ada (Task 12).
-        assert_css_exists(&html, "[data-create-project] button[disabled]");
+        // Owner memegang CreateProjects: tombol buat project menuju form.
+        assert_css_exists(
+            &html,
+            "a[data-create-project][href=\"/w/acme/projects/new\"]",
+        );
         assert_css_eq(&html, "[data-workspace-name]", "Acme");
         assert_css_exists(&html, "a[href=\"/w/acme/settings\"]");
 

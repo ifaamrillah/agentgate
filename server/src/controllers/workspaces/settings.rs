@@ -1,13 +1,13 @@
 //! `GET /w/{slug}/settings`: indeks Pengaturan, terbuka untuk role yang memegang salah satu izin
 //! Pengaturan (`Require<AnySettings>`, sama dengan tautan di sidebar). Setiap bagian tampil
 //! sesuai izinnya sendiri: nama/slug (`ManageWorkspace`), tautan Anggota dan Jabatan
-//! (`ManageMembers`) dan Role (`ManageRoles`); tim (Task 12) menambah bagiannya di sini, 2FA
-//! wajib dan hapus workspace di Task 13.
+//! (`ManageMembers`), Role (`ManageRoles`), dan Tim (`ManageTeams`); 2FA wajib dan hapus
+//! workspace di Task 13.
 //! `POST /w/{slug}/settings` mengubah nama/slug dan butuh `ManageWorkspace`.
 use axum::http::StatusCode;
 use loco_rs::prelude::*;
 
-use super::{WorkspaceForm, job_titles, members, roles, settings_path};
+use super::{WorkspaceForm, job_titles, members, roles, settings_path, teams};
 use crate::{
     controllers::{
         extractors::{
@@ -35,7 +35,7 @@ pub(super) async fn show(
 ) -> Result<Response> {
     let tenant = &access.tenant;
     let (session, flash) = flash::take(session);
-    let shell = app_shell(&ctx, &tenant.user, Some(tenant)).await?;
+    let shell = app_shell(&ctx, &tenant.user, Some(tenant), None).await?;
     let form = general_form(tenant)
         .then(|| WorkspaceFormView::new(&tenant.workspace.name, &tenant.workspace.slug, None));
     let res = views::workspaces::settings(
@@ -56,6 +56,7 @@ fn links(tenant: &Tenant) -> SettingsLinks {
         members: members::settings_link(tenant),
         roles: roles::settings_link(tenant),
         job_titles: job_titles::settings_link(tenant),
+        teams: teams::settings_link(tenant),
     }
 }
 
@@ -97,7 +98,7 @@ pub(super) async fn update(
             Ok((session, format::redirect(&settings_path(&workspace.slug))?).into_response())
         }
         Err(WorkspaceError::Invalid(errors)) => {
-            let shell = app_shell(&ctx, &tenant.user, Some(tenant)).await?;
+            let shell = app_shell(&ctx, &tenant.user, Some(tenant), None).await?;
             let form = WorkspaceFormView::new(
                 form.name.trim(),
                 &form.slug.trim().to_lowercase(),

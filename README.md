@@ -38,7 +38,10 @@ Katalog komponen UI ada di <http://localhost:5150/_dev/ui> (hanya development).
 `bin/loco db seed` mengisi database dev dengan lima user (terverifikasi, **tanpa password**):
 `owner@agentgate.test`, `admin@agentgate.test`, `dev@agentgate.test`, `qa@agentgate.test`, dan
 `viewer@agentgate.test`, semuanya anggota workspace **PT Contoh** (`/w/pt-contoh`) dengan role
-Owner, Admin, Member, Member, dan Viewer (jabatan: owner PM, dev Dev, qa QA). Menjalankannya lagi
+Owner, Admin, Member, Member, dan Viewer (jabatan: owner PM, dev Dev, qa QA). Workspace itu punya
+project **KSR** "Kasir Online" (`/w/pt-contoh/p/KSR`) dengan akses: tim Backend (dev) dan tim QA
+(qa) ber-role Member, viewer langsung ber-role Viewer; owner dan admin otomatis Admin di semua
+project. Menjalankannya lagi
 tidak menggandakan data; untuk mengulang dari nol pakai
 `bin/loco db reset` lalu seed.
 

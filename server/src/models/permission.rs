@@ -7,8 +7,8 @@
 //!
 //! Izin workspace (`Manage*`, `CreateProjects`, `ViewAuditLog`) dicek lewat role keanggotaan
 //! workspace (`Require<P>`). Izin project (`AdministerProject`, `EditProject`, `ViewProject`)
-//! juga ada di role workspace sebagai role default; role per project datang di Task 12, dan
-//! Owner/Admin workspace otomatis `AdministerProject` di semua project.
+//! berlaku per project lewat grant (`project_access`): role workspace non-admin tidak memberi
+//! akses project dengan sendirinya, dan Owner/Admin workspace otomatis Admin di semua project.
 
 use sea_orm::entity::prelude::*;
 

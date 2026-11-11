@@ -5,7 +5,11 @@
 use agentgate_server::{
     common::{crypto, settings::Settings},
     models::{
+        permission::Permission,
+        project_grants::{self, GrantSubject},
+        projects::{self, NewProject},
         roles::{self, RoleKey},
+        team_members, teams,
         users::{self, NewUser},
         workspace_members, workspaces,
     },
@@ -204,4 +208,77 @@ pub async fn builtin_role(
         .await
         .unwrap()
         .unwrap()
+}
+
+/// Project `key` di `workspace`, lewat model (tanpa grant pembuat dan audit: tes yang
+/// membutuhkan grant memberikannya sendiri lewat [`grant`]).
+pub async fn a_project(
+    ctx: &AppContext,
+    workspace: &workspaces::Model,
+    key: &str,
+) -> projects::Model {
+    projects::ActiveModel::create(
+        &ctx.db,
+        workspace.workspace_id(),
+        NewProject {
+            key: key.to_string(),
+            name: format!("Project {key}"),
+            description: String::new(),
+            created_by: None,
+        },
+    )
+    .await
+    .unwrap()
+}
+
+/// Tim `name` di `workspace` dengan anggota `members` (harus sudah anggota workspace).
+pub async fn a_team(
+    ctx: &AppContext,
+    workspace: &workspaces::Model,
+    name: &str,
+    members: &[&users::Model],
+) -> teams::Model {
+    let wid = workspace.workspace_id();
+    let team = teams::ActiveModel::create(&ctx.db, wid, name)
+        .await
+        .unwrap();
+    for user in members {
+        assert!(
+            team_members::ActiveModel::add(&ctx.db, wid, team.id, user.id)
+                .await
+                .unwrap()
+        );
+    }
+    team
+}
+
+/// Beri `subject` akses ke `project` dengan `role`.
+pub async fn grant(
+    ctx: &AppContext,
+    workspace: &workspaces::Model,
+    project: &projects::Model,
+    subject: GrantSubject,
+    role: &roles::Model,
+) -> project_grants::Model {
+    let wid = workspace.workspace_id();
+    project_grants::ActiveModel::grant(&ctx.db, wid, project.id, subject, role.id)
+        .await
+        .unwrap()
+}
+
+/// Role custom `name` dengan izin `permissions` di `workspace`.
+pub async fn custom_role(
+    ctx: &AppContext,
+    workspace: &workspaces::Model,
+    name: &str,
+    permissions: &[Permission],
+) -> roles::Model {
+    roles::ActiveModel::create_custom(
+        &ctx.db,
+        workspace.workspace_id(),
+        name,
+        permissions.to_vec(),
+    )
+    .await
+    .unwrap()
 }

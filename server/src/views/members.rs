@@ -43,6 +43,14 @@ pub struct OptionView {
 
 impl OptionView {
     #[must_use]
+    pub fn new(id: impl ToString, name: &str) -> Self {
+        Self {
+            id: id.to_string(),
+            name: name.to_string(),
+        }
+    }
+
+    #[must_use]
     pub fn role(role: &roles::Model) -> Self {
         Self {
             id: role.id.to_string(),

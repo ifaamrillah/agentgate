@@ -1,5 +1,5 @@
 //! Workspace: pilih (`/`), buat (`/w/new`), beranda (`/w/{slug}`), dan Pengaturan
-//! (`/w/{slug}/settings`, dengan Role dan Jabatan di bawahnya). Semua route di bawah
+//! (`/w/{slug}/settings`, dengan Anggota, Role, Jabatan, dan Tim di bawahnya). Semua route di bawah
 //! `/w/{slug}` memakai extractor `Tenant`.
 use loco_rs::prelude::*;
 use serde::Deserialize;
@@ -10,6 +10,7 @@ mod job_titles;
 mod members;
 mod roles;
 mod settings;
+mod teams;
 
 /// Isian form nama + slug (buat workspace dan Pengaturan). Field yang tidak dikirim dianggap
 /// kosong, supaya form yang dipotong tetap dirender ulang dengan pesan validasi.
@@ -43,6 +44,10 @@ fn roles_path(slug: &str) -> String {
 
 fn job_titles_path(slug: &str) -> String {
     format!("/w/{slug}/settings/job-titles")
+}
+
+fn teams_path(slug: &str) -> String {
+    format!("/w/{slug}/settings/teams")
 }
 
 pub fn routes() -> Routes {
@@ -107,5 +112,24 @@ pub fn routes() -> Routes {
         .add(
             "/w/{slug}/settings/job-titles/{id}/delete",
             post(job_titles::delete),
+        )
+        .add(
+            "/w/{slug}/settings/teams",
+            get(teams::index).post(teams::create),
+        )
+        .add(
+            "/w/{slug}/settings/teams/{id}",
+            get(teams::show).post(teams::rename),
+        )
+        .add("/w/{slug}/settings/teams/{id}/delete", post(teams::delete))
+        .add(
+            "/w/{slug}/settings/teams/{id}/members",
+            post(teams::add_member),
+        )
+        // Orang yang dikeluarkan datang dari isian form (`user_id`), bukan path: `IdOr404`
+        // hanya membaca `{id}`.
+        .add(
+            "/w/{slug}/settings/teams/{id}/members/remove",
+            post(teams::remove_member),
         )
 }

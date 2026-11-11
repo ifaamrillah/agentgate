@@ -53,10 +53,7 @@ pub(super) fn acting(tenant: &Tenant, request_id: Option<String>) -> Acting<'_> 
     }
 }
 
-/// UUID dari isian form; nilai lain (form diubah di luar browser) → 404, seperti id path.
-pub(super) fn form_id(raw: &str) -> Result<Uuid> {
-    Uuid::try_parse(raw.trim()).map_err(|_| Error::NotFound)
-}
+pub(super) use crate::controllers::extractors::form_id;
 
 /// Isian jabatan: kosong = tanpa jabatan.
 pub(super) fn optional_form_id(raw: &str) -> Result<Option<Uuid>> {
@@ -115,7 +112,7 @@ pub(super) async fn render_index(
         invite_action,
         flash,
     };
-    let shell = app_shell(ctx, &tenant.user, Some(tenant)).await?;
+    let shell = app_shell(ctx, &tenant.user, Some(tenant), None).await?;
     views::members::index(v, &shell, &page, status)
 }
 
@@ -236,7 +233,7 @@ pub(super) async fn confirm_remove(
     let base = members_path(&tenant.workspace.slug);
     let manageable = roles::can_assign(&tenant.role, &role);
     let row = MemberRow::new(&member, &user, &role, None, manageable, &base);
-    let shell = app_shell(&ctx, &tenant.user, Some(tenant)).await?;
+    let shell = app_shell(&ctx, &tenant.user, Some(tenant), None).await?;
     views::members::confirm_remove(&v, &shell, &row, &base)
 }
 
@@ -263,7 +260,7 @@ pub(super) async fn confirm_leave(
     ViewEngine(v): ViewEngine<TeraView>,
     tenant: Tenant,
 ) -> Result<Response> {
-    let shell = app_shell(&ctx, &tenant.user, Some(&tenant)).await?;
+    let shell = app_shell(&ctx, &tenant.user, Some(&tenant), None).await?;
     views::members::confirm_leave(
         &v,
         &shell,
@@ -288,7 +285,7 @@ pub(super) async fn leave(
             let Some(code) = e.code() else {
                 return Err(e.into());
             };
-            let shell = app_shell(&ctx, &tenant.user, Some(&tenant)).await?;
+            let shell = app_shell(&ctx, &tenant.user, Some(&tenant), None).await?;
             views::members::confirm_leave(
                 &v,
                 &shell,

@@ -60,12 +60,22 @@ pub fn new(
     )
 }
 
-/// Beranda workspace. Project belum ada (Task 12), jadi selalu empty state.
-pub fn home(v: &impl ViewRenderer, shell: &AppShell, name: &str) -> Result<Response> {
+/// Beranda workspace: daftar project yang bisa dibuka (`shell.projects`, sama dengan
+/// sidebar). `create_href` = form buat project, `None` bila role tidak memegang
+/// `CreateProjects`.
+pub fn home(
+    v: &impl ViewRenderer,
+    shell: &AppShell,
+    name: &str,
+    create_href: Option<&str>,
+) -> Result<Response> {
     format::render().view(
         v,
         "workspaces/home.html",
-        app_page(shell, data!({ "workspace_name": name })),
+        app_page(
+            shell,
+            data!({ "workspace_name": name, "create_href": create_href }),
+        ),
     )
 }
 
@@ -75,6 +85,7 @@ pub struct SettingsLinks {
     pub members: Option<String>,
     pub roles: Option<String>,
     pub job_titles: Option<String>,
+    pub teams: Option<String>,
 }
 
 /// Indeks Pengaturan. `form` = bagian Umum (nama, slug), `None` bila role tidak memegang

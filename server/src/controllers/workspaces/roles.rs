@@ -74,7 +74,7 @@ async fn render_index(
         .iter()
         .map(|role| RoleRow::new(role, &base))
         .collect();
-    let shell = app_shell(ctx, &tenant.user, Some(tenant)).await?;
+    let shell = app_shell(ctx, &tenant.user, Some(tenant), None).await?;
     views::roles::index(v, &shell, &rows, &format!("{base}/new"), flash, status)
 }
 
@@ -87,7 +87,7 @@ async fn render_form(
     editing: bool,
     status: StatusCode,
 ) -> Result<Response> {
-    let shell = app_shell(ctx, &tenant.user, Some(tenant)).await?;
+    let shell = app_shell(ctx, &tenant.user, Some(tenant), None).await?;
     views::roles::form(
         v,
         &shell,

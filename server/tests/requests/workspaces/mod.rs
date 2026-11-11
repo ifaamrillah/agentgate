@@ -5,4 +5,5 @@ mod job_titles;
 mod members;
 mod roles;
 mod settings;
+mod teams;
 mod tenant_isolation;

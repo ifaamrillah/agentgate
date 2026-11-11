@@ -14,6 +14,12 @@
 //!   tidak lagi memegang `ManageMembers` (diturunkan di tengah jalan) mendapat `NotFound`, sama
 //!   dengan guard `Require<ManageMembers>`. Pengecualian: [`leave`], yang terbuka untuk semua
 //!   anggota.
+//! - **Keluar = kehilangan tim dan akses project langsung**: [`remove`] dan [`leave`] menghapus
+//!   baris `workspace_members`, dan `team_members` serta grant per orang (`project_grants.user_id`)
+//!   mengacu ke baris itu lewat FK `(workspace_id, user_id)` `ON DELETE CASCADE` (migrasi
+//!   teams_projects). Keduanya ikut terhapus di statement `DELETE` yang sama, jadi di transaksi
+//!   yang sama dengan audit-nya, tanpa langkah terpisah yang bisa terlupa (dijaga
+//!   `tests/requests/projects/access.rs`).
 
 use loco_rs::app::AppContext;
 use sea_orm::{DatabaseTransaction, DbErr, ModelTrait, TransactionTrait};

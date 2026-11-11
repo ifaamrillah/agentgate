@@ -85,7 +85,8 @@ pub enum RoleError {
     /// Role bawaan: nama dan izinnya tetap ([`ensure_role_editable`]).
     #[error("built-in role is immutable")]
     Builtin,
-    /// Masih dipakai member atau undangan aktif (FK `role_id`), jadi tidak bisa dihapus.
+    /// Masih dipakai member, undangan aktif, atau grant project (FK `role_id`), jadi tidak bisa
+    /// dihapus.
     #[error("role is in use")]
     InUse,
     #[error(transparent)]
@@ -389,9 +390,8 @@ impl ActiveModel {
     /// Hapus role custom. Role yang masih dipegang member atau undangan ditolak oleh FK
     /// `role_id` (NO ACTION) di database, bukan oleh SELECT lebih dulu, jadi tidak ada celah
     /// race. Undangan yang sudah selesai dihapus pemanggil lebih dulu
-    /// (`services::workspaces::roles::delete`), jadi hanya undangan aktif yang menahan. Task 12:
-    /// `project_grants.role_id` juga harus FK ke `roles` tanpa ON DELETE supaya grant ikut
-    /// menahan penghapusan lewat jalur yang sama.
+    /// (`services::workspaces::roles::delete`), jadi hanya undangan aktif yang menahan. Grant
+    /// project (`project_grants.role_id`, FK tanpa ON DELETE) ikut menahan lewat jalur yang sama.
     ///
     /// # Errors
     ///

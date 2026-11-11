@@ -90,12 +90,14 @@ impl WorkspaceView {
     }
 }
 
-/// Satu project di bagian PROJECT. `key` membedakan project aktif.
+/// Satu project di bagian PROJECT (dan daftar project beranda). `key` membedakan project
+/// aktif; `archived` menandai project yang diarsipkan.
 #[derive(Debug, Clone, Serialize)]
 pub struct ProjectLink {
     pub name: String,
     pub key: String,
     pub href: String,
+    pub archived: bool,
 }
 
 impl ProjectLink {
@@ -105,7 +107,14 @@ impl ProjectLink {
             name: name.to_string(),
             key: key.to_string(),
             href: format!("{}/p/{key}", workspace_href(workspace_slug)),
+            archived: false,
         }
+    }
+
+    #[must_use]
+    pub fn archived(mut self, archived: bool) -> Self {
+        self.archived = archived;
+        self
     }
 }
 

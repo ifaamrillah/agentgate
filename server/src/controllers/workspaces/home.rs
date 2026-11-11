@@ -1,11 +1,14 @@
-//! `/` memilih workspace, `/w/new` membuatnya, `/w/{slug}` beranda workspace.
+//! `/` memilih workspace, `/w/new` membuatnya, `/w/{slug}` beranda workspace (daftar project
+//! yang bisa dibuka dan tombol buat project untuk pemegang `CreateProjects`).
 use axum::http::StatusCode;
 use loco_rs::prelude::*;
 
 use super::WorkspaceForm;
 use crate::{
     controllers::{
-        extractors::{CurrentUser, RequestId, Tenant, ValidForm},
+        extractors::{
+            CurrentUser, PermissionMarker, RequestId, Tenant, ValidForm, require::CreateProjects,
+        },
         shell::app_shell,
     },
     models::workspaces::WorkspaceError,
@@ -22,7 +25,7 @@ pub(super) async fn choose(
     ViewEngine(v): ViewEngine<TeraView>,
     CurrentUser(user): CurrentUser,
 ) -> Result<Response> {
-    let shell = app_shell(&ctx, &user, None).await?;
+    let shell = app_shell(&ctx, &user, None, None).await?;
     match shell.workspaces.as_slice() {
         [] => format::redirect(NEW),
         [only] => format::redirect(&only.href),
@@ -36,7 +39,7 @@ pub(super) async fn new(
     ViewEngine(v): ViewEngine<TeraView>,
     CurrentUser(user): CurrentUser,
 ) -> Result<Response> {
-    let shell = app_shell(&ctx, &user, None).await?;
+    let shell = app_shell(&ctx, &user, None, None).await?;
     views::workspaces::new(
         &v,
         &shell,
@@ -60,7 +63,7 @@ pub(super) async fn create(
     match create::run(&ctx, &user, new, request_id).await {
         Ok(workspace) => format::redirect(&format!("/w/{}", workspace.slug)),
         Err(WorkspaceError::Invalid(errors)) => {
-            let shell = app_shell(&ctx, &user, None).await?;
+            let shell = app_shell(&ctx, &user, None, None).await?;
             let form = WorkspaceFormView::new(
                 form.name.trim(),
                 &form.slug.trim().to_lowercase(),
@@ -78,6 +81,8 @@ pub(super) async fn show(
     ViewEngine(v): ViewEngine<TeraView>,
     tenant: Tenant,
 ) -> Result<Response> {
-    let shell = app_shell(&ctx, &tenant.user, Some(&tenant)).await?;
-    views::workspaces::home(&v, &shell, &tenant.workspace.name)
+    let shell = app_shell(&ctx, &tenant.user, Some(&tenant), None).await?;
+    let create = CreateProjects::allows(&tenant.role)
+        .then(|| crate::controllers::projects::new_project_path(&tenant.workspace.slug));
+    views::workspaces::home(&v, &shell, &tenant.workspace.name, create.as_deref())
 }

@@ -24,8 +24,10 @@ use crate::{
     controllers, initializers,
     models::{
         job_titles,
+        project_grants::{self, GrantSubject},
+        projects::{self, NewProject},
         roles::{self, RoleKey},
-        users, workspace_members, workspaces,
+        team_members, teams, users, workspace_members, workspaces,
     },
     services::workspaces::create::{self, NewWorkspace},
 };
@@ -46,6 +48,13 @@ const SEED_MEMBERS: &[(&str, RoleKey, Option<&str>)] = &[
     ("viewer@agentgate.test", RoleKey::Viewer, None),
 ];
 const SEED_JOB_TITLES: &[&str] = &["PM", "Dev", "QA"];
+/// Tim contoh dan anggotanya (email user seed).
+const SEED_TEAMS: &[(&str, &[&str])] = &[
+    ("Backend", &["dev@agentgate.test"]),
+    ("QA", &["qa@agentgate.test"]),
+];
+/// Project contoh: key dan nama. Pembuatnya Owner seed.
+const SEED_PROJECT: (&str, &str) = ("KSR", "Kasir Online");
 
 /// Semua tabel yang dikosongkan hook `truncate`; tabel baru didaftarkan di sini.
 const TRUNCATE_TABLES: &[&str] = &[
@@ -172,9 +181,9 @@ impl Hooks for App {
         Ok(())
     }
 
-    /// Seed dev: user (fixture), lalu workspace "PT Contoh" dengan role bawaan, jabatan, dan
-    /// semua user seed sebagai anggota (tim dan project menyusul saat tabelnya ada). Dijalankan
-    /// ulang tanpa `db reset` tidak error: bagian yang sudah ada dilewati.
+    /// Seed dev: user (fixture), lalu workspace "PT Contoh" dengan role bawaan, jabatan, semua
+    /// user seed sebagai anggota, tim Backend dan QA, dan project KSR dengan aksesnya.
+    /// Dijalankan ulang tanpa `db reset` tidak error: bagian yang sudah ada dilewati.
     async fn seed(ctx: &AppContext, base: &Path) -> Result<()> {
         if users::Model::find_by_email(&ctx.db, SEED_MARKER_EMAIL)
             .await?
@@ -241,6 +250,66 @@ async fn seed_workspace(ctx: &AppContext) -> Result<()> {
             member.set_job_title(&txn, title_id).await?;
         }
     }
+    seed_project(&txn, wid, &owner, &seed_user).await?;
     txn.commit().await?;
+    Ok(())
+}
+
+/// Tim, project KSR, dan akses contoh di transaksi seed workspace: tim Backend (dev@) dan QA
+/// (qa@) ber-role Member di KSR, viewer@ ber-role Viewer langsung. Owner dan Admin seed sudah
+/// Admin di semua project lewat role workspace-nya.
+async fn seed_project<F, Fut>(
+    txn: &sea_orm::DatabaseTransaction,
+    wid: workspaces::WorkspaceId,
+    owner: &users::Model,
+    seed_user: &F,
+) -> Result<()>
+where
+    F: Fn(&'static str) -> Fut,
+    Fut: std::future::Future<Output = Result<users::Model>>,
+{
+    let role = |key: RoleKey| async move {
+        roles::Model::find_builtin(txn, wid, key)
+            .await?
+            .ok_or_else(|| loco_rs::Error::string("role bawaan tidak ada"))
+    };
+    let member_role = role(RoleKey::Member).await?;
+    let viewer_role = role(RoleKey::Viewer).await?;
+    let (key, name) = SEED_PROJECT;
+    let project = projects::ActiveModel::create(
+        txn,
+        wid,
+        NewProject {
+            key: key.to_string(),
+            name: name.to_string(),
+            description: "Aplikasi kasir untuk toko retail.".to_string(),
+            created_by: Some(owner.id),
+        },
+    )
+    .await?;
+    for (team_name, emails) in SEED_TEAMS {
+        let team = teams::ActiveModel::create(txn, wid, team_name).await?;
+        for email in *emails {
+            let user = seed_user(email).await?;
+            team_members::ActiveModel::add(txn, wid, team.id, user.id).await?;
+        }
+        project_grants::ActiveModel::grant(
+            txn,
+            wid,
+            project.id,
+            GrantSubject::Team(team.id),
+            member_role.id,
+        )
+        .await?;
+    }
+    let viewer = seed_user("viewer@agentgate.test").await?;
+    project_grants::ActiveModel::grant(
+        txn,
+        wid,
+        project.id,
+        GrantSubject::User(viewer.id),
+        viewer_role.id,
+    )
+    .await?;
     Ok(())
 }

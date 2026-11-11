@@ -5,12 +5,14 @@ pub mod invite;
 pub mod job_titles;
 pub mod membership;
 pub mod roles;
+pub mod teams;
 pub mod update;
 
 use uuid::Uuid;
 
 use crate::{
     models::{
+        project_access::Accessor,
         roles as role_model, users,
         workspaces::{self, WorkspaceId},
     },
@@ -27,7 +29,7 @@ pub struct Actor {
 }
 
 impl Actor {
-    fn audit(
+    pub(crate) fn audit(
         &self,
         action: AuditAction,
         subject: (AuditSubject, Uuid),
@@ -59,6 +61,16 @@ impl Acting<'_> {
     #[must_use]
     pub fn workspace_id(&self) -> WorkspaceId {
         self.workspace.workspace_id()
+    }
+
+    /// Penanya aturan akses project (`project_access`), dengan role workspace di sini.
+    #[must_use]
+    pub fn accessor(&self) -> Accessor<'_> {
+        Accessor {
+            workspace_id: self.workspace_id(),
+            user_id: self.user.id,
+            role: self.role,
+        }
     }
 
     /// Pelaku untuk baris audit.

@@ -1,0 +1,27 @@
+{#- Pengaturan project → Umum (Admin project). Variabel: project (ProjectSummary), paths
+    (ProjectPaths), form (ProjectFormView: name, description, errors), tab ("general"), flash
+    (dirender layout). -#}
+{% extends "layouts/app.html" %}
+{% block title %}{{ t(key="project-settings-title", lang="id") }}{% endblock title %}
+{% block content %}
+<div class="mx-auto grid max-w-2xl gap-6" data-project-settings>
+  {% include "projects/_header.html" %}
+  {% include "projects/_settings_nav.html" %}
+  {% <card title={t(key="project-settings-general", lang="id")}> %}
+    <form method="post" action="{{ paths.settings }}" class="form grid gap-6">
+      {{ <field id="project-name" name="name" label={t(key="project-name", lang="id")} value={form.name} error={form.errors.name.code} error_min={form.errors.name.min} error_max={form.errors.name.max} required={true}/> }}
+      {% include "projects/_description_field.html" %}
+      <div>{{ <button label={t(key="project-save", lang="id")} type="submit"/> }}</div>
+    </form>
+  {% </card> %}
+  {%- if not project.archived %}
+  <div data-project-archive>
+  {% <card title={t(key="project-archive-title", lang="id")} description={t(key="project-archive-description", lang="id")}> %}
+    <form method="post" action="{{ paths.archive }}" hx-confirm="{{ t(key="project-archive-confirm", lang="id") }}">
+      {{ <button label={t(key="project-archive", lang="id")} variant="destructive" type="submit"/> }}
+    </form>
+  {% </card> %}
+  </div>
+  {%- endif %}
+</div>
+{% endblock content %}

@@ -22,6 +22,7 @@ use loco_rs::app::AppContext;
 use super::CurrentUser;
 use crate::models::{
     permission::Permission,
+    project_access::Accessor,
     roles, users, workspace_members,
     workspaces::{self, WorkspaceId},
 };
@@ -39,6 +40,16 @@ impl Tenant {
     #[must_use]
     pub fn workspace_id(&self) -> WorkspaceId {
         self.workspace.workspace_id()
+    }
+
+    /// Penanya aturan akses project (`project_access`): user ini dengan role workspace-nya.
+    #[must_use]
+    pub fn accessor(&self) -> Accessor<'_> {
+        Accessor {
+            workspace_id: self.workspace_id(),
+            user_id: self.user.id,
+            role: &self.role,
+        }
     }
 
     /// Role user di workspace ini memegang `permission`.

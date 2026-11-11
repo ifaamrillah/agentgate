@@ -12,6 +12,16 @@ use axum::{
 };
 use uuid::Uuid;
 
+/// UUID dari isian form (mis. `role_id`, `user_id`); nilai lain (form diubah di luar browser)
+/// → 404, sama dengan id path.
+///
+/// # Errors
+///
+/// [`loco_rs::Error::NotFound`] bila `raw` bukan UUID.
+pub fn form_id(raw: &str) -> Result<Uuid, loco_rs::Error> {
+    Uuid::try_parse(raw.trim()).map_err(|_| loco_rs::Error::NotFound)
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct IdOr404<T> {
     pub id: Uuid,

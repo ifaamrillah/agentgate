@@ -33,6 +33,8 @@ pub enum Relation {
     Identities,
     #[sea_orm(has_many = "super::invitations::Entity")]
     Invitations,
+    #[sea_orm(has_many = "super::projects::Entity")]
+    Projects,
     #[sea_orm(has_many = "super::recovery_codes::Entity")]
     RecoveryCodes,
     #[sea_orm(has_many = "super::user_tokens::Entity")]
@@ -58,6 +60,12 @@ impl Related<super::identities::Entity> for Entity {
 impl Related<super::invitations::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Invitations.def()
+    }
+}
+
+impl Related<super::projects::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Projects.def()
     }
 }
 

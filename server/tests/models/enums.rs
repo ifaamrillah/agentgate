@@ -6,6 +6,7 @@ use agentgate_server::{
     models::{
         audit_events::{AuditAction, AuditSubject},
         identities::IdentityProvider,
+        repos::RepoProvider,
         roles::RoleKey,
         user_tokens::TokenPurpose,
     },
@@ -191,4 +192,38 @@ async fn builtin_flag_must_match_role_key() {
     assert!(!insert(Some("owner"), false).await, "key tanpa builtin");
     assert!(!insert(None, true).await, "builtin tanpa key");
     assert!(insert(None, false).await);
+}
+
+#[tokio::test]
+async fn repo_provider_check_matches_enum() {
+    let boot = boot_test::<App>().await.unwrap();
+    let db = &boot.app_context.db;
+    let workspace_id = bare_workspace(db).await;
+    let project_id = Uuid::now_v7();
+    db.execute_raw(Statement::from_sql_and_values(
+        DbBackend::Postgres,
+        "INSERT INTO projects (id, workspace_id, key, name) VALUES ($1, $2, 'ENUM', 'Enum')",
+        [Value::from(project_id), Value::from(workspace_id)],
+    ))
+    .await
+    .unwrap();
+    let insert = |provider: String| async move {
+        db.execute_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "INSERT INTO repos (workspace_id, project_id, name, provider, url, default_branch) \
+             VALUES ($1, $2, $3, $4, 'https://example.com/a', 'main')",
+            [
+                Value::from(workspace_id),
+                Value::from(project_id),
+                Value::from(Uuid::now_v7().to_string()),
+                Value::from(provider),
+            ],
+        ))
+        .await
+        .is_ok()
+    };
+    for provider in RepoProvider::iter() {
+        assert!(insert(provider.to_value()).await, "{provider:?}");
+    }
+    assert!(!insert("bogus".to_string()).await);
 }

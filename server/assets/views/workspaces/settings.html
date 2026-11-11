@@ -1,8 +1,8 @@
 {#- Indeks Pengaturan workspace (role dengan salah satu izin Pengaturan). Variabel: action (path
     POST bagian Umum), form (views::workspaces::WorkspaceFormView, atau null bila role tidak
-    memegang ManageWorkspace), links ({members, roles, job_titles}: href atau null bila role tidak
-    membuka halaman itu), flash (dirender layout).
-    Bagian baru (tim: Task 12; 2FA wajib, hapus workspace: Task 13) ditambahkan
+    memegang ManageWorkspace), links ({members, roles, job_titles, teams}: href atau null bila
+    role tidak membuka halaman itu), flash (dirender layout).
+    Bagian baru (2FA wajib, hapus workspace: Task 13) ditambahkan
     di dalam [data-settings-index], masing-masing dengan flag izinnya sendiri dari controller. -#}
 {% extends "layouts/app.html" %}
 {% block title %}{{ t(key="workspace-settings-title", lang="id") }}{% endblock title %}
@@ -40,8 +40,16 @@
     {% </card> %}
   </div>
   {%- endif %}
-  {%- if not form and not links.members and not links.roles and not links.job_titles %}
-  {#- Role yang hanya memegang izin tanpa halaman di sini (mis. ManageTeams sampai Task 12). -#}
+  {%- if links.teams %}
+  <div data-settings-teams>
+    {% <card title={t(key="settings-teams-title", lang="id")} description={t(key="settings-teams-description", lang="id")}> %}
+      <a href="{{ links.teams }}" class="btn" data-variant="outline">{{ t(key="settings-teams-open", lang="id") }}</a>
+    {% </card> %}
+  </div>
+  {%- endif %}
+  {%- if not form and not links.members and not links.roles and not links.job_titles and not links.teams %}
+  {#- Cadangan: setiap izin Pengaturan kini punya bagian, jadi ini hanya untuk izin baru yang
+      belum punya halaman. -#}
   {{ <empty_state title={t(key="workspace-settings-empty-title", lang="id")} description={t(key="workspace-settings-empty-description", lang="id")} icon="settings" variant="dashed"/> }}
   {%- endif %}
 </div>

@@ -27,8 +27,18 @@ pub enum Relation {
     Invitations,
     #[sea_orm(has_one = "super::job_titles::Entity")]
     JobTitles,
+    #[sea_orm(has_many = "super::project_grants::Entity")]
+    ProjectGrants,
+    #[sea_orm(has_one = "super::projects::Entity")]
+    Projects,
+    #[sea_orm(has_many = "super::repos::Entity")]
+    Repos,
     #[sea_orm(has_one = "super::roles::Entity")]
     Roles,
+    #[sea_orm(has_many = "super::team_members::Entity")]
+    TeamMembers,
+    #[sea_orm(has_one = "super::teams::Entity")]
+    Teams,
     #[sea_orm(
         belongs_to = "super::users::Entity",
         from = "Column::CreatedBy",
@@ -59,9 +69,39 @@ impl Related<super::job_titles::Entity> for Entity {
     }
 }
 
+impl Related<super::project_grants::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::ProjectGrants.def()
+    }
+}
+
+impl Related<super::projects::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Projects.def()
+    }
+}
+
+impl Related<super::repos::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Repos.def()
+    }
+}
+
 impl Related<super::roles::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Roles.def()
+    }
+}
+
+impl Related<super::team_members::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::TeamMembers.def()
+    }
+}
+
+impl Related<super::teams::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Teams.def()
     }
 }
 

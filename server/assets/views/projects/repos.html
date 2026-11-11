@@ -1,0 +1,46 @@
+{#- Pengaturan project → Repo (Admin project). Variabel: project (ProjectSummary), paths
+    (ProjectPaths), tab ("repos"), page (views::projects::ReposPage: repos ([RepoFormView] per
+    baris, dengan action ubah dan delete_action), create (RepoFormView form tambah, action =
+    POST tambah), providers ([{value, label_key}])), flash (dirender layout). -#}
+{% extends "layouts/app.html" %}
+{% block title %}{{ t(key="project-settings-repos", lang="id") }}{% endblock title %}
+{% block content %}
+<div class="grid gap-6" data-project-repos-settings>
+  {% include "projects/_header.html" %}
+  {% include "projects/_settings_nav.html" %}
+  {% set providers = page.providers %}
+  {% <card title={t(key="repo-add-title", lang="id")} description={t(key="repo-url-hint", lang="id")}> %}
+    {% set repo = page.create %}
+    <form method="post" action="{{ repo.action }}" class="form flex flex-wrap items-start gap-3">
+      {% include "projects/_repo_fields.html" %}
+      <div class="field">
+        <span aria-hidden="true">&nbsp;</span>
+        {{ <button label={t(key="repo-add", lang="id")} type="submit" icon="plus"/> }}
+      </div>
+    </form>
+  {% </card> %}
+  {%- if page.repos %}
+  {% <card> %}
+    <ul class="grid gap-6">
+      {%- for repo in page.repos %}
+      <li class="flex flex-wrap items-start gap-3" data-repo>
+        <form method="post" action="{{ repo.action }}" class="form flex flex-1 flex-wrap items-start gap-3">
+          {% include "projects/_repo_fields.html" %}
+          <div class="field">
+            <span aria-hidden="true">&nbsp;</span>
+            {{ <button label={t(key="project-save", lang="id")} variant="outline" type="submit"/> }}
+          </div>
+        </form>
+        <form method="post" action="{{ repo.delete_action }}" class="field" hx-confirm="{{ t(key="repo-delete-confirm", lang="id") }}">
+          <span aria-hidden="true">&nbsp;</span>
+          {{ <button label={t(key="repo-delete", lang="id")} variant="destructive" type="submit"/> }}
+        </form>
+      </li>
+      {%- endfor %}
+    </ul>
+  {% </card> %}
+  {%- else %}
+  {{ <empty_state title={t(key="project-repos-empty", lang="id")} icon="code" variant="dashed"/> }}
+  {%- endif %}
+</div>
+{% endblock content %}

@@ -4,7 +4,10 @@ use std::{collections::HashSet, path::Path};
 
 use agentgate_server::{
     common::text,
-    models::{job_titles, permission::Permission, roles, users, workspaces},
+    models::{
+        job_titles, permission::Permission, project_grants, projects, repos, roles, teams, users,
+        workspaces,
+    },
     services::{
         auth::{oauth, password, password_change},
         workspaces::{accept_invite, invite, membership},
@@ -66,6 +69,10 @@ fn every_validation_error_code_has_a_message() {
         workspaces::ERROR_CODES,
         roles::ERROR_CODES,
         job_titles::ERROR_CODES,
+        teams::ERROR_CODES,
+        projects::ERROR_CODES,
+        project_grants::ERROR_CODES,
+        repos::ERROR_CODES,
         password::ERROR_CODES,
         password_change::ERROR_CODES,
         invite::ERROR_CODES,
@@ -97,6 +104,8 @@ fn every_auth_message_key_has_a_translation() {
         views::roles::MESSAGE_KEYS,
         views::job_titles::MESSAGE_KEYS,
         views::members::MESSAGE_KEYS,
+        views::teams::MESSAGE_KEYS,
+        views::projects::MESSAGE_KEYS,
         oauth::ERROR_CODES,
     ]
     .concat()
@@ -104,4 +113,13 @@ fn every_auth_message_key_has_a_translation() {
     .filter(|k| !keys.contains(*k))
     .collect();
     assert!(missing.is_empty(), "kunci tanpa terjemahan: {missing:?}");
+}
+
+#[test]
+fn every_repo_provider_has_a_label() {
+    let keys = fluent_keys();
+    for provider in repos::RepoProvider::iter() {
+        let key = views::projects::provider_key(Some(provider));
+        assert!(keys.contains(key), "{key}");
+    }
 }
