@@ -179,7 +179,7 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 - Server SMTP untuk staging/production (`MAIL_FROM`, `SMTP_*`).
 - M3: konfirmasi apakah gate evidence boleh dipenuhi manual (centang + unggah bukti) sebelum runner/git
   tersedia, atau tetap hanya lewat lompat/paksa Admin seperti sekarang.
-- M4: URL publik produksi (`PUBLIC_BASE_URL`) dipakai sebagai issuer OAuth dan resource MCP; harus https
+- M4: URL publik produksi (`APP_URL` → `settings.public_base_url`) dipakai sebagai issuer OAuth dan resource MCP; harus https
   di staging/prod agar Claude Code/Codex/Gemini bisa login.
 - M4: konfirmasi daftar redirect URI yang diizinkan dan apakah DCR perlu dibatasi (mis. hanya user login /
   allowlist nama client).
