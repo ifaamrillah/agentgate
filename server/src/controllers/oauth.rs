@@ -149,6 +149,39 @@ async fn render_consent(
     format::render()
         .status(status)
         .view(v, "oauth/consent.html", data!({ "page": page }))
+        .map(|res| with_consent_csp(res, &params.redirect_uri))
+}
+
+/// Sumber CSP untuk redirect URI client: `https://host:port`, `http://127.0.0.1:port`, atau
+/// `skema:` untuk skema privat. `None` bila ada karakter yang tidak boleh di header CSP.
+fn csp_source(redirect_uri: &str) -> Option<String> {
+    let (scheme, rest) = redirect_uri.split_once(':')?;
+    let source = if scheme == "http" || scheme == "https" {
+        let authority = rest.strip_prefix("//")?.split(['/', '?', '#']).next()?;
+        format!("{scheme}://{authority}")
+    } else {
+        format!("{scheme}:")
+    };
+    source
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, ':' | '/' | '.' | '-' | '+' | '[' | ']'))
+        .then_some(source)
+}
+
+/// Halaman consent: `form-action` CSP default hanya `'self'`, dan Chrome menerapkannya juga pada
+/// redirect setelah submit form. Tambahkan asal redirect URI client (yang sudah terdaftar dan
+/// dicek) supaya redirect ke client setelah Izinkan/Tolak tidak diblokir. Header ini menang
+/// atas header aman bawaan (Loco tidak menimpa header yang sudah ada).
+fn with_consent_csp(mut res: Response, redirect_uri: &str) -> Response {
+    let extra = csp_source(redirect_uri).unwrap_or_default();
+    let csp = format!(
+        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; \
+         object-src 'none'; base-uri 'self'; form-action 'self' {extra}; frame-ancestors 'none'"
+    );
+    if let Ok(v) = HeaderValue::from_str(&csp) {
+        res.headers_mut().insert(header::CONTENT_SECURITY_POLICY, v);
+    }
+    res
 }
 
 #[debug_handler]
@@ -327,4 +360,26 @@ pub fn routes() -> Routes {
         .add("/oauth/authorize", get(authorize).post(decide))
         .add("/oauth/token", post(token))
         .add("/oauth/revoke", post(revoke))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::csp_source;
+
+    #[test]
+    fn csp_source_of_redirect_uris() {
+        assert_eq!(
+            csp_source("http://127.0.0.1:53682/callback").as_deref(),
+            Some("http://127.0.0.1:53682")
+        );
+        assert_eq!(
+            csp_source("https://claude.ai/api/mcp/auth_callback?x=1").as_deref(),
+            Some("https://claude.ai")
+        );
+        assert_eq!(
+            csp_source("cursor://anysphere.cursor-retrieval/oauth").as_deref(),
+            Some("cursor:")
+        );
+        assert_eq!(csp_source("https://a.b'; script-src *"), None);
+    }
 }

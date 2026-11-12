@@ -119,6 +119,16 @@ async fn authorize_requires_login_and_validates_request() {
         assert_css_exists(&html, "input[type=hidden][name=code_challenge]");
         assert!(html.contains("Claude Code"));
         assert!(html.contains("PT Contoh"));
+        // Redirect ke client setelah submit tidak diblokir CSP form-action.
+        let csp = page
+            .header("content-security-policy")
+            .to_str()
+            .unwrap()
+            .to_string();
+        assert!(
+            csp.contains("form-action 'self' http://127.0.0.1:53682;"),
+            "{csp}"
+        );
 
         // Client tidak dikenal / redirect tidak terdaftar → halaman error, tanpa redirect.
         let mut bad = authorize_params(&client_id);
