@@ -1,28 +1,73 @@
-{#- Pengaturan workspace → Umum (role dengan salah satu izin Pengaturan). Menu kiri dari
-    layouts/settings.html. Variabel: action (path POST bagian Umum), form
-    (views::workspaces::WorkspaceFormView, atau null bila role tidak memegang ManageWorkspace),
-    danger (views::workspaces::DangerZoneView: require_2fa dan delete, masing-masing null bila
-    role tidak boleh), flash (dirender layout). -#}
+{#- Pengaturan → Umum: subpage varian E (prototype "Umum"); setiap sub-halaman rute server:
+    Profil workspace (`/settings`, ManageWorkspace), Keamanan (`/settings/security`, Owner),
+    Zona berbahaya (`/settings/danger`, Owner). Metode masuk per workspace belum ada di M1.
+    Variabel: section (profile|security|danger), subnav ([NavItem]), action (POST profil), form
+    (views::workspaces::WorkspaceFormView atau null), danger (DangerZoneView: require_2fa {action,
+    enabled} / delete {action, slug, error}, null bila tidak boleh), without_two_factor (angka),
+    flash (layout). -#}
 {% extends "layouts/settings.html" %}
 {% block title %}{{ t(key="workspace-settings-title", lang="id") }}{% endblock title %}
+{% block crumb_label %}{{ t(key="workspace-settings-general", lang="id") }}{% endblock crumb_label %}
 {% block page_attrs %}data-settings-index{% endblock page_attrs %}
-{% block heading %}{{ t(key="workspace-settings-general", lang="id") }}{% endblock heading %}
-{% block description %}{{ t(key="workspace-settings-intro", lang="id") }}{% endblock description %}
-{% block main %}
-  {%- if form %}
+{% block settings %}
+{%- if subnav %}
+{% <subpage title={t(key="workspace-settings-general", lang="id")} description={t(key="workspace-settings-intro", lang="id")} items={subnav}> %}
+  {%- if section == "profile" and form %}
   <div data-settings-general>
-    {% <panel title={t(key="workspace-settings-profile", lang="id")} description={t(key="workspace-settings-general-description", lang="id")}> %}
-      <form method="post" action="{{ action }}" class="app-form">
-        {% include "workspaces/_form.html" %}
-        <div class="app-form-actions">{{ <button label={t(key="workspace-settings-save", lang="id")} type="submit"/> }}</div>
+  {% <card title={t(key="workspace-settings-profile", lang="id")} description={t(key="workspace-settings-general-description", lang="id")} flush={true} form={action} save_label={t(key="action-save-changes", lang="id")} cancel_href={action}> %}
+    {% <setting_row title={t(key="workspace-name", lang="id")} description={t(key="workspace-name-hint", lang="id")} wide={true}> %}
+      {{ <field id="workspace-name" name="name" label={t(key="workspace-name", lang="id")} hide_label={true} value={form.name} error={form.errors.name.code} error_min={form.errors.name.min} error_max={form.errors.name.max} required={true}/> }}
+    {% </setting_row> %}
+    {% <setting_row title={t(key="workspace-slug", lang="id")} description={t(key="workspace-slug-hint", lang="id")} wide={true}> %}
+      {{ <field id="workspace-slug" name="slug" label={t(key="workspace-slug", lang="id")} hide_label={true} prefix="/w/" mono={true} value={form.slug} error={form.errors.slug.code} error_min={form.errors.slug.min} error_max={form.errors.slug.max} autocomplete="off"/> }}
+    {% </setting_row> %}
+  {% </card> %}
+  </div>
+  {%- elif section == "security" and danger.require_2fa %}
+  <div data-settings-danger>
+  {% <card title={t(key="workspace-security-title", lang="id")} description={t(key="workspace-security-description", lang="id")} flush={true}> %}
+    {% <setting_row title={t(key="workspace-require-2fa-title", lang="id")} description={t(key="workspace-require-2fa-description", lang="id")}> %}
+      <form method="post" action="{{ danger.require_2fa.action }}" class="app-btnrow" data-require-2fa>
+        {%- if danger.require_2fa.enabled %}
+        {{ <badge label={t(key="workspace-require-2fa-on", lang="id")} variant="success"/> }}
+        <input type="hidden" name="enabled" value="false">
+        {{ <button label={t(key="workspace-require-2fa-disable", lang="id")} type="submit" variant="outline" size="sm"/> }}
+        {%- else %}
+        {{ <badge label={t(key="workspace-require-2fa-off", lang="id")} variant="neutral"/> }}
+        <input type="hidden" name="enabled" value="true">
+        {{ <button label={t(key="workspace-require-2fa-enable", lang="id")} type="submit" size="sm"/> }}
+        {%- endif %}
       </form>
-    {% </panel> %}
+    {% </setting_row> %}
+    {% <setting_row title={t(key="workspace-without-2fa-title", lang="id")} description={t(key="workspace-without-2fa-description", lang="id")}> %}
+      {%- if without_two_factor > 0 %}<span class="app-count" data-tone="alert">{{ without_two_factor }}</span>
+      {%- if shell.settings and shell.settings.members %}{{ <button label={t(key="workspace-without-2fa-see", lang="id")} href={shell.settings.members ~ "?tfa=off"} variant="outline" size="sm"/> }}{% endif %}
+      {%- else %}{{ <badge label={t(key="workspace-without-2fa-none", lang="id")} variant="success"/> }}{% endif %}
+    {% </setting_row> %}
+  {% </card> %}
+  </div>
+  {%- elif section == "danger" %}
+  <div data-settings-danger>
+  {% <card title={t(key="workspace-danger-title", lang="id")} variant="danger" flush={true}> %}
+    {% <setting_row title={t(key="nav-leave-workspace", lang="id")} description={t(key="workspace-leave-description", lang="id")}> %}
+      {{ <button label={t(key="nav-leave-workspace", lang="id")} href={shell.current_workspace.leave_href} variant="outline" icon="door-exit" size="sm"/> }}
+    {% </setting_row> %}
+    {%- if danger.delete %}
+    {% <setting_row title={t(key="workspace-delete-title", lang="id")} description={t(key="workspace-delete-description", lang="id")} top={true} wide={true}> %}
+      <form method="post" action="{{ danger.delete.action }}" class="app-stack-v" data-gap="sm" data-delete-workspace>
+        {{ <field id="delete-confirm" name="confirm_slug" label={t(key="workspace-delete-confirm", lang="id", slug=danger.delete.slug)} error={danger.delete.error} autocomplete="off" required={true}/> }}
+        {{ <button label={t(key="workspace-delete-submit", lang="id")} type="submit" variant="danger" icon="trash"/> }}
+      </form>
+    {% </setting_row> %}
+    {%- else %}
+    {% <setting_row title={t(key="workspace-delete-title", lang="id")} description={t(key="workspace-delete-scheduled", lang="id")}> %}{% </setting_row> %}
+    {%- endif %}
+  {% </card> %}
   </div>
   {%- endif %}
-  {%- if danger.require_2fa or danger.delete %}
-  {% include "workspaces/_danger.html" %}
-  {%- endif %}
-  {%- if not form and not danger.require_2fa and not danger.delete %}
-  {{ <empty_state title={t(key="workspace-settings-pick-title", lang="id")} description={t(key="workspace-settings-pick-description", lang="id")} icon="settings" variant="dashed"/> }}
-  {%- endif %}
-{% endblock main %}
+{% </subpage> %}
+{%- else %}
+<header class="app-page-head"><div class="app-page-title"><h1>{{ t(key="workspace-settings-general", lang="id") }}</h1><p>{{ t(key="workspace-settings-intro", lang="id") }}</p></div></header>
+{{ <empty_state title={t(key="workspace-settings-pick-title", lang="id")} description={t(key="workspace-settings-pick-description", lang="id")} icon="settings"/> }}
+{%- endif %}
+{% endblock settings %}

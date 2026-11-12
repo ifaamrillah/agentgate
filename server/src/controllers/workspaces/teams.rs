@@ -23,7 +23,7 @@ use crate::{
     views::{
         self,
         flash::Flash,
-        members::OptionView,
+        ui::ComboOption,
         teams::{TeamFormView, TeamLink, TeamMemberRow, TeamPage},
     },
 };
@@ -71,10 +71,14 @@ async fn render_index(
     status: StatusCode,
 ) -> Result<Response> {
     let base = teams_path(&tenant.workspace.slug);
+    let memberships = team_members::Model::all_in(&ctx.db, tenant.workspace_id()).await?;
     let teams: Vec<TeamLink> = teams::Model::in_workspace(&ctx.db, tenant.workspace_id())
         .await?
         .iter()
-        .map(|team| TeamLink::new(team, &base))
+        .map(|team| {
+            let count = memberships.iter().filter(|m| m.team_id == team.id).count();
+            TeamLink::new(team, &base, u64::try_from(count).unwrap_or(u64::MAX))
+        })
         .collect();
     let shell = app_shell(ctx, &tenant.user, Some(tenant), None)
         .await?
@@ -98,8 +102,9 @@ async fn render_team(
         .await?
         .iter()
         .filter(|(_, user, _)| !members.iter().any(|(m, _)| m.user_id == user.id))
-        .map(|(_, user, _)| OptionView::new(user.id, &format!("{} ({})", user.name, user.email)))
+        .map(|(_, user, _)| ComboOption::person(user.id, &user.name, &user.email))
         .collect();
+    let people_src = format!("/w/{}/people?not_in_team={}", tenant.workspace.slug, team.id);
     let page = TeamPage::new(
         team,
         &teams_path(&tenant.workspace.slug),
@@ -109,6 +114,7 @@ async fn render_team(
             .map(|(_, user)| TeamMemberRow::new(user))
             .collect(),
         candidates,
+        people_src,
         flash,
     );
     let shell = app_shell(ctx, &tenant.user, Some(tenant), None)

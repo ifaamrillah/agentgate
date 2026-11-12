@@ -47,11 +47,11 @@ async fn custom_role_with_permissions_can_be_created() {
             .text();
         assert_css_exists(
             &html,
-            "[data-settings-index] a[href=\"/w/acme/settings/roles\"]",
+            ".app-side a[href=\"/w/acme/settings/roles\"]",
         );
         assert_css_exists(
             &html,
-            "[data-settings-index] a[href=\"/w/acme/settings/job-titles\"]",
+            ".app-side a[href=\"/w/acme/settings/job-titles\"]",
         );
 
         let form = request

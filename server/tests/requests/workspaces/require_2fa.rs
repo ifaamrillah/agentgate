@@ -44,7 +44,7 @@ async fn owner_toggles_require_2fa_only_with_own_2fa() {
         let cookie = sign_in_as(&request, &owner).await;
 
         let html = request
-            .get("/w/acme/settings")
+            .get("/w/acme/settings/security")
             .add_cookie(cookie.clone())
             .await
             .text();
@@ -71,10 +71,10 @@ async fn owner_toggles_require_2fa_only_with_own_2fa() {
             .form(&[("enabled", "true")])
             .await;
         assert_eq!(res.status_code(), 303, "{}", res.text());
-        assert_eq!(res.header("location"), "/w/acme/settings");
+        assert_eq!(res.header("location"), "/w/acme/settings/security");
         assert!(reload(&ctx).await.require_2fa_at.is_some());
         let html = request
-            .get("/w/acme/settings")
+            .get("/w/acme/settings/security")
             .add_cookie(cookie.clone())
             .await
             .text();

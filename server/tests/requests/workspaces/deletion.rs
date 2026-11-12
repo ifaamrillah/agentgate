@@ -49,7 +49,7 @@ async fn owner_schedules_deletion_after_typing_slug() {
         let cookie = sign_in_as(&request, &owner).await;
 
         let html = request
-            .get("/w/acme/settings")
+            .get("/w/acme/settings/danger")
             .add_cookie(cookie.clone())
             .await
             .text();
@@ -223,6 +223,11 @@ async fn only_builtin_owner_can_schedule_or_cancel_deletion() {
             assert_css_not_exists(&html, "form[action=\"/w/acme/settings/delete\"]");
             // Wajibkan 2FA juga milik Owner (spec "bisa diwajibkan Owner"), bukan ManageWorkspace.
             assert_css_not_exists(&html, "form[action=\"/w/acme/settings/require-2fa\"]");
+            // Sub-halaman Keamanan dan Zona berbahaya hanya untuk Owner.
+            for path in ["/w/acme/settings/security", "/w/acme/settings/danger"] {
+                let res = request.get(path).add_cookie(cookie.clone()).await;
+                assert_eq!(res.status_code(), 404, "{path}");
+            }
             let res = request
                 .post(DELETE)
                 .add_cookie(cookie.clone())

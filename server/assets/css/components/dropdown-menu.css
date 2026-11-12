@@ -25,3 +25,8 @@
   :is(.dropdown-menu, .popover) [data-popover] form { display: block; width: 100%; }
   .popover > [data-popover] { display: grid; gap: 0; }
 }
+@layer components {
+  /* Form kecil di dalam menu ⋯ (ganti role/jabatan per baris). */
+  .app-menu-form { display: grid; gap: 6px; padding: 6px 8px; min-width: 220px; }
+  .app-menu-form .btn { justify-self: end; }
+}

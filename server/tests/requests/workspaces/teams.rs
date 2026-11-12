@@ -42,7 +42,7 @@ async fn team_crud_and_members() {
             .await;
         assert_css_exists(
             &index.text(),
-            "[data-settings-index] a[href=\"/w/acme/settings/teams\"]",
+            ".app-side a[href=\"/w/acme/settings/teams\"]",
         );
         let page = request
             .get("/w/acme/settings/teams")

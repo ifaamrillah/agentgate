@@ -1,37 +1,41 @@
 {#- Pengaturan → Jabatan. Variabel: titles ([views::job_titles::JobTitleRow]: field_id, name,
     action (POST ganti nama), delete_action, error {code, min, max}), create (form tambah: name,
-    errors.name), action (POST tambah), flash (dirender layout). -#}
+    errors.name), action (POST tambah), flash (layout). Tambah lewat dialog; ganti nama langsung
+    di baris (form biasa). -#}
 {% extends "layouts/settings.html" %}
 {% block title %}{{ t(key="settings-job-titles-title", lang="id") }}{% endblock title %}
+{% block crumb_label %}{{ t(key="settings-job-titles-title", lang="id") }}{% endblock crumb_label %}
 {% block page_attrs %}data-job-titles-index{% endblock page_attrs %}
-{% block heading %}{{ t(key="settings-job-titles-title", lang="id") }}{% endblock heading %}
-{% block description %}{{ t(key="settings-job-titles-description", lang="id") }}{% endblock description %}
-{% block main %}
-  {% <panel title={t(key="job-title-add", lang="id")}> %}
-    <form method="post" action="{{ action }}" class="app-inline-form">
-      {{ <field id="job-title-name" name="name" label={t(key="job-title-name", lang="id")} value={create.name} error={create.errors.name.code} error_min={create.errors.name.min} error_max={create.errors.name.max} required={true}/> }}
-      {{ <button label={t(key="job-title-add", lang="id")} type="submit" icon="plus"/> }}
+{% block settings %}
+<header class="app-page-head">
+  <div class="app-page-title"><h1>{{ t(key="settings-job-titles-title", lang="id") }}</h1><p>{{ t(key="settings-job-titles-description", lang="id") }}</p></div>
+  <div class="app-page-acts">{{ <button label={t(key="job-title-add", lang="id")} icon="plus" dialog="job-title-dialog"/> }}</div>
+</header>
+{%- if titles %}
+{% <card title={t(key="settings-job-titles-title", lang="id")} count={titles | length ~ ""} flush={true}> %}
+  {%- for title in titles %}
+  <div class="app-lrow" data-job-title>
+    {{ icon(name="id-badge-2") }}
+    <form method="post" action="{{ title.action }}" class="app-btnrow app-grow">
+      {{ <field id={title.field_id} name="name" label={t(key="job-title-name", lang="id")} value={title.name} error={title.error.code} error_min={title.error.min} error_max={title.error.max} required={true} hide_label={true} class="app-grow"/> }}
+      {{ <button label={t(key="job-title-rename", lang="id")} variant="outline" size="sm" type="submit"/> }}
     </form>
-  {% </panel> %}
-  {%- if titles %}
-  {% <panel title={t(key="settings-job-titles-title", lang="id")} flush={true}> %}
-    <ul class="app-list">
-      {%- for title in titles %}
-      <li data-job-title>
-        <div class="app-list-row">
-          <form method="post" action="{{ title.action }}" class="app-inline-form">
-            {{ <field id={title.field_id} name="name" label={t(key="job-title-name", lang="id")} value={title.name} error={title.error.code} error_min={title.error.min} error_max={title.error.max} required={true} hide_label={true}/> }}
-            {{ <button label={t(key="job-title-rename", lang="id")} variant="outline" type="submit"/> }}
-          </form>
-          <form method="post" action="{{ title.delete_action }}" hx-confirm="{{ t(key="job-title-delete-confirm", lang="id") }}">
-            {{ <button label={t(key="job-title-delete", lang="id")} variant="ghost" type="submit"/> }}
-          </form>
-        </div>
-      </li>
-      {%- endfor %}
-    </ul>
-  {% </panel> %}
-  {%- else %}
-  {{ <empty_state title={t(key="job-titles-empty-title", lang="id")} description={t(key="job-titles-empty-description", lang="id")} icon="id-badge-2" variant="dashed"/> }}
-  {%- endif %}
-{% endblock main %}
+    <form method="post" action="{{ title.delete_action }}" hx-confirm="{{ t(key="job-title-delete-confirm", lang="id") }}">
+      {{ <button icon="trash" aria_label={t(key="job-title-delete", lang="id") ~ ": " ~ title.name} variant="ghost" size="icon-sm" type="submit"/> }}
+    </form>
+  </div>
+  {%- endfor %}
+{% </card> %}
+{%- else %}
+{{ <empty_state title={t(key="job-titles-empty-title", lang="id")} description={t(key="job-titles-empty-description", lang="id")} icon="id-badge-2"/> }}
+{%- endif %}
+{% <dialog id="job-title-dialog" title={t(key="job-title-add", lang="id")} icon="id-badge-2" tone="accent" open={create.errors.name.code != ""}> %}
+<form method="post" action="{{ action }}">
+  <section>{{ <field id="job-title-name" name="name" label={t(key="job-title-name", lang="id")} value={create.name} error={create.errors.name.code} error_min={create.errors.name.min} error_max={create.errors.name.max} required={true}/> }}</section>
+  <footer>
+    <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+    {{ <button label={t(key="job-title-add", lang="id")} type="submit" icon="plus"/> }}
+  </footer>
+</form>
+{% </dialog> %}
+{% endblock settings %}

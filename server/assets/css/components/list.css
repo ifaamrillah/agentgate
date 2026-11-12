@@ -70,3 +70,9 @@
   .app-codes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 24px; padding: 18px 20px; }
   .app-codes code { font-family: var(--ag-mono, ui-monospace, monospace); font-size: 13.5px; letter-spacing: 0.02em; }
 }
+@layer components {
+  /* Ringkasan perubahan (detail audit log). */
+  .app-changes { display: grid; gap: 6px; }
+  .app-changes del { color: var(--ag-muted); }
+  .app-changes strong { font-weight: 500; }
+}

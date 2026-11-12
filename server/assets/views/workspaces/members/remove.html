@@ -1,20 +1,19 @@
-{#- Konfirmasi keluarkan anggota (pengganti dialog konfirmasi, tanpa JS). Variabel: member
-    (views::members::MemberRow: name, email, role_name, remove_href = action POST), back (path
-    halaman anggota). -#}
+{#- Konfirmasi keluarkan anggota (halaman biasa, tanpa JS). Variabel: member
+    (views::members::MemberRow: name, email, remove_href = action POST), back (halaman anggota). -#}
 {% extends "layouts/settings.html" %}
 {% block title %}{{ t(key="member-remove-title", lang="id") }}{% endblock title %}
+{% block width %}narrow{% endblock width %}
+{% block crumb_label %}{{ t(key="member-remove-title", lang="id") }}{% endblock crumb_label %}
 {% block page_attrs %}data-member-remove{% endblock page_attrs %}
-{% block heading %}{{ t(key="member-remove-title", lang="id") }}{% endblock heading %}
-{% block main %}
-  {% <panel variant="danger"> %}
-    <div class="app-stack">
+{% block settings %}
+{% <card title={t(key="member-remove-title", lang="id")} variant="danger"> %}
+  <div class="app-stack-v" data-gap="sm">
+    {{ <person name={member.name} initials={member.initials} color={member.color} detail={member.email}/> }}
     <p>{{ t(key="member-remove-body", lang="id", name=member.name, email=member.email) }}</p>
-    <div class="app-button-row">
-      <form method="post" action="{{ member.remove_href }}">
-        {{ <button label={t(key="member-remove", lang="id")} variant="destructive" type="submit"/> }}
-      </form>
-      <a href="{{ back }}" class="btn" data-variant="outline">{{ t(key="member-cancel", lang="id") }}</a>
+    <div class="app-btnrow">
+      <form method="post" action="{{ member.remove_href }}">{{ <button label={t(key="member-remove", lang="id")} variant="danger" icon="logout" type="submit"/> }}</form>
+      {{ <button label={t(key="member-cancel", lang="id")} href={back} variant="outline"/> }}
     </div>
-    </div>
-  {% </panel> %}
-{% endblock main %}
+  </div>
+{% </card> %}
+{% endblock settings %}

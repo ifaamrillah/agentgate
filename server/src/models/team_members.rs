@@ -64,6 +64,35 @@ impl Model {
             .collect())
     }
 
+    /// Semua keanggotaan tim di workspace (jumlah anggota per tim di daftar tim).
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn all_in<C: ConnectionTrait>(
+        db: &C,
+        workspace_id: WorkspaceId,
+    ) -> Result<Vec<Self>, DbErr> {
+        Entity::find().in_tenant(workspace_id).all(db).await
+    }
+
+    /// Keanggotaan tim para user `user_ids` (kolom Tim di tabel anggota).
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn in_teams_of<C: ConnectionTrait>(
+        db: &C,
+        workspace_id: WorkspaceId,
+        user_ids: impl IntoIterator<Item = Uuid>,
+    ) -> Result<Vec<Self>, DbErr> {
+        Entity::find()
+            .in_tenant(workspace_id)
+            .filter(Column::UserId.is_in(user_ids))
+            .all(db)
+            .await
+    }
+
     /// Keanggotaan `user_id` di tim `team_id`, bila ada.
     ///
     /// # Errors

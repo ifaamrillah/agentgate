@@ -1,92 +1,93 @@
 {#- Pengaturan → Anggota. Variabel (views::members::MembersPage):
-      members ([MemberRow]: id, name, email, initials, role_id, role_name, job_title_id ("" =
-        tanpa), job_title_name, joined, manageable (menu aksi hanya bila true), role_action,
-        job_title_action, remove_href),
-      invitations ([InvitationRow]: manageable (tombol hanya bila true), email, role_name,
-        expires, expired, resend_action, revoke_action),
-      roles ([{id, name}]: role yang boleh diberikan pelaku), job_titles ([{id, name}]),
-      invite (form undang: email, role_id, job_title_id, errors.email/role_id {code, min, max}),
-      invite_action (POST undang), flash (dirender layout; penolakan aturan datang lewat sini
-      dengan status 422).
-    Form undang: komponen disclosure (tanpa JS; terbuka bila ada error). Ganti role/jabatan dan
-    keluarkan: komponen action_menu per baris berisi form biasa. Keluarkan: halaman
-    konfirmasi. -#}
+      table (views::datatable::TableView, spec MEMBERS_TABLE: cari, filter role/tim/2FA, sort
+        nama/role/bergabung, halaman), members ([MemberRow] halaman ini: id, name, email,
+        initials, color, teams [{name, href}], two_factor, role_key, role_id, role_name,
+        job_title_id, job_title_name, joined, manageable, role_action, job_title_action,
+        remove_href),
+      invitations ([InvitationRow]), roles/job_titles ([{id, name}]), invite (isian form undang +
+      errors), invite_action, invite_open (dialog undang langsung terbuka), flash (layout).
+    Undang: tombol membuka dialog berisi form biasa. Ganti role/jabatan dan keluarkan: menu ⋯ per
+    baris berisi form biasa; keluarkan lewat halaman konfirmasi. -#}
 {% extends "layouts/settings.html" %}
 {% block title %}{{ t(key="settings-members-title", lang="id") }}{% endblock title %}
-{% block width %}wide{% endblock width %}
+{% block crumb_label %}{{ t(key="settings-members-title", lang="id") }}{% endblock crumb_label %}
 {% block page_attrs %}data-members-index{% endblock page_attrs %}
-{% block heading %}{{ t(key="settings-members-title", lang="id") }}{% endblock heading %}
-{% block description %}{{ t(key="settings-members-description", lang="id") }}{% endblock description %}
-{% block main %}
-  {% <disclosure title={t(key="invite-title", lang="id")} description={t(key="invite-description", lang="id")} icon="mail" open={not (not invite.errors.email.code and not invite.errors.role_id.code)} attrs="data-invite-form"> %}
-    <form method="post" action="{{ invite_action }}" class="app-inline-form">
-      {{ <field id="invite-email" name="email" type="email" label={t(key="invite-email", lang="id")} value={invite.email} error={invite.errors.email.code} autocomplete="off" required={true}/> }}
+{% block settings %}
+<header class="app-page-head">
+  <div class="app-page-title"><h1>{{ t(key="settings-members-title", lang="id") }}</h1><p>{{ t(key="settings-members-description", lang="id") }}</p></div>
+  <div class="app-page-acts">{{ <button label={t(key="invite-title", lang="id")} icon="user-plus" dialog="invite-dialog"/> }}</div>
+</header>
+
+<div data-members-table>
+{% <card title={t(key="settings-members-list", lang="id")} count={table.total ~ ""} flush={true}> %}
+  {% <datatable table={table} empty_title={t(key="settings-members-list", lang="id")}> %}
+    {%- for member in members %}
+    <tr data-member="{{ member.id }}">
+      <td>{{ <person name={member.name} initials={member.initials} color={member.color} detail={member.email}/> }}</td>
+      <td data-hide="md">{% if member.job_title_name %}{{ member.job_title_name }}{% else %}<span class="app-hint">—</span>{% endif %}</td>
+      <td data-hide="md">
+        {%- for team in member.teams %}<a class="app-link" href="{{ team.href }}" data-member-team>{{ team.name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
+        {%- if not member.teams %}<span class="app-hint">{{ t(key="member-no-team", lang="id") }}</span>{% endif -%}
+      </td>
+      {%- if member.role_key == "owner" %}{% set role_variant = "primary" %}{% elif member.role_key == "admin" %}{% set role_variant = "info" %}{% else %}{% set role_variant = "secondary" %}{% endif %}
+      <td>{{ <badge label={member.role_name} variant={role_variant}/> }}</td>
+      <td data-hide="md">{% if member.two_factor %}{{ <badge label={t(key="member-two-factor-on", lang="id")} variant="success"/> }}{% else %}{{ <badge label={t(key="member-two-factor-off", lang="id")} variant="gate"/> }}{% endif %}</td>
+      <td data-hide="lg"><span class="app-hint">{{ member.joined }}</span></td>
+      <td data-actions>
+        {%- if member.manageable %}
+        {% <action_menu id={"member-" ~ member.id} label={t(key="member-actions", lang="id", name=member.name)}> %}
+          <div class="app-menu-label">{{ member.name }}</div>
+          <form method="post" action="{{ member.role_action }}" class="app-menu-form">
+            {{ <select_field id={"member-" ~ member.id ~ "-role"} name="role_id" label={t(key="member-column-role", lang="id")} options={roles} value={member.role_id ~ ""}/> }}
+            {{ <button label={t(key="member-save", lang="id")} variant="outline" size="sm" type="submit"/> }}
+          </form>
+          <form method="post" action="{{ member.job_title_action }}" class="app-menu-form">
+            {{ <select_field id={"member-" ~ member.id ~ "-job-title"} name="job_title_id" label={t(key="member-column-job-title", lang="id")} options={job_titles} empty_label={t(key="member-no-job-title", lang="id")} value={member.job_title_id ~ ""}/> }}
+            {{ <button label={t(key="member-save", lang="id")} variant="outline" size="sm" type="submit"/> }}
+          </form>
+          <hr role="separator">
+          <a class="app-menu-item" data-variant="destructive" href="{{ member.remove_href }}">{{ icon(name="logout") }}{{ t(key="member-remove", lang="id") }}</a>
+        {% </action_menu> %}
+        {%- endif %}
+      </td>
+    </tr>
+    {%- endfor %}
+  {% </datatable> %}
+{% </card> %}
+</div>
+
+<div data-pending-invitations>
+{% <card title={t(key="invitations-pending-title", lang="id")} description={t(key="invite-description", lang="id")} count={invitations | length ~ ""} flush={true}> %}
+  {%- for invitation in invitations %}
+  <div class="app-lrow" data-invitation>
+    <span class="app-tile">{{ icon(name="mail") }}</span>
+    <span class="app-lrow-main"><b class="app-code">{{ invitation.email }}</b><small>{{ invitation.role_name }} · {{ t(key="invitation-column-expires", lang="id") }} {{ invitation.expires }}</small></span>
+    {%- if invitation.expired %}{{ <badge label={t(key="invitation-expired", lang="id")} variant="destructive"/> }}{% else %}{{ <badge label={t(key="invitation-pending", lang="id")} variant="gate"/> }}{% endif %}
+    {%- if invitation.manageable %}
+    <span class="app-lrow-acts">
+      <form method="post" action="{{ invitation.resend_action }}">{{ <button label={t(key="invitation-resend", lang="id")} variant="outline" size="sm" type="submit"/> }}</form>
+      <form method="post" action="{{ invitation.revoke_action }}">{{ <button label={t(key="invitation-revoke", lang="id")} variant="ghost" size="sm" type="submit"/> }}</form>
+    </span>
+    {%- endif %}
+  </div>
+  {%- endfor %}
+  {%- if not invitations %}{{ <empty_state title={t(key="invitations-pending-empty", lang="id")} icon="mail" variant="plain"/> }}{% endif %}
+{% </card> %}
+</div>
+
+{% <dialog id="invite-dialog" title={t(key="invite-title", lang="id")} description={t(key="invite-description", lang="id")} icon="user-plus" tone="accent" open={invite_open}> %}
+<form method="post" action="{{ invite_action }}" data-invite-form>
+  <section><div class="app-stack-v" data-gap="sm">
+    {{ <field id="invite-email" name="email" type="email" label={t(key="invite-email", lang="id")} value={invite.email} error={invite.errors.email.code} autocomplete="off" required={true}/> }}
+    <div class="app-form-row">
       {{ <select_field id="invite-role" name="role_id" label={t(key="invite-role", lang="id")} options={roles} value={invite.role_id ~ ""} error={invite.errors.role_id.code} required={true}/> }}
       {{ <select_field id="invite-job-title" name="job_title_id" label={t(key="invite-job-title", lang="id")} options={job_titles} empty_label={t(key="member-no-job-title", lang="id")} value={invite.job_title_id ~ ""}/> }}
-      {{ <button label={t(key="invite-submit", lang="id")} type="submit" icon="send"/> }}
-    </form>
-  {% </disclosure> %}
-
-  <div data-members-table>
-  {% <panel title={t(key="settings-members-list", lang="id")} flush={true}> %}
-    {% <table headers={[{"label": t(key="member-column-name", lang="id")}, {"label": t(key="member-column-job-title", lang="id"), "hide": "md"}, {"label": t(key="member-column-role", lang="id")}, {"label": t(key="member-column-joined", lang="id"), "hide": "lg"}, {"label": t(key="member-column-actions", lang="id"), "sr": true}]}> %}
-      {%- for member in members %}
-      <tr data-member="{{ member.id }}">
-        <td>{{ <person name={member.name} initials={member.initials} detail={member.email}/> }}</td>
-        <td data-hide="md">{% if member.job_title_name %}{{ member.job_title_name }}{% else %}<span class="app-muted">—</span>{% endif %}</td>
-        <td>{{ <badge label={member.role_name} variant="secondary"/> }}</td>
-        <td data-hide="lg"><span class="app-muted">{{ member.joined }}</span></td>
-        <td data-actions>
-          {%- if member.manageable %}
-          {% <action_menu id={"member-" ~ member.id} label={t(key="member-actions", lang="id", name=member.name)}> %}
-            <form method="post" action="{{ member.role_action }}" class="app-inline-form">
-              {{ <select_field id={"member-" ~ member.id ~ "-role"} name="role_id" label={t(key="member-column-role", lang="id")} options={roles} value={member.role_id ~ ""}/> }}
-              {{ <button label={t(key="member-save", lang="id")} variant="outline" type="submit"/> }}
-            </form>
-            <form method="post" action="{{ member.job_title_action }}" class="app-inline-form">
-              {{ <select_field id={"member-" ~ member.id ~ "-job-title"} name="job_title_id" label={t(key="member-column-job-title", lang="id")} options={job_titles} empty_label={t(key="member-no-job-title", lang="id")} value={member.job_title_id ~ ""}/> }}
-              {{ <button label={t(key="member-save", lang="id")} variant="outline" type="submit"/> }}
-            </form>
-            <a href="{{ member.remove_href }}" class="btn" data-variant="destructive">{{ t(key="member-remove", lang="id") }}</a>
-          {% </action_menu> %}
-          {%- endif %}
-        </td>
-      </tr>
-      {%- endfor %}
-    {% </table> %}
-  {% </panel> %}
-  </div>
-
-  <div data-pending-invitations>
-  {% <panel title={t(key="invitations-pending-title", lang="id")} flush={invitations | length > 0}> %}
-    {%- if invitations %}
-    {% <table headers={[{"label": t(key="invite-email", lang="id")}, {"label": t(key="member-column-role", lang="id"), "hide": "md"}, {"label": t(key="invitation-column-expires", lang="id")}, {"label": t(key="member-column-actions", lang="id"), "sr": true}]}> %}
-      {%- for invitation in invitations %}
-      <tr data-invitation>
-        <td><span class="app-code">{{ invitation.email }}</span></td>
-        <td data-hide="md">{{ <badge label={invitation.role_name} variant="secondary"/> }}</td>
-        <td>
-          {%- if invitation.expired %}{{ <badge label={t(key="invitation-expired", lang="id")} variant="destructive"/> }}{% else %}{{ <badge label={t(key="invitation-pending", lang="id")} variant="gate"/> }}{% endif %}
-          <span class="app-muted">{{ invitation.expires }}</span>
-        </td>
-        <td data-actions>
-          {%- if invitation.manageable %}
-          <div class="app-button-row">
-            <form method="post" action="{{ invitation.resend_action }}">
-              {{ <button label={t(key="invitation-resend", lang="id")} variant="outline" size="sm" type="submit"/> }}
-            </form>
-            <form method="post" action="{{ invitation.revoke_action }}">
-              {{ <button label={t(key="invitation-revoke", lang="id")} variant="ghost" size="sm" type="submit"/> }}
-            </form>
-          </div>
-          {%- endif %}
-        </td>
-      </tr>
-      {%- endfor %}
-    {% </table> %}
-    {%- else %}
-    <p class="app-muted">{{ t(key="invitations-pending-empty", lang="id") }}</p>
-    {%- endif %}
-  {% </panel> %}
-  </div>
-{% endblock main %}
+    </div>
+  </div></section>
+  <footer>
+    <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+    {{ <button label={t(key="invite-submit", lang="id")} type="submit" icon="send"/> }}
+  </footer>
+</form>
+{% </dialog> %}
+{% endblock settings %}

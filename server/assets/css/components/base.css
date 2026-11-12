@@ -67,3 +67,7 @@
   .app-catalog-swatches > span { display: grid; gap: 4px; font-size: 12px; }
   .app-catalog-swatches i { display: block; height: 32px; border-radius: 6px; border: 1px solid var(--ag-line); }
 }
+@layer components {
+  .app-grow { flex: 1; min-width: 200px; }
+  .app-btnrow[data-align='end'] { align-items: flex-end; }
+}

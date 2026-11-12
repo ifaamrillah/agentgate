@@ -20,7 +20,10 @@ use crate::{
         flash,
         shell::app_shell,
     },
-    models::{invitations, job_titles, roles, users, workspace_members},
+    models::{
+        invitations, job_titles, roles, team_members, teams, users,
+        workspace_members::{self, MemberQuery, MemberSort},
+    },
     services::workspaces::{
         Acting,
         membership::{self, MembershipError},
@@ -28,7 +31,11 @@ use crate::{
     views::{
         self,
         flash::Flash,
-        members::{InvitationRow, InviteFormView, MemberRow, MembersPage, OptionView},
+        datatable::{FilterOption, TableView},
+        members::{
+            InvitationRow, InviteFormView, MEMBERS_TABLE, MemberRow, MembersPage, OptionView,
+            TeamTag,
+        },
     },
 };
 
@@ -64,11 +71,29 @@ pub(super) fn optional_form_id(raw: &str) -> Result<Option<Uuid>> {
     }
 }
 
-/// Halaman anggota dengan isian form undang `invite` dan pesan `flash`.
+/// Halaman anggota dengan isian form undang `invite` dan pesan `flash` (tabel di keadaan awal).
 pub(super) async fn render_index(
     ctx: &AppContext,
     v: &TeraView,
     tenant: &Tenant,
+    invite: InviteFormView,
+    flash: Option<Flash>,
+    status: StatusCode,
+) -> Result<Response> {
+    render_table(ctx, v, tenant, &[], invite, flash, status).await
+}
+
+/// Nilai filter id (role/tim) dari query string; id tidak valid diabaikan.
+fn ids(values: &[String]) -> Vec<Uuid> {
+    values.iter().filter_map(|v| Uuid::parse_str(v).ok()).collect()
+}
+
+/// Halaman anggota dengan tabel server-side menurut `query` (cari, filter, sort, halaman).
+async fn render_table(
+    ctx: &AppContext,
+    v: &TeraView,
+    tenant: &Tenant,
+    query: &[(String, String)],
     invite: InviteFormView,
     flash: Option<Flash>,
     status: StatusCode,
@@ -78,17 +103,83 @@ pub(super) async fn render_index(
     let invite_action = super::invitations_path(&tenant.workspace.slug);
     let roles = roles::Model::in_workspace(&ctx.db, wid).await?;
     let titles = job_titles::Model::in_workspace(&ctx.db, wid).await?;
-    let members = workspace_members::Model::list_in(&ctx.db, wid)
-        .await?
+    let teams = teams::Model::in_workspace(&ctx.db, wid).await?;
+    let state = MEMBERS_TABLE.parse(query);
+    let tfa = state.filter("tfa");
+    let member_query = MemberQuery {
+        q: state.query(),
+        role_ids: ids(state.filter("role")),
+        team_ids: ids(state.filter("team")),
+        two_factor: match (tfa.iter().any(|v| v == "on"), tfa.iter().any(|v| v == "off")) {
+            (true, false) => Some(true),
+            (false, true) => Some(false),
+            _ => None,
+        },
+        sort: match state.sort {
+            "role" => MemberSort::Role,
+            "joined" => MemberSort::Joined,
+            _ => MemberSort::Name,
+        },
+        desc: state.desc,
+        offset: state.offset(),
+        limit: state.per,
+    };
+    let (rows, total) = workspace_members::Model::page_in(&ctx.db, wid, &member_query).await?;
+    // Halaman di luar jangkauan: TableView menjepit nomor halaman, ambil ulang halaman itu.
+    let table = TableView::new(&MEMBERS_TABLE, &state, &base, total);
+    let rows = if table.page == state.page {
+        rows
+    } else {
+        let clamped = MemberQuery {
+            offset: (table.page - 1) * table.per,
+            ..member_query
+        };
+        workspace_members::Model::page_in(&ctx.db, wid, &clamped).await?.0
+    };
+    let memberships =
+        team_members::Model::in_teams_of(&ctx.db, wid, rows.iter().map(|(m, ..)| m.user_id)).await?;
+    let teams_base = super::teams_path(&tenant.workspace.slug);
+    let members = rows
         .iter()
         .map(|(member, user, role)| {
             let title = member
                 .job_title_id
                 .and_then(|id| titles.iter().find(|t| t.id == id));
             let manageable = roles::can_assign(&tenant.role, role);
-            MemberRow::new(member, user, role, title, manageable, &base)
+            let tags = memberships
+                .iter()
+                .filter(|m| m.user_id == user.id)
+                .filter_map(|m| teams.iter().find(|t| t.id == m.team_id))
+                .map(|t| TeamTag {
+                    name: t.name.clone(),
+                    href: format!("{teams_base}/{}", t.id),
+                })
+                .collect();
+            MemberRow::new(member, user, role, title, manageable, &base).with_teams(tags)
         })
         .collect();
+    let table = table
+        .with_filter_options(
+            "role",
+            roles
+                .iter()
+                .map(|r| FilterOption::raw(&r.id.to_string(), &r.name))
+                .collect(),
+        )
+        .with_filter_options(
+            "team",
+            teams
+                .iter()
+                .map(|t| FilterOption::raw(&t.id.to_string(), &t.name))
+                .collect(),
+        )
+        .with_filter_options(
+            "tfa",
+            vec![
+                FilterOption::key("on", "member-two-factor-on"),
+                FilterOption::key("off", "member-two-factor-off"),
+            ],
+        );
     let invitations = invitations::Model::pending_in(&ctx.db, wid)
         .await?
         .iter()
@@ -101,6 +192,7 @@ pub(super) async fn render_index(
         .collect();
     let page = MembersPage {
         members,
+        table,
         invitations,
         roles: roles
             .iter()
@@ -110,6 +202,7 @@ pub(super) async fn render_index(
         job_titles: titles.iter().map(OptionView::job_title).collect(),
         invite,
         invite_action,
+        invite_open: status == StatusCode::UNPROCESSABLE_ENTITY && flash.is_none(),
         flash,
     };
     let shell = app_shell(ctx, &tenant.user, Some(tenant), None)
@@ -169,11 +262,12 @@ pub(super) async fn index(
     ViewEngine(v): ViewEngine<TeraView>,
     access: Require<ManageMembers>,
     session: Session,
+    Query(query): Query<Vec<(String, String)>>,
 ) -> Result<Response> {
     let tenant = &access.tenant;
     let (session, flash) = flash::take(session);
     let invite = empty_invite(&ctx, tenant).await?;
-    let res = render_index(&ctx, &v, tenant, invite, flash, StatusCode::OK).await?;
+    let res = render_table(&ctx, &v, tenant, &query, invite, flash, StatusCode::OK).await?;
     Ok((session, res).into_response())
 }
 

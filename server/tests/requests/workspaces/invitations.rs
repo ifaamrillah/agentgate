@@ -79,7 +79,7 @@ async fn owner_can_invite_and_email_is_sent() {
             .text();
         assert_css_exists(
             &html,
-            &format!("[data-settings-index] a[href=\"{MEMBERS}\"]"),
+            &format!(".app-side a[href=\"{MEMBERS}\"]"),
         );
         let page = request.get(MEMBERS).add_cookie(cookie.clone()).await;
         assert_eq!(page.status_code(), 200);

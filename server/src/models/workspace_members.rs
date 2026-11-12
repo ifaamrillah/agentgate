@@ -4,14 +4,15 @@
 
 use loco_rs::model::{TenantEntity, TenantQueryExt};
 use sea_orm::{
-    ActiveValue::Set, DatabaseTransaction, IntoActiveModel, QueryOrder, SqlErr, TransactionTrait,
+    ActiveValue::Set, Condition, DatabaseTransaction, Order, QuerySelect, QueryTrait,
+    sea_query::{ExprTrait, Func}, IntoActiveModel, QueryOrder, SqlErr, TransactionTrait,
     entity::prelude::*,
 };
 
 pub use super::_entities::workspace_members::{ActiveModel, Column, Entity, Model};
 use super::{
     roles::{self, RoleKey},
-    users,
+    team_members, users,
     workspaces::{self, WorkspaceId},
 };
 
@@ -113,6 +114,92 @@ impl Model {
                 Some((member, user?, role))
             })
             .collect())
+    }
+
+    /// Satu halaman anggota untuk tabel Pengaturan → Anggota: filter, urutan, dan potongan
+    /// dikerjakan database. Hasil: baris halaman ini dan total baris yang cocok.
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn page_in<C: ConnectionTrait>(
+        db: &C,
+        workspace_id: WorkspaceId,
+        query: &MemberQuery<'_>,
+    ) -> Result<(Vec<(Self, users::Model, roles::Model)>, u64), DbErr> {
+        let mut select = Entity::find()
+            .in_tenant(workspace_id)
+            .inner_join(users::Entity)
+            .inner_join(roles::Entity);
+        if let Some(q) = query.q.filter(|q| !q.trim().is_empty()) {
+            let pattern = format!("%{}%", escape_like(&q.trim().to_lowercase()));
+            select = select.filter(
+                Condition::any()
+                    .add(Expr::expr(Func::lower(Expr::col((users::Entity, users::Column::Name)))).like(pattern.clone()))
+                    .add(Expr::expr(Func::lower(Expr::col((users::Entity, users::Column::Email)))).like(pattern)),
+            );
+        }
+        if !query.role_ids.is_empty() {
+            select = select.filter(Column::RoleId.is_in(query.role_ids.iter().copied()));
+        }
+        if !query.team_ids.is_empty() {
+            let in_teams = team_members::Entity::find()
+                .select_only()
+                .column(team_members::Column::UserId)
+                .filter(team_members::Column::WorkspaceId.eq(workspace_id.get()))
+                .filter(team_members::Column::TeamId.is_in(query.team_ids.iter().copied()))
+                .into_query();
+            select = select.filter(Column::UserId.in_subquery(in_teams));
+        }
+        match query.two_factor {
+            Some(true) => select = select.filter(users::Column::TotpEnabledAt.is_not_null()),
+            Some(false) => select = select.filter(users::Column::TotpEnabledAt.is_null()),
+            None => {}
+        }
+        let total = select.clone().count(db).await?;
+        let order = if query.desc { Order::Desc } else { Order::Asc };
+        select = match query.sort {
+            MemberSort::Role => select.order_by(roles::Column::Name, order.clone()),
+            MemberSort::Joined => select.order_by(Column::JoinedAt, order.clone()),
+            MemberSort::Name => select.order_by(users::Column::Name, order.clone()),
+        };
+        let members = select
+            .order_by(Column::Id, order)
+            .offset(query.offset)
+            .limit(query.limit)
+            .all(db)
+            .await?;
+        let users = users::Entity::find()
+            .filter(users::Column::Id.is_in(members.iter().map(|m| m.user_id)))
+            .all(db)
+            .await?;
+        let roles = roles::Model::in_workspace(db, workspace_id).await?;
+        let rows = members
+            .into_iter()
+            .filter_map(|member| {
+                let user = users.iter().find(|u| u.id == member.user_id)?.clone();
+                let role = roles.iter().find(|r| r.id == member.role_id)?.clone();
+                Some((member, user, role))
+            })
+            .collect();
+        Ok((rows, total))
+    }
+
+    /// Jumlah anggota tanpa 2FA aktif (Pengaturan → Keamanan).
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn without_two_factor_count<C: ConnectionTrait>(
+        db: &C,
+        workspace_id: WorkspaceId,
+    ) -> Result<u64, DbErr> {
+        Entity::find()
+            .in_tenant(workspace_id)
+            .inner_join(users::Entity)
+            .filter(users::Column::TotpEnabledAt.is_null())
+            .count(db)
+            .await
     }
 
     /// Jumlah anggota ber-role Owner di workspace ini.
@@ -255,4 +342,31 @@ impl ActiveModel {
             Err(e) => Err(e),
         }
     }
+}
+
+/// Urutan tabel anggota.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MemberSort {
+    Name,
+    Role,
+    Joined,
+}
+
+/// Filter dan potongan halaman tabel anggota (`Model::page_in`).
+#[derive(Debug, Clone)]
+pub struct MemberQuery<'a> {
+    pub q: Option<&'a str>,
+    pub role_ids: Vec<Uuid>,
+    pub team_ids: Vec<Uuid>,
+    /// `Some(true)` = hanya yang 2FA aktif, `Some(false)` = hanya yang belum.
+    pub two_factor: Option<bool>,
+    pub sort: MemberSort,
+    pub desc: bool,
+    pub offset: u64,
+    pub limit: u64,
+}
+
+/// Escape `%`, `_`, dan `\` untuk pola `LIKE`.
+fn escape_like(raw: &str) -> String {
+    raw.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_")
 }

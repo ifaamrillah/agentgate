@@ -121,6 +121,12 @@ pub struct SettingsPage<'a> {
     pub action: &'a str,
     pub form: Option<&'a WorkspaceFormView>,
     pub danger: &'a DangerZoneView,
+    /// Sub-halaman yang dibuka: `profile`, `security`, atau `danger`.
+    pub section: &'static str,
+    /// Menu subpage (varian E) Umum: hanya sub-halaman yang boleh dibuka role.
+    pub subnav: Vec<super::nav::NavItem>,
+    /// Anggota tanpa 2FA aktif (kartu Keamanan).
+    pub without_two_factor: u64,
 }
 
 pub fn settings(
@@ -139,8 +145,19 @@ pub fn settings(
                 "action": page.action,
                 "form": page.form,
                 "danger": page.danger,
+                "section": page.section,
+                "subnav": page.subnav,
+                "without_two_factor": page.without_two_factor,
                 "flash": flash,
             }),
         ),
     )
+}
+
+/// Opsi combobox orang (`GET /w/{slug}/people`): hanya `<option>`.
+pub fn people_options(
+    v: &impl ViewRenderer,
+    options: &[super::ui::ComboOption],
+) -> Result<Response> {
+    format::render().view(v, "workspaces/people_options.html", data!({ "options": options }))
 }
