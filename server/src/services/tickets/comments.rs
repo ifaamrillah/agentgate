@@ -11,7 +11,7 @@ use crate::{
         notifications::NotificationKind,
         permission::Permission,
         ticket_comments::{self, validate_body},
-        ticket_watchers,
+        ticket_stage_people, ticket_watchers,
     },
     services::workspaces::Acting,
 };
@@ -65,6 +65,63 @@ pub async fn post(
     }
     work.txn.commit().await?;
     Ok(comment)
+}
+
+/// Pertanyaan agent (`ag_ask`): komentar atas nama pemegang token, lalu notifikasi
+/// `agent_question` ke executor dan approver stage sekarang (tanpa mereka: penerima tugas).
+/// Mengembalikan komentar dan jumlah orang yang diberi tahu.
+///
+/// # Errors
+///
+/// [`TicketFailure::Invalid`] (`body`), `NotFound`, atau error database.
+pub async fn ask(
+    db: &DatabaseConnection,
+    acting: &Acting<'_>,
+    ticket_id: Uuid,
+    question: &str,
+) -> Result<(ticket_comments::Model, usize), TicketFailure> {
+    let body = validate_body(question).map_err(|e| {
+        let mut errors = validator::ValidationErrors::new();
+        errors.add("body", e);
+        TicketFailure::errors(errors)
+    })?;
+    let work = Working::begin(db, acting, ticket_id, Permission::EditProject, false).await?;
+    let comment =
+        ticket_comments::ActiveModel::post(&work.txn, work.wid, ticket_id, acting.user.id, body)
+            .await?;
+    let people = ticket_stage_people::Model::of_stage(
+        &work.txn,
+        work.wid,
+        ticket_id,
+        &work.ticket.stage_key,
+    )
+    .await?;
+    let mut to: Vec<Uuid> = people
+        .executors
+        .iter()
+        .chain(&people.approvers)
+        .copied()
+        .collect();
+    if to.is_empty() {
+        to.extend(work.ticket.assignee_id);
+    }
+    to.sort_unstable();
+    to.dedup();
+    to.retain(|u| *u != acting.user.id);
+    for user in &to {
+        notify(
+            &work.txn,
+            work.wid,
+            acting.user.id,
+            *user,
+            NotificationKind::AgentQuestion,
+            ticket_id,
+            Some(comment.id),
+        )
+        .await?;
+    }
+    work.txn.commit().await?;
+    Ok((comment, to.len()))
 }
 
 /// Ubah isi komentar sendiri.

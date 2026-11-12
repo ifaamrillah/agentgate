@@ -153,3 +153,15 @@ Halaman tiket memuat `tickets/_stage_head.html` (stepper + alert keadaan stage) 
 Board varian C sudah dibangun di M2 (`ticket_card`, `tickets/board.html`), prioritas C
 (`prio`). Detail tiket di M2 berupa halaman sendiri (`/w/{slug}/t/{code}`), bukan panel kanan. Pakai `screens-m2-m3.js` dst. sebagai acuan markup; komponen baru masuk
 katalog `/_dev/ui` di commit yang sama.
+
+## M4 (agent, MCP)
+
+- **Persona**: tanda `app-pav` (`--pc` = warna persona, ikon Tabler; `data-size="sm"` 24px),
+  kartu `app-pcard` di daftar, Edit persona = `subpage` varian E satu bagian per halaman.
+- **Skill pack**: daftar `app-lrow` + badge status/risiko; detail = pohon file `app-ftree` +
+  textarea (`app-codeview` untuk pratinjau), laporan pindai `app-check-item`/`app-finding`.
+- **Hubungkan client AI** (Akun): `subpage` dengan `app-steps` (langkah bernomor + `app-codeblock`).
+- **Persetujuan OAuth**: halaman solo (`layouts/public.html`) kartu `app-consent` (pasangan logo,
+  user, combobox workspace, daftar scope, footer Tolak/Izinkan). Navigasi penuh (`hx-boost="false"`).
+- **Draft tiket**: `app-lrow app-draft` dengan indentasi per kedalaman, checkbox `form=` ke form
+  "Buat tiket" di kepala halaman (tanpa form bersarang), ubah lewat `dialog` per draft.

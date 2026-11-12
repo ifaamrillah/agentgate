@@ -227,6 +227,8 @@ pub struct SettingsLinks {
     pub workflows: Option<String>,
     pub ticket_types: Option<String>,
     pub ticket_code: Option<String>,
+    pub personas: Option<String>,
+    pub skills: Option<String>,
 }
 
 impl AppShell {

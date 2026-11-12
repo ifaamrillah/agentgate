@@ -3,7 +3,7 @@
     drop mengisi form tersembunyi lalu submit biasa) dan menu ⋯ per kartu tanpa JS.
     Variabel: project, views, views_action, return_to (layouts/project.html), columns
     ([StageColumn {key, name, status, cards}]), filter (BoardFilter), who, paths (BoardPaths), can_edit,
-    flash. -#}
+    drafts (jumlah draft tiket brainstorming; 0 = tautan disembunyikan), flash. -#}
 {% extends "layouts/project.html" %}
 {% block title %}{{ t(key="project-view-board", lang="id") }} · {{ project.name }}{% endblock title %}
 {% block width %}wide{% endblock width %}
@@ -24,6 +24,7 @@
   <span data-grow></span>
   <span class="app-hint" data-board-count>{{ t(key="board-count", lang="id", count=filter.total) }}</span>
   {%- if can_edit %}<span class="app-hint app-board-hint">{{ icon(name="grip-vertical") }}{{ t(key="board-drag-hint", lang="id") }}</span>{% endif %}
+  {%- if drafts %}{{ <button label={t(key="draft-link", lang="id", count=drafts)} icon="list-check" variant="outline" size="sm" href={drafts_href} attrs="data-drafts-link"/> }}{% endif %}
   {{ <button label={t(key="trash-title", lang="id")} icon="trash" variant="ghost" size="sm" href={paths.trash} attrs="data-trash-link"/> }}
 </form>
 

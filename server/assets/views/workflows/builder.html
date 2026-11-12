@@ -42,7 +42,7 @@
       <li class="app-node" data-stage="{{ n.key }}" data-category="{{ n.category }}"{% if n.state == "current" %} aria-current="true"{% endif %}{% if n.parallel %} data-parallel{% endif %}>
         <a href="{{ n.href }}" class="app-node-main">
           <span class="app-tile">{{ icon(name=n.icon) }}</span>
-          <span class="app-node-text"><b>{{ n.name }}</b><small>{% if n.persona_key %}{{ t(key=n.persona_key, lang="id") }} · {{ t(key=n.mode_key, lang="id") }}{% else %}{{ t(key="workflow-no-agent", lang="id") }}{% endif %}</small></span>
+          <span class="app-node-text"><b>{{ n.name }}</b><small>{% if n.persona %}{{ n.persona_name }} · {{ t(key=n.mode_key, lang="id") }}{% else %}{{ t(key="workflow-no-agent", lang="id") }}{% endif %}</small></span>
           <span class="app-node-meta">
             {%- if n.gates %}<span class="app-hint" title="{{ t(key="workflow-gate-count", lang="id", count=n.gates) }}">{{ icon(name="shield-check") }}{{ n.gates }}</span>{% endif %}
             {%- if n.exit == "approval" %}<span class="app-hint" title="{{ t(key=n.exit_key, lang="id") }}">{{ icon(name="user-check") }}</span>{% elif n.exit == "auto" %}<span class="app-hint" title="{{ t(key=n.exit_key, lang="id") }}">{{ icon(name="bolt") }}</span>{% endif %}
@@ -70,7 +70,7 @@
       <p class="app-section-label">{{ t(key="workflow-section-general", lang="id") }}</p>
       {{ <field id="stage-name" name="name" label={t(key="workflow-stage-name", lang="id")} value={stage.name} error={errors.name} required={true}/> }}
       {{ <select_field id="stage-category" name="category" label={t(key="workflow-stage-category", lang="id")} options={categories} option_value="value" option_label="label_key" translate={true} value={stage.category} error={errors.category} hint={t(key="workflow-stage-category-hint", lang="id")}/> }}
-      {{ <select_field id="stage-persona" name="persona" label={t(key="workflow-persona", lang="id")} options={personas} option_value="value" option_label="label_key" translate={true} empty_label={t(key="workflow-no-agent", lang="id")} value={stage.persona} hint={t(key="workflow-persona-hint", lang="id")}/> }}
+      {{ <select_field id="stage-persona" name="persona" label={t(key="workflow-persona", lang="id")} options={personas} option_value="value" option_label="label_key" translate={false} empty_label={t(key="workflow-no-agent", lang="id")} value={stage.persona} error={errors.persona} hint={t(key="workflow-persona-hint", lang="id")}/> }}
       {{ <select_field id="stage-mode" name="mode" label={t(key="workflow-mode", lang="id")} options={modes} option_value="value" option_label="label_key" translate={true} value={stage.mode} error={errors.mode}/> }}
       <label class="app-check-row"><input type="checkbox" class="app-check" name="parallel" value="1"{% if stage.parallel %} checked{% endif %}> {{ t(key="workflow-parallel", lang="id") }}</label>
       {%- if errors.parallel %}<p class="app-field-error" role="alert">{{ t(key=errors.parallel, lang="id") }}</p>{% endif %}

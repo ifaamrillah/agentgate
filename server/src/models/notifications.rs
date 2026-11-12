@@ -28,6 +28,9 @@ pub enum NotificationKind {
     /// Putaran gagal mencapai batas; perlu keputusan manusia.
     #[sea_orm(string_value = "decision_needed")]
     DecisionNeeded,
+    /// Agent bertanya lewat `ag_ask` (executor dan approver stage).
+    #[sea_orm(string_value = "agent_question")]
+    AgentQuestion,
 }
 
 impl TenantEntity for Entity {

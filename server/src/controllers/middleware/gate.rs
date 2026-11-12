@@ -8,6 +8,7 @@
 //! `App::middlewares`): `Session` server-side hanya bisa dibaca di dalam middleware itu.
 //! CSRF (dipasang di `App::after_routes`, di luar stack Loco) tetap berjalan lebih dulu.
 //! Dipasang sebagai `route_layer`, jadi path yang tidak ada tetap 404, bukan redirect.
+//! Path API (`api_routes::is_api`) tidak memakai sesi: handler-nya memeriksa token bearer.
 
 use axum::{
     Router as AxumRouter,
@@ -17,7 +18,7 @@ use axum::{
 };
 use loco_rs::{app::AppContext, auth::session::Session, controller::middleware::MiddlewareLayer};
 
-use crate::controllers::{extractors::sign_in_redirect, public_routes};
+use crate::controllers::{api_routes, extractors::sign_in_redirect, public_routes};
 
 /// Layer gate untuk `Hooks::middlewares`.
 pub struct Gate {
@@ -46,7 +47,7 @@ impl MiddlewareLayer for Gate {
 }
 
 async fn layer(State(ctx): State<AppContext>, req: Request, next: Next) -> Response {
-    if public_routes::is_public(req.uri().path()) {
+    if public_routes::is_public(req.uri().path()) || api_routes::is_api(req.uri().path()) {
         return next.run(req).await;
     }
     let (parts, body) = req.into_parts();

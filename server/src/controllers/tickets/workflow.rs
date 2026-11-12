@@ -3,9 +3,7 @@
 //! terbitkan + migrasi tiket; dan Pengaturan project → Workflow (`ProjectAdmin`).
 use std::collections::BTreeMap;
 
-use agentgate_core::workflow::{
-    Category, Definition, Exit, Gate, Mode, People, Persona, Stage, templates,
-};
+use agentgate_core::workflow::{Category, Definition, Exit, Gate, Mode, People, Stage, templates};
 use axum::{
     body::Body,
     http::{HeaderValue, StatusCode, header},
@@ -553,10 +551,7 @@ impl StageForm {
             key: s.key.clone(),
             name: s.name.clone(),
             category: s.category.as_str(),
-            persona: s
-                .persona
-                .map(|p| p.as_str().to_string())
-                .unwrap_or_default(),
+            persona: s.persona.clone().unwrap_or_default(),
             mode: s.mode.as_str(),
             skill: s.skill.clone(),
             prompt: s.prompt.clone(),
@@ -585,7 +580,7 @@ fn stage_from(pairs: &[(String, String)]) -> Stage {
         Category::parse(get_one(pairs, "category")).unwrap_or(Category::Todo),
     );
     s.name = get_one(pairs, "name").trim().to_string();
-    s.persona = Persona::parse(get_one(pairs, "persona"));
+    s.persona = Some(get_one(pairs, "persona").trim().to_string()).filter(|p| !p.is_empty());
     s.mode = Mode::parse(get_one(pairs, "mode")).unwrap_or_default();
     s.skill = get_one(pairs, "skill").trim().to_string();
     s.prompt = get_one(pairs, "prompt")
@@ -647,11 +642,13 @@ async fn render_builder(
         .or(selected.as_ref())
         .map(StageForm::of);
     let selected_key = selected.as_ref().map(|s| s.key.clone()).unwrap_or_default();
+    let labels = crate::models::personas::Model::labels(&ctx.db, wid).await?;
+    let active_personas = crate::models::personas::Model::active_labels(&ctx.db, wid).await?;
     let nodes: Vec<StageView> = draft
         .stages
         .iter()
         .map(|s| {
-            let mut v = StageView::of(s, &draft);
+            let mut v = StageView::of(s, &draft, &labels);
             v.state = if s.key == selected_key {
                 "current"
             } else {
@@ -727,7 +724,7 @@ async fn render_builder(
             "stage": form,
             "earlier": draft.stages.iter().take_while(|s| s.key != selected_key).map(|s| SelectOption { id: s.key.clone(), name: s.name.clone() }).collect::<Vec<_>>(),
             "categories": category_options(),
-            "personas": persona_options(),
+            "personas": persona_options(&active_personas),
             "modes": mode_options(),
             "exits": exit_options(),
             "gate_options": gate_options(),

@@ -52,6 +52,8 @@ thiserror = "2"
 argon2 = { version = "0.5", features = ["std"] }
 # Digest SHA-256 untuk token email yang disimpan di database.
 sha2 = "0.10"
+# Server MCP (Streamable HTTP) untuk client AI (M4).
+rmcp = { version = "=3.9.0", default-features = false, features = ["server", "transport-streamable-http-server"] }
 # Perbandingan rahasia constant-time.
 subtle = "2"
 # CSPRNG (OsRng) untuk token dan nonce.
@@ -76,6 +78,11 @@ uuid = { version = "1", features = ["v7", "serde"] }
 serde_urlencoded = "0.7"
 # Timestamp (timestamptz) dan perhitungan umur token/sesi.
 chrono = "0.4"
+
+# Unduh tarball repo skill pack (GitHub codeload) lalu buka isinya (tar.gz) di memori.
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+flate2 = "1"
+tar = "0.4"
 
 # Prompt password tanpa echo untuk task user:set_password.
 rpassword = "7"

@@ -12,8 +12,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use super::definition::{
-    Category, Definition, Exit, FAIL_LIMIT_DEFAULT, Gate, Mode, People, Persona, Stage, slug,
-    valid_key,
+    Category, Definition, Exit, FAIL_LIMIT_DEFAULT, Gate, Mode, People, Stage, slug, valid_key,
 };
 
 pub const SYNTAX: &str = "workflow-yaml-syntax";
@@ -171,7 +170,8 @@ pub fn parse(
             .ok_or_else(|| YamlError::unknown("kategori", &s.kategori))?;
         let persona = match s.persona.as_deref().map(str::trim) {
             None | Some("") => None,
-            Some(p) => Some(Persona::parse(p).ok_or_else(|| YamlError::unknown("persona", p))?),
+            Some(p) if valid_key(p) => Some(p.to_string()),
+            Some(p) => return Err(YamlError::unknown("persona", p)),
         };
         let mode = match s.mode.trim() {
             "" if persona.is_some() => Mode::Auto,
@@ -262,7 +262,7 @@ pub fn emit(
                 id: s.key.clone(),
                 nama: s.name.clone(),
                 kategori: s.category.as_str().to_string(),
-                persona: s.persona.map(|p| p.as_str().to_string()),
+                persona: s.persona.clone(),
                 mode: if s.persona.is_some() {
                     mode_word(s.mode).to_string()
                 } else {
@@ -359,6 +359,23 @@ stages:
         );
         assert_eq!(
             err("nama: A\nstages:\n  - {id: a, nama: A, kategori: done, gate: [sihir]}"),
+            Some(UNKNOWN_VALUE)
+        );
+    }
+
+    #[test]
+    fn custom_persona_key_round_trips_and_bad_key_is_rejected() {
+        let text = "nama: A\nstages:\n  - {id: a, nama: A, kategori: todo, persona: security-auditor}\n  - {id: b, nama: B, kategori: done}";
+        let (doc, _) = parse(text, |_| None).unwrap_or_else(|e| panic!("{e:?}"));
+        assert_eq!(
+            doc.definition.stages[0].persona.as_deref(),
+            Some("security-auditor")
+        );
+        let again = emit(&doc, None, |_| None);
+        assert!(again.contains("persona: security-auditor"), "{again}");
+        let bad = "nama: A\nstages:\n  - {id: a, nama: A, kategori: done, persona: 'Bukan Kunci'}";
+        assert_eq!(
+            parse(bad, |_| None).err().map(|e| e.code),
             Some(UNKNOWN_VALUE)
         );
     }

@@ -98,9 +98,12 @@ fn every_validation_error_code_has_a_message() {
         agentgate_server::models::ticket_code::ERROR_CODES,
         agentgate_server::models::custom_fields::ERROR_CODES,
         agentgate_server::models::workflows::ERROR_CODES,
+        agentgate_server::models::personas::ERROR_CODES,
+        agentgate_server::models::skill_packs::ERROR_CODES,
         agentgate_server::models::ticket_artifacts::ERROR_CODES,
         agentgate_server::services::tickets::stages::ERROR_CODES,
         agentgate_server::services::workflows::ERROR_CODES,
+        agentgate_server::services::drafts::ERROR_CODES,
         agentgate_core::workflow::definition::ERROR_CODES,
         agentgate_core::workflow::yaml::ERROR_CODES,
     ]
@@ -180,6 +183,15 @@ fn every_ticket_enum_and_view_key_has_a_translation() {
         used.push(format!("ticket-event-{}", value.replace('_', "-")));
     }
     used.extend(views::workflow::label_keys());
+    used.extend(views::personas::label_keys());
+    used.extend(views::skills::label_keys());
+    used.extend(views::oauth::label_keys());
+    used.extend(views::drafts::label_keys());
+    used.extend(
+        agentgate_server::services::mcp::prompts::UTILITIES
+            .iter()
+            .map(|u| u.1.to_string()),
+    );
     for kind in NotificationKind::iter() {
         used.push(format!(
             "notification-{}",

@@ -188,6 +188,19 @@
 <span data-line="add">+ Bayar tunai dan QRIS.</span>
 </pre>
 {% </card> %}
+{% <card title="Agent (M4)" description="app-pav: tanda persona (warna + ikon). app-steps: langkah bernomor. app-draft: baris draft bertingkat dengan centang." flush={true} attrs="data-catalog-agent"> %}
+  <div class="app-lrow">
+    <span class="app-pav" style="--pc: #7c3aed" aria-hidden="true">{{ icon(name="bulb") }}</span>
+    <span class="app-lrow-main"><b>Analyst</b><small>Brainstorming dan riset kebutuhan</small></span>
+    <span class="app-pav" data-size="sm" style="--pc: #0891b2" aria-hidden="true">{{ icon(name="code") }}</span>
+  </div>
+  <ol class="app-steps">
+    <li><span>1</span><div><b>Tambahkan server MCP</b><pre class="app-codeblock">claude mcp add --transport http agentgate https://agentgate.test/mcp</pre></div></li>
+    <li><span>2</span><div><b>Login lewat browser</b><p class="app-hint">Pilih workspace lalu Izinkan akses.</p></div></li>
+  </ol>
+  <div class="app-lrow app-draft"><input type="checkbox" class="app-check" checked aria-label="Pilih"><span class="app-lrow-main"><b>Laporan harian otomatis</b><small>Epic</small></span></div>
+  <div class="app-lrow app-draft" style="padding-left: 38px"><input type="checkbox" class="app-check" checked aria-label="Pilih"><span class="app-lrow-main"><b>Pengaturan penerima</b><small>Story</small></span>{{ <badge label="3 poin" variant="secondary"/> }}</div>
+{% </card> %}
 </div>
 
 <div id="editor">

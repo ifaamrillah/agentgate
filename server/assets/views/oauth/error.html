@@ -1,0 +1,11 @@
+{#- Permintaan OAuth dengan client atau redirect URI tidak dikenal: tidak boleh redirect ke URI
+    yang belum terdaftar (RFC 6749 §4.1.2.1), jadi tampilkan halaman ini. Tanpa variabel. -#}
+{% extends "layouts/public.html" %}
+{% block title %}{{ t(key="oauth-error-title", lang="id") }}{% endblock title %}
+{% block content %}
+<div data-oauth-error>
+{% <empty_state title={t(key="oauth-error-title", lang="id")} description={t(key="oauth-error-body", lang="id")} icon="plug"> %}
+  {{ <button label={t(key="oauth-error-back", lang="id")} href="/" variant="outline" icon="arrow-left"/> }}
+{% </empty_state> %}
+</div>
+{% endblock content %}

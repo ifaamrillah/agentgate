@@ -1,0 +1,60 @@
+{#- Pengaturan → Skill pack (ManageTicketSettings): angka ringkas, daftar semua skill pack,
+    dialog Buat skill pack dan Impor dari repo. Variabel: lihat
+    controllers::agents::skills::render_index. -#}
+{% extends "layouts/settings.html" %}
+{% block title %}{{ t(key="settings-skills-title", lang="id") }}{% endblock title %}
+{% block crumb_label %}{{ t(key="settings-skills-title", lang="id") }}{% endblock crumb_label %}
+{% block page_attrs %}data-skills{% endblock page_attrs %}
+{% block settings %}
+<header class="app-page-head">
+  <div class="app-page-title"><h1>{{ t(key="settings-skills-title", lang="id") }}</h1><p>{{ t(key="settings-skills-description", lang="id") }}</p></div>
+  <div class="app-page-acts">
+    {{ <button label={t(key="skill-import", lang="id")} icon="download" variant="outline" dialog="skill-import" attrs="data-skill-import"/> }}
+    {{ <button label={t(key="skill-new", lang="id")} icon="plus" dialog="skill-new" attrs="data-skill-new"/> }}
+  </div>
+</header>
+{{ <stats items={stats}/> }}
+{% <card title={t(key="skill-all", lang="id")} description={t(key="skill-all-description", lang="id")} count={rows | length ~ ""} flush={true} attrs="data-skill-list"> %}
+  {%- for r in rows %}
+  <a class="app-lrow" href="{{ r.pack.href }}" data-skill="{{ r.pack.name }}">
+    <span class="app-tile"{% if r.pack.status == "rejected" %} data-tone="danger"{% elif r.pack.source == "custom" %} data-tone="accent"{% endif %}>{{ icon(name=r.pack.icon) }}</span>
+    <span class="app-lrow-main"><b>{{ r.pack.name }}</b><small>{% if r.pack.repo %}<span class="app-mono">{{ r.pack.repo }}</span>{% else %}{{ t(key="skill-source-custom", lang="id") }}{% endif %} · v{{ r.pack.version }} · {{ t(key="skill-used-count", lang="id", count=r.used) }}</small></span>
+    {%- if r.pack.risk_key %}{{ <badge label={t(key=r.pack.risk_key, lang="id")} variant={r.pack.risk_variant} class="app-hide-sm"/> }}{% endif %}
+    {{ <badge label={t(key=r.pack.status_key, lang="id")} variant={r.pack.status_variant}/> }}
+    {{ icon(name="chevron-right") }}
+  </a>
+  {%- else %}
+  <div class="app-pad">{{ <empty_state title={t(key="skill-empty", lang="id")} description={t(key="skill-empty-description", lang="id")} icon="package" variant="plain"/> }}</div>
+  {%- endfor %}
+{% </card> %}
+
+{% <dialog id="skill-new" title={t(key="skill-new", lang="id")} description={t(key="skill-new-description", lang="id")} icon="pencil" tone="accent" open={new_open}> %}
+<form method="post" action="{{ create_action }}" data-skill-new-form>
+  <section><div class="app-stack-v" data-gap="sm">
+    {{ <field id="skill-name" name="name" label={t(key="skill-name", lang="id")} value={form.name} error={errors.name.code} error_max={errors.name.max} placeholder={t(key="skill-name-placeholder", lang="id")} required={true}/> }}
+    {{ <textarea_field id="skill-description" name="description" label={t(key="skill-description", lang="id")} value={form.description} rows={3} error={errors.description.code} hint={t(key="skill-description-hint", lang="id")}/> }}
+  </div></section>
+  <footer>
+    <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+    {{ <button label={t(key="skill-create", lang="id")} type="submit" icon="plus"/> }}
+  </footer>
+</form>
+{% </dialog> %}
+
+{% <dialog id="skill-import" title={t(key="skill-import", lang="id")} description={t(key="skill-import-description", lang="id")} icon="package" tone="accent" open={import_open}> %}
+<form method="post" action="{{ import_action }}" data-skill-import-form>
+  <section><div class="app-stack-v" data-gap="sm">
+    {{ <field id="skill-url" name="url" label={t(key="skill-repo-url", lang="id")} value={form.url} error={errors.url.code} placeholder="https://github.com/obra/superpowers" mono={true} required={true} hint={t(key="skill-repo-url-hint", lang="id")}/> }}
+    <div class="app-grid" data-cols="two">
+      {{ <field id="skill-ref" name="ref" label={t(key="skill-repo-ref", lang="id")} value={form.ref} placeholder="main" mono={true}/> }}
+      {{ <field id="skill-path" name="path" label={t(key="skill-repo-path", lang="id")} value={form.path} error={errors.path.code} placeholder="skills/" mono={true} optional={t(key="field-optional", lang="id")}/> }}
+    </div>
+    <div class="alert" data-variant="neutral">{{ icon(name="shield-check") }}<span>{{ t(key="skill-import-checks", lang="id") }}</span></div>
+  </div></section>
+  <footer>
+    <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+    {{ <button label={t(key="skill-import-submit", lang="id")} type="submit" icon="download"/> }}
+  </footer>
+</form>
+{% </dialog> %}
+{% endblock settings %}

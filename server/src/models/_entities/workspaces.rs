@@ -37,6 +37,12 @@ pub enum Relation {
     JobTitles,
     #[sea_orm(has_many = "super::notifications::Entity")]
     Notifications,
+    #[sea_orm(has_many = "super::oauth_grants::Entity")]
+    OauthGrants,
+    #[sea_orm(has_many = "super::persona_skills::Entity")]
+    PersonaSkills,
+    #[sea_orm(has_many = "super::personas::Entity")]
+    Personas,
     #[sea_orm(has_many = "super::project_grants::Entity")]
     ProjectGrants,
     #[sea_orm(has_many = "super::project_workflows::Entity")]
@@ -47,6 +53,10 @@ pub enum Relation {
     Repos,
     #[sea_orm(has_one = "super::roles::Entity")]
     Roles,
+    #[sea_orm(has_many = "super::skill_files::Entity")]
+    SkillFiles,
+    #[sea_orm(has_many = "super::skill_packs::Entity")]
+    SkillPacks,
     #[sea_orm(has_many = "super::team_members::Entity")]
     TeamMembers,
     #[sea_orm(has_one = "super::teams::Entity")]
@@ -61,6 +71,8 @@ pub enum Relation {
     TicketComments,
     #[sea_orm(has_many = "super::ticket_counters::Entity")]
     TicketCounters,
+    #[sea_orm(has_many = "super::ticket_drafts::Entity")]
+    TicketDrafts,
     #[sea_orm(has_many = "super::ticket_events::Entity")]
     TicketEvents,
     #[sea_orm(has_many = "super::ticket_links::Entity")]
@@ -127,6 +139,24 @@ impl Related<super::notifications::Entity> for Entity {
     }
 }
 
+impl Related<super::oauth_grants::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::OauthGrants.def()
+    }
+}
+
+impl Related<super::persona_skills::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::PersonaSkills.def()
+    }
+}
+
+impl Related<super::personas::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Personas.def()
+    }
+}
+
 impl Related<super::project_grants::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::ProjectGrants.def()
@@ -154,6 +184,18 @@ impl Related<super::repos::Entity> for Entity {
 impl Related<super::roles::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Roles.def()
+    }
+}
+
+impl Related<super::skill_files::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::SkillFiles.def()
+    }
+}
+
+impl Related<super::skill_packs::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::SkillPacks.def()
     }
 }
 
@@ -196,6 +238,12 @@ impl Related<super::ticket_comments::Entity> for Entity {
 impl Related<super::ticket_counters::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::TicketCounters.def()
+    }
+}
+
+impl Related<super::ticket_drafts::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::TicketDrafts.def()
     }
 }
 

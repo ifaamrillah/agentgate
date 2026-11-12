@@ -160,6 +160,34 @@ async fn workflow_is_built_from_a_template_edited_and_published() {
         assert_eq!(draft.stage("brainstorm").unwrap().name, "Brainstorm ide");
         assert_css_exists(&get(&request, c, &base).await.text(), "[data-draft-bar]");
 
+        // Persona yang tidak ada di workspace → 422, draf tidak berubah.
+        let res = post(
+            &request,
+            c,
+            &format!("{base}/stage"),
+            &[
+                ("key", "brainstorm"),
+                ("name", "Brainstorm ide"),
+                ("category", "in_progress"),
+                ("persona", "hantu"),
+                ("mode", "interactive"),
+                ("exit", "approval"),
+                ("fail_limit", "3"),
+            ],
+        )
+        .await;
+        assert_eq!(res.status_code(), 422);
+        assert!(
+            res.text().contains("Persona tidak dikenal"),
+            "{}",
+            res.text()
+        );
+        let draft = workflow(&ctx, &f, &id).await.draft().expect("draf ada");
+        assert_eq!(
+            draft.stage("brainstorm").unwrap().persona.as_deref(),
+            Some("analyst")
+        );
+
         // Nama kosong → 422 di form stage.
         let res = post(
             &request,

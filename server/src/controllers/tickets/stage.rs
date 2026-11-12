@@ -154,7 +154,8 @@ pub(super) async fn panel(ctx: &AppContext, access: &TicketAccess) -> Result<Sta
             at: views::time::wib_datetime(&e.created_at),
         })
         .collect();
-    let mut current = StageView::of(&rule, &flow.current);
+    let labels = crate::models::personas::Model::labels(db, wid).await?;
+    let mut current = StageView::of(&rule, &flow.current, &labels);
     current.state = "current";
     let options = if access.can(Permission::EditProject) {
         let mut o = people_options(ctx, &access.access, None, None).await?;
@@ -170,7 +171,7 @@ pub(super) async fn panel(ctx: &AppContext, access: &TicketAccess) -> Result<Sta
     Ok(StagePanel {
         workflow: flow.workflow.name.clone(),
         version: flow.workflow.version,
-        steps: stepper(&flow.current, &t.stage_key, position),
+        steps: stepper(&flow.current, &t.stage_key, position, &labels),
         prompt: rule.prompt.clone(),
         output: rule.output.clone(),
         state: match state {

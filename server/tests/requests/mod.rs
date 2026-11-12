@@ -1,10 +1,13 @@
 mod account;
+mod agents;
 mod auth;
 mod csrf;
 mod dev_ui;
 mod errors;
 mod health;
 mod home;
+mod mcp;
+mod oauth;
 mod projects;
 mod security_headers;
 mod tickets;

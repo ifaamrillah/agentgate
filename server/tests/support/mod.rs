@@ -4,8 +4,10 @@
 
 mod audit;
 mod builders;
+pub mod fake_codeload;
 pub mod fake_oauth;
 mod mail;
+pub mod oauth_flow;
 mod session;
 
 pub use audit::newest_audit_events;

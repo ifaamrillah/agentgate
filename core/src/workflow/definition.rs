@@ -51,6 +51,7 @@ pub const GATE_DUPLICATE: &str = "workflow-gate-duplicate";
 pub const TOOL_INVALID: &str = "workflow-tool-invalid";
 pub const LIST_TOO_LONG: &str = "workflow-list-too-long";
 pub const PARALLEL_CATEGORY: &str = "workflow-parallel-category";
+pub const PERSONA_INVALID: &str = "workflow-persona-invalid";
 
 /// Semua kode error validasi definisi (tes kontrak i18n memastikan semuanya punya teks).
 pub const ERROR_CODES: &[&str] = &[
@@ -73,6 +74,7 @@ pub const ERROR_CODES: &[&str] = &[
     TOOL_INVALID,
     LIST_TOO_LONG,
     PARALLEL_CATEGORY,
+    PERSONA_INVALID,
 ];
 
 /// Kategori stage = kolom status tiket M2.
@@ -101,56 +103,6 @@ impl Category {
     #[must_use]
     pub fn parse(value: &str) -> Option<Self> {
         Self::ALL.into_iter().find(|c| c.as_str() == value.trim())
-    }
-}
-
-/// Persona agent bawaan (spec "Persona agent"). Persona yang bisa diubah/ditambah datang di M4;
-/// sampai itu stage hanya bisa memilih persona bawaan.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Persona {
-    Analyst,
-    Pm,
-    Uiux,
-    Architect,
-    Dev,
-    Reviewer,
-    Qa,
-    Devops,
-    Writer,
-}
-
-impl Persona {
-    pub const ALL: [Self; 9] = [
-        Self::Analyst,
-        Self::Pm,
-        Self::Uiux,
-        Self::Architect,
-        Self::Dev,
-        Self::Reviewer,
-        Self::Qa,
-        Self::Devops,
-        Self::Writer,
-    ];
-
-    #[must_use]
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Analyst => "analyst",
-            Self::Pm => "pm",
-            Self::Uiux => "uiux",
-            Self::Architect => "architect",
-            Self::Dev => "dev",
-            Self::Reviewer => "reviewer",
-            Self::Qa => "qa",
-            Self::Devops => "devops",
-            Self::Writer => "writer",
-        }
-    }
-
-    #[must_use]
-    pub fn parse(value: &str) -> Option<Self> {
-        Self::ALL.into_iter().find(|p| p.as_str() == value.trim())
     }
 }
 
@@ -305,8 +257,9 @@ pub struct Stage {
     pub key: String,
     pub name: String,
     pub category: Category,
+    /// Kunci persona workspace (format [`valid_key`]); `None` = dikerjakan manusia.
     #[serde(default)]
-    pub persona: Option<Persona>,
+    pub persona: Option<String>,
     #[serde(default)]
     pub mode: Mode,
     /// Skill yang dipakai agent (teks bebas sampai skill pack M4).
@@ -380,6 +333,11 @@ impl Stage {
         self.name = self.name.trim().to_string();
         self.skill = self.skill.trim().to_string();
         self.prompt = self.prompt.trim().to_string();
+        self.persona = self
+            .persona
+            .take()
+            .map(|p| p.trim().to_string())
+            .filter(|p| !p.is_empty());
         self.output = self.output.trim().to_string();
         self.output_template = self.output_template.trim_end().to_string();
         for list in [&mut self.inputs, &mut self.tools] {
@@ -535,6 +493,9 @@ impl Definition {
             }
             if s.persona.is_none() && s.mode != Mode::Manual {
                 push(at, "mode", MODE_NEEDS_PERSONA);
+            }
+            if s.persona.as_deref().is_some_and(|p| !valid_key(p)) {
+                push(at, "persona", PERSONA_INVALID);
             }
             if s.skill.chars().count() > SKILL_MAX_LEN {
                 push(at, "skill", TEXT_TOO_LONG);
@@ -710,6 +671,20 @@ mod tests {
         assert_eq!(codes(&d), vec![MODE_NEEDS_PERSONA]);
         d.normalize();
         assert!(d.validate().is_ok());
+    }
+
+    #[test]
+    fn persona_is_a_key_and_bad_keys_are_rejected() {
+        let mut d = simple();
+        d.stages[1].persona = Some("security-auditor".into());
+        d.stages[1].mode = Mode::Auto;
+        assert!(d.validate().is_ok());
+        d.stages[1].persona = Some("Bukan Kunci".into());
+        assert_eq!(codes(&d), vec![PERSONA_INVALID]);
+        d.stages[1].persona = Some("  ".into());
+        d.normalize();
+        assert_eq!(d.stages[1].persona, None);
+        assert_eq!(d.stages[1].mode, Mode::Manual);
     }
 
     #[test]

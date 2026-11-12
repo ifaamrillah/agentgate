@@ -36,6 +36,10 @@ pub enum Relation {
     Invitations,
     #[sea_orm(has_many = "super::notifications::Entity")]
     Notifications,
+    #[sea_orm(has_many = "super::oauth_grants::Entity")]
+    OauthGrants,
+    #[sea_orm(has_many = "super::personas::Entity")]
+    Personas,
     #[sea_orm(has_many = "super::projects::Entity")]
     Projects,
     #[sea_orm(has_many = "super::recovery_codes::Entity")]
@@ -46,6 +50,8 @@ pub enum Relation {
     TicketAttachments,
     #[sea_orm(has_many = "super::ticket_comments::Entity")]
     TicketComments,
+    #[sea_orm(has_many = "super::ticket_drafts::Entity")]
+    TicketDrafts,
     #[sea_orm(has_many = "super::ticket_events::Entity")]
     TicketEvents,
     #[sea_orm(has_many = "super::ticket_links::Entity")]
@@ -86,6 +92,18 @@ impl Related<super::notifications::Entity> for Entity {
     }
 }
 
+impl Related<super::oauth_grants::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::OauthGrants.def()
+    }
+}
+
+impl Related<super::personas::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Personas.def()
+    }
+}
+
 impl Related<super::projects::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Projects.def()
@@ -113,6 +131,12 @@ impl Related<super::ticket_attachments::Entity> for Entity {
 impl Related<super::ticket_comments::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::TicketComments.def()
+    }
+}
+
+impl Related<super::ticket_drafts::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::TicketDrafts.def()
     }
 }
 

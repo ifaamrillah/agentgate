@@ -1,0 +1,141 @@
+{#- Edit persona (ManageTicketSettings): subpage varian E, satu bagian per halaman
+    (`?section=`), setiap bagian satu form POST sendiri (PRG; gagal validasi → 422 dengan isian).
+    Variabel: lihat controllers::agents::personas::render_edit. -#}
+{% extends "layouts/settings.html" %}
+{% block title %}{{ persona.name }} · {{ t(key="settings-personas-title", lang="id") }}{% endblock title %}
+{% block crumb %}{{ <crumb label={t(key="nav-settings", lang="id")}/> }}{{ <crumb label={t(key="settings-personas-title", lang="id")} href={back}/> }}{{ <crumb label={persona.name}/> }}{% endblock crumb %}
+{% block page_attrs %}data-persona-edit="{{ persona.key }}"{% endblock page_attrs %}
+{% block settings %}
+{%- if stages %}{% set used = t(key="persona-used-in", lang="id", stages=stages | join(sep=", ")) %}{% else %}{% set used = t(key="persona-unused", lang="id") %}{% endif %}
+{%- if persona.summary %}{% set desc = persona.summary ~ ". " ~ used %}{% else %}{% set desc = used %}{% endif %}
+{% <subpage title={persona.name} description={desc} items={subnav}> %}
+{%- if section == "identity" %}
+{% <card title={t(key="persona-section-identity", lang="id")} description={t(key="persona-identity-description", lang="id")} flush={true} form={href ~ "/identity"} cancel_href={href ~ "?section=identity"} attrs="data-persona-identity"> %}
+  {% <setting_row title={t(key="persona-name", lang="id")} wide={true}> %}
+    {{ <field id="persona-name" name="name" label={t(key="persona-name", lang="id")} hide_label={true} value={identity.name} error={errors.name.code} error_max={errors.name.max} required={true}/> }}
+  {% </setting_row> %}
+  {% <setting_row title={t(key="persona-summary", lang="id")} description={t(key="persona-summary-hint", lang="id")} wide={true}> %}
+    {{ <field id="persona-summary" name="summary" label={t(key="persona-summary", lang="id")} hide_label={true} value={identity.summary} error={errors.summary.code} maxlength="120"/> }}
+  {% </setting_row> %}
+  {% <setting_row title={t(key="persona-color", lang="id")} description={t(key="persona-color-hint", lang="id")} top={true} wide={true}> %}
+    {{ <color_picker id="persona-color" name="color" label={t(key="persona-color", lang="id")} value={identity.color} error={errors.color.code}/> }}
+  {% </setting_row> %}
+  {% <setting_row title={t(key="persona-icon", lang="id")} description={t(key="persona-icon-hint", lang="id")} top={true} wide={true}> %}
+    <fieldset class="app-iconpick" style="--pc: {{ identity.color }}"{% if errors.icon.code %} data-invalid="true"{% endif %}>
+      <legend class="sr-only">{{ t(key="persona-icon", lang="id") }}</legend>
+      {%- for i in icons %}
+      <label title="{{ i }}"><input type="radio" name="icon" value="{{ i }}"{% if i == identity.icon %} checked{% endif %} aria-label="{{ i }}">{{ icon(name=i) }}</label>
+      {%- endfor %}
+    </fieldset>
+    {%- if errors.icon.code %}<p class="app-field-error" role="alert">{{ t(key=errors.icon.code, lang="id") }}</p>{% endif %}
+  {% </setting_row> %}
+{% </card> %}
+
+{%- elif section == "instructions" %}
+{% <card title={t(key="persona-section-instructions", lang="id")} description={t(key="persona-instructions-description", lang="id", revision=persona.revision)} attrs="data-persona-instructions"> %}
+<form method="post" action="{{ href }}/instructions" class="app-stack-v" data-gap="md">
+  <label class="app-check-row app-concise">
+    <input type="checkbox" class="app-switch" role="switch" name="concise"{% if concise %} checked{% endif %}>
+    <span><b>{{ t(key="persona-concise", lang="id") }}</b><small>{{ t(key="persona-concise-hint", lang="id") }}</small></span>
+  </label>
+  {%- if errors.instructions.code %}<p class="app-field-error" role="alert">{{ t(key=errors.instructions.code, lang="id") }}</p>{% endif %}
+  {{ <md_editor id="persona-instructions" name="instructions" label={t(key="persona-section-instructions", lang="id")} value={instructions} cancel_href={href ~ "?section=instructions"} save_label={t(key="persona-save", lang="id")} hide_label={true} rows={18}/> }}
+  <p class="app-hint">{{ t(key="persona-variables", lang="id") }} <code>{{ "{{tiket.kode}}" }}</code> <code>{{ "{{project.nama}}" }}</code> <code>{{ "{{stage}}" }}</code> <code>{{ "{{repo}}" }}</code></p>
+</form>
+{% </card> %}
+
+{%- elif section == "skills" %}
+{% <card title={t(key="persona-section-skills", lang="id")} description={t(key="persona-skills-description", lang="id")} link_label={t(key="persona-skills-manage", lang="id")} link_href={shell.settings.skills} form={href ~ "/skills"} cancel_href={href ~ "?section=skills"} attrs="data-persona-skills"> %}
+  {%- if skill_options %}
+  {{ <combo id="persona-skills" name="skills" label={t(key="persona-skills-pick", lang="id")} options={skill_options} values={selected_skills} multiple={true} error={errors.skills.code} placeholder={t(key="persona-skills-placeholder", lang="id")}/> }}
+  {%- else %}
+  {{ <empty_state title={t(key="persona-skills-none-approved", lang="id")} description={t(key="persona-skills-none-approved-description", lang="id")} icon="package" variant="plain"/> }}
+  {%- endif %}
+  {%- if skills %}
+  <div class="app-box">
+    {%- for s in skills %}
+    <div class="app-lrow" data-skill="{{ s.name }}">
+      <span class="app-tile">{{ icon(name="package") }}</span>
+      <span class="app-lrow-main"><b><a href="{{ s.href }}">{{ s.name }}</a></b><small>{{ s.description }}</small></span>
+      {%- if s.risk_key %}{{ <badge label={t(key=s.risk_key, lang="id")} variant={s.risk_variant}/> }}{% endif %}
+      <span class="app-hint app-mono">v{{ s.version }}</span>
+    </div>
+    {%- endfor %}
+  </div>
+  {%- endif %}
+{% </card> %}
+
+{%- elif section == "tools" %}
+{% <card title={t(key="persona-section-tools", lang="id")} description={t(key="persona-tools-description", lang="id")} form={href ~ "/tools"} cancel_href={href ~ "?section=tools"} attrs="data-persona-tools"> %}
+  {%- for code in [errors.mcp_tools.code, errors.client_tools.code, errors.danger.code] %}{% if code %}<p class="app-field-error" role="alert">{{ t(key=code, lang="id") }}</p>{% endif %}{% endfor %}
+  <fieldset class="app-toolset">
+    <legend>{{ t(key="persona-mcp-tools", lang="id") }}<small>{{ t(key="persona-mcp-tools-hint", lang="id") }}</small></legend>
+    <div class="app-checks">
+      {%- for tool in mcp_tools %}
+      <label><input type="checkbox" class="app-check" name="mcp_tools" value="{{ tool.value }}"{% if tool.on %} checked{% endif %}><span><b class="app-mono">{{ tool.value }}</b><small>{{ t(key=tool.hint_key, lang="id") }}</small></span></label>
+      {%- endfor %}
+    </div>
+  </fieldset>
+  <fieldset class="app-toolset">
+    <legend>{{ t(key="persona-client-tools", lang="id") }}<small>{{ t(key="persona-client-tools-hint", lang="id") }}</small></legend>
+    <div class="app-checks">
+      {%- for tool in client_tools %}
+      <label><input type="checkbox" class="app-check" name="client_tools" value="{{ tool.value }}"{% if tool.on %} checked{% endif %}><span><b>{{ t(key=tool.label_key, lang="id") }}</b><small>{{ t(key=tool.hint_key, lang="id") }}</small></span></label>
+      {%- endfor %}
+    </div>
+  </fieldset>
+  <fieldset class="app-toolset">
+    <legend>{{ t(key="persona-danger-title", lang="id") }}<small>{{ t(key="persona-danger-hint", lang="id") }}</small></legend>
+    <div class="app-perms">
+      {%- for d in danger %}
+      <div class="app-perm" data-danger="{{ d.action }}">
+        <span><b>{{ t(key=d.label_key, lang="id") }}</b><small>{{ t(key=d.hint_key, lang="id") }}</small></span>
+        <div class="app-seg" role="radiogroup" aria-label="{{ t(key=d.label_key, lang="id") }}">
+          {%- for level in levels %}
+          <label data-level="{{ level.value }}"><input type="radio" name="danger_{{ d.action }}" value="{{ level.value }}"{% if d.level == level.value %} checked{% endif %}>{{ t(key=level.label_key, lang="id") }}</label>
+          {%- endfor %}
+        </div>
+      </div>
+      {%- endfor %}
+      {%- for b in always_blocked %}
+      <div class="app-perm" data-locked><span class="app-muted">{{ t(key=b, lang="id") }}</span><span class="app-meta">{{ icon(name="lock") }}{{ t(key="persona-always-blocked", lang="id") }}</span></div>
+      {%- endfor %}
+    </div>
+  </fieldset>
+{% </card> %}
+
+{%- elif section == "models" %}
+{% <card title={t(key="persona-section-models", lang="id")} description={t(key="persona-models-description", lang="id")} flush={true} form={href ~ "/models"} cancel_href={href ~ "?section=models"} attrs="data-persona-models"> %}
+  {%- if errors.models.code %}<div class="app-pad"><p class="app-field-error" role="alert">{{ t(key=errors.models.code, lang="id") }}</p></div>{% endif %}
+  <div class="app-modelrow" data-head aria-hidden="true"><span>{{ t(key="persona-client", lang="id") }}</span><span>{{ t(key="persona-model", lang="id") }}</span><span>{{ t(key="persona-effort", lang="id") }}</span></div>
+  {%- for m in models %}
+  <div class="app-modelrow" data-client="{{ m.key }}">
+    <b>{{ m.name }}</b>
+    <span>
+      <input class="app-input app-mono" id="model-{{ m.key }}" name="model_{{ m.key }}" value="{{ m.model }}" list="models-{{ m.key }}" placeholder="{{ t(key="persona-model-default", lang="id") }}" aria-label="{{ t(key="persona-model-for", lang="id", client=m.name) }}" autocomplete="off" maxlength="80">
+      <datalist id="models-{{ m.key }}">{% for x in m.models %}<option value="{{ x }}"></option>{% endfor %}</datalist>
+    </span>
+    <span>
+      {%- if m.efforts %}
+      <select class="app-input" name="effort_{{ m.key }}" aria-label="{{ t(key="persona-effort-for", lang="id", client=m.name) }}">
+        <option value="">{{ t(key="persona-effort-default", lang="id") }}</option>
+        {%- for e in m.efforts %}<option value="{{ e }}"{% if e == m.effort %} selected{% endif %}>{{ e }}</option>{% endfor %}
+      </select>
+      {%- else %}<span class="app-hint">{{ t(key="persona-effort-none", lang="id") }}</span>{% endif %}
+    </span>
+  </div>
+  {%- endfor %}
+{% </card> %}
+
+{%- elif section == "danger" %}
+{% <card title={t(key="persona-section-danger", lang="id")} variant="danger" flush={true} attrs="data-persona-danger"> %}
+  {% <setting_row title={t(key="persona-delete", lang="id")} description={t(key="persona-delete-description", lang="id")} top={true} wide={true}> %}
+    <form method="post" action="{{ href }}/delete" class="app-stack-v" data-gap="sm" data-persona-delete>
+      {{ <combo id="persona-replacement" name="replacement" label={t(key="persona-replacement", lang="id")} options={replacements} error={errors.replacement.code} required={true} placeholder={t(key="persona-replacement-placeholder", lang="id")}/> }}
+      {{ <button label={t(key="persona-delete", lang="id")} type="submit" variant="danger" icon="trash"/> }}
+    </form>
+  {% </setting_row> %}
+{% </card> %}
+{%- endif %}
+{% </subpage> %}
+{% endblock settings %}

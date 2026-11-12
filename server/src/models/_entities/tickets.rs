@@ -75,6 +75,8 @@ pub enum Relation {
     TicketCodes,
     #[sea_orm(has_many = "super::ticket_comments::Entity")]
     TicketComments,
+    #[sea_orm(has_many = "super::ticket_drafts::Entity")]
+    TicketDrafts,
     #[sea_orm(has_many = "super::ticket_events::Entity")]
     TicketEvents,
     #[sea_orm(has_many = "super::ticket_stage_people::Entity")]
@@ -180,6 +182,12 @@ impl Related<super::ticket_codes::Entity> for Entity {
 impl Related<super::ticket_comments::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::TicketComments.def()
+    }
+}
+
+impl Related<super::ticket_drafts::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::TicketDrafts.def()
     }
 }
 

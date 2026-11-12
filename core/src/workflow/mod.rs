@@ -4,4 +4,4 @@ pub mod definition;
 pub mod templates;
 pub mod yaml;
 
-pub use definition::{Category, Definition, Exit, Gate, Issue, Mode, People, Persona, Stage};
+pub use definition::{Category, Definition, Exit, Gate, Issue, Mode, People, Stage};

@@ -210,7 +210,8 @@ impl Hooks for App {
         }
         seed_workspace(ctx).await?;
         seed_tickets(ctx).await?;
-        seed_workflows(ctx).await
+        seed_workflows(ctx).await?;
+        seed_agents(ctx).await
     }
 }
 
@@ -727,5 +728,132 @@ where
         viewer_role.id,
     )
     .await?;
+    Ok(())
+}
+
+/// Skill pack contoh (sudah di-approve, dipasang di persona Developer) dan draft tiket hasil
+/// brainstorming di project KSR (M4). Dilewati bila skill pack contoh sudah ada.
+async fn seed_agents(ctx: &AppContext) -> Result<()> {
+    use crate::{
+        models::{personas, skill_packs},
+        services::{
+            drafts::{self, DraftInput},
+            personas::{self as persona_service, Edit},
+            skills,
+            workspaces::Acting,
+        },
+    };
+    let Some(workspace) = workspaces::Model::find_by_slug(&ctx.db, SEED_WORKSPACE_SLUG).await?
+    else {
+        return Ok(());
+    };
+    let wid = workspace.workspace_id();
+    let Some(project) = projects::Model::find_by_key(&ctx.db, wid, SEED_PROJECT.0).await? else {
+        return Ok(());
+    };
+    if skill_packs::Model::all_in(&ctx.db, wid)
+        .await?
+        .iter()
+        .any(|p| p.name == "Konvensi kasir")
+    {
+        tracing::info!("seed agent dilewati: skill pack contoh sudah ada");
+        return Ok(());
+    }
+    let owner = users::Model::find_by_email(&ctx.db, SEED_MARKER_EMAIL)
+        .await?
+        .ok_or_else(|| loco_rs::Error::string("owner seed tidak ada"))?;
+    let (_, role) = workspace_members::Model::find_with_role(&ctx.db, wid, owner.id)
+        .await?
+        .ok_or_else(|| loco_rs::Error::string("owner seed bukan anggota"))?;
+    let acting = Acting {
+        workspace: &workspace,
+        user: &owner,
+        role: &role,
+        request_id: None,
+    };
+    let fail = |e: &dyn std::fmt::Debug| loco_rs::Error::string(&format!("seed agent: {e:?}"));
+    let pack = skills::create_custom(
+        &ctx.db,
+        &acting,
+        "Konvensi kasir",
+        "Aturan kode dan istilah domain aplikasi kasir.",
+    )
+    .await
+    .map_err(|e| fail(&e))?;
+    skills::save_file(
+        &ctx.db,
+        &acting,
+        pack.id,
+        "SKILL.md",
+        "---\nname: konvensi-kasir\ndescription: Aturan kode dan istilah domain kasir\nallowed-tools: Read\n---\n\n# Konvensi kasir\n\n- Nominal uang selalu integer rupiah, bukan float.\n- Istilah: transaksi, struk, shift, kasir.\n- Setiap endpoint baru wajib punya tes integrasi.\n",
+    )
+    .await
+    .map_err(|e| fail(&e))?;
+    skills::submit(&ctx.db, &acting, pack.id, "")
+        .await
+        .map_err(|e| fail(&e))?;
+    skills::approve(&ctx.db, &acting, pack.id, "")
+        .await
+        .map_err(|e| fail(&e))?;
+    if let Some(dev) = personas::Model::find_active(&ctx.db, wid, "dev").await? {
+        persona_service::update(&ctx.db, &acting, dev.id, Edit::Skills(vec![pack.id]))
+            .await
+            .map_err(|e| fail(&e))?;
+    }
+    let draft =
+        |r: &str, parent: Option<&str>, ty: &str, title: &str, points: Option<i32>| DraftInput {
+            reference: r.to_string(),
+            parent: parent.map(str::to_string),
+            type_key: ty.to_string(),
+            title: title.to_string(),
+            description: format!("{title}. Disusun dari sesi brainstorming laporan harian."),
+            story_points: points,
+        };
+    drafts::save_from_agent(
+        &ctx.db,
+        &acting,
+        project.id,
+        None,
+        &[
+            draft(
+                "e1",
+                None,
+                "epic",
+                "Laporan harian otomatis lewat email",
+                None,
+            ),
+            draft(
+                "s1",
+                Some("e1"),
+                "story",
+                "Pengaturan penerima dan jam kirim",
+                Some(3),
+            ),
+            draft(
+                "t1",
+                Some("s1"),
+                "subtask",
+                "Form jam kirim per toko",
+                Some(1),
+            ),
+            draft(
+                "s2",
+                Some("e1"),
+                "story",
+                "Isi laporan: omzet, transaksi, produk terlaris",
+                Some(5),
+            ),
+            draft("s3", Some("e1"), "story", "Lampiran PDF laporan", Some(3)),
+            draft(
+                "b1",
+                None,
+                "task",
+                "Berhenti berlangganan dari email laporan",
+                Some(2),
+            ),
+        ],
+    )
+    .await
+    .map_err(|e| fail(&e))?;
     Ok(())
 }

@@ -5,6 +5,7 @@ mod access;
 mod attachments;
 mod blocks;
 mod comments;
+mod drafts;
 mod flow;
 mod pages;
 mod search;
