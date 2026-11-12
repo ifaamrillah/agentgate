@@ -30,6 +30,7 @@
 @import "./components/md-editor.css";
 @import "./components/ticket.css";
 @import "./components/workflow.css";
+@import "./components/agent.css";
 @import "./components/auth.css";
 
 @source "../views";

@@ -1,0 +1,45 @@
+{#- Pengaturan → Persona agent (ManageTicketSettings): ringkasan angka, kartu persona bawaan dan
+    custom, dialog Persona baru (kosong atau clone). Variabel: lihat
+    controllers::agents::personas::render_index. -#}
+{% extends "layouts/settings.html" %}
+{% block title %}{{ t(key="settings-personas-title", lang="id") }}{% endblock title %}
+{% block crumb_label %}{{ t(key="settings-personas-title", lang="id") }}{% endblock crumb_label %}
+{% block page_attrs %}data-personas{% endblock page_attrs %}
+{% block settings %}
+<header class="app-page-head">
+  <div class="app-page-title"><h1>{{ t(key="settings-personas-title", lang="id") }}</h1><p>{{ t(key="settings-personas-description", lang="id") }}</p></div>
+  <div class="app-page-acts">
+    {{ <button label={t(key="persona-new", lang="id")} icon="plus" dialog="persona-new" attrs="data-persona-new"/> }}
+  </div>
+</header>
+<div class="alert" role="note">{{ icon(name="info-circle") }}<span>{{ t(key="persona-model-note", lang="id") }}</span></div>
+{{ <stats items={stats}/> }}
+
+<section class="app-stack-v" data-gap="sm">
+  <div class="app-section-head"><h2>{{ t(key="persona-builtin", lang="id") }}</h2><p>{{ t(key="persona-builtin-description", lang="id") }}</p></div>
+  <div class="app-pgrid" data-persona-builtin>
+    {%- for p in builtin %}{% include "personas/_card.html" %}{% endfor %}
+  </div>
+</section>
+<section class="app-stack-v" data-gap="sm">
+  <div class="app-section-head"><h2>{{ t(key="persona-custom-title", lang="id") }}</h2><p>{{ t(key="persona-custom-description", lang="id") }}</p></div>
+  <div class="app-pgrid" data-persona-custom>
+    {%- for p in custom %}{% include "personas/_card.html" %}{% endfor %}
+    <button type="button" class="app-pcard" data-add data-dialog-open="persona-new" aria-haspopup="dialog">{{ icon(name="plus") }}<span>{{ t(key="persona-add", lang="id") }}</span></button>
+  </div>
+</section>
+
+{% <dialog id="persona-new" title={t(key="persona-new", lang="id")} description={t(key="persona-new-description", lang="id")} icon="robot" tone="accent" open={new_open}> %}
+<form method="post" action="{{ create_action }}" data-persona-new-form>
+  <section><div class="app-stack-v" data-gap="sm">
+    {{ <field id="persona-name" name="name" label={t(key="persona-name", lang="id")} value={new.name} error={errors.name.code} error_max={errors.name.max} placeholder={t(key="persona-name-placeholder", lang="id")} required={true}/> }}
+    {{ <field id="persona-summary" name="summary" label={t(key="persona-summary", lang="id")} value={new.summary} error={errors.summary.code} placeholder={t(key="persona-summary-placeholder", lang="id")} maxlength="120"/> }}
+    {{ <combo id="persona-source" name="source" label={t(key="persona-source", lang="id")} options={sources} value={new.source} placeholder={t(key="persona-source-blank", lang="id")} hint={t(key="persona-source-hint", lang="id")}/> }}
+  </div></section>
+  <footer>
+    <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+    {{ <button label={t(key="persona-create", lang="id")} type="submit" icon="plus"/> }}
+  </footer>
+</form>
+{% </dialog> %}
+{% endblock settings %}

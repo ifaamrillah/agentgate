@@ -2,6 +2,7 @@
 use loco_rs::{app::AppContext, controller::AppRoutes, environment::Environment};
 
 pub mod account;
+pub mod agents;
 pub mod api_routes;
 pub mod auth;
 #[cfg(debug_assertions)]
@@ -24,7 +25,8 @@ pub fn routes(ctx: &AppContext) -> AppRoutes {
         .add_route(invitations::routes())
         .add_route(workspaces::routes())
         .add_route(projects::routes())
-        .add_route(tickets::routes());
+        .add_route(tickets::routes())
+        .add_route(agents::routes());
     add_dev_routes(routes, &ctx.environment)
 }
 

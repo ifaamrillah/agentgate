@@ -164,6 +164,23 @@ impl Model {
             .await
     }
 
+    /// Persona aktif `id` di workspace.
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn find_active_by_id<C: ConnectionTrait>(
+        db: &C,
+        wid: WorkspaceId,
+        id: Uuid,
+    ) -> Result<Option<Self>, DbErr> {
+        Entity::find_by_id(id)
+            .in_tenant(wid)
+            .filter(Column::DeletedAt.is_null())
+            .one(db)
+            .await
+    }
+
     /// Persona untuk kunci `key` di stage: persona itu sendiri, atau pengganti terakhirnya bila
     /// sudah dihapus. `None` bila kunci tidak pernah ada di workspace.
     ///

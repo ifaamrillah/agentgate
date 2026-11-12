@@ -181,6 +181,7 @@ fn every_ticket_enum_and_view_key_has_a_translation() {
         used.push(format!("ticket-event-{}", value.replace('_', "-")));
     }
     used.extend(views::workflow::label_keys());
+    used.extend(views::personas::label_keys());
     for kind in NotificationKind::iter() {
         used.push(format!(
             "notification-{}",

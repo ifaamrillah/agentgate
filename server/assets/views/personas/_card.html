@@ -1,0 +1,18 @@
+{#- Kartu persona di daftar. Variabel: p (views::personas::PersonaCard). -#}
+<article class="app-pcard" data-persona="{{ p.key }}">
+  <div class="app-pcard-head">
+    <span class="app-pav" style="--pc: {{ p.color }}" aria-hidden="true">{{ icon(name=p.icon) }}</span>
+    <a class="app-pcard-main" href="{{ p.href }}"><b>{{ p.name }}</b><small>{{ p.summary }}</small></a>
+    {% <action_menu id={"persona-menu-" ~ p.key} label={t(key="persona-menu", lang="id", name=p.name)}> %}
+      <a class="app-menu-item" href="{{ p.href }}">{{ icon(name="pencil") }}{{ t(key="persona-edit", lang="id") }}</a>
+      <a class="app-menu-item" href="{{ p.href }}?section=tools">{{ icon(name="shield-lock") }}{{ t(key="persona-section-tools", lang="id") }}</a>
+      <a class="app-menu-item" data-variant="destructive" href="{{ p.href }}?section=danger">{{ icon(name="trash") }}{{ t(key="persona-delete", lang="id") }}</a>
+    {% </action_menu> %}
+  </div>
+  <div class="app-pcard-meta">
+    <span class="app-meta" data-mono>{{ icon(name="cpu") }}{% if p.model %}{{ p.model }}{% else %}{{ t(key="persona-model-default", lang="id") }}{% endif %}</span>
+    <span class="app-meta">{{ icon(name="package") }}{{ t(key="persona-skill-count", lang="id", count=p.skills) }}</span>
+    {%- if not p.builtin %}{{ <badge label={t(key="persona-custom", lang="id")} variant="info"/> }}{% endif %}
+  </div>
+  <p class="app-pcard-stage">{{ icon(name="route") }}<span>{% if p.stages %}{{ p.stages | join(sep=", ") }}{% else %}{{ t(key="persona-unused", lang="id") }}{% endif %}</span></p>
+</article>

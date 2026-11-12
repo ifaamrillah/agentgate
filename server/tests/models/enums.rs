@@ -498,3 +498,47 @@ async fn workflow_enum_checks_match_enums() {
         );
     }
 }
+
+/// Kolom enum skill pack (M4): sumber, status, risiko.
+#[tokio::test]
+async fn skill_pack_enum_checks_match_enums() {
+    use agentgate_server::models::skill_packs::{SkillRisk, SkillSource, SkillStatus};
+    let boot = boot_test::<App>().await.unwrap();
+    let db = &boot.app_context.db;
+    let workspace_id = bare_workspace(db).await;
+    let id: Uuid = db
+        .query_one_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "INSERT INTO skill_packs (workspace_id, key, name, source) \
+             VALUES ($1, 'enum', 'Enum', 'custom') RETURNING id",
+            [Value::from(workspace_id)],
+        ))
+        .await
+        .unwrap()
+        .unwrap()
+        .try_get("", "id")
+        .unwrap();
+    let cases: Vec<(&str, Vec<String>)> = vec![
+        (
+            "source",
+            SkillSource::iter().map(|v| v.to_value()).collect(),
+        ),
+        (
+            "status",
+            SkillStatus::iter().map(|v| v.to_value()).collect(),
+        ),
+        ("risk", SkillRisk::iter().map(|v| v.to_value()).collect()),
+    ];
+    for (column, values) in cases {
+        for value in &values {
+            assert!(
+                update_ok(db, "skill_packs", column, id, value).await,
+                "{column} = {value}"
+            );
+        }
+        assert!(
+            !update_ok(db, "skill_packs", column, id, "bogus").await,
+            "{column}"
+        );
+    }
+}

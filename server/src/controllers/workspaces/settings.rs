@@ -201,7 +201,10 @@ pub(super) async fn show(
 /// Tautan menu kiri Pengaturan, masing-masing menurut guard halaman itu sendiri (dipakai
 /// `controllers::shell::app_shell`).
 pub(crate) fn links(tenant: &Tenant) -> SettingsLinks {
+    let (personas, skills) = crate::controllers::agents::settings_links(tenant);
     SettingsLinks {
+        personas,
+        skills,
         members: members::settings_link(tenant),
         roles: roles::settings_link(tenant),
         job_titles: job_titles::settings_link(tenant),

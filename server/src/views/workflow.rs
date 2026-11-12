@@ -101,7 +101,7 @@ pub struct Choice {
 }
 
 impl Choice {
-    fn new(value: &str, label_key: String) -> Self {
+    pub(crate) fn new(value: &str, label_key: String) -> Self {
         Self {
             value: value.to_string(),
             label_key,

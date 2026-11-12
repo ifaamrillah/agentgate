@@ -1,0 +1,86 @@
+/* Agent (M4): kartu persona, pemilih ikon, daftar tool + izin aksi, model per client, skill
+   pack (file, laporan pindai), consent OAuth, client AI. Prototype:
+   docs/reference/ui-prototype/screens-m4-m6.js (.ag4-pcard, .ag4-perm, .ag4-modelrow). */
+@layer components {
+  .app-section-head { display: grid; gap: 2px; }
+  .app-section-head h2 { font-size: 14px; font-weight: 600; }
+  .app-section-head p { color: var(--ag-muted); font-size: 12.5px; }
+
+  /* Kartu persona: grid responsif, kartu "Tambah" bergaris putus. */
+  .app-pgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); gap: 12px; }
+  .app-pcard { display: grid; gap: 10px; align-content: start; padding: 14px; border: 1px solid var(--ag-line); border-radius: 10px; background: var(--ag-raised); box-shadow: var(--ag-shadow-xs); min-width: 0; position: relative; }
+  .app-pcard:hover { border-color: var(--ag-input); }
+  .app-pcard[data-add] { border-style: dashed; box-shadow: none; place-content: center; justify-items: center; color: var(--ag-muted); min-height: 118px; background: transparent; font: inherit; cursor: pointer; }
+  .app-pcard[data-add]:hover { color: var(--ag-fg); }
+  .app-pcard[data-add] svg { width: 18px; height: 18px; }
+  .app-pcard-head { display: flex; gap: 10px; align-items: center; min-width: 0; }
+  .app-pcard-main { flex: 1; min-width: 0; display: grid; gap: 1px; color: inherit; }
+  .app-pcard-main::after { content: ''; position: absolute; inset: 0; border-radius: inherit; }
+  .app-pcard-main b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .app-pcard-main small { color: var(--ag-muted); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .app-pcard-head .popover { position: relative; z-index: 1; }
+  .app-pcard-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .app-pcard-stage { display: flex; gap: 6px; align-items: center; color: var(--ag-muted); font-size: 12.5px; min-width: 0; }
+  .app-pcard-stage svg { width: 14px; height: 14px; flex-shrink: 0; }
+  .app-pcard-stage span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* Avatar persona: ikon di atas warna persona. */
+  .app-pav { --pc: var(--ag-accent); width: 40px; height: 40px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--pc); background: color-mix(in oklab, var(--pc) 14%, transparent); }
+  .app-pav svg { width: 20px; height: 20px; }
+  .app-pav[data-size='sm'] { width: 24px; height: 24px; border-radius: 6px; }
+  .app-pav[data-size='sm'] svg { width: 14px; height: 14px; }
+
+  /* Pill metadata kecil (model, jumlah skill, "selalu diblokir"). */
+  .app-meta { height: 22px; padding: 0 8px; border-radius: 6px; background: var(--ag-hover); color: var(--ag-fg2); display: inline-flex; align-items: center; gap: 5px; font-size: 12px; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .app-meta[data-mono] { font-family: var(--ag-mono); font-size: 11.5px; }
+  .app-meta svg { width: 12px; height: 12px; flex-shrink: 0; }
+
+  /* Pemilih ikon persona (radio). */
+  .app-iconpick { --pc: var(--ag-accent); display: flex; flex-wrap: wrap; gap: 6px; border: 0; padding: 0; margin: 0; }
+  .app-iconpick label { width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--ag-line2); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; color: var(--ag-muted); position: relative; }
+  .app-iconpick label:hover { color: var(--ag-fg); border-color: var(--ag-input); }
+  .app-iconpick input { position: absolute; opacity: 0; pointer-events: none; }
+  .app-iconpick label:has(:checked) { color: var(--pc); border-color: var(--pc); background: color-mix(in oklab, var(--pc) 12%, transparent); }
+  .app-iconpick label:has(:focus-visible) { outline: 2px solid var(--ag-accent); outline-offset: 2px; }
+  .app-iconpick svg { width: 18px; height: 18px; }
+
+  .app-concise > span { display: grid; gap: 1px; }
+  .app-concise small { color: var(--ag-muted); font-size: 12.5px; }
+
+  /* Kelompok checkbox tools dan izin aksi. */
+  .app-toolset { border: 0; padding: 0; margin: 0; display: grid; gap: 8px; min-width: 0; }
+  .app-toolset + .app-toolset { margin-top: 20px; }
+  .app-toolset legend { display: grid; gap: 2px; font-weight: 600; margin-bottom: 8px; }
+  .app-toolset legend small { color: var(--ag-muted); font-weight: 400; font-size: 12.5px; }
+  .app-checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); border: 1px solid var(--ag-line); border-radius: 8px; overflow: hidden; }
+  .app-checks label { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-bottom: 1px solid var(--ag-line); cursor: pointer; min-width: 0; margin-bottom: -1px; }
+  .app-checks label:hover { background: var(--ag-hover); }
+  .app-checks label .app-check { margin-top: 2px; flex-shrink: 0; }
+  .app-checks label > span { display: grid; gap: 1px; min-width: 0; }
+  .app-checks b { font-weight: 500; }
+  .app-checks small { color: var(--ag-muted); font-size: 12px; }
+  .app-perms { border: 1px solid var(--ag-line); border-radius: 8px; overflow: hidden; }
+  .app-perm { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 10px 12px; border-top: 1px solid var(--ag-line); min-width: 0; }
+  .app-perm:first-child { border-top: 0; }
+  .app-perm > span:first-child { display: grid; gap: 1px; min-width: 0; flex: 1 1 220px; }
+  .app-perm b { font-weight: 500; }
+  .app-perm small { color: var(--ag-muted); font-size: 12px; }
+  .app-perm .app-seg label { cursor: pointer; position: relative; }
+  .app-perm .app-seg label[data-level='allow']:has(:checked) { color: var(--ag-success); }
+  .app-perm .app-seg label[data-level='block']:has(:checked) { color: var(--ag-danger); }
+  .app-perm .app-seg label[data-level='ask']:has(:checked) { color: var(--ag-warn); }
+  .app-perm .app-seg label:has(:focus-visible) { outline: 2px solid var(--ag-accent); outline-offset: 1px; }
+
+  /* Model per client: client | model | effort; menumpuk di layar sempit. */
+  .app-modelrow { display: grid; grid-template-columns: 160px minmax(0, 1fr) 160px; gap: 12px; align-items: center; padding: 10px 16px; border-top: 1px solid var(--ag-line); }
+  .app-modelrow[data-head] { border-top: 0; color: var(--ag-muted); font-size: 12px; padding-block: 8px; }
+  .app-modelrow > b { font-weight: 500; }
+  @container (max-width: 560px) {
+    .app-modelrow { grid-template-columns: 1fr; gap: 6px; }
+    .app-modelrow[data-head] { display: none; }
+  }
+  .app-pad { padding: 12px 16px; }
+  .app-box { border: 1px solid var(--ag-line); border-radius: 8px; overflow: hidden; }
+  .app-box > .app-lrow:first-child { border-top: 0; }
+  input.app-mono { font-family: var(--ag-mono); font-size: 12.5px; }
+}
