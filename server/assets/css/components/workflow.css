@@ -5,11 +5,12 @@
   /* Stepper stage tiket: chip per stage; selesai hijau, sekarang aksen. Gulir horizontal. */
   .app-stepper { list-style: none; margin: 0; padding: 0 0 2px; display: flex; align-items: center; gap: 4px; overflow-x: auto; scrollbar-width: none; }
   .app-stepper::-webkit-scrollbar { display: none; }
-  .app-step { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--ag-line2); background: var(--ag-raised); color: var(--ag-muted); white-space: nowrap; font-weight: 500; font-size: 12.5px; flex-shrink: 0; }
-  .app-step svg { width: 14px; height: 14px; }
-  .app-step + .app-step::before { content: ""; width: 8px; height: 1px; background: var(--ag-input); margin-left: -15px; margin-right: 1px; }
-  .app-step[data-state='done'] { color: var(--ag-success); border-color: transparent; background: var(--ag-success-soft); }
-  .app-step[data-state='current'] { color: var(--ag-accent-fg); border-color: var(--ag-accent); background: var(--ag-accent-soft); }
+  .app-stage-step { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--ag-line2); background: var(--ag-raised); color: var(--ag-muted); white-space: nowrap; font-weight: 500; font-size: 12.5px; flex-shrink: 0; }
+  .app-stage-step svg { width: 14px; height: 14px; }
+  .app-stepper-arr { display: inline-flex; color: var(--ag-input); flex-shrink: 0; }
+  .app-stepper-arr svg { width: 14px; height: 14px; }
+  .app-stage-step[data-state='done'] { color: var(--ag-success); border-color: transparent; background: var(--ag-success-soft); }
+  .app-stage-step[data-state='current'] { color: var(--ag-accent-fg); border-color: var(--ag-accent); background: var(--ag-accent-soft); }
 
   /* Daftar gate: ikon hijau = terpenuhi, merah = belum. */
   .app-gates { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
@@ -48,6 +49,7 @@
 
   /* Riwayat putaran gagal di panel keputusan. */
   .app-rounds td { vertical-align: top; }
+  .app-rounds td:nth-child(2) { min-width: 180px; overflow-wrap: anywhere; }
   .app-rounds td:first-child { font-variant-numeric: tabular-nums; color: var(--ag-muted); white-space: nowrap; }
 
   /* Kartu board: keadaan stage. */

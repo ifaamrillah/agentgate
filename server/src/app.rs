@@ -209,7 +209,8 @@ impl Hooks for App {
                 .await?;
         }
         seed_workspace(ctx).await?;
-        seed_tickets(ctx).await
+        seed_tickets(ctx).await?;
+        seed_workflows(ctx).await
     }
 }
 
@@ -426,6 +427,169 @@ async fn seed_tickets(ctx: &AppContext) -> Result<()> {
     )
     .await
     .map_err(fail)?;
+    Ok(())
+}
+
+/// Workflow contoh (M3): template Superpowers dipakai tipe Story di KSR, lalu tiga story di
+/// berbagai keadaan stage (menunggu review dengan artifact dua versi, butuh keputusan setelah
+/// tiga kali reject, dan eksekusi dengan gate evidence). Lewat service produksi; dilewati bila
+/// workflow Superpowers sudah ada.
+async fn seed_workflows(ctx: &AppContext) -> Result<()> {
+    use crate::{
+        models::{ticket_types, tickets::TicketInput, workflows as workflow_model},
+        services::{
+            tickets::{self as ticket_service, artifacts, create::TicketForm, stages},
+            workflows::{self, ProjectWorkflows, Source},
+            workspaces::Acting,
+        },
+    };
+    let Some(workspace) = workspaces::Model::find_by_slug(&ctx.db, SEED_WORKSPACE_SLUG).await?
+    else {
+        return Ok(());
+    };
+    let wid = workspace.workspace_id();
+    let Some(project) = projects::Model::find_by_key(&ctx.db, wid, SEED_PROJECT.0).await? else {
+        return Ok(());
+    };
+    let all = workflow_model::Model::all_in(&ctx.db, wid).await?;
+    if all
+        .iter()
+        .any(|w| w.template_key.as_deref() == Some("superpowers"))
+    {
+        tracing::info!("seed workflow dilewati: Superpowers sudah ada");
+        return Ok(());
+    }
+    let owner = users::Model::find_by_email(&ctx.db, SEED_MARKER_EMAIL)
+        .await?
+        .ok_or_else(|| loco_rs::Error::string("owner seed tidak ada"))?;
+    let (_, role) = workspace_members::Model::find_with_role(&ctx.db, wid, owner.id)
+        .await?
+        .ok_or_else(|| loco_rs::Error::string("owner seed bukan anggota"))?;
+    let acting = Acting {
+        workspace: &workspace,
+        user: &owner,
+        role: &role,
+        request_id: None,
+    };
+    let fail =
+        |e: ticket_service::TicketFailure| loco_rs::Error::string(&format!("seed workflow: {e:?}"));
+    let superpowers = workflows::create(
+        &ctx.db,
+        &acting,
+        "Superpowers-style",
+        "Brainstorm, rencana, eksekusi bertahap dengan TDD, lalu review.",
+        Some(Source::Template("superpowers".to_string())),
+    )
+    .await
+    .map_err(fail)?;
+    let types = ticket_types::Model::all_in(&ctx.db, wid).await?;
+    let Some(story) = types.iter().find(|t| t.key == "story") else {
+        return Ok(());
+    };
+    workflows::set_project_workflows(
+        &ctx.db,
+        &acting,
+        project.id,
+        &ProjectWorkflows {
+            overrides: vec![(story.id, Some(superpowers.id))],
+            allow_force_transition: false,
+        },
+    )
+    .await
+    .map_err(fail)?;
+
+    let new_story = |title: &'static str| TicketForm {
+        input: TicketInput {
+            title: title.to_string(),
+            description: format!("{title}.\n\nKriteria selesai:\n- Diuji di perangkat kasir"),
+            status: "in_progress".to_string(),
+            priority: "high".to_string(),
+            labels: "pembayaran".to_string(),
+            due_on: String::new(),
+            story_points: "5".to_string(),
+        },
+        type_id: story.id.to_string(),
+        assignee: String::new(),
+        parent: String::new(),
+        custom: std::collections::BTreeMap::new(),
+        stage: "brainstorm".to_string(),
+    };
+    // Artifact output stage sekarang lalu minta review.
+    let to_review = |ticket_id: uuid::Uuid, body: &'static str| {
+        let acting = &acting;
+        async move {
+            let a = artifacts::create(&ctx.db, acting, ticket_id, "")
+                .await
+                .map_err(fail)?;
+            artifacts::save(&ctx.db, acting, ticket_id, a.id, body)
+                .await
+                .map_err(fail)?;
+            stages::complete(&ctx.db, acting, ticket_id)
+                .await
+                .map_err(fail)?;
+            Ok::<_, loco_rs::Error>(())
+        }
+    };
+    const BRAINSTORM: &str = "# Brainstorm\n\n## Masalah\nKasir belum menerima QRIS.\n\n## Alternatif\n- QRIS statis\n- QRIS dinamis per transaksi\n\n## Keputusan\nQRIS dinamis lewat payment gateway.";
+    const PLAN: &str = "# Rencana implementasi\n\n## Tugas\n- [ ] Endpoint buat tagihan\n- [ ] Polling status bayar\n- [ ] Cetak struk setelah lunas";
+
+    // 1. Menunggu review di Brainstorming (artifact v1 template, v2 isi).
+    let qris = ticket_service::create::run(
+        &ctx.db,
+        &acting,
+        project.id,
+        &new_story("Checkout QRIS di kasir"),
+    )
+    .await
+    .map_err(fail)?;
+    to_review(qris.id, BRAINSTORM).await?;
+
+    // 2. Butuh keputusan di Rencana: tiga kali reject.
+    let refund = ticket_service::create::run(
+        &ctx.db,
+        &acting,
+        project.id,
+        &new_story("Refund parsial dari riwayat transaksi"),
+    )
+    .await
+    .map_err(fail)?;
+    to_review(refund.id, BRAINSTORM).await?;
+    stages::approve(&ctx.db, &acting, refund.id, "")
+        .await
+        .map_err(fail)?;
+    to_review(refund.id, PLAN).await?;
+    for note in [
+        "Belum ada langkah rollback bila gateway gagal.",
+        "Tugas refund ke gateway belum dipecah.",
+        "Masih belum menjawab refund sebagian item.",
+    ] {
+        let t = stages::reject(&ctx.db, &acting, refund.id, note)
+            .await
+            .map_err(fail)?;
+        if t.stage_state == "active" {
+            stages::complete(&ctx.db, &acting, refund.id)
+                .await
+                .map_err(fail)?;
+        }
+    }
+
+    // 3. Eksekusi: gate evidence (tes, PR) belum terpenuhi.
+    let member = ticket_service::create::run(
+        &ctx.db,
+        &acting,
+        project.id,
+        &new_story("Diskon member bertingkat"),
+    )
+    .await
+    .map_err(fail)?;
+    to_review(member.id, BRAINSTORM).await?;
+    stages::approve(&ctx.db, &acting, member.id, "")
+        .await
+        .map_err(fail)?;
+    to_review(member.id, PLAN).await?;
+    stages::approve(&ctx.db, &acting, member.id, "Rencana oke, lanjut.")
+        .await
+        .map_err(fail)?;
     Ok(())
 }
 

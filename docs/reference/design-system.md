@@ -109,7 +109,7 @@ kode), `app-board` > `app-bcol` (kolom, `data-drop` saat diseret), `app-ticket` 
 kolom), `app-prose` (teks pre-wrap), `app-inline-form`, `app-drop` (area unggah lampiran),
 `app-meter` (progres per status).
 
-Workflow (M3, `components/workflow.css`): `app-stepper`/`app-step[data-state]`, `app-gates`
+Workflow (M3, `components/workflow.css`): `app-stepper`/`app-stage-step[data-state]`, `app-gates`
 (`li[data-ok]`), kartu stage tiket (`app-stage-head`, `app-stage-persona`, `app-stage-props`,
 `app-stage-acts`, `app-stage-pair`), `app-choices[data-cols=one]` (radio kartu satu kolom:
 transisi keluar, keputusan), `app-rounds` (tabel putaran gagal), artifact (`app-artifacts` =
