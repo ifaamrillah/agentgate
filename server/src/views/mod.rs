@@ -12,6 +12,7 @@ pub mod job_titles;
 pub mod layout;
 pub mod members;
 pub mod nav;
+pub mod oauth;
 pub mod palette;
 pub mod personas;
 pub mod projects;

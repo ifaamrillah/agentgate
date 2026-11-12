@@ -1,0 +1,85 @@
+{#- Akun → Hubungkan client AI: subpage varian E (`?section=steps|clients|tools|slash`; "File
+    aturan di repo" segera, M5). Variabel: lihat controllers::connect::show. -#}
+{% extends "layouts/settings.html" %}
+{% block title %}{{ t(key="account-connect", lang="id") }}{% endblock title %}
+{% block crumb_label %}{{ t(key="account-connect", lang="id") }}{% endblock crumb_label %}
+{% block page_attrs %}data-connect="{{ section }}"{% endblock page_attrs %}
+{% block settings %}
+{% <subpage title={t(key="account-connect", lang="id")} description={t(key="connect-description", lang="id")} items={subnav}> %}
+{%- if section == "steps" %}
+{% <card title={t(key="connect-section-steps", lang="id")} description={t(key="connect-steps-description", lang="id")} flush={true} attrs="data-connect-steps"> %}
+<ol class="app-steps">
+  <li><span>1</span><div>
+    <b>{{ t(key="connect-step-add", lang="id") }}</b>
+    <p class="app-hint">{{ t(key="connect-step-add-hint", lang="id") }}</p>
+    <pre class="app-codeblock" data-mcp-command="claude">claude mcp add --transport http agentgate {{ mcp_url }}</pre>
+    <pre class="app-codeblock" data-mcp-command="codex">codex mcp add agentgate --url {{ mcp_url }}</pre>
+    <pre class="app-codeblock" data-mcp-command="gemini">gemini mcp add --transport http agentgate {{ mcp_url }}</pre>
+  </div></li>
+  <li><span>2</span><div>
+    <b>{{ t(key="connect-step-login", lang="id") }}</b>
+    <p class="app-hint">{{ t(key="connect-step-login-hint", lang="id") }}</p>
+  </div></li>
+  <li><span>3</span><div>
+    <b>{{ t(key="connect-step-try", lang="id") }}</b>
+    <p class="app-hint">{{ t(key="connect-step-try-hint", lang="id") }}</p>
+    <pre class="app-codeblock">/mcp__agentgate__ag-status</pre>
+  </div></li>
+</ol>
+{% </card> %}
+{%- elif section == "clients" %}
+{{ <stats items={stats}/> }}
+{% <card title={t(key="connect-section-clients", lang="id")} description={t(key="connect-clients-description", lang="id")} count={clients | length ~ ""} flush={true} attrs="data-connect-clients"> %}
+  {%- for c in clients %}
+  <div class="app-lrow" data-client="{{ c.name }}">
+    <span class="app-tile" data-tone="accent">{{ icon(name="plug-connected") }}</span>
+    <span class="app-lrow-main"><b>{{ c.name }}</b><small>{{ c.workspace }} · {{ t(key="connect-client-since", lang="id", at=c.connected_at) }}{% if c.last_used_at %} · {{ t(key="connect-client-used", lang="id", at=c.last_used_at) }}{% endif %}</small></span>
+    {{ <button label={t(key="connect-revoke", lang="id")} variant="destructive" size="sm" icon="plug" dialog={"revoke-" ~ c.id}/> }}
+  </div>
+  {% <dialog id={"revoke-" ~ c.id} title={t(key="connect-revoke-title", lang="id", client=c.name)} description={t(key="connect-revoke-description", lang="id", client=c.name)} icon="plug" tone="danger"> %}
+  <form method="post" action="{{ c.revoke_href }}">
+    <footer>
+      <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+      {{ <button label={t(key="connect-revoke", lang="id")} type="submit" variant="danger" attrs="data-revoke"/> }}
+    </footer>
+  </form>
+  {% </dialog> %}
+  {%- else %}
+  <div class="app-pad">{% <empty_state title={t(key="connect-clients-empty", lang="id")} description={t(key="connect-clients-empty-description", lang="id")} icon="plug" variant="plain"> %}
+    {{ <button label={t(key="connect-section-steps", lang="id")} href="/account/connect?section=steps" variant="outline" icon="terminal-2"/> }}
+  {% </empty_state> %}</div>
+  {%- endfor %}
+{% </card> %}
+{%- elif section == "tools" %}
+{% <card title={t(key="connect-section-tools", lang="id")} description={t(key="connect-tools-description", lang="id")} count={tools | length ~ ""} flush={true} attrs="data-connect-tools"> %}
+  {%- for tool in tools %}
+  <div class="app-lrow" data-tool="{{ tool.name }}">
+    <span class="app-code app-tool-name">{{ tool.name }}</span>
+    <span class="app-lrow-main"><small>{{ t(key=tool.hint_key, lang="id") }}</small></span>
+  </div>
+  {%- endfor %}
+{% </card> %}
+{%- elif section == "slash" %}
+{%- for g in slash %}
+{% <card title={g.workspace} description={t(key="connect-slash-description", lang="id")} count={g.stages | length ~ ""} flush={true} attrs="data-connect-slash"> %}
+  {%- for p in g.stages %}
+  <div class="app-lrow" data-prompt="{{ p.name }}">
+    {%- if p.persona %}<span class="app-pav" data-size="sm" style="--pc: {{ p.persona.color }}" title="{{ p.persona.name }}" aria-hidden="true">{{ icon(name=p.persona.icon) }}</span>{% endif %}
+    <span class="app-lrow-main"><b class="app-code">/{{ p.name }}</b><small>{{ p.stage_name }} · {{ p.workflows | join(sep=", ") }}</small></span>
+  </div>
+  {%- else %}
+  <div class="app-pad">{{ <empty_state title={t(key="connect-slash-empty", lang="id")} icon="hash" variant="plain"/> }}</div>
+  {%- endfor %}
+{% </card> %}
+{%- endfor %}
+{% <card title={t(key="connect-slash-utilities", lang="id")} flush={true} attrs="data-connect-utilities"> %}
+  {%- for u in utilities %}
+  <div class="app-lrow" data-prompt="{{ u.name }}">
+    <span class="app-lrow-main"><b class="app-code">/{{ u.name }}</b><small>{{ t(key=u.key, lang="id") }}</small></span>
+    {%- if not u.ready %}{{ <badge label={t(key="nav-soon", lang="id")} variant="neutral"/> }}{% endif %}
+  </div>
+  {%- endfor %}
+{% </card> %}
+{%- endif %}
+{% </subpage> %}
+{% endblock settings %}

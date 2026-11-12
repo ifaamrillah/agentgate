@@ -2,6 +2,8 @@
 pub mod audit;
 pub mod auth;
 pub mod cleanup;
+pub mod mcp;
+pub mod oauth;
 pub mod personas;
 pub mod projects;
 pub mod skills;

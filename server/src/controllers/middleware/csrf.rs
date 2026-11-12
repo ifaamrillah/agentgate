@@ -17,8 +17,14 @@ use axum::{
 };
 
 /// Path yang dikecualikan dari cek CSRF. Setiap entri wajib punya komentar alasan.
-/// Dimulai kosong.
-pub const EXEMPT_PATHS: &[&str] = &[];
+pub const EXEMPT_PATHS: &[&str] = &[
+    // Endpoint OAuth/MCP untuk client non-cookie (bisa dipanggil client MCP berbasis browser
+    // dengan `Origin` asing). Diautentikasi token/kode PKCE, bukan cookie sesi.
+    "/mcp",
+    "/oauth/token",
+    "/oauth/register",
+    "/oauth/revoke",
+];
 
 pub async fn layer(req: Request, next: Next) -> Response {
     if is_allowed(req.method(), req.uri().path(), req.headers()) {

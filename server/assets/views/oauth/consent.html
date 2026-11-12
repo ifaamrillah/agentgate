@@ -1,0 +1,45 @@
+{#- Persetujuan OAuth MCP (`GET /oauth/authorize`, login wajib): halaman solo (prototype
+    "Persetujuan OAuth MCP"). Variabel: page (views::oauth::ConsentPage). Form POST ke
+    /oauth/authorize dengan parameter otorisasi asli sebagai hidden field; tombol `decision`
+    allow/deny. Navigasi penuh (bukan HTMX): jawaban redirect ke client (loopback/skema app). -#}
+{% extends "layouts/public.html" %}
+{% block title %}{{ t(key="oauth-consent-title", lang="id", client=page.client) }}{% endblock title %}
+{% block content %}
+<form method="post" action="/oauth/authorize" class="app-card app-consent" hx-boost="false" data-oauth-consent>
+  {%- for h in page.hidden %}<input type="hidden" name="{{ h[0] }}" value="{{ h[1] }}">{% endfor %}
+  <div class="app-consent-head">
+    <div class="app-consent-pair" aria-hidden="true">
+      <span class="app-consent-mark" data-client>{{ page.client_initial }}</span>
+      <span class="app-consent-dots"><i></i><i></i><i></i></span>
+      <span class="app-consent-mark">{{ icon(name="robot") }}</span>
+    </div>
+    <h1>{{ t(key="oauth-consent-title", lang="id", client=page.client) }}</h1>
+    <p>{{ t(key="oauth-consent-description", lang="id") }}</p>
+  </div>
+  <div class="app-consent-body">
+    {%- if page.error %}{{ <flash kind="error" message={t(key=page.error, lang="id")}/> }}{% endif %}
+    <div class="app-consent-user">
+      {{ <avatar initials={page.user_initials} color={page.user_color} size="md"/> }}
+      <span class="app-lrow-main"><b>{{ page.user_name }}</b><small>{{ page.user_email }}</small></span>
+    </div>
+    {%- if page.workspaces %}
+    {{ <combo id="oauth-workspace" name="workspace" label={t(key="oauth-workspace", lang="id")} options={page.workspaces} value={page.selected} required={true} hint={t(key="oauth-workspace-hint", lang="id")}/> }}
+    {%- else %}
+    {{ <flash kind="warn" message={t(key="oauth-no-workspace", lang="id")}/> }}
+    {%- endif %}
+    <div class="app-consent-scopes">
+      <b>{{ t(key="oauth-scopes-title", lang="id", client=page.client) }}</b>
+      <ul>
+        {%- for s in page.scopes %}<li>{{ icon(name=s.icon) }}<span>{{ t(key=s.key, lang="id") }}</span></li>{% endfor %}
+        <li data-deny>{{ icon(name="lock") }}<span>{{ t(key="oauth-scope-never", lang="id") }}</span></li>
+      </ul>
+    </div>
+    <p class="app-consent-note">{{ icon(name="info-circle") }}<span>{{ t(key="oauth-redirect-note", lang="id") }} <span class="app-code">{{ page.redirect_uri }}</span></span></p>
+  </div>
+  <footer class="app-consent-foot">
+    {{ <button label={t(key="oauth-deny", lang="id")} type="submit" variant="outline" name="decision" value="deny" attrs="data-deny formnovalidate"/> }}
+    {{ <button label={t(key="oauth-allow", lang="id")} type="submit" name="decision" value="allow" disabled={page.locked} attrs="data-allow"/> }}
+  </footer>
+</form>
+{% endblock content %}
+{% block foot %}{{ t(key="oauth-foot", lang="id") }}{% endblock foot %}

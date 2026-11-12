@@ -6,6 +6,7 @@ mod dev_ui;
 mod errors;
 mod health;
 mod home;
+mod oauth;
 mod projects;
 mod security_headers;
 mod tickets;

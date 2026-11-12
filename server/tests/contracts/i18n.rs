@@ -184,6 +184,12 @@ fn every_ticket_enum_and_view_key_has_a_translation() {
     used.extend(views::workflow::label_keys());
     used.extend(views::personas::label_keys());
     used.extend(views::skills::label_keys());
+    used.extend(views::oauth::label_keys());
+    used.extend(
+        agentgate_server::services::mcp::prompts::UTILITIES
+            .iter()
+            .map(|u| u.1.to_string()),
+    );
     for kind in NotificationKind::iter() {
         used.push(format!(
             "notification-{}",

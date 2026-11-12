@@ -5,12 +5,14 @@ pub mod account;
 pub mod agents;
 pub mod api_routes;
 pub mod auth;
+pub mod connect;
 #[cfg(debug_assertions)]
 pub mod dev;
 pub mod extractors;
 pub mod flash;
 pub mod invitations;
 pub mod middleware;
+pub mod oauth;
 pub mod projects;
 pub mod public_routes;
 pub mod render;
@@ -26,7 +28,9 @@ pub fn routes(ctx: &AppContext) -> AppRoutes {
         .add_route(workspaces::routes())
         .add_route(projects::routes())
         .add_route(tickets::routes())
-        .add_route(agents::routes());
+        .add_route(agents::routes())
+        .add_route(oauth::routes())
+        .add_route(connect::routes());
     add_dev_routes(routes, &ctx.environment)
 }
 

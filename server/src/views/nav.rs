@@ -103,7 +103,7 @@ pub const SETTINGS_SECTIONS: &[&str] = &[
     "skills",
 ];
 /// Bagian Akun.
-pub const ACCOUNT_SECTIONS: &[&str] = &["profile", "password", "two_factor"];
+pub const ACCOUNT_SECTIONS: &[&str] = &["profile", "password", "two_factor", "connect"];
 /// Bagian Pengaturan project (sidebar menu Pengaturan, project aktif terbuka).
 pub const PROJECT_SETTINGS_SECTIONS: &[&str] = &[
     "project_general",
@@ -181,6 +181,12 @@ pub fn account_nav() -> Vec<NavItem> {
             "account-two-factor",
             "shield-check",
             "/account/2fa",
+        ),
+        NavItem::link(
+            "connect",
+            "account-connect",
+            "plug-connected",
+            "/account/connect",
         ),
     ]
 }
