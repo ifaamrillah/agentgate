@@ -112,3 +112,142 @@ pub async fn catalog<C: ConnectionTrait>(
     }
     Ok(out)
 }
+
+/// Satu prompt untuk `prompts/list`.
+#[derive(Debug, Clone)]
+pub struct PromptDef {
+    pub name: String,
+    pub title: String,
+    pub description: String,
+    /// Butuh argumen `ticket`.
+    pub takes_ticket: bool,
+}
+
+/// Prompt yang tersedia untuk pemegang token: stage ber-persona + utilitas yang sudah ada.
+///
+/// # Errors
+///
+/// Error database.
+pub async fn list<C: ConnectionTrait>(db: &C, s: &super::Session) -> Result<Vec<PromptDef>, DbErr> {
+    let mut out: Vec<PromptDef> = stage_prompts(db, &s.workspace)
+        .await?
+        .into_iter()
+        .map(|p| PromptDef {
+            title: format!("Stage {}", p.stage_name),
+            description: format!(
+                "Kerjakan stage {} tiket{}.",
+                p.stage_name,
+                p.persona
+                    .as_ref()
+                    .map(|l| format!(" sebagai {}", l.name))
+                    .unwrap_or_default()
+            ),
+            name: p.name,
+            takes_ticket: true,
+        })
+        .collect();
+    out.push(PromptDef {
+        name: "ag-status".into(),
+        title: "Status".into(),
+        description: "Ringkasan tiket yang sedang Anda kerjakan.".into(),
+        takes_ticket: false,
+    });
+    out.push(PromptDef {
+        name: "ag-ticket".into(),
+        title: "Tiket".into(),
+        description: "Muat konteks satu tiket.".into(),
+        takes_ticket: true,
+    });
+    Ok(out)
+}
+
+/// Isi prompt `name` (teks untuk pesan user). `None` bila prompt tidak dikenal.
+///
+/// # Errors
+///
+/// Error database.
+pub async fn render(
+    db: &sea_orm::DatabaseConnection,
+    s: &super::Session,
+    name: &str,
+    ticket: &str,
+) -> Result<Option<(String, String)>, DbErr> {
+    let ticket = ticket.trim();
+    let target = if ticket.is_empty() {
+        "tiket yang saya sebutkan (tanyakan kodenya bila belum jelas)".to_string()
+    } else {
+        format!("tiket {ticket}")
+    };
+    match name {
+        "ag-status" => {
+            let acting = s.acting();
+            let projects =
+                crate::models::projects::Model::accessible_for(db, &acting.accessor()).await?;
+            let query = crate::models::tickets::TicketQuery {
+                project_ids: projects.iter().map(|p| p.id).collect(),
+                people: vec![crate::models::tickets::PersonFilter::AssignedTo(s.user.id)],
+                statuses: vec![
+                    crate::models::tickets::TicketStatus::Todo,
+                    crate::models::tickets::TicketStatus::InProgress,
+                ],
+                limit: 20,
+                ..Default::default()
+            };
+            let (rows, _) = if query.project_ids.is_empty() {
+                (Vec::new(), 0)
+            } else {
+                crate::models::tickets::Model::page(db, s.workspace.workspace_id(), &query).await?
+            };
+            let mut text = format!(
+                "Ringkas pekerjaan saya di workspace {} (Agent Gate). Tiket yang ditugaskan ke saya:\n",
+                s.workspace.name
+            );
+            if rows.is_empty() {
+                text.push_str("- (tidak ada)\n");
+            }
+            for t in &rows {
+                text.push_str(&format!(
+                    "- {} · {} · stage {}\n",
+                    t.code, t.title, t.stage_key
+                ));
+            }
+            text.push_str(
+                "\nUntuk setiap tiket, panggil ag_context bila perlu detail, lalu sebutkan langkah berikutnya.",
+            );
+            Ok(Some(("Status pekerjaan".into(), text)))
+        }
+        "ag-ticket" => Ok(Some((
+            "Konteks tiket".into(),
+            format!(
+                "Muat konteks {target} di Agent Gate: panggil ag_context dengan ticket tersebut, lalu ringkas tujuan, stage sekarang, gate yang belum terpenuhi, dan artifact yang ada."
+            ),
+        ))),
+        _ => {
+            let Some(p) = stage_prompts(db, &s.workspace)
+                .await?
+                .into_iter()
+                .find(|p| p.name == name)
+            else {
+                return Ok(None);
+            };
+            let persona = p
+                .persona
+                .as_ref()
+                .map(|l| format!(" sebagai persona {}", l.name))
+                .unwrap_or_default();
+            let text = format!(
+                "Kerjakan stage \"{stage}\" untuk {target}{persona}.\n\n\
+                 1. Panggil ag_context dengan ticket tersebut (include: [\"skills\"]) dan ikuti instruksi persona, prompt stage, dan skill-nya.\n\
+                 2. Baca artifact input stage lewat ag_artifact bila ada.\n\
+                 3. Simpan hasil ke artifact output stage lewat ag_artifact action=save.\n\
+                 4. Bila butuh keputusan manusia, pakai ag_ask. Jangan menebak.\n\
+                 5. Setelah gate stage terpenuhi, ajukan pindah stage lewat ag_transition.\n\n\
+                 Stage key: {key}. Workflow: {workflows}.",
+                stage = p.stage_name,
+                key = p.stage_key,
+                workflows = p.workflows.join(", "),
+            );
+            Ok(Some((format!("Stage {}", p.stage_name), text)))
+        }
+    }
+}

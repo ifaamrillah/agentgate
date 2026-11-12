@@ -11,6 +11,7 @@ pub mod dev;
 pub mod extractors;
 pub mod flash;
 pub mod invitations;
+pub mod mcp;
 pub mod middleware;
 pub mod oauth;
 pub mod projects;
@@ -30,7 +31,8 @@ pub fn routes(ctx: &AppContext) -> AppRoutes {
         .add_route(tickets::routes())
         .add_route(agents::routes())
         .add_route(oauth::routes())
-        .add_route(connect::routes());
+        .add_route(connect::routes())
+        .add_route(mcp::routes(ctx));
     add_dev_routes(routes, &ctx.environment)
 }
 
