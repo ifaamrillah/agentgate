@@ -2,7 +2,7 @@
     keadaan stage (menunggu review, butuh keputusan, dibatalkan) dan penolakan aksi stage.
     Variabel: stage (controllers::tickets::stage::StagePanel), errors.dialogs.stage, paths. -#}
 {{ <stage_stepper steps={stage.steps} label={t(key="stage-stepper-label", lang="id", workflow=stage.workflow)}/> }}
-{%- if errors.dialogs.stage and not errors.dialogs.in_dialog %}{{ <flash kind="error" message={t(key=errors.dialogs.stage, lang="id")} title={t(key="stage-action-failed", lang="id")}/> }}{% endif %}
+{%- if errors.dialogs.stage and not errors.dialogs.in_dialog %}<div data-stage-error="{{ errors.dialogs.stage }}">{{ <flash kind="error" message={t(key=errors.dialogs.stage, lang="id")} title={t(key="stage-action-failed", lang="id")}/> }}</div>{% endif %}
 {%- if stage.cancelled %}
 {{ <flash kind="neutral" title={t(key="stage-cancelled-title", lang="id")} message={t(key="stage-cancelled-body", lang="id")}/> }}
 {%- elif stage.state == "review" and stage.can_decide %}

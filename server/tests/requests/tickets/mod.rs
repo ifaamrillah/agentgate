@@ -9,6 +9,7 @@ mod flow;
 mod pages;
 mod search;
 mod settings;
+mod stages;
 mod trash;
 
 use agentgate_server::models::{tickets, users, workspaces};
