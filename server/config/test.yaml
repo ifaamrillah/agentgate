@@ -67,7 +67,9 @@ database:
   # TEST_DATABASE_URL tanpa default (lihat queue di atas).
   uri: <%= get_env(name="TEST_DATABASE_URL") %>
   enable_logging: false
-  connect_timeout: <%= get_env(name="DB_CONNECT_TIMEOUT", default="500") %>
+  # Juga batas tunggu koneksi dari pool: 500ms membuat burst 12 login paralel (tes throttle)
+  # sesekali gagal 500 karena pool 10 koneksi habis sementara hash argon berjalan.
+  connect_timeout: <%= get_env(name="DB_CONNECT_TIMEOUT", default="5000") %>
   idle_timeout: <%= get_env(name="DB_IDLE_TIMEOUT", default="500") %>
   min_connections: <%= get_env(name="DB_MIN_CONNECTIONS", default="1") %>
   max_connections: <%= get_env(name="DB_MAX_CONNECTIONS", default="10") %>

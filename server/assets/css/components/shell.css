@@ -47,7 +47,7 @@
   .app-side-me { height: 40px; padding: 0 8px; border-radius: 6px; display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; text-align: left; }
   .app-side-me:hover, .app-side-me[aria-expanded='true'] { background: var(--ag-hover); }
   .app-side-me > svg { width: 14px; height: 14px; color: var(--ag-faint); }
-  .app-side-me > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+  .app-side-me > span:not(.app-av) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
 
   /* ---------- Area kerja ---------- */
   .app-main { flex: 1; display: flex; flex-direction: column; min-width: 0; background: var(--ag-page); }
@@ -93,8 +93,8 @@
     .app-pbar { position: sticky; top: 48px; z-index: 19; }
   }
   @media (max-width: 899px) {
-    .app-side { position: fixed; left: 0; top: 0; z-index: 60; transform: translateX(-100%); transition: transform 0.2s ease; box-shadow: var(--ag-shadow-lg); width: min(280px, 86vw); }
-    .app-shell[data-nav-open] .app-side { transform: none; }
+    .app-side { position: fixed; left: 0; top: 0; z-index: 60; transform: translateX(-100%); transition: transform 0.2s ease, visibility 0.2s; visibility: hidden; width: min(280px, 86vw); }
+    .app-shell[data-nav-open] .app-side { transform: none; visibility: visible; box-shadow: var(--ag-shadow-lg); }
     .app-shell[data-nav-open]::after { content: ""; position: fixed; inset: 0; background: var(--ag-scrim); z-index: 55; }
     .app-topbar { padding: 0 12px; height: 52px; }
     .app-topbar [data-nav-toggle] { display: inline-flex; }
