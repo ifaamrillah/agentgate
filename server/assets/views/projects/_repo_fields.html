@@ -1,18 +1,11 @@
 {#- Field satu form repo (tambah atau ubah). Variabel: repo (views::projects::RepoFormView:
     field_id (awalan id input), name, provider, url, default_branch, errors), providers
     ([{value, label_key}]). -#}
-{{ <field id={repo.field_id ~ "-name"} name="name" label={t(key="repo-name", lang="id")} value={repo.name} error={repo.errors.name.code} error_min={repo.errors.name.min} error_max={repo.errors.name.max} required={true} class="min-w-40 flex-1"/> }}
-<div class="field"{% if repo.errors.provider.code %} data-invalid="true"{% endif %}>
-  <label for="{{ repo.field_id }}-provider">{{ t(key="repo-provider", lang="id") }}</label>
-  <select class="select" id="{{ repo.field_id }}-provider" name="provider"
-    {%- if repo.errors.provider.code %} aria-invalid="true" aria-describedby="{{ repo.field_id }}-provider-error"{% endif %}>
-    {%- for provider in providers %}
-    <option value="{{ provider.value }}"{% if provider.value == repo.provider %} selected{% endif %}>{{ t(key=provider.label_key, lang="id") }}</option>
-    {%- endfor %}
-  </select>
-  {%- if repo.errors.provider.code %}
-  <p role="alert" id="{{ repo.field_id }}-provider-error">{{ t(key=repo.errors.provider.code, lang="id") }}</p>
-  {%- endif %}
+<div class="app-form-row">
+  {{ <field id={repo.field_id ~ "-name"} name="name" label={t(key="repo-name", lang="id")} value={repo.name} error={repo.errors.name.code} error_min={repo.errors.name.min} error_max={repo.errors.name.max} required={true} mono={true}/> }}
+  {{ <select_field id={repo.field_id ~ "-provider"} name="provider" label={t(key="repo-provider", lang="id")} options={providers} option_value="value" option_label="label_key" translate={true} value={repo.provider} error={repo.errors.provider.code}/> }}
 </div>
-{{ <field id={repo.field_id ~ "-url"} name="url" label={t(key="repo-url", lang="id")} value={repo.url} error={repo.errors.url.code} error_max={repo.errors.url.max} autocomplete="off" required={true} class="min-w-64 flex-[2]"/> }}
-{{ <field id={repo.field_id ~ "-branch"} name="default_branch" label={t(key="repo-default-branch", lang="id")} value={repo.default_branch} error={repo.errors.default_branch.code} error_max={repo.errors.default_branch.max} autocomplete="off" required={true} class="w-32"/> }}
+<div class="app-form-row">
+  {{ <field id={repo.field_id ~ "-url"} name="url" label={t(key="repo-url", lang="id")} value={repo.url} error={repo.errors.url.code} error_max={repo.errors.url.max} autocomplete="off" required={true} mono={true}/> }}
+  {{ <field id={repo.field_id ~ "-branch"} name="default_branch" label={t(key="repo-default-branch", lang="id")} value={repo.default_branch} error={repo.errors.default_branch.code} error_max={repo.errors.default_branch.max} autocomplete="off" required={true} mono={true}/> }}
+</div>

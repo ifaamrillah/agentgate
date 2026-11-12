@@ -194,6 +194,8 @@ pub struct AuditPageView<'a> {
     /// bila tidak ada baris.
     pub selected: &'a str,
     pub groups: &'a [GroupOption],
+    /// Nilai filter kelompok yang aktif (`""` = semua), untuk komponen select_field.
+    pub group: &'static str,
     /// Path halaman (form filter, link "Semua").
     pub action: &'a str,
     /// Path halaman berikutnya (lebih lama), `None` di halaman terakhir.

@@ -105,6 +105,7 @@ pub(super) async fn index(
             rows: &rows,
             selected,
             groups: &groups,
+            group: groups.iter().find(|g| g.selected).map_or("", |g| g.value),
             action: &base,
             older_href: page.next.as_ref().map(|c| page_href(&base, group, Some(c))),
             newest_href: before.map(|_| page_href(&base, group, None)),

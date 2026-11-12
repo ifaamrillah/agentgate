@@ -1,20 +1,18 @@
 {#- Buat project. Variabel: form (views::projects::ProjectFormView: key, name, description,
-    errors), action (POST). -#}
-{% extends "layouts/app.html" %}
+    color, errors), action (POST). -#}
+{% extends "layouts/page.html" %}
 {% block title %}{{ t(key="project-new-title", lang="id") }}{% endblock title %}
-{% block content %}
-<div class="mx-auto grid max-w-xl gap-6">
-  {{ <page_header title={t(key="project-new-title", lang="id")} description={t(key="project-new-description", lang="id")}/> }}
-  {% <card> %}
-    <form method="post" action="{{ action }}" class="form grid gap-6">
-      {{ <field id="project-name" name="name" label={t(key="project-name", lang="id")} value={form.name} error={form.errors.name.code} error_min={form.errors.name.min} error_max={form.errors.name.max} required={true} autofocus={true}/> }}
-      <div class="grid gap-2">
-        {{ <field id="project-key" name="key" label={t(key="project-key", lang="id")} value={form.key} error={form.errors.key.code} error_min={form.errors.key.min} error_max={form.errors.key.max} autocomplete="off" required={true}/> }}
-        <p class="text-sm text-muted-foreground">{{ t(key="project-key-hint", lang="id") }}</p>
-      </div>
-      {% include "projects/_description_field.html" %}
-      <div>{{ <button label={t(key="project-create-submit", lang="id")} type="submit"/> }}</div>
-    </form>
-  {% </card> %}
-</div>
-{% endblock content %}
+{% block crumb %}{{ <crumb label={t(key="project-new-title", lang="id")}/> }}{% endblock crumb %}
+{% block width %}narrow{% endblock width %}
+{% block heading %}{{ t(key="project-new-title", lang="id") }}{% endblock heading %}
+{% block description %}{{ t(key="project-new-description", lang="id") }}{% endblock description %}
+{% block main %}
+{% <card form={action} save_label={t(key="project-create-submit", lang="id")} cancel_href={shell.current_workspace.href}> %}
+  <div class="app-form">
+    {{ <field id="project-name" name="name" label={t(key="project-name", lang="id")} value={form.name} error={form.errors.name.code} error_min={form.errors.name.min} error_max={form.errors.name.max} required={true} autofocus={true}/> }}
+    {{ <field id="project-key" name="key" label={t(key="project-key", lang="id")} value={form.key} error={form.errors.key.code} error_min={form.errors.key.min} error_max={form.errors.key.max} autocomplete="off" required={true} mono={true} hint={t(key="project-key-hint", lang="id")}/> }}
+    {{ <textarea_field id="project-description" name="description" label={t(key="project-description", lang="id")} value={form.description} error={form.errors.description.code} error_max={form.errors.description.max} optional={t(key="field-optional", lang="id")}/> }}
+    {{ <color_picker id="project-color" name="color" label={t(key="project-color", lang="id")} value={form.color} error={form.errors.color.code} hint={t(key="project-color-hint", lang="id")}/> }}
+  </div>
+{% </card> %}
+{% endblock main %}

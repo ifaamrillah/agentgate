@@ -60,9 +60,8 @@ async fn root_lists_workspaces_when_several() {
         assert_css_exists(&html, "[data-workspace-choice][href=\"/w/alfa\"]");
         assert_css_exists(&html, "[data-workspace-choice][href=\"/w/beta\"]");
         assert_css_not_exists(&html, "[href=\"/w/rahasia\"]");
-        // Switcher sidebar juga berisi keduanya, tanpa workspace aktif.
-        assert_css_exists(&html, "[data-workspace-item][href=\"/w/alfa\"]");
-        assert_css_not_exists(&html, "[data-workspace-item][aria-current]");
+        // Halaman pilih workspace adalah halaman satu kolom tanpa sidebar.
+        assert_css_not_exists(&html, "aside.app-side");
     })
     .await;
 }

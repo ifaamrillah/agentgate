@@ -1,33 +1,33 @@
-/* Card: putih bergaris indigo muda, tanpa bayangan (gaya "bernuansa warna"). */
+/* Kartu bagian (varian A "header bergaris"): judul + deskripsi + aksi DI DALAM kartu, dipisah garis
+   tipis (aturan UX 2); isi; footer opsional berisi savebar Batal/Simpan (aturan UX 3).
+   data-variant: danger (zona berbahaya) | accent (sorotan). data-flush pada body: isi menempel
+   tepi (daftar, tabel). */
 @layer components {
-  .card {
-    --tw-ring-color: var(--ag-card-border);
-    box-shadow: 0 0 0 1px var(--ag-card-border);
-    border-radius: var(--radius-lg);
+  .app-card {
+    border: 1px solid var(--ag-line); border-radius: 10px; background: var(--ag-raised); min-width: 0; display: flex; flex-direction: column;
+    container-type: inline-size; box-shadow: var(--ag-shadow-xs);
   }
+  .app-card[data-variant='danger'] { border-color: var(--ag-danger-line); }
+  .app-card[data-variant='danger'] .app-card-h h2 { color: var(--ag-danger); }
+  .app-card[data-variant='accent'] { border-color: var(--ag-accent); box-shadow: var(--ag-ring); }
+  .app-card-h { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--ag-line); }
+  .app-card-h > div:first-child { flex: 1; min-width: 0; }
+  .app-card-h h2 { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .app-card-h p { margin-top: 2px; color: var(--ag-muted); font-size: 13px; }
+  .app-card-a { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+  .app-card-b { padding: 16px; min-width: 0; flex: 1; display: grid; gap: 12px; align-content: start; grid-template-columns: minmax(0, 1fr); }
+  .app-card-b[data-flush] { padding: 0; gap: 0; }
+  .app-card-b > * { min-width: 0; }
+  .app-card-f { border-top: 1px solid var(--ag-line); }
+  /* Kartu tanpa header (mis. isi subpage) tetap rapi. */
+  .app-card > .app-card-b:first-child { border-radius: 10px 10px 0 0; }
+  .app-seeall { display: inline-flex; align-items: center; gap: 4px; color: var(--ag-accent-fg); font-weight: 500; font-size: 13px; white-space: nowrap; padding: 2px 0; }
+  .app-seeall:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .app-seeall svg { width: 14px; height: 14px; }
 
-  /* Area bertint untuk mengelompokkan isi (kolom board, panel ringkasan). */
-  .ag-tint {
-    background: var(--ag-surface-tint);
-    border-radius: var(--radius-lg);
-  }
-}
-
-/* Card zona berbahaya (hapus, arsipkan): garis merah muda. */
-@layer components {
-  .card.ag-card-danger {
-    --tw-ring-color: var(--ag-status-danger-bg);
-    box-shadow: 0 0 0 1px var(--ag-status-danger-bg);
-  }
-}
-
-/* Tabel di dalam card: kolom pertama/terakhir sejajar dengan padding card. */
-@layer components {
-  .card .table :is(th, td):first-child {
-    padding-inline-start: 1.5rem;
-  }
-
-  .card .table :is(th, td):last-child {
-    padding-inline-end: 1.5rem;
-  }
+  /* Bar simpan: footer kartu, tidak melayang, tanpa bayangan. */
+  .app-savebar { display: flex; align-items: center; gap: 8px; justify-content: flex-end; flex-wrap: wrap; padding: 12px 16px; background: var(--ag-muted-bg); border-radius: 0 0 10px 10px; }
+  .app-savebar-msg { margin-right: auto; color: var(--ag-muted); display: flex; gap: 8px; align-items: center; }
+  .app-savebar-msg svg { width: 14px; height: 14px; }
+  @media (max-width: 599px) { .app-savebar-msg { flex-basis: 100%; } }
 }

@@ -1,0 +1,12 @@
+/* Unggah gambar (logo project): pratinjau 64px + keterangan + tombol, area bisa menerima seret
+   berkas (static/js/uploader.js menandai `data-over`). */
+@layer components {
+  .app-up { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; border: 1px dashed var(--ag-input); border-radius: 10px; padding: 16px; background: var(--ag-muted-bg); transition: background 0.15s, border-color 0.15s; }
+  .app-up[data-over] { border-color: var(--ag-accent); background: var(--ag-accent-soft); }
+  .app-up-body { display: grid; gap: 4px; flex: 1; min-width: 200px; }
+  .app-up-body > span { color: var(--ag-muted); font-size: 12px; }
+  .app-up-acts { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+  .app-up input[type='file'] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+  .app-up-sizes { display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap; }
+  .app-up-sizes > div { display: grid; gap: 6px; justify-items: center; color: var(--ag-muted); font-size: 12px; }
+}

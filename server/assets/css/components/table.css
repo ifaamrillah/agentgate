@@ -1,0 +1,18 @@
+/* Override `.table` Basecoat menjadi tabel prototype (varian A): header abu kecil, baris 9px,
+   hover lembut. Kolom yang disembunyikan di layar kecil: th/td `data-hide="md"`. */
+@layer components {
+  .table-container { overflow-x: auto; min-width: 0; }
+  .table { width: 100%; border-collapse: collapse; font-size: 13px; color: var(--ag-fg); }
+  .table th {
+    text-align: left; font-weight: 500; font-size: 12px; color: var(--ag-muted); padding: 8px 16px; background: var(--ag-muted-bg);
+    border-bottom: 1px solid var(--ag-line); white-space: nowrap; height: auto;
+  }
+  .table td { padding: 9px 16px; border-bottom: 1px solid var(--ag-line); vertical-align: middle; }
+  .table tbody tr:last-child td { border-bottom: 0; }
+  .table tbody tr:hover td { background: var(--ag-muted-bg); }
+  .table tr[aria-selected='true'] td, .table tr[data-current] td { background: var(--ag-accent-soft); }
+  .table [data-actions] { text-align: right; width: 48px; white-space: nowrap; }
+  .table [data-align='right'] { text-align: right; }
+  @media (max-width: 899px) { .table :is(th, td)[data-hide] { display: none; } }
+  @media (max-width: 1199px) { .table :is(th, td)[data-hide='lg'] { display: none; } }
+}

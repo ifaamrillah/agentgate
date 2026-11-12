@@ -1,0 +1,73 @@
+/* Dasar halaman: tipografi 13px Geist, fokus, link, kbd, kode. Nilai dari token di app.css. */
+@layer base {
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    background: var(--ag-side);
+    color: var(--ag-fg);
+    font-family: var(--ag-font);
+    font-size: 13px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, h4 { font-weight: 600; }
+  :focus-visible { outline: 2px solid var(--ag-accent); outline-offset: 2px; }
+  kbd {
+    font-family: inherit; font-size: 11px; color: var(--ag-muted); border: 1px solid var(--ag-line2);
+    border-radius: 4px; padding: 0 4px; background: var(--ag-raised); line-height: 16px;
+  }
+  code {
+    font-family: var(--ag-mono); font-size: 0.92em; background: var(--ag-code-bg);
+    border: 1px solid var(--ag-line); border-radius: 4px; padding: 0 4px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition: none !important; animation: none !important; }
+  }
+}
+
+@layer components {
+  /* Tautan teks berwarna aksen (mis. "Lupa password?"). */
+  .app-link { color: var(--ag-accent-fg); font-weight: 500; }
+  .app-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .app-code { font-family: var(--ag-mono); font-size: 12px; }
+  .app-muted { color: var(--ag-muted); }
+  .app-faint { color: var(--ag-faint); }
+  .app-hint { font-size: 12px; color: var(--ag-muted); }
+  .app-divider { height: 1px; background: var(--ag-line); }
+  .app-num { font-variant-numeric: tabular-nums; }
+  /* Blok kode (perintah CLI, URI). */
+  .app-codeblock {
+    font-family: var(--ag-mono); font-size: 12px; background: var(--ag-code-bg); border: 1px solid var(--ag-line);
+    border-radius: 8px; padding: 12px 14px; white-space: pre; overflow-x: auto; line-height: 1.6; color: var(--ag-fg2);
+  }
+  .app-prose { display: grid; gap: 10px; line-height: 1.6; max-width: 72ch; overflow-wrap: anywhere; }
+  .app-prose :is(h1, h2) { font-size: 16px; margin-top: 8px; }
+  .app-prose h3 { font-size: 14px; margin-top: 6px; }
+  .app-prose :is(ul, ol) { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+  .app-prose ul { list-style: disc; } .app-prose ol { list-style: decimal; }
+  .app-prose a { color: var(--ag-accent-fg); text-decoration: underline; }
+  .app-prose blockquote { padding: 2px 12px; border-left: 3px solid var(--ag-line2); color: var(--ag-muted); }
+  .app-prose pre { font-family: var(--ag-mono); font-size: 12px; background: var(--ag-code-bg); border: 1px solid var(--ag-line); border-radius: 6px; padding: 10px 12px; white-space: pre-wrap; }
+  .app-prose table { border-collapse: collapse; } .app-prose :is(td, th) { border: 1px solid var(--ag-line2); padding: 5px 10px; text-align: left; }
+}
+
+/* Ikon inline (fungsi `icon()`): ukuran bawaan 16px dan garis 1.75 seperti prototype; komponen
+   atau class `size-*` boleh menimpa ukurannya. */
+@layer base {
+  svg:where([focusable='false']) { width: 16px; height: 16px; flex-shrink: 0; stroke-width: 1.75; }
+}
+@layer components {
+  /* Deret tombol (aksi konfirmasi di dalam kartu) dan form sebaris (tombol Keluar di teks). */
+  .app-btnrow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .app-inline-form { display: inline; }
+  button.app-link { font: inherit; cursor: pointer; }
+}
+@layer components {
+  /* Katalog /_dev/ui: contoh token warna. */
+  .app-catalog-swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .app-catalog-swatches > span { display: grid; gap: 4px; font-size: 12px; }
+  .app-catalog-swatches i { display: block; height: 32px; border-radius: 6px; border: 1px solid var(--ag-line); }
+}
+@layer components {
+  .app-grow { flex: 1; min-width: 200px; }
+  .app-btnrow[data-align='end'] { align-items: flex-end; }
+}

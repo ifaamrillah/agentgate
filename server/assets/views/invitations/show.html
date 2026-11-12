@@ -2,25 +2,27 @@
     invitation {workspace_name, inviter_name ("" bila pengundang sudah dihapus), role_name, email,
     accept_action, register_href, login_href}, signed_in, email_matches, error (kunci Fluent atau
     ""). -#}
-{% extends "auth/_layout_card.html" %}
+{% extends "layouts/auth.html" %}
 {% block title %}{{ t(key="invitation-title", lang="id") }}{% endblock title %}
 {% block heading %}{{ t(key="invitation-heading", lang="id", workspace=invitation.workspace_name) }}{% endblock heading %}
 {% block description %}{% if invitation.inviter_name %}{{ t(key="invitation-invited-by", lang="id", inviter=invitation.inviter_name, role=invitation.role_name) }}{% else %}{{ t(key="invitation-role", lang="id", role=invitation.role_name) }}{% endif %}{% endblock description %}
 {% block card %}
-<div class="grid gap-4" data-invitation-page>
-  <p class="text-sm">{{ t(key="invitation-for-email", lang="id", email=invitation.email) }}</p>
-  {%- if error %}
-  {{ <flash kind="error" message={t(key=error, lang="id")}/> }}
-  {%- endif %}
+<div class="app-auth-stack" data-invitation-page>
+  <div class="app-field">
+    <span class="app-label">{{ t(key="register-email", lang="id") }}</span>
+    <span class="app-input" data-readonly>{{ icon(name="lock") }}<span>{{ invitation.email }}</span></span>
+    <span class="app-hint">{{ t(key="invitation-email-locked", lang="id") }}</span>
+  </div>
+  {%- if error %}{{ <flash kind="error" message={t(key=error, lang="id")}/> }}{% endif %}
   {%- if signed_in %}
     {%- if email_matches %}
     <form method="post" action="{{ invitation.accept_action }}">
-      {{ <button label={t(key="invitation-accept", lang="id")} type="submit" class="w-full"/> }}
+      {{ <button label={t(key="invitation-accept", lang="id")} type="submit" full={true}/> }}
     </form>
     {%- endif %}
   {%- else %}
-  <a href="{{ invitation.register_href }}" class="btn w-full" data-variant="primary">{{ t(key="invitation-register", lang="id") }}</a>
-  <a href="{{ invitation.login_href }}" class="btn w-full" data-variant="outline">{{ t(key="invitation-login", lang="id") }}</a>
+  {{ <button label={t(key="invitation-register", lang="id")} href={invitation.register_href} full={true}/> }}
+  {{ <button label={t(key="invitation-login", lang="id")} href={invitation.login_href} variant="outline" full={true}/> }}
   {%- endif %}
 </div>
 {% endblock card %}

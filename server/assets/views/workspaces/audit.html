@@ -1,105 +1,97 @@
-{#- Pengaturan → Audit log (ViewAuditLog): tabel kejadian + panel detail kejadian terpilih.
+{#- Pengaturan → Audit log (ViewAuditLog): tabel kejadian + kartu detail kejadian terpilih.
     Variabel (views::audit::AuditPageView): rows ([AuditRow]: id, action, action_key, datetime
     (RFC 3339), time (WIB), actor (nama atau null = Sistem), subject_key, summary [{label, from
     ({text, key} atau null), to {text, key}}], href (halaman ini dengan baris ini terpilih)),
-    selected (id baris di panel detail, "" bila kosong), groups ([{value, label, selected}]),
-    action (path halaman), older_href (halaman lebih lama atau null), newest_href (halaman
-    pertama dengan filter yang sama, null di halaman pertama). Nilai ringkasan: `key` = kunci
-    Fluent (ya/tidak), selain itu `text` apa adanya. -#}
+    selected (id baris di detail, "" bila kosong), groups ([{value, label, selected}]), group
+    (filter aktif, "" = semua), action (path halaman), older_href / newest_href (halaman
+    keyset: lebih lama / terbaru, null bila tidak ada). Nilai ringkasan: `key` = kunci Fluent
+    (ya/tidak), selain itu `text` apa adanya. Pagination keyset (bukan nomor halaman): log
+    hanya bertambah, jadi halaman tidak bergeser saat kejadian baru masuk. -#}
 {% extends "layouts/settings.html" %}
 {% block title %}{{ t(key="settings-audit-title", lang="id") }}{% endblock title %}
-{% block settings_content %}
-<div class="grid gap-6" data-audit-log>
-  {{ <page_header title={t(key="settings-audit-title", lang="id")} description={t(key="audit-description", lang="id")}/> }}
-  <form method="get" action="{{ action }}" class="flex flex-wrap items-end gap-3" data-audit-filter>
-    <div class="grid gap-2">
-      <label for="audit-group" class="label">{{ t(key="audit-filter-label", lang="id") }}</label>
-      <select class="select" id="audit-group" name="group">
-        <option value="">{{ t(key="audit-group-all", lang="id") }}</option>
-        {%- for group in groups %}
-        <option value="{{ group.value }}"{% if group.selected %} selected{% endif %}>{{ t(key=group.label, lang="id") }}</option>
-        {%- endfor %}
-      </select>
-    </div>
-    {{ <button label={t(key="audit-filter-submit", lang="id")} type="submit" variant="outline"/> }}
-  </form>
-  {%- if rows %}
-  <div class="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
-    <section class="card py-0">
-      <div class="table-container">
-        <table class="table">
-          <thead>
-            <tr>
-              <th scope="col">{{ t(key="audit-column-time", lang="id") }}</th>
-              <th scope="col">{{ t(key="audit-column-actor", lang="id") }}</th>
-              <th scope="col">{{ t(key="audit-column-action", lang="id") }}</th>
-              <th scope="col" class="hidden lg:table-cell">{{ t(key="audit-column-subject", lang="id") }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {%- for row in rows %}
-            <tr data-audit-row data-audit-id="{{ row.id }}" data-action="{{ row.action }}"{% if row.id == selected %} aria-selected="true"{% endif %}>
-              <td class="whitespace-nowrap font-mono text-xs text-muted-foreground"><time datetime="{{ row.datetime }}">{{ row.time }}</time></td>
-              <td data-audit-actor>
-                {%- if row.actor %}{{ row.actor }}{% else %}<span class="text-muted-foreground">{{ t(key="audit-actor-system", lang="id") }}</span>{% endif -%}
-              </td>
-              <td><a href="{{ row.href }}" class="font-medium hover:underline" data-audit-open>{% if row.action_key %}{{ t(key=row.action_key, lang="id") }}{% else %}{{ row.action }}{% endif %}</a></td>
-              <td class="hidden lg:table-cell">{% if row.subject_key %}{{ <badge label={t(key=row.subject_key, lang="id")} variant="neutral"/> }}{% endif %}</td>
-            </tr>
-            {%- endfor %}
-          </tbody>
-        </table>
+{% block width %}wide{% endblock width %}
+{% block crumb_label %}{{ t(key="settings-audit-title", lang="id") }}{% endblock crumb_label %}
+{% block page_attrs %}data-audit-log{% endblock page_attrs %}
+{% block settings %}
+<header class="app-page-head">
+  <div class="app-page-title"><h1>{{ t(key="settings-audit-title", lang="id") }}</h1><p>{{ t(key="audit-description", lang="id") }}</p></div>
+</header>
+<div class="app-grid" data-cols="duo">
+{% <card title={t(key="settings-audit-title", lang="id")} flush={true}> %}
+  <div class="app-dt">
+    <form method="get" action="{{ action }}" class="app-fbar" data-audit-filter>
+      <div class="app-fr">
+        {{ <select_field id="audit-group" name="group" label={t(key="audit-filter-label", lang="id")} options={groups} option_value="value" option_label="label" translate={true} empty_label={t(key="audit-group-all", lang="id")} value={group} hide_label={true} submit={true}/> }}
+        <noscript>{{ <button label={t(key="audit-filter-submit", lang="id")} type="submit" variant="outline" size="sm"/> }}</noscript>
       </div>
-    </section>
-    {%- for row in rows %}
-    {%- if row.id == selected %}
-    <aside class="card self-start xl:sticky xl:top-8" aria-labelledby="audit-detail-title" data-audit-detail="{{ row.id }}">
-      <header>
-        <h2 id="audit-detail-title">{% if row.action_key %}{{ t(key=row.action_key, lang="id") }}{% else %}{{ row.action }}{% endif %}</h2>
-        <p class="font-mono text-xs">{{ row.action }}</p>
-      </header>
-      <section class="grid gap-5">
-        <dl class="grid grid-cols-[6rem_minmax(0,1fr)] gap-x-3 gap-y-2 text-sm">
-          <dt class="text-muted-foreground">{{ t(key="audit-column-time", lang="id") }}</dt>
-          <dd><time datetime="{{ row.datetime }}" class="font-mono text-xs">{{ row.time }}</time></dd>
-          <dt class="text-muted-foreground">{{ t(key="audit-column-actor", lang="id") }}</dt>
-          <dd>{% if row.actor %}{{ row.actor }}{% else %}{{ t(key="audit-actor-system", lang="id") }}{% endif %}</dd>
-          {%- if row.subject_key %}
-          <dt class="text-muted-foreground">{{ t(key="audit-column-subject", lang="id") }}</dt>
-          <dd>{{ t(key=row.subject_key, lang="id") }}</dd>
-          {%- endif %}
-        </dl>
-        <div class="grid gap-2">
-          <h3 class="text-sm font-semibold">{{ t(key="audit-column-changes", lang="id") }}</h3>
-          {%- if row.summary %}
-          <ul class="grid gap-1.5 rounded-md bg-ag-tint p-3 text-sm" data-audit-changes>
-            {%- for item in row.summary %}
-            <li><span class="text-muted-foreground">{{ t(key=item.label, lang="id") }}:</span>
-              {%- if item.from %} <span class="line-through decoration-1">{% if item.from.key %}{{ t(key=item.from.key, lang="id") }}{% else %}{{ item.from.text }}{% endif %}</span> →{% endif %}
-              <span class="font-medium">{% if item.to.key %}{{ t(key=item.to.key, lang="id") }}{% else %}{{ item.to.text }}{% endif %}</span></li>
-            {%- endfor %}
-          </ul>
-          {%- else %}
-          <p class="text-sm text-muted-foreground">{{ t(key="audit-no-changes", lang="id") }}</p>
-          {%- endif %}
-        </div>
-      </section>
-    </aside>
+    </form>
+    {%- if rows %}
+    <div class="app-dt-box">
+      <div class="table-container">
+      <table class="table">
+        <thead><tr>
+          <th scope="col">{{ t(key="audit-column-time", lang="id") }}</th>
+          <th scope="col">{{ t(key="audit-column-actor", lang="id") }}</th>
+          <th scope="col">{{ t(key="audit-column-action", lang="id") }}</th>
+          <th scope="col" data-hide="lg">{{ t(key="audit-column-subject", lang="id") }}</th>
+        </tr></thead>
+        <tbody>
+        {%- for row in rows %}
+        <tr data-audit-row data-audit-id="{{ row.id }}" data-action="{{ row.action }}"{% if row.id == selected %} aria-selected="true"{% endif %}>
+          <td><time datetime="{{ row.datetime }}" class="app-code app-hint">{{ row.time }}</time></td>
+          <td data-audit-actor>
+            {%- if row.actor %}{{ row.actor }}{% else %}<span class="app-hint">{{ t(key="audit-actor-system", lang="id") }}</span>{% endif -%}
+          </td>
+          <td><a href="{{ row.href }}#audit-detail" class="app-link" data-audit-open>{% if row.action_key %}{{ t(key=row.action_key, lang="id") }}{% else %}{{ row.action }}{% endif %}</a></td>
+          <td data-hide="lg">{% if row.subject_key %}{{ <badge label={t(key=row.subject_key, lang="id")} variant="neutral"/> }}{% endif %}</td>
+        </tr>
+        {%- endfor %}
+        </tbody>
+      </table>
+      </div>
+      {%- if older_href or newest_href %}
+      <nav class="app-dt-foot" aria-label="{{ t(key="audit-pagination", lang="id") }}">
+        <span data-grow></span>
+        {%- if newest_href %}{{ <button label={t(key="audit-newest", lang="id")} href={newest_href} variant="outline" size="sm" attrs="data-audit-newest"/> }}{% endif %}
+        {%- if older_href %}{{ <button label={t(key="audit-older", lang="id")} href={older_href} variant="outline" size="sm" icon="chevron-right" attrs="data-audit-older"/> }}{% endif %}
+      </nav>
+      {%- endif %}
+    </div>
+    {%- else %}
+    {{ <empty_state title={t(key="audit-empty-title", lang="id")} description={t(key="audit-empty-description", lang="id")} icon="list-details" variant="plain"/> }}
     {%- endif %}
-    {%- endfor %}
   </div>
-  {%- else %}
-  {{ <empty_state title={t(key="audit-empty-title", lang="id")} description={t(key="audit-empty-description", lang="id")} icon="book" variant="dashed"/> }}
-  {%- endif %}
-  {%- if older_href or newest_href %}
-  <nav class="flex flex-wrap gap-3" aria-label="{{ t(key="audit-pagination", lang="id") }}">
-    {%- if newest_href %}
-    <a href="{{ newest_href }}" class="btn" data-variant="outline" data-audit-newest>{{ t(key="audit-newest", lang="id") }}</a>
+{% </card> %}
+<div id="audit-detail">
+{%- for row in rows %}
+{%- if row.id == selected %}
+{%- if row.action_key %}{% set detail_title = t(key=row.action_key, lang="id") %}{% else %}{% set detail_title = row.action %}{% endif %}
+<div data-audit-detail="{{ row.id }}">
+{% <card title={detail_title} description={row.action} flush={true}> %}
+  <dl class="app-props app-blk">
+    <dt>{{ t(key="audit-column-time", lang="id") }}</dt><dd class="app-code">{{ row.time }}</dd>
+    <dt>{{ t(key="audit-column-actor", lang="id") }}</dt><dd>{% if row.actor %}{{ row.actor }}{% else %}{{ t(key="audit-actor-system", lang="id") }}{% endif %}</dd>
+    {%- if row.subject_key %}<dt>{{ t(key="audit-column-subject", lang="id") }}</dt><dd>{{ t(key=row.subject_key, lang="id") }}</dd>{% endif %}
+  </dl>
+  <div class="app-blk">
+    <div class="app-blk-t">{{ t(key="audit-column-changes", lang="id") }}</div>
+    {%- if row.summary %}
+    <ul class="app-changes" data-audit-changes>
+      {%- for item in row.summary %}
+      <li><span>{{ t(key=item.label, lang="id") }}:</span>
+        {%- if item.from %} <del>{% if item.from.key %}{{ t(key=item.from.key, lang="id") }}{% else %}{{ item.from.text }}{% endif %}</del> →{% endif %}
+        <strong>{% if item.to.key %}{{ t(key=item.to.key, lang="id") }}{% else %}{{ item.to.text }}{% endif %}</strong></li>
+      {%- endfor %}
+    </ul>
+    {%- else %}
+    <p class="app-hint">{{ t(key="audit-no-changes", lang="id") }}</p>
     {%- endif %}
-    {%- if older_href %}
-    <a href="{{ older_href }}" class="btn" data-variant="outline" data-audit-older>{{ t(key="audit-older", lang="id") }}{{ icon(name="chevron-right", class="size-4") }}</a>
-    {%- endif %}
-  </nav>
-  {%- endif %}
+  </div>
+{% </card> %}
 </div>
-{% endblock settings_content %}
+{%- endif %}
+{%- endfor %}
+{%- if not selected and rows %}{{ <empty_state title={t(key="audit-detail-empty", lang="id")} icon="list-details"/> }}{% endif %}
+</div>
+</div>
+{% endblock settings %}

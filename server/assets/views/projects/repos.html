@@ -1,49 +1,40 @@
-{#- Pengaturan project → Repo (Admin project). Variabel: project (ProjectSummary), paths
-    (ProjectPaths), tab ("repos"), page (views::projects::ReposPage: repos ([RepoFormView] per
-    baris, dengan action ubah dan delete_action), create (RepoFormView form tambah, action =
-    POST tambah), providers ([{value, label_key}])), flash (dirender layout). -#}
-{% extends "layouts/project_settings.html" %}
+{#- Pengaturan project → Repo (Admin project; prototype "Project · Repo"): tambah repo, lalu
+    daftar repo yang bisa diubah atau dihapus. Variabel: project (ProjectSummary), paths
+    (ProjectPaths), page (views::projects::ReposPage: repos ([RepoFormView] per baris, dengan
+    action ubah dan delete_action), create (RepoFormView form tambah, action = POST tambah),
+    providers ([{value, label_key}])), flash (dirender layout). -#}
+{% extends "layouts/settings.html" %}
 {% block title %}{{ t(key="project-settings-repos", lang="id") }}{% endblock title %}
-{% block project_settings_content %}
-<section class="card" data-project-repos-settings>
-  <header class="border-b">
-    <h2>{{ t(key="project-settings-repos", lang="id") }}</h2>
-    <p>{{ t(key="repo-url-hint", lang="id") }}</p>
-  </header>
-  <section class="grid gap-6">
-  {% set providers = page.providers %}
-  <div class="ag-setting-row">
-    <header><h3>{{ t(key="repo-add-title", lang="id") }}</h3><p>{{ t(key="project-repos-add-hint", lang="id") }}</p></header>
-    {% set repo = page.create %}
-    <form method="post" action="{{ repo.action }}" class="form flex flex-wrap items-start gap-3">
-      {% include "projects/_repo_fields.html" %}
-      <div class="field">
-        <span aria-hidden="true">&nbsp;</span>
-        {{ <button label={t(key="repo-add", lang="id")} type="submit" icon="plus"/> }}
-      </div>
-    </form>
-  </div>
+{% block crumb_label %}{{ t(key="project-settings-repos", lang="id") }}{% endblock crumb_label %}
+{% block page_attrs %}data-project-repos-settings{% endblock page_attrs %}
+{% block settings %}
+{% set providers = page.providers %}
+<header class="app-page-head">
+  <div class="app-page-title"><h1>{{ t(key="project-settings-repos", lang="id") }}</h1><p>{{ t(key="project-repos-description", lang="id") }}</p></div>
+</header>
+{% set repo = page.create %}
+{% <card title={t(key="repo-add-title", lang="id")} description={t(key="repo-url-hint", lang="id")} form={repo.action} save_label={t(key="repo-add", lang="id")}> %}
+  <div class="app-form">{% include "projects/_repo_fields.html" %}</div>
+{% </card> %}
+{% <card title={t(key="project-settings-repos", lang="id")} count={page.repos | length ~ ""} flush={page.repos | length > 0}> %}
   {%- if page.repos %}
-  <ul class="-mx-6 grid border-t border-border" data-repo-list>
+  <div data-repo-list>
     {%- for repo in page.repos %}
-    <li class="flex flex-wrap items-start gap-3 border-b border-border px-6 py-5 last:border-b-0 last:pb-0" data-repo>
-      <form method="post" action="{{ repo.action }}" class="form flex flex-1 flex-wrap items-start gap-3">
+    <div class="app-blk" data-repo>
+      <form method="post" action="{{ repo.action }}" class="app-stack-v" data-gap="sm">
         {% include "projects/_repo_fields.html" %}
-        <div class="field">
-          <span aria-hidden="true">&nbsp;</span>
-          {{ <button label={t(key="project-save", lang="id")} variant="outline" type="submit"/> }}
+        <div class="app-bar">
+          {{ <button label={t(key="project-save", lang="id")} variant="outline" size="sm" type="submit" icon="check"/> }}
+          <span data-grow></span>
+          {{ <button label={t(key="repo-delete", lang="id")} variant="ghost" size="sm" type="submit" icon="trash" form={repo.field_id ~ "-delete"}/> }}
         </div>
       </form>
-      <form method="post" action="{{ repo.delete_action }}" class="field" hx-confirm="{{ t(key="repo-delete-confirm", lang="id") }}">
-        <span aria-hidden="true">&nbsp;</span>
-        {{ <button label={t(key="repo-delete", lang="id")} variant="destructive" type="submit"/> }}
-      </form>
-    </li>
+      <form method="post" action="{{ repo.delete_action }}" id="{{ repo.field_id }}-delete" hx-confirm="{{ t(key="repo-delete-confirm", lang="id") }}" hidden></form>
+    </div>
     {%- endfor %}
-  </ul>
+  </div>
   {%- else %}
-  {{ <empty_state title={t(key="project-repos-empty", lang="id")} icon="git-branch" variant="dashed"/> }}
+  {{ <empty_state title={t(key="project-repos-empty", lang="id")} description={t(key="project-repos-empty-description", lang="id")} icon="git-branch" variant="plain"/> }}
   {%- endif %}
-  </section>
-</section>
-{% endblock project_settings_content %}
+{% </card> %}
+{% endblock settings %}

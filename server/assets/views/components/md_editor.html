@@ -1,0 +1,55 @@
+{#- Editor Markdown lengkap (Milkdown Crepe, static/js/md-editor.js): toolbar saat memilih teks,
+    menu blok "/", tabel, checklist, blok kode. Nilai form tetap <textarea name>: JS menyalin
+    Markdown dari editor ke textarea setiap ada perubahan; tanpa JS textarea biasa yang dipakai.
+    Bundle dan CSS Crepe hanya dimuat di halaman yang memakai komponen ini.
+    Footer berisi petunjuk Markdown, tombol Batal (mengembalikan isi awal; tautan bila
+    cancel_href diisi) dan Simpan (submit). Dengan `action`, komponen membungkus dirinya dalam
+    <form method="post">; tanpa `action`, letakkan di dalam form sendiri.
+    Parameter:
+      id, name, label: string   (label sudah diterjemahkan)
+      value: string             Markdown awal (default "")
+      placeholder: string       (default "" = "Ketik / untuk menyisipkan blok")
+      action: string            POST tujuan; "" = tanpa form pembungkus (default "")
+      cancel_href: string       Batal sebagai tautan ke sini (default "" = kembalikan isi awal)
+      save_label: string        label tombol simpan (default "" = "Simpan")
+      hide_label: bool          label hanya untuk pembaca layar (default false)
+      rows: integer             tinggi textarea tanpa JS (default 8) -#}
+{% component md_editor(id: string, name: string, label: string, value: string = "", placeholder: string = "", action: string = "", cancel_href: string = "", save_label: string = "", hide_label: bool = false, rows: integer = 8) %}
+{%- if placeholder %}{% set ph = placeholder %}{% else %}{% set ph = t(key="editor-placeholder", lang="id") %}{% endif -%}
+{%- if save_label %}{% set save = save_label %}{% else %}{% set save = t(key="action-save", lang="id") %}{% endif -%}
+{%- if action %}<form method="post" action="{{ action }}" class="app-field">{% else %}<div class="app-field">{% endif %}
+  <label class="app-label{% if hide_label %} sr-only{% endif %}" for="{{ id }}">{{ label }}</label>
+  <div class="app-editor" data-md-editor style="--h: {{ rows * 22 + 28 }}px">
+    <textarea id="{{ id }}" name="{{ name }}" rows="{{ rows }}" placeholder="{{ ph }}">{{ value }}</textarea>
+    <div class="app-editor-surface" data-md-surface hidden></div>
+    <span hidden data-md-labels
+      data-bold="{{ t(key="editor-bold", lang="id") }}" data-italic="{{ t(key="editor-italic", lang="id") }}"
+      data-strike="{{ t(key="editor-strike", lang="id") }}" data-code="{{ t(key="editor-code", lang="id") }}"
+      data-link="{{ t(key="editor-link", lang="id") }}" data-preview="{{ t(key="editor-preview", lang="id") }}"
+      data-preview-loading="{{ t(key="editor-preview-loading", lang="id") }}" data-language="{{ t(key="editor-language", lang="id") }}"
+      data-no-result="{{ t(key="editor-no-result", lang="id") }}" data-copy="{{ t(key="editor-copy", lang="id") }}"
+      data-edit="{{ t(key="action-edit", lang="id") }}" data-hide="{{ t(key="editor-hide", lang="id") }}"
+      data-image-link="{{ t(key="editor-image-link", lang="id") }}" data-caption="{{ t(key="editor-caption", lang="id") }}"
+      data-confirm="{{ t(key="action-save", lang="id") }}"
+      data-group-text="{{ t(key="editor-group-text", lang="id") }}" data-paragraph="{{ t(key="editor-paragraph", lang="id") }}"
+      data-h1="{{ t(key="editor-h1", lang="id") }}" data-h2="{{ t(key="editor-h2", lang="id") }}" data-h3="{{ t(key="editor-h3", lang="id") }}"
+      data-h4="{{ t(key="editor-h4", lang="id") }}" data-h5="{{ t(key="editor-h5", lang="id") }}" data-h6="{{ t(key="editor-h6", lang="id") }}"
+      data-quote="{{ t(key="editor-quote", lang="id") }}" data-divider="{{ t(key="editor-divider", lang="id") }}"
+      data-group-list="{{ t(key="editor-group-list", lang="id") }}" data-bullet="{{ t(key="editor-bullet", lang="id") }}"
+      data-ordered="{{ t(key="editor-ordered", lang="id") }}" data-task="{{ t(key="editor-task", lang="id") }}"
+      data-group-advanced="{{ t(key="editor-group-advanced", lang="id") }}" data-image="{{ t(key="editor-image", lang="id") }}"
+      data-code-block="{{ t(key="editor-code-block", lang="id") }}" data-table="{{ t(key="editor-table", lang="id") }}"></span>
+    <div class="app-editor-foot">
+      {{- icon(name="markdown") -}}
+      <span class="app-editor-hint">{{ t(key="editor-hint", lang="id") }}</span>
+      <span data-grow></span>
+      {%- if cancel_href %}
+      {{ <button label={t(key="action-cancel", lang="id")} href={cancel_href} variant="ghost" size="sm" attrs="data-md-cancel"/> }}
+      {%- else %}
+      {{ <button label={t(key="action-cancel", lang="id")} variant="ghost" size="sm" attrs="data-md-cancel"/> }}
+      {%- endif %}
+      {{ <button label={save} type="submit" size="sm" attrs="data-md-save"/> }}
+    </div>
+  </div>
+{%- if action %}</form>{% else %}</div>{% endif %}
+{%- endcomponent md_editor %}

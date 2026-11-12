@@ -172,6 +172,12 @@ fn is_invisible(c: char) -> bool {
         )
 }
 
+/// Warna hex `#rrggbb` (huruf besar/kecil; disimpan huruf kecil oleh model).
+#[must_use]
+pub fn is_hex_color(value: &str) -> bool {
+    value.len() == 7 && value.starts_with('#') && value[1..].chars().all(|c| c.is_ascii_hexdigit())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

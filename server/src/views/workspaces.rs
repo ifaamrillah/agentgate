@@ -7,6 +7,8 @@ use super::{
     flash::Flash,
     form::{FieldErrors, field_errors},
     layout::{AppShell, WorkspaceLink, app_page},
+    time::LongDate,
+    ui::Stat,
 };
 
 pub const FLASH_SETTINGS_SAVED: &str = "flash-workspace-settings-saved";
@@ -70,33 +72,22 @@ pub fn new(
     )
 }
 
-/// Statistik beranda workspace. Project = yang bisa dibuka user (`shell.projects`).
+/// Data beranda workspace. Daftar project = `shell.projects` (sama dengan sidebar).
 #[derive(Debug, Serialize)]
-pub struct HomeStats {
-    pub active_projects: usize,
-    pub archived_projects: usize,
-    pub members: u64,
-    pub teams: u64,
+pub struct HomePage<'a> {
+    pub workspace_name: &'a str,
+    /// Nama depan user untuk salam.
+    pub first_name: String,
+    pub today: LongDate,
+    /// Form buat project, `None` bila role tidak memegang `CreateProjects`.
+    pub create_href: Option<&'a str>,
+    pub stats: Vec<Stat>,
+    /// Log audit, bila role boleh membukanya (tautan di kartu Aktivitas).
+    pub audit_href: Option<&'a str>,
 }
 
-/// Beranda workspace: daftar project yang bisa dibuka (`shell.projects`, sama dengan
-/// sidebar). `create_href` = form buat project, `None` bila role tidak memegang
-/// `CreateProjects`.
-pub fn home(
-    v: &impl ViewRenderer,
-    shell: &AppShell,
-    name: &str,
-    create_href: Option<&str>,
-    stats: &HomeStats,
-) -> Result<Response> {
-    format::render().view(
-        v,
-        "workspaces/home.html",
-        app_page(
-            shell,
-            data!({ "workspace_name": name, "create_href": create_href, "stats": stats }),
-        ),
-    )
+pub fn home(v: &impl ViewRenderer, shell: &AppShell, page: &HomePage<'_>) -> Result<Response> {
+    format::render().view(v, "workspaces/home.html", app_page(shell, page))
 }
 
 /// Toggle "Wajibkan 2FA": `enabled` = status sekarang; form mengirim kebalikannya.
@@ -130,6 +121,12 @@ pub struct SettingsPage<'a> {
     pub action: &'a str,
     pub form: Option<&'a WorkspaceFormView>,
     pub danger: &'a DangerZoneView,
+    /// Sub-halaman yang dibuka: `profile`, `security`, atau `danger`.
+    pub section: &'static str,
+    /// Menu subpage (varian E) Umum: hanya sub-halaman yang boleh dibuka role.
+    pub subnav: Vec<super::nav::NavItem>,
+    /// Anggota tanpa 2FA aktif (kartu Keamanan).
+    pub without_two_factor: u64,
 }
 
 pub fn settings(
@@ -148,8 +145,23 @@ pub fn settings(
                 "action": page.action,
                 "form": page.form,
                 "danger": page.danger,
+                "section": page.section,
+                "subnav": page.subnav,
+                "without_two_factor": page.without_two_factor,
                 "flash": flash,
             }),
         ),
+    )
+}
+
+/// Opsi combobox orang (`GET /w/{slug}/people`): hanya `<option>`.
+pub fn people_options(
+    v: &impl ViewRenderer,
+    options: &[super::ui::ComboOption],
+) -> Result<Response> {
+    format::render().view(
+        v,
+        "workspaces/people_options.html",
+        data!({ "options": options }),
     )
 }

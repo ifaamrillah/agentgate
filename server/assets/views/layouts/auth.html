@@ -1,0 +1,33 @@
+{#- Layar autentikasi terbelah (auth B): panel gelap "alur 4 langkah" di kiri (disembunyikan di
+    bawah 900px) dan kolom form 360px di kanan. Dipakai masuk, daftar, lupa/atur ulang password,
+    kode 2FA, verifikasi email, undangan.
+    Block: title (wajib), heading, description (opsional), card (isi: form), below (tautan di
+    bawah form). Variabel opsional: flash ({kind, key}). -#}
+{% extends "layouts/base.html" %}
+{% block body %}
+<div class="app-auth">
+  <aside class="app-auth-brand" aria-hidden="true">
+    <span class="app-brandmark"><span>{{ icon(name="robot") }}</span>{{ t(key="app-name", lang="id") }}</span>
+    <div class="app-auth-flow">
+      {%- for step in [["ticket", "auth-flow-1"], ["robot", "auth-flow-2"], ["lock", "auth-flow-3"], ["rocket", "auth-flow-4"]] %}
+      <div class="app-auth-step"><span class="app-auth-dot">{{ icon(name=step[0]) }}</span><div><b>{{ t(key=step[1] ~ "-title", lang="id") }}</b><p>{{ t(key=step[1] ~ "-body", lang="id") }}</p></div></div>
+      {%- endfor %}
+    </div>
+    <p class="app-auth-note">{{ t(key="auth-flow-note", lang="id") }}</p>
+  </aside>
+  <main class="app-auth-side">
+    <div class="app-auth-col">
+      <a href="/" class="app-brandmark"><span>{{ icon(name="robot") }}</span>{{ t(key="app-name", lang="id") }}</a>
+      <header class="app-auth-title">
+        <h1>{% block heading %}{% endblock heading %}</h1>
+        <p>{%- block description %}{% endblock description -%}</p>
+      </header>
+      {%- if flash is defined and flash %}
+      {{ <flash kind={flash.kind} message={t(key=flash.key, lang="id")}/> }}
+      {%- endif %}
+      {% block card %}{% endblock card %}
+      <div class="app-auth-below">{% block below %}{% endblock below %}</div>
+    </div>
+  </main>
+</div>
+{% endblock body %}

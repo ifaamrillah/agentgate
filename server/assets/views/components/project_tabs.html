@@ -1,0 +1,57 @@
+{#- Tab tampilan project di pbar (aturan UX 9): tab yang disematkan user (urutan user), menu
+    "Lainnya" untuk sisanya, dan dialog "Atur tab" (sakelar sematkan + naik/turun,
+    static/js/view-tabs.js) yang menyimpan preferensi per user lewat POST. Tampilan yang menunggu
+    milestone-nya tampil redup dengan tanda "segera".
+    Parameter:
+      views: map                views::nav::ProjectViews (pinned, more, all, pinned_keys)
+      action: string            POST simpan preferensi (field view[] + order[] + return_to)
+      return_to: string         path halaman ini
+      mobile: bool              versi baris pil untuk layar kecil (block mtabs) (default false) -#}
+{% component project_tabs(views: map, action: string, return_to: string, mobile: bool = false) %}
+{%- if mobile %}
+<nav class="app-mtabs" aria-label="{{ t(key="project-views", lang="id") }}">
+  {%- for v in views.all %}{% if v.href %}<a href="{{ v.href }}"{% if v.current %} aria-current="page"{% endif %}>{{ t(key=v.label_key, lang="id") }}</a>{% endif %}{% endfor %}
+</nav>
+{%- else %}
+<nav class="app-vtabs" aria-label="{{ t(key="project-views", lang="id") }}" data-tabs="project-views">
+  {%- for v in views.pinned %}
+  <a class="app-vtab"{% if v.href %} href="{{ v.href }}"{% else %} aria-disabled="true" title="{{ t(key="nav-soon", lang="id") }}"{% endif %} data-nav="{{ v.key }}"{% if v.current %} aria-current="page"{% endif %}>{{ icon(name=v.icon) }}{{ t(key=v.label_key, lang="id") }}</a>
+  {%- endfor %}
+  <div class="dropdown-menu" id="views-more">
+    <button type="button" class="app-vtab" id="views-more-trigger" aria-haspopup="menu" aria-controls="views-more-menu" aria-expanded="false">{{ t(key="project-views-more", lang="id") }}{{ icon(name="chevron-down") }}</button>
+    <div id="views-more-popover" data-popover aria-hidden="true">
+      <div role="menu" id="views-more-menu" aria-labelledby="views-more-trigger">
+        {%- for v in views.more %}
+        {%- if v.href %}<a role="menuitem" href="{{ v.href }}">{{ icon(name=v.icon) }}{{ t(key=v.label_key, lang="id") }}</a>
+        {%- else %}<div role="menuitem" aria-disabled="true">{{ icon(name=v.icon) }}{{ t(key=v.label_key, lang="id") }}<span data-tail>{{ t(key="nav-soon", lang="id") }}</span></div>{% endif %}
+        {%- endfor %}
+        {%- if views.more %}<hr role="separator">{% endif %}
+        <button type="button" role="menuitem" data-dialog-open="views-dialog">{{ icon(name="adjustments-horizontal") }}{{ t(key="project-views-manage", lang="id") }}</button>
+      </div>
+    </div>
+  </div>
+</nav>
+{% <dialog id="views-dialog" title={t(key="project-views-manage", lang="id")} description={t(key="project-views-manage-hint", lang="id")} icon="adjustments-horizontal"> %}
+<form method="post" action="{{ action }}" data-view-form>
+  <input type="hidden" name="return_to" value="{{ return_to }}">
+  <section>
+    <ul class="app-viewlist">
+      {%- for v in views.all %}
+      <li data-view-row>
+        <input type="hidden" name="order" value="{{ v.key }}">
+        {{ icon(name=v.icon) }}<span class="app-viewlist-name">{{ t(key=v.label_key, lang="id") }}{% if not v.href %} <span class="app-hint">· {{ t(key="nav-soon", lang="id") }}</span>{% endif %}</span>
+        <button type="button" class="btn" data-variant="ghost" data-size="icon-sm" data-view-move="up" aria-label="{{ t(key="project-views-up", lang="id") }}">{{ icon(name="arrow-up") }}</button>
+        <button type="button" class="btn" data-variant="ghost" data-size="icon-sm" data-view-move="down" aria-label="{{ t(key="project-views-down", lang="id") }}">{{ icon(name="arrow-down") }}</button>
+        <input type="checkbox" class="app-switch" role="switch" name="view" value="{{ v.key }}" aria-label="{{ t(key="project-views-pin", lang="id") }}: {{ t(key=v.label_key, lang="id") }}"{% if v.key in views.pinned_keys %} checked{% endif %}>
+      </li>
+      {%- endfor %}
+    </ul>
+  </section>
+  <footer>
+    <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+    <button type="submit" class="btn">{{ t(key="action-save", lang="id") }}</button>
+  </footer>
+</form>
+{% </dialog> %}
+{%- endif %}
+{%- endcomponent project_tabs %}

@@ -8,7 +8,7 @@ use super::{
     flash::Flash,
     form::{FieldErrors, field_errors},
     layout::{AppShell, app_page},
-    members::OptionView,
+    ui::ComboOption,
 };
 use crate::models::{teams, users};
 
@@ -48,15 +48,22 @@ impl TeamFormView {
 pub struct TeamLink {
     pub name: String,
     pub href: String,
+    pub members: u64,
+    pub initials: String,
+    pub color: &'static str,
 }
 
 impl TeamLink {
     /// `base` = path daftar tim (`/w/{slug}/settings/teams`).
     #[must_use]
-    pub fn new(team: &teams::Model, base: &str) -> Self {
+    pub fn new(team: &teams::Model, base: &str, members: u64) -> Self {
+        let id = team.id.to_string();
         Self {
             name: team.name.clone(),
-            href: format!("{base}/{}", team.id),
+            href: format!("{base}/{id}"),
+            members,
+            initials: super::palette::initials(&team.name, &id),
+            color: super::palette::color_for(&id),
         }
     }
 }
@@ -86,6 +93,8 @@ pub struct TeamMemberRow {
     pub user_id: String,
     pub name: String,
     pub email: String,
+    pub initials: String,
+    pub color: &'static str,
 }
 
 impl TeamMemberRow {
@@ -95,6 +104,8 @@ impl TeamMemberRow {
             user_id: user.id.to_string(),
             name: user.name.clone(),
             email: user.email.clone(),
+            initials: super::layout::initials(&user.name, &user.email),
+            color: super::palette::color_for(&user.email),
         }
     }
 }
@@ -105,7 +116,9 @@ pub struct TeamPage {
     pub title: String,
     pub form: TeamFormView,
     pub members: Vec<TeamMemberRow>,
-    pub candidates: Vec<OptionView>,
+    pub candidates: Vec<ComboOption>,
+    /// Pencarian opsi orang di server (`GET /w/{slug}/people?not_in_team=`).
+    pub people_src: String,
     pub action: String,
     pub delete_action: String,
     pub add_action: String,
@@ -122,7 +135,8 @@ impl TeamPage {
         base: &str,
         form: TeamFormView,
         members: Vec<TeamMemberRow>,
-        candidates: Vec<OptionView>,
+        candidates: Vec<ComboOption>,
+        people_src: String,
         flash: Option<Flash>,
     ) -> Self {
         let action = format!("{base}/{}", team.id);
@@ -131,6 +145,7 @@ impl TeamPage {
             form,
             members,
             candidates,
+            people_src,
             delete_action: format!("{action}/delete"),
             add_action: format!("{action}/members"),
             remove_action: format!("{action}/members/remove"),

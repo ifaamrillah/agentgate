@@ -3,17 +3,12 @@
 {% extends "layouts/public.html" %}
 {% block title %}{{ t(key=key ~ "-title", lang="id") }}{% endblock title %}
 {% block content %}
-<section class="card" role="alert">
-  <header>
-    <p class="text-sm text-muted-foreground">{{ status }}</p>
-    <h1 class="text-xl font-semibold">{{ t(key=key ~ "-title", lang="id") }}</h1>
-  </header>
-  <section>
-    <p>{{ t(key=key ~ "-body", lang="id") }}</p>
-    {% if request_id %}<p class="mt-4 text-xs text-muted-foreground">{{ t(key="error-code", lang="id") }}: <code>{{ request_id }}</code></p>{% endif %}
-  </section>
-  <footer>
-    <a href="/" class="btn" data-variant="outline">{{ icon(name="arrow-left", class="size-4") }}{{ t(key="error-back-home", lang="id") }}</a>
-  </footer>
+<section class="app-card" role="alert" data-error-page="{{ status }}">
+  {%- set error_icon = "alert-triangle" -%}
+  {%- if status == 404 %}{% set error_icon = "map-2" %}{% elif status == 403 %}{% set error_icon = "lock" %}{% elif status == 429 or status == 503 %}{% set error_icon = "hourglass" %}{% endif -%}
+  {% <empty_state title={t(key=key ~ "-title", lang="id")} description={t(key=key ~ "-body", lang="id")} icon={error_icon} variant="plain"> %}
+    <p class="app-hint">{{ t(key="error-status", lang="id", status=status) }}{% if request_id %} · {{ t(key="error-code", lang="id") }}: <code class="app-code">{{ request_id }}</code>{% endif %}</p>
+    {{ <button label={t(key="error-back-home", lang="id")} href="/" variant="outline" icon="arrow-left"/> }}
+  {% </empty_state> %}
 </section>
 {% endblock content %}

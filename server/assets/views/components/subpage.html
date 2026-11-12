@@ -1,0 +1,28 @@
+{#- Halaman dengan menu tab vertikal varian E (aturan UX 1 dan 4): kepala (judul + deskripsi),
+    menu kiri (tautan ke sub-halaman server) dan isi dalam SATU panel. Isi biasanya satu atau
+    lebih `card` (menyatu dengan panel). Dipanggil sebagai blok:
+      {% <subpage title="Umum" description="…" items={subnav}> %}{% <card …> %}…{% </card> %}{% </subpage> %}
+    Parameter:
+      title, description: string  (sudah diterjemahkan)
+      items: array              [views::nav::NavItem] (label_key, icon, href, current, desc_key,
+                                count, alert); item tanpa href tampil redup "segera"
+      label: string             aria-label menu (default "" = title) -#}
+{% component subpage(title: string, items: array, description: string = "", label: string = "") %}
+<div class="app-sp" data-subpage>
+  <div class="app-sp-head">
+    <h1>{{ title }}</h1>
+    {%- if description %}<p>{{ description }}</p>{% endif %}
+  </div>
+  <nav class="app-sp-nav" aria-label="{% if label %}{{ label }}{% else %}{{ title }}{% endif %}" data-subnav>
+    {%- for item in items %}
+    <a class="app-sp-i"{% if item.href %} href="{{ item.href }}"{% else %} aria-disabled="true"{% endif %} data-nav="{{ item.key }}"{% if item.current %} aria-current="page"{% endif %}>
+      {{- icon(name=item.icon) -}}
+      <span class="app-sp-t"><span>{{ t(key=item.label_key, lang="id") }}</span>
+        {%- if item.desc_key %}<small>{{ t(key=item.desc_key, lang="id") }}</small>{% elif item.soon %}<small>{{ t(key="nav-soon", lang="id") }}</small>{% endif %}</span>
+      {%- if item.count is not none %}<span class="app-count"{% if item.alert %} data-tone="alert"{% endif %}>{{ item.count }}</span>{% endif %}
+    </a>
+    {%- endfor %}
+  </nav>
+  <div class="app-sp-body">{% if body is defined %}{{ body }}{% endif %}</div>
+</div>
+{%- endcomponent subpage %}

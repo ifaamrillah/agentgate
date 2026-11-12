@@ -15,7 +15,9 @@ use crate::{
     services::workspaces::create::{self, NewWorkspace},
     views::{
         self,
-        workspaces::{HomeStats, WorkspaceFormView},
+        time::wib_long_date,
+        ui::Stat,
+        workspaces::{HomePage, WorkspaceFormView},
     },
 };
 
@@ -84,21 +86,53 @@ pub(super) async fn show(
     ViewEngine(v): ViewEngine<TeraView>,
     tenant: Tenant,
 ) -> Result<Response> {
-    let shell = app_shell(&ctx, &tenant.user, Some(&tenant), None).await?;
+    let shell = app_shell(&ctx, &tenant.user, Some(&tenant), None)
+        .await?
+        .at("home");
     let create = CreateProjects::allows(&tenant.role)
         .then(|| crate::controllers::projects::new_project_path(&tenant.workspace.slug));
     let archived = shell.projects.iter().filter(|p| p.archived).count();
-    let stats = HomeStats {
-        active_projects: shell.projects.len() - archived,
-        archived_projects: archived,
-        members: workspace_members::Model::count_in(&ctx.db, tenant.workspace_id()).await?,
-        teams: teams::Model::count_in(&ctx.db, tenant.workspace_id()).await?,
+    let links = shell.settings.clone().unwrap_or_default();
+    let members = workspace_members::Model::count_in(&ctx.db, tenant.workspace_id()).await?;
+    let teams = teams::Model::count_in(&ctx.db, tenant.workspace_id()).await?;
+    let link = |stat: Stat, href: Option<&String>| match href {
+        Some(href) => stat.link(href.clone()),
+        None => stat,
     };
+    let stats = vec![
+        Stat::new(
+            "workspace-stat-projects",
+            shell.projects.len() - archived,
+            "folder",
+        )
+        .tone("accent"),
+        Stat::new("workspace-stat-archived", archived, "archive"),
+        link(
+            Stat::new("workspace-stat-members", members, "users"),
+            links.members.as_ref(),
+        ),
+        link(
+            Stat::new("workspace-stat-teams", teams, "users-group"),
+            links.teams.as_ref(),
+        ),
+    ];
+    let first_name = tenant
+        .user
+        .name
+        .split_whitespace()
+        .next()
+        .unwrap_or_default()
+        .to_string();
     views::workspaces::home(
         &v,
         &shell,
-        &tenant.workspace.name,
-        create.as_deref(),
-        &stats,
+        &HomePage {
+            workspace_name: &tenant.workspace.name,
+            first_name,
+            today: wib_long_date(&chrono::Utc::now()),
+            create_href: create.as_deref(),
+            stats,
+            audit_href: links.audit.as_deref(),
+        },
     )
 }

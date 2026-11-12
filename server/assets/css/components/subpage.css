@@ -1,0 +1,43 @@
+/* Halaman dengan menu tab vertikal, varian E "satu panel menyatu": menu (latar abu, item rapat)
+   + isi dalam SATU kartu, dari judul sampai Batal/Simpan (aturan UX 4). Item menu adalah tautan
+   ke sub-halaman (rute server). Di bawah 900px menu menjadi baris geser. */
+@layer components {
+  .app-sp {
+    display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 0; align-items: start; border: 1px solid var(--ag-line);
+    border-radius: 12px; background: var(--ag-raised); overflow: hidden; box-shadow: var(--ag-shadow-xs); min-width: 0;
+  }
+  .app-sp-head { grid-column: 1 / -1; padding: 16px 20px; border-bottom: 1px solid var(--ag-line); }
+  .app-sp-head h1 { font-size: 20px; letter-spacing: -0.015em; }
+  .app-sp-head p { margin-top: 4px; color: var(--ag-muted); max-width: 66ch; }
+  .app-sp-nav {
+    display: grid; gap: 2px; align-content: start; grid-auto-rows: max-content; background: var(--ag-muted-bg);
+    border-right: 1px solid var(--ag-line); padding: 12px 8px; align-self: stretch;
+  }
+  .app-sp-g { font-size: 12px; color: var(--ag-muted); font-weight: 500; padding: 12px 10px 4px; }
+  .app-sp-g:first-child { padding-top: 0; }
+  .app-sp-i { display: flex; align-items: flex-start; gap: 10px; padding: 7px 10px; border-radius: 7px; color: var(--ag-fg2); min-width: 0; border: 1px solid transparent; }
+  .app-sp-i:hover { background: var(--ag-hover); color: var(--ag-fg); }
+  .app-sp-i > svg { width: 16px; height: 16px; color: var(--ag-faint); flex-shrink: 0; margin-top: 1px; }
+  .app-sp-t { display: grid; flex: 1; min-width: 0; }
+  .app-sp-t small { color: var(--ag-muted); font-size: 12px; font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .app-sp-i[aria-current] { background: var(--ag-raised); border-color: var(--ag-line); box-shadow: var(--ag-shadow-sm); color: var(--ag-fg); font-weight: 500; }
+  .app-sp-i[aria-current] > svg { color: var(--ag-accent-fg); }
+  .app-sp-i[aria-disabled='true'] { color: var(--ag-faint); cursor: default; }
+  .app-sp-body { min-width: 0; display: grid; gap: 0; align-self: stretch; container-type: inline-size; }
+  /* Kartu di dalam subpage menyatu dengan panel. */
+  .app-sp-body > .app-card { border: 0; border-radius: 0; background: none; box-shadow: none; }
+  .app-sp-body > .app-card + .app-card { border-top: 1px solid var(--ag-line); }
+  .app-sp-body > .app-card > .app-card-f > .app-savebar { border-radius: 0; }
+  .app-sp-body > .app-card:last-child > .app-card-f > .app-savebar { border-radius: 0 0 11px 0; }
+  .app-sp-body > .alert { margin: 16px 16px 0; }
+  @media (max-width: 899px) {
+    .app-sp { grid-template-columns: 1fr; }
+    .app-sp-nav { display: flex; overflow-x: auto; gap: 4px; border-right: 0; border-bottom: 1px solid var(--ag-line); padding: 8px; scrollbar-width: none; }
+    .app-sp-g { display: none; }
+    .app-sp-i { flex-shrink: 0; white-space: nowrap; padding: 6px 10px; align-items: center; }
+    .app-sp-i > svg { margin-top: 0; }
+    .app-sp-i[aria-current] { background: var(--ag-active); box-shadow: none; border-color: transparent; }
+    .app-sp-t small { display: none; }
+    .app-sp-body > .app-card:last-child > .app-card-f > .app-savebar { border-radius: 0 0 11px 11px; }
+  }
+}

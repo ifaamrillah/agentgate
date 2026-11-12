@@ -5,6 +5,7 @@ mod home;
 mod invitations;
 mod job_titles;
 mod members;
+mod members_table;
 mod require_2fa;
 mod roles;
 mod settings;

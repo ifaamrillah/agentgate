@@ -1,0 +1,42 @@
+/* Override `.btn` Basecoat menjadi tombol prototype: 30px, border tipis, bayangan halus.
+   Varian (data-variant): primary (aksen), outline/secondary (netral, default prototype),
+   ghost, destructive (teks merah di permukaan netral), danger (merah penuh), link.
+   Ukuran (data-size): default 30px, sm 26px, lg 36px, icon/icon-sm persegi. */
+@layer components {
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex-shrink: 0;
+    border-radius: 6px; border: 1px solid var(--ag-line2); background: var(--ag-raised); color: var(--ag-fg2);
+    font-weight: 500; font-size: 13px; white-space: nowrap; box-shadow: var(--ag-shadow-sm);
+    transition: background 0.12s, color 0.12s, border-color 0.12s; cursor: pointer;
+  }
+  .btn svg { width: 15px; height: 15px; }
+  .btn:not([data-size]), .btn[data-size='default'] { height: 30px; padding: 0 11px; }
+  .btn[data-size='sm'] { height: 26px; padding: 0 8px; font-size: 12.5px; gap: 5px; }
+  .btn[data-size='lg'] { height: 36px; padding: 0 14px; }
+  .btn[data-size='icon'] { width: 30px; height: 30px; padding: 0; }
+  .btn[data-size='icon-sm'] { width: 26px; height: 26px; padding: 0; }
+  .btn[data-full] { width: 100%; height: 36px; }
+
+  .btn:not([data-variant]), .btn[data-variant='primary'] {
+    background: var(--ag-accent); border-color: var(--ag-accent); color: var(--ag-on-accent);
+  }
+  .btn:not([data-variant]):hover, .btn[data-variant='primary']:hover { background: var(--ag-accent-hover); border-color: var(--ag-accent-hover); }
+  .btn[data-variant='outline'], .btn[data-variant='secondary'] { background: var(--ag-raised); border-color: var(--ag-line2); color: var(--ag-fg2); }
+  .btn[data-variant='outline']:hover, .btn[data-variant='secondary']:hover,
+  .btn[data-variant='outline'][aria-expanded='true'] { background: var(--ag-hover); color: var(--ag-fg); }
+  .btn[data-variant='ghost'] { border-color: transparent; box-shadow: none; background: none; color: var(--ag-fg2); }
+  .btn[data-variant='ghost']:hover, .btn[data-variant='ghost'][aria-expanded='true'] { background: var(--ag-hover); color: var(--ag-fg); }
+  .btn[data-variant='destructive'] { background: var(--ag-raised); border-color: var(--ag-line2); color: var(--ag-danger); }
+  .btn[data-variant='destructive']:hover { background: var(--ag-danger-soft); }
+  .btn[data-variant='danger'] { background: var(--ag-danger); border-color: var(--ag-danger); color: #fff; }
+  .btn[data-variant='danger']:hover { filter: brightness(0.94); }
+  .btn[data-variant='link'] { border: 0; box-shadow: none; background: none; padding: 0; height: auto; color: var(--ag-accent-fg); }
+  .btn[data-variant='link']:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .btn:is([disabled], [aria-disabled='true']) { opacity: 0.5; pointer-events: none; }
+  .btn:active:not([aria-haspopup]) { translate: 0 1px; }
+
+  @media (max-width: 899px) {
+    .btn:not([data-size]), .btn[data-size='default'] { min-height: 36px; }
+    .btn[data-size='icon'] { width: 36px; height: 36px; }
+  }
+}

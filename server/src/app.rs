@@ -89,6 +89,15 @@ impl Hooks for App {
         )
     }
 
+    /// Tes memakai storage in-memory (rules §8): cepat dan tidak meninggalkan file.
+    async fn after_context(ctx: AppContext) -> Result<AppContext> {
+        if ctx.environment == Environment::Test {
+            let storage = loco_rs::storage::Storage::single(loco_rs::storage::drivers::mem::new());
+            return Ok(ctx.into_builder().storage(storage.into()).build());
+        }
+        Ok(ctx)
+    }
+
     async fn boot(
         mode: StartMode,
         environment: &Environment,
@@ -288,6 +297,7 @@ where
             key: key.to_string(),
             name: name.to_string(),
             description: "Aplikasi kasir untuk toko retail.".to_string(),
+            color: "#0d9488".to_string(),
             created_by: Some(owner.id),
         },
     )

@@ -2,6 +2,7 @@
 pub mod account;
 pub mod audit;
 pub mod auth;
+pub mod datatable;
 pub mod dev;
 pub mod errors;
 pub mod flash;
@@ -10,10 +11,13 @@ pub mod invitations;
 pub mod job_titles;
 pub mod layout;
 pub mod members;
+pub mod nav;
+pub mod palette;
 pub mod projects;
 pub mod roles;
 pub mod teams;
 pub mod time;
+pub mod ui;
 pub mod workspaces;
 
 /// Header untuk halaman yang membawa token di URL (reset, verifikasi, undangan, login dengan

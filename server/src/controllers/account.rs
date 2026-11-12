@@ -1,5 +1,6 @@
 //! Halaman akun user yang login: `GET /account` (profil), `POST /account/profile` (nama),
-//! `GET|POST /account/password` (ganti password, rules §7). Pengaturan 2FA (`/account/2fa`)
+//! `GET|POST /account/password` (ganti password, rules §7), `POST /account/project-views`
+//! (tab tampilan project yang disematkan). Pengaturan 2FA (`/account/2fa`)
 //! ada di `auth::two_factor`.
 use axum::http::StatusCode;
 use loco_rs::{prelude::*, validation::ModelValidationErrors};
@@ -19,7 +20,7 @@ use crate::{
         password_change::{self, Changed},
         sign_in,
     },
-    views::{self, account::AccountPage, flash::Flash},
+    views::{self, account::AccountPage, flash::Flash, nav},
 };
 
 const ACCOUNT: &str = "/account";
@@ -142,10 +143,44 @@ pub(crate) fn too_many_attempts() -> ModelValidationErrors {
     errors.into()
 }
 
+/// Simpan tab tampilan project yang disematkan (dialog "Atur tab" komponen `project_tabs`):
+/// field `view` berulang = disematkan, `order` berulang = urutan dialog, `return_to` = halaman
+/// asal (path internal saja; selain itu kembali ke `/`). Kunci tak dikenal diabaikan; tanpa satu
+/// pun tab disematkan → tidak disimpan, kembali dengan pesan.
+#[debug_handler]
+async fn save_project_views(
+    State(ctx): State<AppContext>,
+    CurrentUser(user): CurrentUser,
+    session: Session,
+    ValidForm(fields): ValidForm<Vec<(String, String)>>,
+) -> Result<Response> {
+    let values = |name: &'static str| {
+        fields
+            .iter()
+            .filter(move |(k, _)| k == name)
+            .map(|(_, v)| v.as_str())
+    };
+    let pinned: Vec<&str> = values("view").collect();
+    let order = values("order").chain(pinned.iter().copied());
+    let views = nav::known_views(order.filter(|key| pinned.contains(key)));
+    let back = values("return_to")
+        .next()
+        .and_then(sign_in::safe_return_to)
+        .unwrap_or_else(|| "/".to_string());
+    if views.is_empty() {
+        let session = flash::set(session, &Flash::error(views::account::FLASH_VIEWS_NONE))?;
+        return Ok((session, format::redirect(&back)?).into_response());
+    }
+    user.set_project_views(&ctx.db, views).await?;
+    let session = flash::set(session, &Flash::success(views::account::FLASH_VIEWS_SAVED))?;
+    Ok((session, format::redirect(&back)?).into_response())
+}
+
 pub fn routes() -> Routes {
     Routes::new()
         .prefix(ACCOUNT)
         .add("/", get(show))
         .add("/profile", post(update_profile))
         .add("/password", get(show_password).post(change_password))
+        .add("/project-views", post(save_project_views))
 }

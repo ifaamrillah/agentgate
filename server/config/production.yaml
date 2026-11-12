@@ -141,6 +141,12 @@ auth:
       # <% endif %>
     # <% endif %>
 
+# File upload (logo project). Sementara disk lokal di volume STORAGE_DIR; pindah ke S3
+# (feature storage_aws_s3, bucket per environment) tercatat sebagai utang teknis di PROGRESS.
+storage:
+  kind: Local
+  path: <%= get_env(name="STORAGE_DIR") %>
+
 settings:
   app_name: Agent Gate
   # Basis link di email (verifikasi, reset, undangan), tanpa `/` di akhir.

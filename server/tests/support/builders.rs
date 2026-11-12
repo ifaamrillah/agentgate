@@ -224,6 +224,7 @@ pub async fn a_project(
             key: key.to_string(),
             name: format!("Project {key}"),
             description: String::new(),
+            color: String::new(),
             created_by: None,
         },
     )

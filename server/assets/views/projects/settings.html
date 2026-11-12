@@ -1,43 +1,48 @@
-{#- Pengaturan project → Umum (Admin project). Variabel: project (ProjectSummary), paths
-    (ProjectPaths), form (ProjectFormView: name, description, errors), tab ("general"), flash
-    (dirender layout). -#}
-{% extends "layouts/project_settings.html" %}
+{#- Pengaturan project → Umum (Admin project; prototype "Project · Umum"): logo (unggah/hapus),
+    profil (nama, key, deskripsi, warna) dengan savebar, arsip.
+    Variabel: project (ProjectSummary: initials, color, logo_href, archived, …), paths
+    (ProjectPaths: settings, archive, logo_upload, logo_delete), form (ProjectFormView: name,
+    description, color, errors), logo_error (kode error unggah, "" = tanpa), flash (layout). -#}
+{% extends "layouts/settings.html" %}
 {% block title %}{{ t(key="project-settings-title", lang="id") }}{% endblock title %}
-{% block project_settings_content %}
-<section class="card" data-project-settings>
-  <header class="border-b">
-    <h2>{{ t(key="project-settings-general", lang="id") }}</h2>
-    <p>{{ t(key="project-settings-general-description", lang="id") }}</p>
-  </header>
-  <section>
-    <form method="post" action="{{ paths.settings }}" class="form">
-      <div class="ag-setting-row">
-        <header><h3>{{ t(key="project-name", lang="id") }}</h3><p>{{ t(key="project-name-hint", lang="id") }}</p></header>
-        {{ <field id="project-name" name="name" label={t(key="project-name", lang="id")} value={form.name} error={form.errors.name.code} error_min={form.errors.name.min} error_max={form.errors.name.max} required={true} hide_label={true} class="max-w-md"/> }}
-      </div>
-      <div class="ag-setting-row">
-        <header><h3>{{ t(key="project-key", lang="id") }}</h3><p>{{ t(key="project-key-locked", lang="id") }}</p></header>
-        <div><span class="inline-flex h-9 items-center rounded-md bg-ag-tint px-3 font-mono text-sm font-semibold text-ag-indigo">{{ project.key }}</span></div>
-      </div>
-      <div class="ag-setting-row">
-        <header><h3>{{ t(key="project-description", lang="id") }}</h3><p>{{ t(key="project-description-hint", lang="id") }}</p></header>
-        <div class="max-w-xl">{% set hide_label = true %}{% include "projects/_description_field.html" %}</div>
-      </div>
-      <div class="flex justify-end border-t border-border pt-5">{{ <button label={t(key="project-save", lang="id")} type="submit"/> }}</div>
-    </form>
-  </section>
-</section>
+{% block crumb_label %}{{ t(key="project-settings-general", lang="id") }}{% endblock crumb_label %}
+{% block page_attrs %}data-project-settings-page{% endblock page_attrs %}
+{% block settings %}
+<header class="app-page-head">
+  <div class="app-page-title"><h1>{{ t(key="project-settings-general", lang="id") }}</h1><p>{{ t(key="project-settings-general-description", lang="id") }}</p></div>
+</header>
+<div data-project-logo>
+{% <card title={t(key="project-logo-title", lang="id")} description={t(key="project-logo-description", lang="id")}> %}
+  {{ <uploader action={paths.logo_upload} remove_action={paths.logo_delete} image={project.logo_href} initials={project.initials} color={project.color} title={project.logo_href and t(key="project-logo-current", lang="id") or t(key="project-logo-none", lang="id")} hint={t(key="project-logo-hint", lang="id")} upload_label={project.logo_href and t(key="project-logo-replace", lang="id") or t(key="project-logo-upload", lang="id")} error={logo_error}/> }}
+{% </card> %}
+</div>
+<div data-project-settings>
+{% <card title={t(key="project-profile-title", lang="id")} description={t(key="project-profile-description", lang="id")} flush={true} form={paths.settings} save_label={t(key="action-save-changes", lang="id")} cancel_href={paths.settings}> %}
+  {% <setting_row title={t(key="project-name", lang="id")} description={t(key="project-name-hint", lang="id")} wide={true}> %}
+    {{ <field id="project-name" name="name" label={t(key="project-name", lang="id")} value={form.name} error={form.errors.name.code} error_min={form.errors.name.min} error_max={form.errors.name.max} required={true} hide_label={true}/> }}
+  {% </setting_row> %}
+  {% <setting_row title={t(key="project-key", lang="id")} description={t(key="project-key-locked", lang="id")} wide={true}> %}
+    <span class="app-input" data-readonly>{{ icon(name="lock") }}<span class="app-code">{{ project.key }}</span></span>
+  {% </setting_row> %}
+  {% <setting_row title={t(key="project-description", lang="id")} description={t(key="project-description-hint", lang="id")} wide={true} top={true}> %}
+    {{ <textarea_field id="project-description" name="description" label={t(key="project-description", lang="id")} value={form.description} error={form.errors.description.code} error_max={form.errors.description.max} hide_label={true}/> }}
+  {% </setting_row> %}
+  {% <setting_row title={t(key="project-color", lang="id")} description={t(key="project-color-hint", lang="id")} wide={true} top={true}> %}
+    {{ <color_picker id="project-color" name="color" label={t(key="project-color", lang="id")} value={form.color or project.color} error={form.errors.color.code}/> }}
+  {% </setting_row> %}
+{% </card> %}
+</div>
 {%- if not project.archived %}
-<section class="card ag-card-danger" data-project-archive>
-  <section>
-    <form method="post" action="{{ paths.archive }}" hx-confirm="{{ t(key="project-archive-confirm", lang="id") }}" class="flex flex-wrap items-center gap-4">
-      <div class="grid min-w-60 flex-1 gap-1">
-        <h2 class="font-semibold">{{ t(key="project-archive-title", lang="id") }}</h2>
-        <p class="text-sm text-muted-foreground">{{ t(key="project-archive-description", lang="id") }}</p>
-      </div>
-      {{ <button label={t(key="project-archive", lang="id")} variant="destructive" type="submit" icon="archive"/> }}
+<div data-project-archive>
+{% <card title={t(key="project-archive-title", lang="id")} description={t(key="project-archive-description", lang="id")} variant="danger" flush={true}> %}
+  {% <setting_row title={t(key="project-archive", lang="id")} description={t(key="project-archive-row-description", lang="id")}> %}
+    <form method="post" action="{{ paths.archive }}" hx-confirm="{{ t(key="project-archive-confirm", lang="id") }}">
+      {{ <button label={t(key="project-archive", lang="id")} variant="danger" type="submit" icon="archive"/> }}
     </form>
-  </section>
-</section>
+  {% </setting_row> %}
+{% </card> %}
+</div>
+{%- else %}
+<div data-project-archived>{{ <flash kind="neutral" message={t(key="project-archived-notice", lang="id")}/> }}</div>
 {%- endif %}
-{% endblock project_settings_content %}
+{% endblock settings %}

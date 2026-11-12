@@ -1,14 +1,42 @@
-/* Avatar: kotak membulat (6px), inisial di atas indigo muda. */
+/* Avatar orang (bulat), logo project/workspace (persegi membulat), tile ikon, titik warna.
+   Warna latar lewat custom property `--c` di atribut style (dihitung server dari palet 18 warna). */
 @layer components {
-  .avatar,
-  .avatar > span:not(.avatar-badge),
-  .avatar > img {
-    border-radius: 6px;
+  .app-av {
+    --s: 22px; width: var(--s); height: var(--s); border-radius: 50%; background: var(--c, #64748b); color: #fff;
+    display: inline-flex; align-items: center; justify-content: center; font-weight: 600; font-size: calc(var(--s) * 0.4);
+    flex-shrink: 0; letter-spacing: 0.01em; overflow: hidden; line-height: 1;
   }
+  .app-av[data-size='sm'] { --s: 20px; } .app-av[data-size='md'] { --s: 28px; } .app-av[data-size='lg'] { --s: 36px; }
+  .app-av[data-size='xl'] { --s: 64px; }
+  .app-av > img { width: 100%; height: 100%; object-fit: cover; }
+  .app-stack { display: inline-flex; }
+  .app-stack > .app-av { box-shadow: 0 0 0 2px var(--ag-raised); margin-left: -5px; }
+  .app-stack > .app-av:first-child { margin-left: 0; }
 
-  .avatar > span:not(.avatar-badge) {
-    background: var(--ag-indigo-100);
-    color: var(--ag-indigo-700);
-    font-weight: 600;
+  /* Logo project/workspace: gambar atau inisial di atas warna project. */
+  .app-logo {
+    --s: 28px; width: var(--s); height: var(--s); border-radius: calc(var(--s) * 0.25); background: var(--c, var(--ag-accent));
+    color: #fff; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; font-size: calc(var(--s) * 0.38);
+    flex-shrink: 0; overflow: hidden; letter-spacing: -0.01em; line-height: 1;
   }
+  .app-logo[data-size='xs'] { --s: 18px; } .app-logo[data-size='sm'] { --s: 22px; } .app-logo[data-size='lg'] { --s: 40px; }
+  .app-logo[data-size='xl'] { --s: 64px; border-radius: 14px; }
+  .app-logo[data-image] { background: transparent; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.08); }
+  .app-logo > img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  .app-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; display: inline-block; background: var(--c, var(--ag-faint)); }
+
+  .app-tile { width: 28px; height: 28px; border-radius: 7px; background: var(--ag-hover); color: var(--ag-fg2); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .app-tile svg { width: 14px; height: 14px; }
+  .app-tile[data-size='lg'] { width: 36px; height: 36px; border-radius: 9px; }
+  .app-tile[data-size='lg'] svg { width: 18px; height: 18px; }
+  .app-tile[data-tone='accent'] { background: var(--ag-accent-soft); color: var(--ag-accent-fg); }
+  .app-tile[data-tone='danger'] { background: var(--ag-danger-soft); color: var(--ag-danger); }
+  .app-tile[data-tone='success'] { background: var(--ag-success-soft); color: var(--ag-success); }
+  .app-tile[data-tone='warn'] { background: var(--ag-warn-soft); color: var(--ag-warn); }
+
+  /* Logo aplikasi (topbar mobile, halaman masuk). */
+  .app-brandmark { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; }
+  .app-brandmark > span { width: 26px; height: 26px; border-radius: 7px; background: var(--ag-fg); color: var(--ag-bg); display: inline-flex; align-items: center; justify-content: center; }
+  .app-brandmark svg { width: 14px; height: 14px; }
 }

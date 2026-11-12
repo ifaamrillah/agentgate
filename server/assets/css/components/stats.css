@@ -1,0 +1,21 @@
+/* Kartu angka varian A "ringkas": label + ikon kecil, angka 24px, petunjuk. Kartu bertautan
+   menampilkan panah saat hover. Jumlah kolom lewat `--n` (inline style dari komponen). */
+@layer components {
+  .app-st { display: grid; grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); gap: 12px; min-width: 0; }
+  @media (max-width: 899px) { .app-st { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .app-st-i { display: grid; gap: 6px; padding: 14px 16px; border-radius: 10px; background: var(--ag-raised); border: 1px solid var(--ag-line); min-width: 0; box-shadow: var(--ag-shadow-xs); align-content: start; }
+  a.app-st-i:hover { border-color: var(--ag-input); box-shadow: var(--ag-shadow-sm); }
+  .app-st-h { display: flex; align-items: center; gap: 8px; color: var(--ag-muted); min-width: 0; }
+  .app-st-l { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .app-st-go { width: 14px; height: 14px; color: var(--ag-faint); opacity: 0; transition: opacity 0.15s; }
+  a.app-st-i:hover .app-st-go { opacity: 1; }
+  .app-st-v { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; display: flex; align-items: baseline; gap: 4px; color: var(--ag-fg); line-height: 1.2; }
+  .app-st-v small { font-size: 15px; font-weight: 500; color: var(--ag-faint); }
+  .app-st-hint { font-size: 12px; color: var(--ag-muted); }
+  .app-st-ic { width: 28px; height: 28px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; background: var(--ag-hover); color: var(--ag-fg2); flex-shrink: 0; }
+  .app-st-ic svg { width: 16px; height: 16px; }
+  .app-st-i[data-tone='accent'] .app-st-ic { background: var(--ag-accent-soft); color: var(--ag-accent-fg); }
+  .app-st-i[data-tone='success'] .app-st-ic { background: var(--ag-success-soft); color: var(--ag-success); }
+  .app-st-i[data-tone='warn'] .app-st-ic { background: var(--ag-warn-soft); color: var(--ag-warn); }
+  .app-st-i[data-tone='danger'] .app-st-ic { background: var(--ag-danger-soft); color: var(--ag-danger); }
+}

@@ -1,0 +1,12 @@
+{#- Identitas orang: avatar + nama + baris kedua (email/jabatan). Untuk sel tabel dan daftar.
+    Parameter:
+      name, initials: string
+      color: string             warna avatar (default "")
+      detail: string            baris kedua (default "")
+      size: default|md          avatar 22 atau 28px (default md) -#}
+{% component person(name: string, initials: string, color: string = "", detail: string = "", size: string = "md") %}
+<span class="app-who">
+  {{ <avatar initials={initials} color={color} size={size}/> }}
+  <span><b>{{ name }}</b>{% if detail %}<small>{{ detail }}</small>{% endif %}</span>
+</span>
+{%- endcomponent person %}

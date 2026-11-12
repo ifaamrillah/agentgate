@@ -6,6 +6,10 @@
 //! utuh yang sampai ke template.
 use serde::Serialize;
 
+use super::{
+    nav::{self, NavItem, SideGroup},
+    palette,
+};
 use crate::models::users;
 
 /// User yang login, seperlunya untuk menu profil.
@@ -15,6 +19,8 @@ pub struct UserView {
     pub email: String,
     /// Inisial avatar: huruf pertama dua kata pertama nama, atau huruf pertama email.
     pub initials: String,
+    /// Warna avatar dari palet (stabil per email).
+    pub color: &'static str,
 }
 
 impl UserView {
@@ -24,27 +30,13 @@ impl UserView {
             name: name.to_string(),
             email: email.to_string(),
             initials: initials(name, email),
+            color: palette::color_for(email),
         }
     }
 }
 
-fn initials(name: &str, email: &str) -> String {
-    let from_name: String = name
-        .split_whitespace()
-        .take(2)
-        .filter_map(|w| w.chars().next())
-        .flat_map(char::to_uppercase)
-        .collect();
-    if from_name.is_empty() {
-        email
-            .chars()
-            .next()
-            .into_iter()
-            .flat_map(char::to_uppercase)
-            .collect()
-    } else {
-        from_name
-    }
+pub(crate) fn initials(name: &str, email: &str) -> String {
+    palette::initials(name, email)
 }
 
 /// Satu workspace di switcher.
@@ -53,6 +45,9 @@ pub struct WorkspaceLink {
     pub name: String,
     pub slug: String,
     pub href: String,
+    /// Logo inisial workspace di atas warna palet dari slug.
+    pub initials: String,
+    pub color: &'static str,
 }
 
 impl WorkspaceLink {
@@ -62,6 +57,8 @@ impl WorkspaceLink {
             name: name.to_string(),
             slug: slug.to_string(),
             href: workspace_href(slug),
+            initials: palette::initials(name, slug),
+            color: palette::color_for(slug),
         }
     }
 }
@@ -78,6 +75,8 @@ pub struct WorkspaceView {
     pub settings_href: String,
     pub leave_href: String,
     pub deletion: Option<DeletionBanner>,
+    pub initials: String,
+    pub color: &'static str,
 }
 
 /// Banner workspace terjadwal hapus: kapan hapus permanen mulai (tanggal dan jam WIB) dan form
@@ -98,6 +97,8 @@ impl WorkspaceView {
             settings_href: format!("{}/settings", workspace_href(slug)),
             leave_href: format!("{}/leave", workspace_href(slug)),
             deletion: None,
+            initials: palette::initials(name, slug),
+            color: palette::color_for(slug),
         }
     }
 
@@ -125,18 +126,47 @@ pub struct ProjectLink {
     pub archived: bool,
     /// Deskripsi project (tabel beranda workspace); `""` = tanpa deskripsi.
     pub description: String,
+    /// Warna project (palet atau custom) untuk titik sidebar dan logo inisial.
+    pub color: String,
+    /// Inisial logo bila belum ada gambar.
+    pub initials: String,
+    /// URL gambar logo (`""` = pakai inisial di atas `color`).
+    pub logo_href: String,
+    /// Pengaturan project (`/w/{slug}/p/{key}/settings`).
+    pub settings_href: String,
 }
 
 impl ProjectLink {
     #[must_use]
     pub fn new(workspace_slug: &str, name: &str, key: &str) -> Self {
+        let href = format!("{}/p/{key}", workspace_href(workspace_slug));
         Self {
             name: name.to_string(),
             key: key.to_string(),
-            href: format!("{}/p/{key}", workspace_href(workspace_slug)),
+            settings_href: format!("{href}/settings"),
+            href,
             archived: false,
             description: String::new(),
+            color: palette::color_for(key).to_string(),
+            initials: palette::initials(name, key),
+            logo_href: String::new(),
         }
+    }
+
+    /// Warna tersimpan project (`None`/kosong = warna palet bawaan dari kunci).
+    #[must_use]
+    pub fn colored(mut self, color: Option<&str>) -> Self {
+        if let Some(c) = color.filter(|c| palette::is_hex_color(c)) {
+            self.color = c.to_string();
+        }
+        self
+    }
+
+    /// Logo terunggah (`None` = inisial).
+    #[must_use]
+    pub fn with_logo(mut self, logo_href: Option<String>) -> Self {
+        self.logo_href = logo_href.unwrap_or_default();
+        self
     }
 
     #[must_use]
@@ -166,13 +196,22 @@ pub struct AppShell {
     pub current_project: Option<ProjectLink>,
     /// Tampilkan Pengaturan workspace (butuh `current_workspace`).
     pub can_manage_workspace: bool,
+    /// Owner/Admin bawaan: Admin di semua project, jadi menu Pengaturan memuat semua project.
+    pub admin_all_projects: bool,
+    /// Tujuan tombol "+" Project di sidebar (`None` = role tidak boleh membuat project).
+    pub new_project_href: Option<String>,
     /// Menu kiri Pengaturan workspace: halaman yang boleh dibuka role (`None` bila role tidak
     /// punya izin Pengaturan atau di luar workspace). Bagian Umum = `current_workspace.settings_href`.
     pub settings: Option<SettingsLinks>,
-    /// Bagian halaman yang sedang dibuka, untuk menandai menu kiri (Pengaturan workspace, Akun):
-    /// `general`, `members`, `teams`, `job_titles`, `roles`, `audit`, `profile`, `password`,
-    /// `two_factor`; `""` = tidak ada.
+    /// Bagian halaman yang sedang dibuka (`views::nav::SETTINGS_SECTIONS` atau
+    /// `ACCOUNT_SECTIONS`); `""` = tidak ada.
     pub section: &'static str,
+    /// Kelompok bagian: `settings`, `account`, `project_settings` (sidebar berganti menjadi menu
+    /// Pengaturan), `home`, atau `""`.
+    pub area: &'static str,
+    /// Menu kiri halaman ini (Pengaturan workspace atau Akun), item `section` ditandai aktif;
+    /// kosong = halaman tanpa menu kiri.
+    pub subnav: Vec<NavItem>,
 }
 
 /// Tautan halaman Pengaturan workspace; `None` bila role tidak membuka halaman itu.
@@ -196,8 +235,12 @@ impl AppShell {
             projects: Vec::new(),
             current_project: None,
             can_manage_workspace: false,
+            admin_all_projects: false,
+            new_project_href: None,
             settings: None,
             section: "",
+            area: "",
+            subnav: Vec::new(),
         }
     }
 
@@ -237,16 +280,48 @@ impl AppShell {
     }
 
     #[must_use]
+    pub fn admin_all_projects(mut self, allowed: bool) -> Self {
+        self.admin_all_projects = allowed;
+        self
+    }
+
+    #[must_use]
+    pub fn with_new_project_href(mut self, href: Option<String>) -> Self {
+        self.new_project_href = href;
+        self
+    }
+
+    #[must_use]
     pub fn with_settings(mut self, links: Option<SettingsLinks>) -> Self {
         self.settings = links;
         self
     }
 
-    /// Tandai bagian halaman yang sedang dibuka (lihat [`AppShell::section`]).
+    /// Tandai bagian halaman yang sedang dibuka dan pasang menu kirinya: bagian Akun → menu
+    /// Akun; bagian Pengaturan (di workspace, dengan izin Pengaturan) → menu Pengaturan.
     #[must_use]
     pub fn at(mut self, section: &'static str) -> Self {
         self.section = section;
+        if nav::ACCOUNT_SECTIONS.contains(&section) {
+            self.area = "account";
+            self.subnav = nav::mark(nav::account_nav(), section);
+        } else if nav::SETTINGS_SECTIONS.contains(&section) {
+            self.area = "settings";
+            if let (Some(links), Some(ws)) = (&self.settings, &self.current_workspace) {
+                self.subnav = nav::mark(nav::settings_nav(&ws.settings_href, links), section);
+            }
+        } else if nav::PROJECT_SETTINGS_SECTIONS.contains(&section) {
+            self.area = "project_settings";
+        } else if section == "home" {
+            self.area = "home";
+        }
         self
+    }
+
+    /// Sidebar menu Pengaturan (akun, workspace, project) alih-alih menu aplikasi.
+    #[must_use]
+    pub fn in_settings(&self) -> bool {
+        matches!(self.area, "settings" | "account" | "project_settings")
     }
 }
 
@@ -255,11 +330,17 @@ impl AppShell {
 #[derive(Debug, Serialize)]
 pub struct AppPage<'a, T: Serialize> {
     pub shell: &'a AppShell,
+    /// Kelompok menu sidebar (`views::nav::side_nav`), dihitung dari `shell`.
+    pub side: Vec<SideGroup>,
     #[serde(flatten)]
     pub page: T,
 }
 
 #[must_use]
 pub fn app_page<T: Serialize>(shell: &AppShell, page: T) -> AppPage<'_, T> {
-    AppPage { shell, page }
+    AppPage {
+        shell,
+        side: nav::side_nav(shell),
+        page,
+    }
 }

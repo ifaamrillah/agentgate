@@ -1,40 +1,43 @@
 {#- Pengaturan → Role. Variabel: roles ([views::roles::RoleRow]: name, builtin,
     permission_keys (kunci Fluent label izin), edit_href dan delete_action (null untuk role
-    bawaan)), new_href (path form role baru), flash (dirender layout; penolakan role-builtin /
-    role-in-use datang lewat sini dengan status 422). -#}
+    bawaan)), new_href (form role baru), flash (layout; penolakan role-builtin / role-in-use
+    datang lewat sini dengan status 422). -#}
 {% extends "layouts/settings.html" %}
 {% block title %}{{ t(key="settings-roles-title", lang="id") }}{% endblock title %}
-{% block settings_content %}
-<div class="grid gap-6" data-roles-index>
-  {% <page_header title={t(key="settings-roles-title", lang="id")} description={t(key="settings-roles-description", lang="id")}> %}
-    <a href="{{ new_href }}" class="btn" data-variant="primary">{{ icon(name="plus", class="size-4") }}{{ t(key="role-new-title", lang="id") }}</a>
-  {% </page_header> %}
-  {% <table headers={[t(key="role-column-name", lang="id"), t(key="role-column-permissions", lang="id"), t(key="role-column-actions", lang="id")]}> %}
+{% block crumb_label %}{{ t(key="settings-roles-title", lang="id") }}{% endblock crumb_label %}
+{% block page_attrs %}data-roles-index{% endblock page_attrs %}
+{% block settings %}
+<header class="app-page-head">
+  <div class="app-page-title"><h1>{{ t(key="settings-roles-title", lang="id") }}</h1><p>{{ t(key="settings-roles-description", lang="id") }}</p></div>
+  <div class="app-page-acts">{{ <button label={t(key="role-new-title", lang="id")} href={new_href} icon="plus"/> }}</div>
+</header>
+{% <card title={t(key="settings-roles-title", lang="id")} count={roles | length ~ ""} flush={true}> %}
+  <div class="table-container">
+  <table class="table">
+    <thead><tr>
+      <th scope="col">{{ t(key="role-column-name", lang="id") }}</th>
+      <th scope="col" data-hide="md">{{ t(key="role-column-permissions", lang="id") }}</th>
+      <th scope="col"><span class="sr-only">{{ t(key="role-column-actions", lang="id") }}</span></th>
+    </tr></thead>
+    <tbody>
     {%- for role in roles %}
     <tr {% if role.builtin %}data-builtin-role{% else %}data-custom-role{% endif %}>
-      <td class="align-top">
-        <div class="flex flex-wrap items-center gap-2">
-          <span class="font-medium">{{ role.name }}</span>
-          {%- if role.builtin %}{{ <badge label={t(key="role-builtin-badge", lang="id")} variant="outline"/> }}{% endif %}
-        </div>
-      </td>
-      <td class="align-top">
-        <div class="flex flex-wrap gap-1">
-          {%- for key in role.permission_keys %}{{ <badge label={t(key=key, lang="id")}/> }}{% endfor %}
-        </div>
-      </td>
-      <td class="align-top">
+      <td><div class="app-bar"><b>{{ role.name }}</b>{% if role.builtin %}{{ <badge label={t(key="role-builtin-badge", lang="id")} variant="neutral"/> }}{% else %}{{ <badge label={t(key="role-custom-badge", lang="id")} variant="primary"/> }}{% endif %}</div></td>
+      <td data-hide="md"><span class="app-hint">{% for key in role.permission_keys %}{{ t(key=key, lang="id") }}{% if not loop.last %} · {% endif %}{% endfor %}</span></td>
+      <td data-actions>
         {%- if role.edit_href %}
-        <div class="flex flex-wrap items-center gap-2">
-          <a href="{{ role.edit_href }}" class="btn" data-variant="outline" data-size="sm">{{ t(key="role-edit", lang="id") }}</a>
+        {% <action_menu id={"role-" ~ loop.index} label={t(key="role-actions", lang="id", name=role.name)}> %}
+          <a class="app-menu-item" href="{{ role.edit_href }}">{{ icon(name="pencil") }}{{ t(key="role-edit", lang="id") }}</a>
           <form method="post" action="{{ role.delete_action }}" hx-confirm="{{ t(key="role-delete-confirm", lang="id") }}">
-            {{ <button label={t(key="role-delete", lang="id")} variant="destructive" size="sm" type="submit"/> }}
+            <button type="submit" class="app-menu-item" data-variant="destructive">{{ icon(name="trash") }}{{ t(key="role-delete", lang="id") }}</button>
           </form>
-        </div>
+        {% </action_menu> %}
         {%- endif %}
       </td>
     </tr>
     {%- endfor %}
-  {% </table> %}
-</div>
-{% endblock settings_content %}
+    </tbody>
+  </table>
+  </div>
+{% </card> %}
+{% endblock settings %}

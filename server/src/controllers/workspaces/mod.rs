@@ -10,6 +10,7 @@ mod home;
 mod invitations;
 mod job_titles;
 mod members;
+mod people;
 mod roles;
 mod settings;
 mod teams;
@@ -80,6 +81,9 @@ pub fn routes() -> Routes {
             "/w/{slug}/settings/delete/cancel",
             post(settings::cancel_deletion),
         )
+        .add("/w/{slug}/people", get(people::options))
+        .add("/w/{slug}/settings/security", get(settings::security))
+        .add("/w/{slug}/settings/danger", get(settings::danger))
         .add("/w/{slug}/settings/audit", get(audit::index))
         .add("/w/{slug}/settings/members", get(members::index))
         // Rute statis `invitations` menang atas `{id}`.

@@ -1,0 +1,23 @@
+{#- Dialog native (static/js/dialog.js). Buka dengan tombol `button dialog="<id>"`. Isi (body)
+    berupa <section> lalu <footer> (Batal + aksi), boleh dibungkus <form method="post">:
+      {% <dialog id="hapus" title="…" icon="trash" tone="danger"> %}<form …><section>…</section><footer>…</footer></form>{% </dialog> %}
+    Tombol Batal di footer: `<button type="button" class="btn" data-variant="outline" data-dialog-close>`.
+    Parameter:
+      id, title: string         (title sudah diterjemahkan)
+      description: string       (default "")
+      icon: nama ikon Tabler    tile di kiri judul (default "")
+      tone: ""|accent|danger|success|warn  warna tile (default "")
+      size: default|lg          (default default)
+      open: bool                langsung terbuka, mis. form gagal validasi (default false) -#}
+{% component dialog(id: string, title: string, description: string = "", icon: string = "", tone: string = "", size: string = "default", open: bool = false) %}
+<dialog class="dialog" id="{{ id }}" aria-labelledby="{{ id }}-title"{% if size != "default" %} data-size="{{ size }}"{% endif %}{% if open %} data-open-on-load{% endif %}>
+  <div>
+    <header>
+      {%- if icon %}<span class="app-tile" data-size="lg"{% if tone %} data-tone="{{ tone }}"{% endif %}>{{ icon(name=icon) }}</span>{% endif %}
+      <div><h2 id="{{ id }}-title">{{ title }}</h2>{% if description %}<p>{{ description }}</p>{% endif %}</div>
+      <button type="button" class="btn" data-variant="ghost" data-size="icon-sm" data-dialog-close aria-label="{{ t(key="action-close", lang="id") }}">{{ icon(name="x") }}</button>
+    </header>
+    {%- if body is defined %}{{ body }}{% endif %}
+  </div>
+</dialog>
+{%- endcomponent dialog %}

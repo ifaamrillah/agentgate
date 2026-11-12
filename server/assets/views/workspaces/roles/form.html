@@ -1,18 +1,14 @@
-{#- Form buat/ubah role custom. Variabel: form (views::roles::RoleFormView), action (path POST),
-    back_href (daftar role), title_key dan submit_key (kunci Fluent judul dan tombol: buat atau
-    ubah). -#}
+{#- Form buat/ubah role custom. Variabel: form (views::roles::RoleFormView), action (POST),
+    back_href (daftar role), title_key dan submit_key (kunci Fluent judul dan tombol). -#}
 {% extends "layouts/settings.html" %}
 {% block title %}{{ t(key=title_key, lang="id") }}{% endblock title %}
-{% block settings_content %}
-<div class="grid max-w-3xl gap-6">
-  {% <page_header title={t(key=title_key, lang="id")}> %}
-    <a href="{{ back_href }}" class="btn" data-variant="ghost">{{ t(key="role-back", lang="id") }}</a>
-  {% </page_header> %}
-  {% <card> %}
-    <form method="post" action="{{ action }}" class="form grid gap-6">
-      {% include "workspaces/roles/_form.html" %}
-      <div>{{ <button label={t(key=submit_key, lang="id")} type="submit"/> }}</div>
-    </form>
-  {% </card> %}
-</div>
-{% endblock settings_content %}
+{% block crumb %}{{ <crumb label={t(key="nav-settings", lang="id")}/> }}{{ <crumb label={t(key="settings-roles-title", lang="id")} href={back_href}/> }}{{ <crumb label={t(key=title_key, lang="id")}/> }}{% endblock crumb %}
+{% block settings %}
+<header class="app-page-head">
+  <div class="app-page-title"><h1>{{ t(key=title_key, lang="id") }}</h1><p>{{ t(key="settings-roles-description", lang="id") }}</p></div>
+  <div class="app-page-acts">{{ <button label={t(key="role-back", lang="id")} href={back_href} variant="ghost" icon="arrow-left"/> }}</div>
+</header>
+{% <card title={t(key=title_key, lang="id")} flush={true} form={action} save_label={t(key=submit_key, lang="id")} cancel_href={back_href}> %}
+  {% include "workspaces/roles/_form.html" %}
+{% </card> %}
+{% endblock settings %}

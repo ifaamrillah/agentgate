@@ -1,107 +1,147 @@
 /* Satu-satunya entry CSS: Tailwind + Basecoat (vendor, tidak pernah diedit) + token tema + components/.
-   Sistem desain: docs/reference/design-system.md. Warna/ukuran tidak pernah ditulis langsung di
-   template; semuanya lewat token di file ini. */
+   Sistem desain "Tenang" (prototype disetujui 2026-11-12): docs/reference/design-system.md dan
+   docs/reference/ui-prototype/. Warna/ukuran tidak pernah ditulis langsung di template; semuanya
+   lewat token di file ini. */
 @import "tailwindcss";
 @import "./vendor/basecoat-1.1.0/basecoat.css";
 /* CSS komponen (lapisan 3): satu file per komponen di components/; nilai dari token di bawah. */
 @import "./components/fonts.css";
-@import "./components/shell.css";
+@import "./components/base.css";
+@import "./components/btn.css";
+@import "./components/input.css";
 @import "./components/badge.css";
 @import "./components/avatar.css";
+@import "./components/alert.css";
+@import "./components/dropdown-menu.css";
+@import "./components/dialog.css";
+@import "./components/toast.css";
+@import "./components/table.css";
+@import "./components/shell.css";
+@import "./components/page.css";
 @import "./components/card.css";
-@import "./components/layout.css";
+@import "./components/subpage.css";
+@import "./components/list.css";
+@import "./components/stats.css";
+@import "./components/tabs.css";
+@import "./components/datatable.css";
+@import "./components/combo.css";
+@import "./components/color-picker.css";
+@import "./components/uploader.css";
+@import "./components/md-editor.css";
+@import "./components/auth.css";
 
 @source "../views";
 @source "../../src";
 
-/* Token tema (lapisan 2). Tanpa dark mode: token .dark sengaja tidak didefinisikan.
-   Skala: aksen indigo, netral slate. Variabel Basecoat ditimpa; --ag-* untuk yang tidak ada di Basecoat. */
+/* Token tema (lapisan 2), sama dengan docs/reference/ui-prototype/style.css (varian shell A).
+   Nama `--ag-*` dipakai komponen; variabel Basecoat dipetakan ke token ini di bawah.
+   Mode gelap: class `dark` di <html> (dipasang static/js/theme.js; Basecoat memakai class yang sama). */
 :root {
-  /* Skala warna */
-  --ag-indigo-50: #eef2ff;
-  --ag-indigo-100: #e0e7ff;
-  --ag-indigo-200: #c7d2fe;
-  --ag-indigo-600: #4f46e5;
-  --ag-indigo-700: #4338ca;
-  --ag-indigo-800: #3730a3;
-  --ag-indigo-900: #312e81;
-  --ag-slate-50: #f8fafc;
-  --ag-slate-100: #f1f5f9;
-  --ag-slate-200: #e2e8f0;
-  --ag-slate-300: #cbd5e1;
-  --ag-slate-600: #475569;
-  --ag-slate-900: #0f172a;
+  --ag-bg: #ffffff;
+  --ag-bg-sub: #f6f6f8;
+  /* Shell A "panel melayang": sidebar netral hangat, area kerja putih. */
+  --ag-side: #f7f7f5;
+  --ag-page: #ffffff;
+  --ag-raised: #ffffff;
+  --ag-muted-bg: #fafafb;
+  --ag-hover: #f0f0ee;
+  --ag-active: #e9e9e6;
+  --ag-line: #ebebef;
+  --ag-line2: #e1e1e8;
+  --ag-input: #d9d9e1;
+  --ag-fg: #17171c;
+  --ag-fg2: #3d3d47;
+  --ag-muted: #63636f;
+  --ag-faint: #8d8d99;
+  --ag-accent: #5b5bd6;
+  --ag-accent-hover: #4f4fc9;
+  --ag-accent-soft: #f0f0fe;
+  --ag-accent-fg: #4747c2;
+  --ag-on-accent: #ffffff;
+  --ag-danger: #cf2e2e;
+  --ag-danger-soft: #fdeeee;
+  --ag-danger-line: #f3c9c9;
+  --ag-success: #1c7f45;
+  --ag-success-soft: #e8f6ee;
+  --ag-warn: #a35407;
+  --ag-warn-soft: #fff3e3;
+  --ag-info: #1d63c9;
+  --ag-info-soft: #eaf2fd;
+  --ag-scrim: rgb(23 23 28 / 0.36);
+  --ag-shadow-xs: 0 1px 2px rgb(16 16 24 / 0.04);
+  --ag-shadow-sm: 0 1px 2px rgb(16 16 24 / 0.05);
+  --ag-shadow-md: 0 8px 24px rgb(16 16 24 / 0.12);
+  --ag-shadow-lg: 0 24px 60px rgb(16 16 24 / 0.25);
+  --ag-ring: 0 0 0 3px rgb(91 91 214 / 0.2);
+  --ag-code-bg: #f6f6f9;
+  /* Panel kiri halaman masuk (varian B, selalu gelap). */
+  --ag-brand-bg: #17172a;
+  --ag-brand-fg: #e8e8f5;
+  --ag-brand-muted: #a8a8c4;
+  --ag-brand-dot: #2a2a48;
+  --ag-brand-dot-fg: #b8b8ff;
+  /* Prioritas (varian C, label P1–P4; dipakai mulai M2). */
+  --ag-p1-bg: #dc2626; --ag-p1-fg: #ffffff;
+  --ag-p2-bg: #ffedd5; --ag-p2-fg: #c2410c;
+  --ag-p3-bg: #fef9c3; --ag-p3-fg: #a16207;
+  --ag-p4-bg: var(--ag-hover); --ag-p4-fg: var(--ag-muted);
 
-  /* Status (badge): latar + teks, kontras teks >= 4.5:1 */
-  --ag-status-info-bg: #e0f2fe;
-  --ag-status-info-fg: #075985;
-  --ag-status-ai-bg: var(--ag-indigo-100);
-  --ag-status-ai-fg: var(--ag-indigo-700);
-  --ag-status-gate-bg: #fef3c7;
-  --ag-status-gate-fg: #92400e;
-  --ag-status-success-bg: #dcfce7;
-  --ag-status-success-fg: #166534;
-  --ag-status-danger-bg: #fee2e2;
-  --ag-status-danger-fg: #b91c1c;
-  --ag-status-neutral-bg: var(--ag-slate-100);
-  --ag-status-neutral-fg: var(--ag-slate-600);
-
-  /* Tipe tiket & prioritas (dipakai mulai M2) */
-  --ag-type-story: #15803d;
-  --ag-type-bug: #b91c1c;
-  --ag-type-task: #1d4ed8;
-  --ag-priority-high: #b91c1c;
-  --ag-priority-medium: #a16207;
-  --ag-priority-low: var(--ag-slate-600);
-
-  /* Permukaan "bernuansa warna": area kerja bertint, kartu putih bergaris indigo muda */
-  --ag-surface-tint: var(--ag-indigo-50);
-  --ag-card-border: var(--ag-indigo-100);
-  --ag-page-bg: var(--ag-slate-50);
-
-  /* Font (file di static/vendor/fonts, lisensi OFL) */
-  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
-
-  /* Radius: tombol/input 6px, kartu 8px (Basecoat: --radius-md = radius - 2px, --radius-lg = radius) */
-  --radius: 0.5rem;
+  --ag-font: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --ag-mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --font-sans: var(--ag-font);
+  --font-mono: var(--ag-mono);
+  /* Radius: tombol/input 6px, kartu 10px. */
+  --radius: 0.375rem;
 
   /* Variabel Basecoat */
-  --background: #ffffff;
-  --foreground: var(--ag-slate-900);
-  --card: #ffffff;
-  --card-foreground: var(--ag-slate-900);
-  --popover: #ffffff;
-  --popover-foreground: var(--ag-slate-900);
-  --primary: var(--ag-indigo-600);
-  --primary-foreground: #ffffff;
-  --secondary: var(--ag-slate-100);
-  --secondary-foreground: var(--ag-slate-900);
-  --muted: var(--ag-slate-100);
-  --muted-foreground: var(--ag-slate-600);
-  --accent: var(--ag-indigo-50);
-  --accent-foreground: var(--ag-indigo-700);
-  --destructive: #dc2626;
-  --border: var(--ag-slate-200);
-  --input: var(--ag-slate-300);
-  --ring: var(--ag-indigo-600);
-
-  /* Sidebar indigo gelap, teks putih */
-  --sidebar: var(--ag-indigo-900);
-  --sidebar-foreground: #ffffff;
-  --sidebar-primary: var(--ag-indigo-600);
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: rgb(255 255 255 / 0.14);
-  --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: rgb(255 255 255 / 0.16);
-  --sidebar-ring: var(--ag-indigo-200);
-  --sidebar-width: 15rem;
+  --background: var(--ag-bg);
+  --foreground: var(--ag-fg);
+  --card: var(--ag-raised);
+  --card-foreground: var(--ag-fg);
+  --popover: var(--ag-raised);
+  --popover-foreground: var(--ag-fg);
+  --primary: var(--ag-accent);
+  --primary-foreground: var(--ag-on-accent);
+  --secondary: var(--ag-hover);
+  --secondary-foreground: var(--ag-fg);
+  --muted: var(--ag-hover);
+  --muted-foreground: var(--ag-muted);
+  --accent: var(--ag-hover);
+  --accent-foreground: var(--ag-fg);
+  --destructive: var(--ag-danger);
+  --border: var(--ag-line);
+  --input: var(--ag-input);
+  --ring: var(--ag-accent);
+  color-scheme: light;
 }
 
-/* Utilitas berbasis token (bg-ag-tint, text-ag-indigo, font-mono, ...). */
+html.dark {
+  --ag-bg: #141418; --ag-bg-sub: #111115; --ag-page: #111115; --ag-side: #0c0c0f; --ag-raised: #1c1c22;
+  --ag-muted-bg: #1a1a20; --ag-hover: #23232a; --ag-active: #2a2a33;
+  --ag-line: #26262e; --ag-line2: #2f2f39; --ag-input: #3a3a46;
+  --ag-fg: #ececf1; --ag-fg2: #c9c9d3; --ag-muted: #9d9dab; --ag-faint: #767684;
+  --ag-accent: #7373e6; --ag-accent-hover: #8585ee; --ag-accent-soft: #23234a; --ag-accent-fg: #a9a9ff;
+  --ag-danger: #f06a6a; --ag-danger-soft: #3a1a1c; --ag-danger-line: #5a2a2e;
+  --ag-success: #4cc782; --ag-success-soft: #16301f; --ag-warn: #f0a24b; --ag-warn-soft: #34250f;
+  --ag-info: #6aa5f5; --ag-info-soft: #162a44;
+  --ag-scrim: rgb(0 0 0 / 0.55); --ag-shadow-xs: 0 1px 2px rgb(0 0 0 / 0.3); --ag-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --ag-shadow-md: 0 8px 24px rgb(0 0 0 / 0.45); --ag-shadow-lg: 0 24px 60px rgb(0 0 0 / 0.6);
+  --ag-ring: 0 0 0 3px rgb(115 115 230 / 0.3); --ag-code-bg: #1f1f26;
+  --ag-p2-bg: #3b2412; --ag-p2-fg: #fdba74; --ag-p3-bg: #33290c; --ag-p3-fg: #fde047;
+  color-scheme: dark;
+}
+
+/* Utilitas berbasis token (text-ag-muted, bg-ag-hover, ...). */
 @theme inline {
-  --color-ag-tint: var(--ag-surface-tint);
-  --color-ag-card-border: var(--ag-card-border);
-  --color-ag-page: var(--ag-page-bg);
-  --color-ag-indigo: var(--ag-indigo-700);
+  --color-ag-fg: var(--ag-fg);
+  --color-ag-fg2: var(--ag-fg2);
+  --color-ag-muted: var(--ag-muted);
+  --color-ag-faint: var(--ag-faint);
+  --color-ag-accent: var(--ag-accent-fg);
+  --color-ag-danger: var(--ag-danger);
+  --color-ag-success: var(--ag-success);
+  --color-ag-warn: var(--ag-warn);
+  --color-ag-line: var(--ag-line);
+  --color-ag-hover: var(--ag-hover);
+  --color-ag-raised: var(--ag-raised);
 }

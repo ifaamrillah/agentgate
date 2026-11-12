@@ -1,0 +1,23 @@
+{#- Halaman aplikasi biasa: kepala (judul, deskripsi, aksi) lalu isi. Dipakai beranda, ringkasan
+    project, dan halaman di luar Pengaturan. Halaman hanya mengisi block dan merangkai komponen.
+    Block (selain block layouts/app.html: title, crumb, tabs, actions, width):
+      heading       judul halaman (h1)
+      description   teks di bawah judul (kosong = disembunyikan lewat CSS :empty)
+      leading       elemen di kiri judul, mis. project_logo (opsional)
+      head_actions  tombol di kanan kepala (satu aksi utama)
+      main          isi: stats, card, grid
+      page_attrs    atribut penanda tes pembungkus, mis. data-project-home -#}
+{% extends "layouts/app.html" %}
+{% block content %}
+<div class="app-stack-v" {% block page_attrs %}{% endblock page_attrs %}>
+  <header class="app-page-head">
+    {%- block leading %}{% endblock leading %}
+    <div class="app-page-title">
+      <h1>{% block heading %}{% endblock heading %}</h1>
+      <p>{%- block description %}{% endblock description -%}</p>
+    </div>
+    <div class="app-page-acts">{%- block head_actions %}{% endblock head_actions -%}</div>
+  </header>
+  {% block main %}{% endblock main %}
+</div>
+{% endblock content %}

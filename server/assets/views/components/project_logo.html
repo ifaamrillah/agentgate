@@ -1,0 +1,16 @@
+{#- Logo project/workspace: gambar terunggah, atau inisial di atas warna project.
+    Parameter:
+      initials: string          1–2 huruf
+      color: string             warna project (default "" = aksen)
+      image: string             URL gambar (default "" = inisial)
+      size: xs|sm|default|lg|xl (18/22/28/40/64px; default "default")
+      label: string             nama untuk pembaca layar (default "" = dekoratif)
+      preview: bool             ikut berubah warna saat pemilih warna di form yang sama diubah (default false)
+      class: hanya untuk layout -#}
+{% component project_logo(initials: string, color: string = "", image: string = "", size: string = "default", label: string = "", preview: bool = false, class: string = "") %}
+{%- if size not in ["xs", "sm", "default", "lg", "xl"] %}{{ throw(message="project_logo: size tidak dikenal: " ~ size) }}{% endif -%}
+<span class="app-logo {{ class }}"{% if size != "default" %} data-size="{{ size }}"{% endif %}{% if image %} data-image{% endif %}{% if color %} style="--c:{{ color }}"{% endif %}{% if preview and not image %} data-color-preview{% endif %}
+  {%- if label %} role="img" aria-label="{{ label }}"{% else %} aria-hidden="true"{% endif %}>
+  {%- if image %}<img src="{{ image }}" alt="">{% else %}{{ initials }}{% endif -%}
+</span>
+{%- endcomponent project_logo %}

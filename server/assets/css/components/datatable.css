@@ -1,0 +1,64 @@
+/* Tabel data varian A "filter di menu": baris filter (cari + tombol Filter + chip aktif), tabel
+   dengan header sort, footer total + per halaman + nomor halaman, bar aksi massal.
+   Server-side: semua kontrol adalah tautan/isian GET; HTMX menukar `[data-dt-region]` (lihat
+   components/datatable.html dan views::datatable). */
+@layer components {
+  .app-dt { display: grid; gap: 10px; min-width: 0; }
+  .app-card-b[data-flush] > .app-dt { gap: 0; }
+  .app-fbar { display: grid; gap: 8px; min-width: 0; }
+  .app-card-b[data-flush] > .app-dt > .app-fbar { padding: 12px 16px; border-bottom: 1px solid var(--ag-line); }
+  .app-fr { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+  .app-fr > [data-grow] { flex: 1; }
+  .app-fsearch {
+    height: 30px; min-width: 200px; flex: 0 1 280px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid var(--ag-input);
+    border-radius: 6px; background: var(--ag-raised); color: var(--ag-faint);
+  }
+  .app-fsearch:focus-within { border-color: var(--ag-accent); box-shadow: var(--ag-ring); }
+  .app-fsearch svg { width: 14px; height: 14px; flex-shrink: 0; }
+  .app-fsearch input { border: 0; outline: 0; background: none; flex: 1; min-width: 0; font: inherit; font-size: 13px; color: var(--ag-fg); }
+  .app-fsearch input::-webkit-search-cancel-button { display: none; }
+  @media (max-width: 599px) { .app-fsearch { flex-basis: 100%; } }
+  .app-fcount { background: var(--ag-accent); color: var(--ag-on-accent); border-radius: 9px; padding: 0 6px; font-size: 11px; line-height: 16px; }
+  /* Isi menu Filter: kelompok opsi berupa checkbox. */
+  .app-fmenu { display: grid; gap: 2px; min-width: 240px; }
+  .app-fmenu fieldset { border: 0; margin: 0; padding: 0; display: grid; }
+  .app-fmenu legend { font-size: 11.5px; color: var(--ag-muted); padding: 6px 8px 2px; }
+  .app-fmenu label { height: 30px; padding: 0 8px; border-radius: 5px; display: flex; align-items: center; gap: 8px; color: var(--ag-fg2); cursor: pointer; white-space: nowrap; }
+  .app-fmenu label:hover { background: var(--ag-hover); color: var(--ag-fg); }
+  .app-fmenu footer { display: flex; justify-content: flex-end; gap: 6px; padding: 6px 4px 2px; border-top: 1px solid var(--ag-line); margin-top: 4px; }
+  .app-fr[data-active] { padding: 8px 10px; background: var(--ag-muted-bg); border: 1px solid var(--ag-line); border-radius: 8px; }
+  .app-card-b[data-flush] > .app-dt .app-fr[data-active] { margin-top: 0; }
+  .app-fpill { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 4px 0 8px; border-radius: 5px; background: var(--ag-raised); border: 1px solid var(--ag-line2); font-size: 12.5px; color: var(--ag-muted); }
+  .app-fpill b { color: var(--ag-fg); font-weight: 500; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .app-fpill a { width: 18px; height: 18px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; color: var(--ag-faint); }
+  .app-fpill a:hover { background: var(--ag-hover); color: var(--ag-fg); }
+  .app-fpill svg { width: 12px; height: 12px; }
+  .app-fclear { color: var(--ag-muted); font-size: 12.5px; display: inline-flex; align-items: center; gap: 4px; padding: 0 6px; height: 26px; border-radius: 5px; }
+  .app-fclear:hover { color: var(--ag-fg); background: var(--ag-hover); }
+
+  .app-dt-box { border: 1px solid var(--ag-line); border-radius: 10px; background: var(--ag-raised); min-width: 0; overflow: hidden; box-shadow: var(--ag-shadow-xs); }
+  .app-card-b[data-flush] > .app-dt .app-dt-box { border: 0; border-radius: 0 0 10px 10px; box-shadow: none; }
+  .app-dt-sort { display: inline-flex; align-items: center; gap: 4px; color: inherit; font-weight: 500; white-space: nowrap; }
+  .app-dt-sort:hover, .app-dt-sort[data-on] { color: var(--ag-fg); }
+  .app-dt-sort svg { width: 12px; height: 12px; }
+  .app-dt-sort:not([data-on]) svg { opacity: 0.35; }
+  .app-dt-sort:hover svg { opacity: 1; }
+  .app-dt-foot { display: flex; align-items: center; gap: 16px; padding: 8px 12px 8px 16px; border-top: 1px solid var(--ag-line); flex-wrap: wrap; font-size: 12.5px; color: var(--ag-muted); }
+  .app-dt-foot b { color: var(--ag-fg); font-weight: 500; }
+  .app-dt-per { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; }
+  .app-dt-per select { height: 28px; width: 72px; }
+  @media (max-width: 599px) { .app-dt-per { display: none; } }
+  .app-dt-pg { display: flex; align-items: center; gap: 2px; }
+  .app-dt-pg > span { color: var(--ag-faint); padding: 0 4px; }
+  .app-dt-n { min-width: 28px; height: 28px; border-radius: 6px; font-variant-numeric: tabular-nums; color: var(--ag-fg2); display: inline-flex; align-items: center; justify-content: center; }
+  .app-dt-n:hover { background: var(--ag-hover); }
+  .app-dt-n[aria-current] { background: var(--ag-fg); color: var(--ag-bg); font-weight: 600; }
+  .app-dt-n[aria-disabled='true'] { opacity: 0.4; pointer-events: none; }
+  .app-dt-n svg { width: 14px; height: 14px; }
+  .app-dt-bulkbar { display: none; align-items: center; gap: 10px; padding: 8px 12px 8px 16px; background: var(--ag-accent-soft); border-bottom: 1px solid var(--ag-line); color: var(--ag-accent-fg); }
+  .app-dt-bulkbar[data-open] { display: flex; }
+  .app-dt-check { width: 40px; }
+  .app-dt-empty td { padding: 0 !important; }
+  .app-dt-empty .app-empty { border: 0; border-radius: 0; }
+  [data-dt-region].htmx-request { opacity: 0.6; transition: opacity 0.15s; }
+}

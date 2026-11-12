@@ -6,6 +6,7 @@ use loco_rs::{prelude::*, validation::ModelValidationErrors};
 use serde::Serialize;
 
 use super::{
+    datatable::{ColumnSpec, FilterSpec, TableSpec, TableView},
     flash::Flash,
     form::{FieldErrors, field_errors},
     layout::{AppShell, app_page},
@@ -30,6 +31,52 @@ pub const MESSAGE_KEYS: &[&str] = &[
 
 /// Field form undang, urutan sama dengan template.
 pub const INVITE_FIELDS: &[&str] = &["email", "role_id"];
+
+static COLUMNS: &[ColumnSpec] = &[
+    ColumnSpec::new("member-column-name").sort("name"),
+    ColumnSpec::new("member-column-job-title").hide("md"),
+    ColumnSpec::new("member-column-team").hide("md"),
+    ColumnSpec::new("member-column-role").sort("role"),
+    ColumnSpec::new("member-column-two-factor").hide("md"),
+    ColumnSpec::new("member-column-joined")
+        .sort("joined")
+        .hide("lg"),
+    ColumnSpec::new("member-column-actions").right(),
+];
+static FILTERS: &[FilterSpec] = &[
+    FilterSpec {
+        key: "role",
+        label_key: "member-column-role",
+        icon: "key",
+    },
+    FilterSpec {
+        key: "team",
+        label_key: "member-column-team",
+        icon: "users-group",
+    },
+    FilterSpec {
+        key: "tfa",
+        label_key: "member-column-two-factor",
+        icon: "shield-check",
+    },
+];
+/// Tabel anggota server-side (id DOM `members-table`).
+pub const MEMBERS_TABLE: TableSpec = TableSpec {
+    id: "members-table",
+    columns: COLUMNS,
+    filters: FILTERS,
+    default_sort: "name",
+    default_desc: false,
+    default_per: 25,
+    search_key: Some("member-search"),
+};
+
+/// Tim seorang anggota di kolom Tim.
+#[derive(Debug, Clone, Serialize)]
+pub struct TeamTag {
+    pub name: String,
+    pub href: String,
+}
 
 /// Format tanggal di tabel (bergabung, kedaluwarsa).
 const DATE_FORMAT: &str = "%Y-%m-%d";
@@ -76,6 +123,11 @@ pub struct MemberRow {
     pub email: String,
     /// Inisial avatar (lihat `views::layout::UserView`).
     pub initials: String,
+    pub color: &'static str,
+    pub teams: Vec<TeamTag>,
+    pub two_factor: bool,
+    /// Role bawaan Owner/Admin (badge berwarna).
+    pub role_key: String,
     pub role_id: String,
     pub role_name: String,
     /// Id jabatan, `""` bila tanpa jabatan (nilai opsi "tanpa jabatan").
@@ -89,6 +141,12 @@ pub struct MemberRow {
 }
 
 impl MemberRow {
+    #[must_use]
+    pub fn with_teams(mut self, teams: Vec<TeamTag>) -> Self {
+        self.teams = teams;
+        self
+    }
+
     /// `base` = path halaman anggota (`/w/{slug}/settings/members`).
     #[must_use]
     pub fn new(
@@ -104,6 +162,10 @@ impl MemberRow {
             name: user.name.clone(),
             email: user.email.clone(),
             initials: super::layout::UserView::new(&user.name, &user.email).initials,
+            color: super::palette::color_for(&user.email),
+            teams: Vec::new(),
+            two_factor: user.totp_enabled_at.is_some(),
+            role_key: role.key.clone().unwrap_or_default(),
             role_id: role.id.to_string(),
             role_name: role.name.clone(),
             job_title_id: job_title.map(|t| t.id.to_string()).unwrap_or_default(),
@@ -182,11 +244,14 @@ impl InviteFormView {
 #[derive(Debug, Serialize)]
 pub struct MembersPage {
     pub members: Vec<MemberRow>,
+    pub table: TableView,
     pub invitations: Vec<InvitationRow>,
     pub roles: Vec<OptionView>,
     pub job_titles: Vec<OptionView>,
     pub invite: InviteFormView,
     pub invite_action: String,
+    /// Dialog undang langsung terbuka (isian ditolak).
+    pub invite_open: bool,
     pub flash: Option<Flash>,
 }
 

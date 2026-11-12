@@ -1,0 +1,100 @@
+{#- Tabel data server-side varian A (views::datatable::TableView): cari + tombol Filter (menu
+    checkbox) + chip filter aktif, header sort, footer total + per halaman + nomor halaman.
+    Semua kontrol adalah GET biasa; HTMX menukar `#<id>` saja (hx-select + outerMorph) sehingga
+    fokus di kotak cari tetap. Controller boleh membalas halaman penuh; bila HX-Request-Type
+    partial, cukup render komponen ini lewat partial halaman. Body = baris <tr> (td kolom
+    tersembunyi diberi data-hide sama dengan kolomnya). Letakkan di `card flush={true}`.
+    Parameter:
+      table: map                views::datatable::TableView
+      empty_title, empty_description: string  empty state bila belum ada data (sudah diterjemahkan)
+      empty_icon: string        (default "list")
+      right: string             teks kecil di kanan baris filter (default "")
+      attrs: string             penanda tes pada <table> tanpa kutip (default "") -#}
+{% component datatable(table: map, empty_title: string, empty_description: string = "", empty_icon: string = "list", right: string = "", attrs: string = "") %}
+{%- set colspan = table.columns | length -%}
+<div class="app-dt" id="{{ table.id }}" data-dt data-dt-region>
+  <form class="app-fbar" method="get" action="{{ table.action }}" role="search"
+    hx-get="{{ table.action }}" hx-target="#{{ table.id }}" hx-select="#{{ table.id }}" hx-swap="outerMorph" hx-push-url="true"
+    hx-trigger="input changed delay:300ms from:find input[type=search], change, submit">
+    {%- for pair in table.hidden %}<input type="hidden" name="{{ pair[0] }}" value="{{ pair[1] }}">{% endfor %}
+    <div class="app-fr">
+      {%- if table.search_key %}
+      <label class="app-fsearch">{{ icon(name="search") }}<input type="search" name="q" value="{{ table.q }}" placeholder="{{ t(key=table.search_key, lang="id") }}" aria-label="{{ t(key=table.search_key, lang="id") }}"></label>
+      {%- endif %}
+      {%- if table.filters %}
+      <div class="popover" id="{{ table.id }}-filter">
+        <button type="button" class="btn" data-variant="outline" aria-expanded="false" aria-controls="{{ table.id }}-filter-popover">{{ icon(name="filter") }}{{ t(key="table-filter", lang="id") }}{% if table.active_count %} <span class="app-fcount">{{ table.active_count }}</span>{% endif %}</button>
+        <div id="{{ table.id }}-filter-popover" data-popover aria-hidden="true">
+          <div class="app-fmenu">
+            {%- for group in table.filters %}
+            <fieldset><legend>{{ t(key=group.label_key, lang="id") }}</legend>
+              {%- for o in group.options %}
+              <label><input type="checkbox" class="app-check" name="{{ group.key }}" value="{{ o.value }}"{% if o.checked %} checked{% endif %}>{% if o.translate %}{{ t(key=o.label, lang="id") }}{% else %}{{ o.label }}{% endif %}</label>
+              {%- endfor %}
+            </fieldset>
+            {%- endfor %}
+            <footer><noscript><button type="submit" class="btn" data-size="sm">{{ t(key="table-apply", lang="id") }}</button></noscript></footer>
+          </div>
+        </div>
+      </div>
+      {%- endif %}
+      <span data-grow></span>
+      {%- if right %}<span class="app-hint">{{ right }}</span>{% endif %}
+      <input type="hidden" name="per" value="{{ table.per }}">
+    </div>
+    {%- if table.active %}
+    <div class="app-fr" data-active>
+      {%- for chip in table.active %}
+      <span class="app-fpill">{{ t(key=chip.label_key, lang="id") }}: <b>{% if chip.translate %}{{ t(key=chip.value, lang="id") }}{% else %}{{ chip.value }}{% endif %}</b><a href="{{ chip.remove_href }}" aria-label="{{ t(key="table-filter-remove", lang="id") }}">{{ icon(name="x") }}</a></span>
+      {%- endfor %}
+      <a class="app-fclear" href="{{ table.clear_href }}">{{ t(key="table-filter-clear", lang="id") }}</a>
+    </div>
+    {%- endif %}
+  </form>
+  <div class="app-dt-box">
+    <div class="table-container">
+      <table class="table" {{ attrs }}>
+        <thead><tr>
+          {%- for c in table.columns %}
+          <th scope="col"{% if c.hide %} data-hide="{{ c.hide }}"{% endif %}{% if c.align_right %} data-align="right"{% endif %}{% if c.sorted %} aria-sort="{% if c.sorted == "asc" %}ascending{% else %}descending{% endif %}"{% endif %}>
+            {%- if c.sort_href %}<a class="app-dt-sort" href="{{ c.sort_href }}"{% if c.sorted %} data-on{% endif %} hx-get="{{ c.sort_href }}" hx-target="#{{ table.id }}" hx-select="#{{ table.id }}" hx-swap="outerMorph" hx-push-url="true">{{ t(key=c.label_key, lang="id") }}{% if c.sorted == "asc" %}{{ icon(name="arrow-up") }}{% elif c.sorted == "desc" %}{{ icon(name="arrow-down") }}{% else %}{{ icon(name="selector") }}{% endif %}</a>
+            {%- elif c.label_key %}<span{% if c.align_right %} class="sr-only"{% endif %}>{{ t(key=c.label_key, lang="id") }}</span>{% endif -%}
+          </th>
+          {%- endfor %}
+        </tr></thead>
+        <tbody>
+          {%- if table.total > 0 %}{% if body is defined %}{{ body }}{% endif %}
+          {%- else %}
+          <tr class="app-dt-empty"><td colspan="{{ colspan }}">
+            {%- if table.filtered %}{{ <empty_state title={t(key="table-no-match", lang="id")} description={t(key="table-no-match-hint", lang="id")} icon="search" variant="plain"/> }}
+            {%- else %}{{ <empty_state title={empty_title} description={empty_description} icon={empty_icon} variant="plain"/> }}{% endif -%}
+          </td></tr>
+          {%- endif %}
+        </tbody>
+      </table>
+    </div>
+    <div class="app-dt-foot">
+      <span>{% if table.total > 0 %}{{ t(key="table-range", lang="id", from=table.from, to=table.to, total=table.total) }}{% else %}{{ t(key="table-zero", lang="id") }}{% endif %}</span>
+      <form class="app-dt-per" method="get" action="{{ table.action }}" hx-get="{{ table.action }}" hx-target="#{{ table.id }}" hx-select="#{{ table.id }}" hx-swap="outerMorph" hx-push-url="true" hx-trigger="change">
+        {%- for pair in table.hidden %}<input type="hidden" name="{{ pair[0] }}" value="{{ pair[1] }}">{% endfor %}
+        {%- if table.q %}<input type="hidden" name="q" value="{{ table.q }}">{% endif %}
+        {%- for chip in table.active %}<input type="hidden" name="{{ chip.key }}" value="{{ chip.raw }}">{% endfor %}
+        <label for="{{ table.id }}-per">{{ t(key="table-per-page", lang="id") }}</label>
+        <select class="app-input" id="{{ table.id }}-per" name="per">
+          {%- for n in table.per_options %}<option{% if n == table.per %} selected{% endif %}>{{ n }}</option>{% endfor %}
+        </select>
+        <noscript><button type="submit" class="btn" data-size="sm">{{ t(key="table-apply", lang="id") }}</button></noscript>
+      </form>
+      {%- if table.pages > 1 %}
+      <nav class="app-dt-pg" aria-label="{{ t(key="table-pages", lang="id") }}" hx-target:inherited="#{{ table.id }}" hx-select:inherited="#{{ table.id }}" hx-swap:inherited="outerMorph">
+        <a class="app-dt-n"{% if table.prev_href %} href="{{ table.prev_href }}"{% else %} aria-disabled="true"{% endif %} aria-label="{{ t(key="table-prev", lang="id") }}">{{ icon(name="chevron-left") }}</a>
+        {%- for p in table.page_links %}
+        {%- if p.number %}<a class="app-dt-n" href="{{ p.href }}"{% if p.current %} aria-current="page"{% endif %}>{{ p.number }}</a>{% else %}<span>…</span>{% endif %}
+        {%- endfor %}
+        <a class="app-dt-n"{% if table.next_href %} href="{{ table.next_href }}"{% else %} aria-disabled="true"{% endif %} aria-label="{{ t(key="table-next", lang="id") }}">{{ icon(name="chevron-right") }}</a>
+      </nav>
+      {%- endif %}
+    </div>
+  </div>
+</div>
+{%- endcomponent datatable %}

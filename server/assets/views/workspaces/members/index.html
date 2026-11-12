@@ -1,166 +1,93 @@
 {#- Pengaturan → Anggota. Variabel (views::members::MembersPage):
-      members ([MemberRow]: id, name, email, initials, role_id, role_name, job_title_id ("" =
-        tanpa), job_title_name, joined, manageable (menu aksi hanya bila true), role_action,
-        job_title_action, remove_href),
-      invitations ([InvitationRow]: manageable (tombol hanya bila true), email, role_name,
-        expires, expired, resend_action, revoke_action),
-      roles ([{id, name}]: role yang boleh diberikan pelaku), job_titles ([{id, name}]),
-      invite (form undang: email, role_id, job_title_id, errors.email/role_id {code, min, max}),
-      invite_action (POST undang), flash (dirender layout; penolakan aturan datang lewat sini
-      dengan status 422).
-    Form undang: panel lipat (<details>, tanpa JS; terbuka bila ada error). Ganti role/jabatan dan
-    keluarkan: menu aksi per baris (popover Basecoat) berisi form biasa. Keluarkan: halaman
-    konfirmasi. -#}
+      table (views::datatable::TableView, spec MEMBERS_TABLE: cari, filter role/tim/2FA, sort
+        nama/role/bergabung, halaman), members ([MemberRow] halaman ini: id, name, email,
+        initials, color, teams [{name, href}], two_factor, role_key, role_id, role_name,
+        job_title_id, job_title_name, joined, manageable, role_action, job_title_action,
+        remove_href),
+      invitations ([InvitationRow]), roles/job_titles ([{id, name}]), invite (isian form undang +
+      errors), invite_action, invite_open (dialog undang langsung terbuka), flash (layout).
+    Undang: tombol membuka dialog berisi form biasa. Ganti role/jabatan dan keluarkan: menu ⋯ per
+    baris berisi form biasa; keluarkan lewat halaman konfirmasi. -#}
 {% extends "layouts/settings.html" %}
 {% block title %}{{ t(key="settings-members-title", lang="id") }}{% endblock title %}
-{% block settings_content %}
-<div class="grid gap-6" data-members-index>
-  {{ <page_header title={t(key="settings-members-title", lang="id")} description={t(key="settings-members-description", lang="id")}/> }}
+{% block crumb_label %}{{ t(key="settings-members-title", lang="id") }}{% endblock crumb_label %}
+{% block page_attrs %}data-members-index{% endblock page_attrs %}
+{% block settings %}
+<header class="app-page-head">
+  <div class="app-page-title"><h1>{{ t(key="settings-members-title", lang="id") }}</h1><p>{{ t(key="settings-members-description", lang="id") }}</p></div>
+  <div class="app-page-acts">{{ <button label={t(key="invite-title", lang="id")} icon="user-plus" dialog="invite-dialog"/> }}</div>
+</header>
 
-  <details class="card gap-0 px-6" data-invite-form{% if invite.errors.email.code or invite.errors.role_id.code %} open{% endif %}>
-    <summary class="flex cursor-pointer list-none items-center gap-3 [&::-webkit-details-marker]:hidden">
-      <span class="flex size-8 items-center justify-center rounded-md bg-ag-tint text-ag-indigo">{{ icon(name="mail", class="size-4") }}</span>
-      <span class="grid flex-1 gap-0.5">
-        <span class="font-semibold">{{ t(key="invite-title", lang="id") }}</span>
-        <span class="hidden text-sm text-muted-foreground md:block">{{ t(key="invite-description", lang="id") }}</span>
-      </span>
-      <span class="btn" data-variant="primary">{{ icon(name="plus", class="size-4") }}{{ t(key="invite-title", lang="id") }}</span>
-    </summary>
-    <form method="post" action="{{ invite_action }}" class="form mt-6 flex flex-wrap items-start gap-3">
-      {{ <field id="invite-email" name="email" type="email" label={t(key="invite-email", lang="id")} value={invite.email} error={invite.errors.email.code} autocomplete="off" required={true} class="min-w-56 flex-1"/> }}
-      <div class="field"{% if invite.errors.role_id.code %} data-invalid="true"{% endif %}>
-        <label for="invite-role">{{ t(key="invite-role", lang="id") }}</label>
-        <select class="select" id="invite-role" name="role_id" required{% if invite.errors.role_id.code %} aria-invalid="true" aria-describedby="invite-role-error"{% endif %}>
-          {%- for role in roles %}
-          <option value="{{ role.id }}"{% if role.id == invite.role_id %} selected{% endif %}>{{ role.name }}</option>
-          {%- endfor %}
-        </select>
-        {%- if invite.errors.role_id.code %}
-        <p role="alert" id="invite-role-error">{{ t(key=invite.errors.role_id.code, lang="id") }}</p>
+<div data-members-table>
+{% <card title={t(key="settings-members-list", lang="id")} count={table.total ~ ""} flush={true}> %}
+  {% <datatable table={table} empty_title={t(key="settings-members-list", lang="id")}> %}
+    {%- for member in members %}
+    <tr data-member="{{ member.id }}">
+      <td>{{ <person name={member.name} initials={member.initials} color={member.color} detail={member.email}/> }}</td>
+      <td data-hide="md">{% if member.job_title_name %}{{ member.job_title_name }}{% else %}<span class="app-hint">—</span>{% endif %}</td>
+      <td data-hide="md">
+        {%- for team in member.teams %}<a class="app-link" href="{{ team.href }}" data-member-team>{{ team.name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
+        {%- if not member.teams %}<span class="app-hint">{{ t(key="member-no-team", lang="id") }}</span>{% endif -%}
+      </td>
+      {%- if member.role_key == "owner" %}{% set role_variant = "primary" %}{% elif member.role_key == "admin" %}{% set role_variant = "info" %}{% else %}{% set role_variant = "secondary" %}{% endif %}
+      <td>{{ <badge label={member.role_name} variant={role_variant}/> }}</td>
+      <td data-hide="md">{% if member.two_factor %}{{ <badge label={t(key="member-two-factor-on", lang="id")} variant="success"/> }}{% else %}{{ <badge label={t(key="member-two-factor-off", lang="id")} variant="gate"/> }}{% endif %}</td>
+      <td data-hide="lg"><span class="app-hint">{{ member.joined }}</span></td>
+      <td data-actions>
+        {%- if member.manageable %}
+        {% <action_menu id={"member-" ~ member.id} label={t(key="member-actions", lang="id", name=member.name)}> %}
+          <div class="app-menu-label">{{ member.name }}</div>
+          <form method="post" action="{{ member.role_action }}" class="app-menu-form">
+            {{ <select_field id={"member-" ~ member.id ~ "-role"} name="role_id" label={t(key="member-column-role", lang="id")} options={roles} value={member.role_id ~ ""}/> }}
+            {{ <button label={t(key="member-save", lang="id")} variant="outline" size="sm" type="submit"/> }}
+          </form>
+          <form method="post" action="{{ member.job_title_action }}" class="app-menu-form">
+            {{ <select_field id={"member-" ~ member.id ~ "-job-title"} name="job_title_id" label={t(key="member-column-job-title", lang="id")} options={job_titles} empty_label={t(key="member-no-job-title", lang="id")} value={member.job_title_id ~ ""}/> }}
+            {{ <button label={t(key="member-save", lang="id")} variant="outline" size="sm" type="submit"/> }}
+          </form>
+          <hr role="separator">
+          <a class="app-menu-item" data-variant="destructive" href="{{ member.remove_href }}">{{ icon(name="logout") }}{{ t(key="member-remove", lang="id") }}</a>
+        {% </action_menu> %}
         {%- endif %}
-      </div>
-      <div class="field">
-        <label for="invite-job-title">{{ t(key="invite-job-title", lang="id") }}</label>
-        <select class="select" id="invite-job-title" name="job_title_id">
-          <option value="">{{ t(key="member-no-job-title", lang="id") }}</option>
-          {%- for title in job_titles %}
-          <option value="{{ title.id }}"{% if title.id == invite.job_title_id %} selected{% endif %}>{{ title.name }}</option>
-          {%- endfor %}
-        </select>
-      </div>
-      <div class="field">
-        <span aria-hidden="true">&nbsp;</span>
-        {{ <button label={t(key="invite-submit", lang="id")} type="submit" icon="send"/> }}
-      </div>
-    </form>
-  </details>
-
-  <section class="card overflow-visible py-0" data-members-table>
-    {#- overflow terlihat: menu aksi (popover) tidak terpotong; kolom sekunder disembunyikan di
-        layar kecil supaya tabel tetap muat. -#}
-    <div class="table-container overflow-visible">
-      <table class="table">
-        <thead>
-          <tr>
-            <th scope="col">{{ t(key="member-column-name", lang="id") }}</th>
-            <th scope="col" class="hidden md:table-cell">{{ t(key="member-column-job-title", lang="id") }}</th>
-            <th scope="col">{{ t(key="member-column-role", lang="id") }}</th>
-            <th scope="col" class="hidden lg:table-cell">{{ t(key="member-column-joined", lang="id") }}</th>
-            <th scope="col" class="w-12"><span class="sr-only">{{ t(key="member-column-actions", lang="id") }}</span></th>
-          </tr>
-        </thead>
-        <tbody>
-          {%- for member in members %}
-          <tr data-member="{{ member.id }}">
-            <td>
-              <div class="flex items-center gap-3">
-                {{ <avatar initials={member.initials}/> }}
-                <div class="grid min-w-0">
-                  <span class="truncate font-medium">{{ member.name }}</span>
-                  <span class="truncate text-sm text-muted-foreground">{{ member.email }}</span>
-                </div>
-              </div>
-            </td>
-            <td class="hidden md:table-cell">{% if member.job_title_name %}{{ member.job_title_name }}{% else %}<span class="text-muted-foreground">—</span>{% endif %}</td>
-            <td>{{ <badge label={member.role_name} variant="secondary"/> }}</td>
-            <td class="hidden text-sm text-muted-foreground lg:table-cell">{{ member.joined }}</td>
-            <td class="text-right">
-              {%- if member.manageable %}
-              <div class="popover" id="member-{{ member.id }}">
-                <button type="button" class="btn" data-variant="ghost" data-size="icon" aria-expanded="false" aria-controls="member-{{ member.id }}-popover" aria-label="{{ t(key="member-actions", lang="id", name=member.name) }}">
-                  {{- icon(name="dots", class="size-4") -}}
-                </button>
-                <div id="member-{{ member.id }}-popover" data-popover aria-hidden="true" data-align="end" class="w-72 text-left">
-                  <div class="grid gap-4 p-1">
-                    <form method="post" action="{{ member.role_action }}" class="grid gap-2">
-                      <label class="label" for="member-{{ member.id }}-role">{{ t(key="member-column-role", lang="id") }}</label>
-                      <div class="flex gap-2">
-                        <select class="select flex-1" id="member-{{ member.id }}-role" name="role_id">
-                          {%- for role in roles %}
-                          <option value="{{ role.id }}"{% if role.id == member.role_id %} selected{% endif %}>{{ role.name }}</option>
-                          {%- endfor %}
-                        </select>
-                        {{ <button label={t(key="member-save", lang="id")} variant="outline" type="submit"/> }}
-                      </div>
-                    </form>
-                    <form method="post" action="{{ member.job_title_action }}" class="grid gap-2">
-                      <label class="label" for="member-{{ member.id }}-job-title">{{ t(key="member-column-job-title", lang="id") }}</label>
-                      <div class="flex gap-2">
-                        <select class="select flex-1" id="member-{{ member.id }}-job-title" name="job_title_id">
-                          <option value="">{{ t(key="member-no-job-title", lang="id") }}</option>
-                          {%- for title in job_titles %}
-                          <option value="{{ title.id }}"{% if title.id == member.job_title_id %} selected{% endif %}>{{ title.name }}</option>
-                          {%- endfor %}
-                        </select>
-                        {{ <button label={t(key="member-save", lang="id")} variant="outline" type="submit"/> }}
-                      </div>
-                    </form>
-                    <hr class="border-border">
-                    <a href="{{ member.remove_href }}" class="btn w-full" data-variant="destructive">{{ t(key="member-remove", lang="id") }}</a>
-                  </div>
-                </div>
-              </div>
-              {%- endif %}
-            </td>
-          </tr>
-          {%- endfor %}
-        </tbody>
-      </table>
-    </div>
-  </section>
-
-  <section class="grid gap-3" data-pending-invitations>
-    <h2 class="text-base font-semibold">{{ t(key="invitations-pending-title", lang="id") }}</h2>
-    {%- if invitations %}
-    <section class="card py-0">
-    {% <table headers={[t(key="invite-email", lang="id"), t(key="member-column-role", lang="id"), t(key="invitation-column-expires", lang="id"), t(key="member-column-actions", lang="id")]}> %}
-      {%- for invitation in invitations %}
-      <tr data-invitation>
-        <td><span class="flex items-center gap-2">{{ icon(name="mail", class="size-4 text-muted-foreground") }}<span class="font-mono text-sm">{{ invitation.email }}</span></span></td>
-        <td>{{ <badge label={invitation.role_name} variant="secondary"/> }}</td>
-        <td class="text-sm">
-          {%- if invitation.expired %}{{ <badge label={t(key="invitation-expired", lang="id")} variant="destructive"/> }}{% else %}{{ <badge label={t(key="invitation-pending", lang="id")} variant="gate"/> }}{% endif %}
-          <span class="text-muted-foreground">{{ invitation.expires }}</span>
-        </td>
-        <td>
-          {%- if invitation.manageable %}
-          <div class="flex flex-wrap items-center gap-2">
-            <form method="post" action="{{ invitation.resend_action }}">
-              {{ <button label={t(key="invitation-resend", lang="id")} variant="outline" size="sm" type="submit"/> }}
-            </form>
-            <form method="post" action="{{ invitation.revoke_action }}">
-              {{ <button label={t(key="invitation-revoke", lang="id")} variant="ghost" size="sm" type="submit"/> }}
-            </form>
-          </div>
-          {%- endif %}
-        </td>
-      </tr>
-      {%- endfor %}
-    {% </table> %}
-    </section>
-    {%- else %}
-    <p class="text-sm text-muted-foreground">{{ t(key="invitations-pending-empty", lang="id") }}</p>
-    {%- endif %}
-  </section>
+      </td>
+    </tr>
+    {%- endfor %}
+  {% </datatable> %}
+{% </card> %}
 </div>
-{% endblock settings_content %}
+
+<div data-pending-invitations>
+{% <card title={t(key="invitations-pending-title", lang="id")} description={t(key="invite-description", lang="id")} count={invitations | length ~ ""} flush={true}> %}
+  {%- for invitation in invitations %}
+  <div class="app-lrow" data-invitation>
+    <span class="app-tile">{{ icon(name="mail") }}</span>
+    <span class="app-lrow-main"><b class="app-code">{{ invitation.email }}</b><small>{{ invitation.role_name }} · {{ t(key="invitation-column-expires", lang="id") }} {{ invitation.expires }}</small></span>
+    {%- if invitation.expired %}{{ <badge label={t(key="invitation-expired", lang="id")} variant="destructive"/> }}{% else %}{{ <badge label={t(key="invitation-pending", lang="id")} variant="gate"/> }}{% endif %}
+    {%- if invitation.manageable %}
+    <span class="app-lrow-acts">
+      <form method="post" action="{{ invitation.resend_action }}">{{ <button label={t(key="invitation-resend", lang="id")} variant="outline" size="sm" type="submit"/> }}</form>
+      <form method="post" action="{{ invitation.revoke_action }}">{{ <button label={t(key="invitation-revoke", lang="id")} variant="ghost" size="sm" type="submit"/> }}</form>
+    </span>
+    {%- endif %}
+  </div>
+  {%- endfor %}
+  {%- if not invitations %}{{ <empty_state title={t(key="invitations-pending-empty", lang="id")} icon="mail" variant="plain"/> }}{% endif %}
+{% </card> %}
+</div>
+
+{% <dialog id="invite-dialog" title={t(key="invite-title", lang="id")} description={t(key="invite-description", lang="id")} icon="user-plus" tone="accent" open={invite_open}> %}
+<form method="post" action="{{ invite_action }}" data-invite-form>
+  <section><div class="app-stack-v" data-gap="sm">
+    {{ <field id="invite-email" name="email" type="email" label={t(key="invite-email", lang="id")} value={invite.email} error={invite.errors.email.code} autocomplete="off" required={true}/> }}
+    <div class="app-form-row">
+      {{ <select_field id="invite-role" name="role_id" label={t(key="invite-role", lang="id")} options={roles} value={invite.role_id ~ ""} error={invite.errors.role_id.code} required={true}/> }}
+      {{ <select_field id="invite-job-title" name="job_title_id" label={t(key="invite-job-title", lang="id")} options={job_titles} empty_label={t(key="member-no-job-title", lang="id")} value={invite.job_title_id ~ ""}/> }}
+    </div>
+  </div></section>
+  <footer>
+    <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+    {{ <button label={t(key="invite-submit", lang="id")} type="submit" icon="send"/> }}
+  </footer>
+</form>
+{% </dialog> %}
+{% endblock settings %}

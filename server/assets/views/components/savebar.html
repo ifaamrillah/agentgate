@@ -1,0 +1,15 @@
+{#- Bar simpan: Batal + Simpan di footer kartu (bukan kartu sendiri, tanpa bayangan). Biasanya
+    dirender oleh `card` (parameter form); pakai langsung bila form melingkupi isi sendiri.
+    Parameter:
+      label: string             teks tombol simpan (default "" = "Simpan perubahan")
+      cancel_href: string       tujuan Batal (default "" = tanpa Batal)
+      note: string              pesan kiri (default "")
+      variant: primary|danger   (default primary) -#}
+{% component savebar(label: string = "", cancel_href: string = "", note: string = "", variant: string = "primary") %}
+<div class="app-savebar">
+  {%- if note %}<span class="app-savebar-msg">{{ icon(name="info-circle") }}{{ note }}</span>{% endif %}
+  {%- if cancel_href %}{{ <button label={t(key="action-cancel", lang="id")} variant="ghost" href={cancel_href}/> }}{% endif %}
+  {%- if label %}{% set text = label %}{% else %}{% set text = t(key="action-save-changes", lang="id") %}{% endif %}
+  {{ <button label={text} type="submit" variant={variant} icon="check" attrs="data-save"/> }}
+</div>
+{%- endcomponent savebar %}

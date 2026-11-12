@@ -26,7 +26,7 @@ use crate::{
         flash,
         shell::app_shell,
     },
-    models::workspaces::WorkspaceError,
+    models::{workspace_members, workspaces::WorkspaceError},
     services::workspaces::{
         deletion::{self, DELETE_CONFIRM_MISMATCH, DeletionError},
         require_two_factor::{self, REQUIRE_2FA_ACTOR_MISSING, RequireTwoFactorError},
@@ -36,6 +36,7 @@ use crate::{
         self,
         flash::Flash,
         layout::SettingsLinks,
+        nav::{self, NavItem},
         workspaces::{
             DangerZoneView, DeleteWorkspaceView, RequireTwoFactorView, SettingsPage,
             WorkspaceFormView,
@@ -64,11 +65,33 @@ struct Rejected<'a> {
     flash: Option<Flash>,
 }
 
-/// Render indeks Pengaturan dengan `status`. `rejected` = isian dan error yang ditolak.
+/// Sub-halaman Pengaturan → Umum (subpage varian E, setiap sub-halaman rute server sendiri).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Section {
+    /// `/settings`: nama dan slug (`ManageWorkspace`).
+    Profile,
+    /// `/settings/security`: wajibkan 2FA (Owner).
+    Security,
+    /// `/settings/danger`: hapus workspace (Owner).
+    Danger,
+}
+
+impl Section {
+    const fn key(self) -> &'static str {
+        match self {
+            Self::Profile => "profile",
+            Self::Security => "security",
+            Self::Danger => "danger",
+        }
+    }
+}
+
+/// Render sub-halaman `section` dengan `status`. `rejected` = isian dan error yang ditolak.
 async fn render(
     ctx: &AppContext,
     v: &TeraView,
     tenant: &Tenant,
+    section: Section,
     rejected: Rejected<'_>,
     status: StatusCode,
 ) -> Result<Response> {
@@ -78,17 +101,91 @@ async fn render(
     let current = general_form(tenant)
         .then(|| WorkspaceFormView::new(&tenant.workspace.name, &tenant.workspace.slug, None));
     let form = rejected.form.or(current.as_ref());
+    let without_two_factor =
+        workspace_members::Model::without_two_factor_count(&ctx.db, tenant.workspace_id()).await?;
+    let base = settings_path(&tenant.workspace.slug);
+    let mut subnav = Vec::new();
+    if general_form(tenant) {
+        subnav.push(
+            NavItem::link("profile", "workspace-settings-profile", "building", &base)
+                .describe("workspace-settings-profile-desc"),
+        );
+    }
+    if WorkspaceOwner::allows(&tenant.role) {
+        subnav.push(
+            NavItem::link(
+                "security",
+                "workspace-security-title",
+                "shield-check",
+                &format!("{base}/security"),
+            )
+            .describe("workspace-security-desc")
+            .counted(without_two_factor, without_two_factor > 0),
+        );
+        subnav.push(
+            NavItem::link(
+                "danger",
+                "workspace-danger-title",
+                "alert-triangle",
+                &format!("{base}/danger"),
+            )
+            .describe("workspace-danger-desc"),
+        );
+    }
+    let subnav = nav::mark(subnav, section.key());
     views::workspaces::settings(
         v,
         &shell,
         &SettingsPage {
-            action: &settings_path(&tenant.workspace.slug),
+            action: &base,
             form,
             danger: &danger_zone(tenant, rejected.delete_error),
+            section: section.key(),
+            subnav,
+            without_two_factor,
         },
         rejected.flash,
         status,
     )
+}
+
+/// GET sub-halaman: flash sekali tampil diambil dari sesi.
+async fn show_section(
+    ctx: &AppContext,
+    v: &TeraView,
+    tenant: &Tenant,
+    section: Section,
+    session: Session,
+) -> Result<Response> {
+    let (session, flash) = flash::take(session);
+    let rejected = Rejected {
+        flash,
+        ..Rejected::default()
+    };
+    let res = render(ctx, v, tenant, section, rejected, StatusCode::OK).await?;
+    Ok((session, res).into_response())
+}
+
+/// `GET /w/{slug}/settings/security` (Owner).
+#[debug_handler]
+pub(super) async fn security(
+    State(ctx): State<AppContext>,
+    ViewEngine(v): ViewEngine<TeraView>,
+    access: Require<WorkspaceOwner>,
+    session: Session,
+) -> Result<Response> {
+    show_section(&ctx, &v, &access.tenant, Section::Security, session).await
+}
+
+/// `GET /w/{slug}/settings/danger` (Owner).
+#[debug_handler]
+pub(super) async fn danger(
+    State(ctx): State<AppContext>,
+    ViewEngine(v): ViewEngine<TeraView>,
+    access: Require<WorkspaceOwner>,
+    session: Session,
+) -> Result<Response> {
+    show_section(&ctx, &v, &access.tenant, Section::Danger, session).await
 }
 
 #[debug_handler]
@@ -98,13 +195,7 @@ pub(super) async fn show(
     access: Require<AnySettings>,
     session: Session,
 ) -> Result<Response> {
-    let (session, flash) = flash::take(session);
-    let rejected = Rejected {
-        flash,
-        ..Rejected::default()
-    };
-    let res = render(&ctx, &v, &access.tenant, rejected, StatusCode::OK).await?;
-    Ok((session, res).into_response())
+    show_section(&ctx, &v, &access.tenant, Section::Profile, session).await
 }
 
 /// Tautan menu kiri Pengaturan, masing-masing menurut guard halaman itu sendiri (dipakai
@@ -177,7 +268,15 @@ pub(super) async fn update(
                 form: Some(&form),
                 ..Rejected::default()
             };
-            render(&ctx, &v, tenant, rejected, StatusCode::UNPROCESSABLE_ENTITY).await
+            render(
+                &ctx,
+                &v,
+                tenant,
+                Section::Profile,
+                rejected,
+                StatusCode::UNPROCESSABLE_ENTITY,
+            )
+            .await
         }
         Err(e) => Err(e.into()),
     }
@@ -201,14 +300,23 @@ pub(super) async fn require_2fa(
                 views::workspaces::FLASH_REQUIRE_2FA_OFF
             };
             let session = flash::set(session, &Flash::success(key))?;
-            Ok((session, format::redirect(&settings_path(&workspace.slug))?).into_response())
+            let to = format!("{}/security", settings_path(&workspace.slug));
+            Ok((session, format::redirect(&to)?).into_response())
         }
         Err(RequireTwoFactorError::ActorMissing) => {
             let rejected = Rejected {
                 flash: Some(Flash::error(REQUIRE_2FA_ACTOR_MISSING)),
                 ..Rejected::default()
             };
-            render(&ctx, &v, tenant, rejected, StatusCode::UNPROCESSABLE_ENTITY).await
+            render(
+                &ctx,
+                &v,
+                tenant,
+                Section::Security,
+                rejected,
+                StatusCode::UNPROCESSABLE_ENTITY,
+            )
+            .await
         }
         Err(RequireTwoFactorError::NotFound) => Err(Error::NotFound),
         Err(RequireTwoFactorError::Db(e)) => Err(e.into()),
@@ -242,7 +350,15 @@ pub(super) async fn schedule_deletion(
                 delete_error: Some(DELETE_CONFIRM_MISMATCH),
                 ..Rejected::default()
             };
-            render(&ctx, &v, tenant, rejected, StatusCode::UNPROCESSABLE_ENTITY).await
+            render(
+                &ctx,
+                &v,
+                tenant,
+                Section::Danger,
+                rejected,
+                StatusCode::UNPROCESSABLE_ENTITY,
+            )
+            .await
         }
         Err(DeletionError::NotFound) => Err(Error::NotFound),
         Err(DeletionError::Db(e)) => Err(e.into()),

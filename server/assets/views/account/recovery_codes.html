@@ -1,22 +1,20 @@
 {#- Kode pemulihan baru, tampil sekali (respons tidak disimpan cache). Variabel: codes (daftar
     string `xxxxx-xxxxx`). -#}
-{% extends "layouts/account.html" %}
+{% extends "layouts/settings.html" %}
 {% block title %}{{ t(key="totp-codes-title", lang="id") }}{% endblock title %}
-{% block account_content %}
-<div class="grid max-w-xl gap-6">
-  {{ <page_header title={t(key="totp-codes-title", lang="id")}/> }}
-  <section class="card">
-    <header>
-      <p class="text-sm text-muted-foreground">{{ t(key="totp-codes-description", lang="id") }}</p>
-    </header>
-    <section>
-      <ul class="grid grid-cols-2 gap-2 font-mono text-sm">
-        {%- for code in codes %}
-        <li><code data-recovery-code>{{ code }}</code></li>
-        {%- endfor %}
-      </ul>
-    </section>
-  </section>
-  <a href="/account" class="btn" data-variant="primary">{{ t(key="totp-codes-done", lang="id") }}</a>
-</div>
-{% endblock account_content %}
+{% block width %}narrow{% endblock width %}
+{% block crumb_label %}{{ t(key="totp-recovery-title", lang="id") }}{% endblock crumb_label %}
+{% block settings %}
+<header class="app-page-head">
+  <div class="app-page-title"><h1>{{ t(key="totp-codes-title", lang="id") }}</h1><p>{{ t(key="totp-codes-description", lang="id") }}</p></div>
+</header>
+{{ <flash kind="warn" message={t(key="totp-codes-warning", lang="id")}/> }}
+{% <card title={t(key="totp-codes-count", lang="id", count=codes | length)} flush={true}> %}
+  <ul class="app-codes">
+    {%- for code in codes %}
+    <li><code data-recovery-code>{{ code }}</code></li>
+    {%- endfor %}
+  </ul>
+  <footer class="app-card-f"><div class="app-savebar"><span class="app-savebar-msg"></span>{{ <button label={t(key="totp-codes-done", lang="id")} href="/account" icon="check"/> }}</div></footer>
+{% </card> %}
+{% endblock settings %}

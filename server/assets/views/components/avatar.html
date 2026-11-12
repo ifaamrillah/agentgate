@@ -1,12 +1,12 @@
-{#- Komponen avatar berisi inisial (tanpa foto).
+{#- Avatar orang: inisial di atas warna palet (bulat).
     Parameter:
-      initials: string          1–2 huruf (dihitung server, mis. views::layout::UserView)
-      label: string             nama lengkap untuk pembaca layar (default "" = dekoratif,
-                                mis. bila nama sudah tertulis di sebelahnya)
-      size: sm|default|lg       (default "default")
-      class: hanya untuk layout (margin), bukan warna/ukuran -#}
-{% component avatar(initials: string, label: string = "", size: string = "default", class: string = "") %}
-{%- if size not in ["sm", "default", "lg"] %}{{ throw(message="avatar: size tidak dikenal: " ~ size) }}{% endif -%}
-<span class="avatar {{ class }}" data-size="{{ size }}"
-  {%- if label %} role="img" aria-label="{{ label }}"{% else %} aria-hidden="true"{% endif %}><span>{{ initials }}</span></span>
+      initials: string          1–2 huruf
+      color: string             warna latar (views::palette) (default "" = abu)
+      label: string             nama untuk pembaca layar (default "" = dekoratif)
+      size: sm|default|md|lg|xl (20/22/28/36/64px; default "default")
+      class: hanya untuk layout -#}
+{% component avatar(initials: string, color: string = "", label: string = "", size: string = "default", class: string = "") %}
+{%- if size not in ["sm", "default", "md", "lg", "xl"] %}{{ throw(message="avatar: size tidak dikenal: " ~ size) }}{% endif -%}
+<span class="app-av {{ class }}"{% if size != "default" %} data-size="{{ size }}"{% endif %}{% if color %} style="--c:{{ color }}"{% endif %}
+  {%- if label %} role="img" aria-label="{{ label }}" title="{{ label }}"{% else %} aria-hidden="true"{% endif %}>{{ initials }}</span>
 {%- endcomponent avatar %}

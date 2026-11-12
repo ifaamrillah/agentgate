@@ -1,21 +1,39 @@
-{#- Komponen card: kotak berjudul berisi konten. Dipanggil sebagai blok; isinya = body.
-      {% <card title="Profil" description="..."> %}...{% </card> %}
+{#- Kartu bagian (varian A): judul + deskripsi + tautan "Lihat semua →" DI DALAM kartu (aturan
+    UX 2), isi, dan bila `form` diisi seluruh kartu menjadi <form method="post"> dengan footer
+    Batal/Simpan (aturan UX 3, tidak melayang). Dipanggil sebagai blok:
+      {% <card title="Profil" description="…" form="/w/x/settings" cancel_href="/w/x/settings"> %}…{% </card> %}
     Parameter:
-      title: string             judul (default "" = tanpa header)
-      description: string       teks di bawah judul (default "")
-      size: default|sm          (default "default"; sm = padding lebih rapat)
-      class: hanya untuk layout (margin, lebar, posisi grid), bukan warna/ukuran -#}
-{% component card(title: string = "", description: string = "", size: string = "default", class: string = "") %}
-{%- if size not in ["default", "sm"] %}{{ throw(message="card: size tidak dikenal: " ~ size) }}{% endif -%}
-<section class="card {{ class }}"{% if size == "sm" %} data-size="sm"{% endif %}>
+      title, description: string  (sudah diterjemahkan; title "" = tanpa header)
+      count: string             angka di samping judul (default "" = tanpa)
+      link_label, link_href: string  tautan di kanan header, mis. "Lihat semua" (default "")
+      variant: default|danger|accent   (default default; danger = zona berbahaya)
+      flush: bool               isi tanpa padding: daftar `app-lrow`, `app-srow`, tabel (default false)
+      form: string              action form POST; "" = kartu biasa (default "")
+      enctype: string           mis. "multipart/form-data" (default "")
+      save_label: string        tombol simpan (default "" = "Simpan perubahan")
+      cancel_href: string       tujuan Batal (tautan, memuat ulang nilai tersimpan) (default "" = tanpa Batal)
+      note: string              pesan di kiri footer (default "")
+      save_variant: primary|danger  (default primary)
+      id, attrs: string         id elemen dan penanda tes tanpa kutip (default "")
+      class: hanya untuk layout -#}
+{% component card(title: string = "", description: string = "", count: string = "", link_label: string = "", link_href: string = "", variant: string = "default", flush: bool = false, form: string = "", enctype: string = "", save_label: string = "", cancel_href: string = "", note: string = "", save_variant: string = "primary", id: string = "", attrs: string = "", class: string = "") %}
+{%- if variant not in ["default", "danger", "accent"] %}{{ throw(message="card: variant tidak dikenal: " ~ variant) }}{% endif -%}
+{%- if form %}<form method="post" action="{{ form }}"{% if enctype %} enctype="{{ enctype }}"{% endif %} class="app-card {{ class }}"{% if id %} id="{{ id }}"{% endif %}{% if variant != "default" %} data-variant="{{ variant }}"{% endif %} {{ attrs }}>
+{%- else %}<section class="app-card {{ class }}"{% if id %} id="{{ id }}"{% endif %}{% if variant != "default" %} data-variant="{{ variant }}"{% endif %} {{ attrs }}>{% endif %}
   {%- if title %}
-  <header>
-    <h2>{{ title }}</h2>
-    {%- if description %}<p>{{ description }}</p>{% endif %}
+  <header class="app-card-h">
+    <div>
+      <h2>{{ title }}{% if count %} <span class="app-count">{{ count }}</span>{% endif %}</h2>
+      {%- if description %}<p>{{ description }}</p>{% endif %}
+    </div>
+    {%- if link_label %}<div class="app-card-a"><a class="app-seeall" href="{{ link_href }}">{{ link_label }}{{ icon(name="arrow-right") }}</a></div>{% endif %}
   </header>
   {%- endif %}
-  {%- if body is defined %}
-  <section>{{ body }}</section>
-  {%- endif %}
+  <div class="app-card-b"{% if flush %} data-flush{% endif %}>{% if body is defined %}{{ body }}{% endif %}</div>
+  {%- if form %}
+  <footer class="app-card-f">{{ <savebar label={save_label} cancel_href={cancel_href} note={note} variant={save_variant}/> }}</footer>
+</form>
+  {%- else %}
 </section>
+  {%- endif %}
 {%- endcomponent card %}

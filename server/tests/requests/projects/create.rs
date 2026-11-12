@@ -120,7 +120,7 @@ async fn project_key_unique_case_insensitive_and_normalized_upper() {
         // Sidebar: project aktif dengan menu "segera".
         assert_css_exists(
             &html,
-            "[data-project-list] a[href=\"/w/acme/p/KSR\"][data-active]",
+            "[data-project-list] a[href=\"/w/acme/p/KSR\"][aria-current=\"page\"]",
         );
         assert_css_exists(&html, "[data-project-list] a[aria-disabled=\"true\"]");
         // Pembuat (Admin project) melihat tautan pengaturan project.

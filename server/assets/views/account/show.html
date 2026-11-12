@@ -1,45 +1,32 @@
 {#- Akun → Profil. Variabel (views::account::AccountPage): name (isian form nama), email
     (string), errors (field name → {code, min, max}), flash (dirender layout),
     two_factor_enabled (bool). -#}
-{% extends "layouts/account.html" %}
+{% extends "layouts/settings.html" %}
 {% block title %}{{ t(key="account-title", lang="id") }}{% endblock title %}
-{% block account_content %}
-{{ <page_header title={t(key="account-profile", lang="id")} description={t(key="account-profile-description", lang="id")}/> }}
-<section class="card">
-  <section>
-    <form method="post" action="/account/profile" class="form grid gap-6">
-      <div class="flex items-center gap-4">
-        {{ <avatar initials={shell.user.initials} size="lg"/> }}
-        <div class="grid min-w-0">
-          <span class="truncate font-semibold">{{ shell.user.name }}</span>
-          <span class="truncate text-sm text-muted-foreground">{{ t(key="account-email", lang="id") }}: {{ email }}</span>
-        </div>
-      </div>
-      {{ <field id="account-name" name="name" label={t(key="account-name", lang="id")} value={name} error={errors.name.code} error_min={errors.name.min} error_max={errors.name.max} autocomplete="name" required={true}/> }}
-      <div>{{ <button label={t(key="account-save", lang="id")} type="submit"/> }}</div>
-    </form>
-  </section>
-</section>
-<section class="card">
-  <header>
-    <h2>{{ t(key="account-security", lang="id") }}</h2>
-  </header>
-  <section class="grid gap-4 text-sm">
-    <div class="flex flex-wrap items-center gap-3">
-      {{ icon(name="lock", class="size-4 text-muted-foreground") }}
-      <span class="flex-1 font-medium">{{ t(key="account-password", lang="id") }}</span>
-      <a href="/account/password" class="btn" data-variant="outline" data-size="sm">{{ t(key="account-change-password", lang="id") }}</a>
-    </div>
-    <div class="flex flex-wrap items-center gap-3">
-      {{ icon(name="shield-check", class="size-4 text-muted-foreground") }}
-      <span class="font-medium">{{ t(key="account-two-factor", lang="id") }}</span>
-      {%- if two_factor_enabled %}
-      {{ <badge label={t(key="account-two-factor-on", lang="id")} variant="success"/> }}
-      {%- else %}
-      {{ <badge label={t(key="account-two-factor-off", lang="id")} variant="gate"/> }}
-      {%- endif %}
-      <a href="/account/2fa" class="btn ms-auto" data-variant="outline" data-size="sm">{{ t(key="account-two-factor-manage", lang="id") }}</a>
-    </div>
-  </section>
-</section>
-{% endblock account_content %}
+{% block width %}narrow{% endblock width %}
+{% block crumb_label %}{{ t(key="account-profile", lang="id") }}{% endblock crumb_label %}
+{% block page_attrs %}data-account-page{% endblock page_attrs %}
+{% block settings %}
+<header class="app-page-head">
+  <div class="app-page-title"><h1>{{ t(key="account-profile", lang="id") }}</h1><p>{{ t(key="account-profile-page-description", lang="id") }}</p></div>
+</header>
+{% <card title={t(key="account-profile", lang="id")} description={t(key="account-profile-description", lang="id")} flush={true} form="/account/profile" save_label={t(key="action-save-changes", lang="id")} cancel_href="/account"> %}
+  <div class="app-form">{{ <person name={shell.user.name} initials={shell.user.initials} color={shell.user.color} detail={email}/> }}</div>
+  {% <setting_row title={t(key="account-name", lang="id")} wide={true}> %}
+    {{ <field id="account-name" name="name" label={t(key="account-name", lang="id")} hide_label={true} value={name} error={errors.name.code} error_min={errors.name.min} error_max={errors.name.max} autocomplete="name" required={true}/> }}
+  {% </setting_row> %}
+  {% <setting_row title={t(key="account-email", lang="id")} description={t(key="account-email-locked", lang="id")} wide={true}> %}
+    <span class="app-input" data-readonly>{{ icon(name="lock") }}<span>{{ email }}</span></span>
+  {% </setting_row> %}
+{% </card> %}
+{% <card title={t(key="account-security", lang="id")} description={t(key="account-security-description", lang="id")} flush={true}> %}
+  {% <setting_row title={t(key="account-password", lang="id")} description={t(key="account-password-description", lang="id")}> %}
+    {{ <button label={t(key="account-change-password", lang="id")} href="/account/password" variant="outline" size="sm"/> }}
+  {% </setting_row> %}
+  {% <setting_row title={t(key="account-two-factor", lang="id")} description={t(key="account-two-factor-description", lang="id")}> %}
+    {%- if two_factor_enabled %}{{ <badge label={t(key="account-two-factor-on", lang="id")} variant="success"/> }}
+    {%- else %}{{ <badge label={t(key="account-two-factor-off", lang="id")} variant="gate"/> }}{% endif %}
+    {{ <button label={t(key="account-two-factor-manage", lang="id")} href="/account/2fa" variant="outline" size="sm"/> }}
+  {% </setting_row> %}
+{% </card> %}
+{% endblock settings %}

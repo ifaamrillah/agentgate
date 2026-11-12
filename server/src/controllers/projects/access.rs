@@ -24,6 +24,7 @@ use crate::{
         flash::Flash,
         members::OptionView,
         projects::{AccessPage, GrantRow, parse_subject, subject_value},
+        ui::ComboOption,
     },
 };
 
@@ -41,22 +42,38 @@ pub struct RoleForm {
     role_id: String,
 }
 
-async fn render(
-    ctx: &AppContext,
-    v: &TeraView,
-    access: &ProjectAccess,
-    flash: Option<Flash>,
-    status: StatusCode,
-) -> Result<Response> {
+/// Data pembentuk halaman akses: grant project, role, tim, dan anggota workspace.
+struct Loaded {
+    grants: Vec<project_grants::Model>,
+    roles: Vec<roles::Model>,
+    teams: Vec<teams::Model>,
+    members: Vec<(
+        workspace_members::Model,
+        crate::models::users::Model,
+        roles::Model,
+    )>,
+}
+
+async fn load(ctx: &AppContext, access: &ProjectAccess) -> Result<Loaded> {
     let wid = access.tenant.workspace_id();
+    Ok(Loaded {
+        grants: project_grants::Model::of_project(&ctx.db, wid, access.project.id).await?,
+        roles: roles::Model::in_workspace(&ctx.db, wid).await?,
+        teams: teams::Model::in_workspace(&ctx.db, wid).await?,
+        members: workspace_members::Model::list_in(&ctx.db, wid).await?,
+    })
+}
+
+fn rows(loaded: &Loaded, access: &ProjectAccess) -> Vec<GrantRow> {
+    let Loaded {
+        grants,
+        roles: all_roles,
+        teams: all_teams,
+        members,
+    } = loaded;
     let actor_role = &access.tenant.role;
     let base = paths(access).access;
-    let grants = project_grants::Model::of_project(&ctx.db, wid, access.project.id).await?;
-    let all_roles = roles::Model::in_workspace(&ctx.db, wid).await?;
-    let all_teams = teams::Model::in_workspace(&ctx.db, wid).await?;
-    let members = workspace_members::Model::list_in(&ctx.db, wid).await?;
-    let granted = |subject: GrantSubject| grants.iter().any(|g| g.subject().ok() == Some(subject));
-    let rows = grants
+    grants
         .iter()
         .filter_map(|grant| {
             let role = all_roles.iter().find(|r| r.id == grant.role_id)?;
@@ -73,31 +90,59 @@ async fn render(
             let manageable = project_access::can_grant(actor_role, &access.role, role);
             Some(GrantRow::new(grant, subject, role, manageable, &base))
         })
-        .collect();
-    let page = AccessPage {
-        grants: rows,
-        teams: all_teams
+        .collect()
+}
+
+/// Grant project yang terbaca (tim/orang + role), untuk kartu Anggota di ringkasan project.
+pub(super) async fn grant_rows(ctx: &AppContext, access: &ProjectAccess) -> Result<Vec<GrantRow>> {
+    Ok(rows(&load(ctx, access).await?, access))
+}
+
+async fn render(
+    ctx: &AppContext,
+    v: &TeraView,
+    access: &ProjectAccess,
+    flash: Option<Flash>,
+    status: StatusCode,
+) -> Result<Response> {
+    let loaded = load(ctx, access).await?;
+    let actor_role = &access.tenant.role;
+    let granted = |subject: GrantSubject| {
+        loaded
+            .grants
             .iter()
-            .filter(|t| !granted(GrantSubject::Team(t.id)))
-            .map(|t| OptionView::new(subject_value(GrantSubject::Team(t.id)), &t.name))
-            .collect(),
-        people: members
+            .any(|g| g.subject().ok() == Some(subject))
+    };
+    let mut subjects: Vec<ComboOption> = loaded
+        .teams
+        .iter()
+        .filter(|t| !granted(GrantSubject::Team(t.id)))
+        .map(|t| {
+            ComboOption::new(subject_value(GrantSubject::Team(t.id)), &t.name)
+                .group_key("grant-subject-teams")
+        })
+        .collect();
+    subjects.extend(
+        loaded
+            .members
             .iter()
             .filter(|(_, u, _)| !granted(GrantSubject::User(u.id)))
             .map(|(_, u, _)| {
-                OptionView::new(
-                    subject_value(GrantSubject::User(u.id)),
-                    &format!("{} ({})", u.name, u.email),
-                )
-            })
-            .collect(),
-        roles: all_roles
+                ComboOption::person(subject_value(GrantSubject::User(u.id)), &u.name, &u.email)
+                    .group_key("grant-subject-people")
+            }),
+    );
+    let page = AccessPage {
+        grants: rows(&loaded, access),
+        subjects,
+        roles: loaded
+            .roles
             .iter()
             .filter(|r| project_access::can_grant(actor_role, &access.role, r))
             .filter(|r| !project_access::project_permissions_of(r).is_empty())
             .map(OptionView::role)
             .collect(),
-        action: base,
+        action: paths(access).access,
         flash,
     };
     let shell = app_shell(ctx, &access.tenant.user, Some(&access.tenant), Some(access)).await?;

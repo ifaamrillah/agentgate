@@ -1,0 +1,15 @@
+{#- Menu aksi per baris: tombol ⋯ dan popover Basecoat berisi tautan/form (item:
+    `class="app-menu-item"`, berbahaya: `data-variant="destructive"`). Dipanggil sebagai blok.
+    Parameter:
+      id: string                id unik di halaman
+      label: string             aria-label tombol (sebut objeknya) -#}
+{% component action_menu(id: string, label: string) %}
+<div class="popover" id="{{ id }}">
+  <button type="button" class="btn" data-variant="ghost" data-size="icon-sm" aria-expanded="false" aria-controls="{{ id }}-popover" aria-label="{{ label }}">
+    {{- icon(name="dots") -}}
+  </button>
+  <div id="{{ id }}-popover" data-popover aria-hidden="true" data-align="end">
+    {%- if body is defined %}{{ body }}{% endif %}
+  </div>
+</div>
+{%- endcomponent action_menu %}

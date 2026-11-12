@@ -1,61 +1,68 @@
-{#- Project → Ringkasan. Variabel: project (views::projects::ProjectSummary), repos
-    ([views::projects::RepoView]: name, provider_key, url, default_branch), paths
-    (views::projects::ProjectPaths, atau null bila user bukan Admin project: tautan pengaturan
-    hanya untuk Admin). Board tiket datang di M2. -#}
+{#- Project → Ringkasan (prototype "Ringkasan project"). Board dan statistik tiket datang di M2:
+    kartu progres tampil sebagai empty state jujur.
+    Variabel: project (views::projects::ProjectSummary), repos ([RepoView]), members
+    ([MemberRow]: tim/orang dengan akses), paths (ProjectPaths atau null bila bukan Admin
+    project), views/views_action/return_to (layouts/project.html). -#}
 {% extends "layouts/project.html" %}
 {% block title %}{{ project.name }}{% endblock title %}
-{% block project_content %}
-<div class="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]" data-project-home>
-  <section class="card" data-board-empty>
-    <header>
-      <h2>{{ t(key="nav-board", lang="id") }}</h2>
-    </header>
-    <section>
-      {{ <empty_state title={t(key="project-board-soon-title", lang="id")} description={t(key="project-board-soon-description", lang="id")} icon="layout-dashboard"/> }}
-    </section>
-  </section>
-  <div class="grid content-start gap-6">
-    <section class="card" data-project-repos>
-      <header>
-        <h2>{{ t(key="project-repos-title", lang="id") }}</h2>
-        {%- if paths %}
-        <a href="{{ paths.repos }}" class="card-action text-sm font-medium text-ag-indigo hover:underline">{{ t(key="project-repos-manage", lang="id") }}</a>
-        {%- endif %}
-      </header>
-      <section>
-        {%- if repos %}
-        <ul class="grid gap-3">
-          {%- for repo in repos %}
-          <li class="grid gap-0.5" data-repo>
-            <span class="flex items-center gap-2">
-              {{ icon(name="git-branch", class="size-4 text-muted-foreground") }}
-              <span class="font-mono text-sm font-medium">{{ repo.name }}</span>
-              {{ <badge label={repo.default_branch} variant="neutral" code={true} class="ms-auto"/> }}
-            </span>
-            <span class="truncate ps-6 text-xs text-muted-foreground">{{ t(key=repo.provider_key, lang="id") }} · <span class="font-mono">{{ repo.url }}</span></span>
-          </li>
-          {%- endfor %}
-        </ul>
-        {%- else %}
-        <p class="text-sm text-muted-foreground">{{ t(key="project-repos-empty", lang="id") }}</p>
-        {%- endif %}
-      </section>
-    </section>
-    <section class="card">
-      <header>
-        <h2>{{ t(key="project-about-title", lang="id") }}</h2>
-      </header>
-      <section>
-        <dl class="grid grid-cols-[7rem_minmax(0,1fr)] gap-x-3 gap-y-2 text-sm">
-          <dt class="text-muted-foreground">{{ t(key="project-key", lang="id") }}</dt>
-          <dd class="font-mono">{{ project.key }}</dd>
-          <dt class="text-muted-foreground">{{ t(key="project-access-label", lang="id") }}</dt>
-          <dd>{{ project.role_label }}</dd>
-          <dt class="text-muted-foreground">{{ t(key="project-status-label", lang="id") }}</dt>
-          <dd>{% if project.archived %}{{ t(key="project-archived", lang="id") }}{% else %}{{ t(key="project-active", lang="id") }}{% endif %}</dd>
-        </dl>
-      </section>
-    </section>
+{% block crumb %}{{ <crumb label={t(key="project-view-overview", lang="id")}/> }}{% endblock crumb %}
+{% block page_attrs %}data-project-home data-project-header{% endblock page_attrs %}
+{% block description %}
+  {%- if project.description %}{{ project.description }} · {% endif -%}
+  <span data-project-role>{{ t(key="project-your-access", lang="id", role=project.role_label) }}</span>
+{%- endblock description %}
+{% block head_actions %}
+  {%- if paths %}{{ <button icon="settings" variant="outline" size="icon" href={paths.settings} aria_label={t(key="project-settings-title", lang="id")}/> }}{% endif -%}
+{% endblock head_actions %}
+{% block main %}
+<div class="app-grid" data-cols="duo">
+  <div data-board-empty>
+  {% <card title={t(key="project-progress-title", lang="id")} description={t(key="project-progress-description", lang="id")}> %}
+    {{ <empty_state title={t(key="project-board-soon-title", lang="id")} description={t(key="project-board-soon-description", lang="id")} icon="layout-kanban" variant="plain"/> }}
+  {% </card> %}
   </div>
+  {% <card title={t(key="project-about-title", lang="id")} description={t(key="project-about-description", lang="id")} link_label={paths and t(key="action-edit", lang="id") or ""} link_href={paths and paths.settings or ""}> %}
+    <dl class="app-props" data-project-props>
+      <dt>{{ t(key="project-status-label", lang="id") }}</dt>
+      <dd>{% if project.archived %}{{ <badge label={t(key="project-archived", lang="id")} variant="neutral"/> }}{% else %}{{ <badge label={t(key="project-active", lang="id")} variant="success"/> }}{% endif %}</dd>
+      <dt>{{ t(key="project-key", lang="id") }}</dt>
+      <dd>{{ <badge label={project.key} variant="neutral" code={true}/> }}</dd>
+      <dt>{{ t(key="project-color", lang="id") }}</dt>
+      <dd>{{ <dot color={project.color}/> }}<span class="app-code">{{ project.color }}</span></dd>
+      <dt>{{ t(key="project-access-label", lang="id") }}</dt>
+      <dd>{{ project.role_label }}</dd>
+    </dl>
+  {% </card> %}
 </div>
-{% endblock project_content %}
+
+<div class="app-grid" data-cols="duo">
+  <div data-project-repos>
+  {% <card title={t(key="project-repos-title", lang="id")} description={t(key="project-repos-description", lang="id")} count={repos | length ~ ""} link_label={paths and t(key="action-manage", lang="id") or ""} link_href={paths and paths.repos or ""} flush={repos | length > 0}> %}
+    {%- if repos %}
+    {%- for repo in repos %}
+    <div class="app-lrow" data-repo>
+      {{ icon(name="git-branch") }}
+      <span class="app-lrow-main"><b class="app-code">{{ repo.name }}</b><small>{{ t(key=repo.provider_key, lang="id") }} · {{ repo.url }}</small></span>
+      {{ <badge label={repo.default_branch} variant="neutral" code={true}/> }}
+    </div>
+    {%- endfor %}
+    {%- else %}
+    {{ <empty_state title={t(key="project-repos-empty", lang="id")} description={t(key="project-repos-empty-description", lang="id")} icon="git-branch" variant="plain"/> }}
+    {%- endif %}
+  {% </card> %}
+  </div>
+  {% <card title={t(key="project-members-title", lang="id")} description={t(key="project-members-description", lang="id")} count={members | length ~ ""} link_label={paths and t(key="action-manage", lang="id") or ""} link_href={paths and paths.access or ""} flush={members | length > 0}> %}
+    {%- if members %}
+    {%- for m in members %}
+    <div class="app-lrow" data-project-member>
+      {%- if m.is_team %}<span class="app-tile">{{ icon(name="users-group") }}</span><span class="app-lrow-main"><b>{{ m.name }}</b><small>{{ t(key="grant-subject-team", lang="id") }}</small></span>
+      {%- else %}{{ <person name={m.name} initials={m.initials} color={m.color} detail={m.detail}/> }}<span class="app-lrow-main"></span>{% endif %}
+      {{ <badge label={m.role_name} variant="neutral"/> }}
+    </div>
+    {%- endfor %}
+    {%- else %}
+    {{ <empty_state title={t(key="grants-empty-title", lang="id")} description={t(key="grants-empty-description", lang="id")} icon="users" variant="plain"/> }}
+    {%- endif %}
+  {% </card> %}
+</div>
+{% endblock main %}

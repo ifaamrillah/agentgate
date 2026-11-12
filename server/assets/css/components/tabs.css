@@ -1,0 +1,21 @@
+/* Tab halaman bergaris bawah (aturan UX 10) dengan angka berbentuk badge (aturan UX 8).
+   `.app-seg` hanya untuk sakelar mode kecil. */
+@layer components {
+  .app-tabs { display: flex; gap: 18px; border-bottom: 1px solid var(--ag-line); overflow-x: auto; scrollbar-width: none; min-width: 0; }
+  .app-tabs > a, .app-tabs > button {
+    height: 36px; display: inline-flex; align-items: center; gap: 6px; color: var(--ag-muted); border-bottom: 2px solid transparent;
+    margin-bottom: -1px; white-space: nowrap; font-weight: 500;
+  }
+  .app-tabs > :is(a, button):hover { color: var(--ag-fg); }
+  .app-tabs > [aria-current], .app-tabs > [aria-selected='true'] { color: var(--ag-fg); border-bottom-color: var(--ag-fg); }
+  .app-tabs > [aria-disabled='true'] { color: var(--ag-faint); cursor: default; }
+  .app-tabs svg { width: 14px; height: 14px; }
+  .app-tabs .app-count { background: var(--ag-hover); color: var(--ag-fg2); }
+  .app-tabs > :is([aria-current], [aria-selected='true']) .app-count { background: var(--ag-fg); color: var(--ag-bg); }
+  .app-card > .app-tabs { padding: 0 16px; }
+
+  .app-seg { display: inline-flex; background: var(--ag-hover); border-radius: 7px; padding: 2px; gap: 2px; }
+  .app-seg > * { height: 26px; padding: 0 10px; border-radius: 5px; color: var(--ag-muted); display: inline-flex; align-items: center; gap: 6px; font-weight: 500; white-space: nowrap; }
+  .app-seg > [aria-current], .app-seg > :has(:checked) { background: var(--ag-raised); color: var(--ag-fg); box-shadow: var(--ag-shadow-sm); }
+  .app-seg input { position: absolute; opacity: 0; pointer-events: none; }
+}

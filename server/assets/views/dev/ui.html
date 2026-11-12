@@ -1,164 +1,158 @@
-{#- Katalog sistem desain /_dev/ui: token (warna, status, font, radius) lalu setiap komponen di
-    assets/views/components dengan semua variannya. Acuan tertulis: docs/reference/design-system.md.
-    Variabel: shell (contoh statis dari views::dev, dengan workspace dan project). -#}
-{% extends "layouts/app.html" %}
+{#- Katalog sistem desain /_dev/ui: token lalu setiap komponen di assets/views/components dengan
+    variannya. Acuan tertulis: docs/reference/design-system.md. Teks contoh sengaja ditulis
+    langsung (halaman development saja).
+    Variabel: shell + side (contoh statis dari views::dev), tabs/subnav ([NavItem]), views
+    (ProjectViews), stats ([Stat]), people ([ComboOption]), table (TableView), rows. -#}
+{% extends "layouts/page.html" %}
 {% block title %}Katalog UI{% endblock title %}
-{% block content %}
-{{ <page_header title="Katalog UI" description="Token sistem desain dan setiap komponen di assets/views/components dengan semua variannya."/> }}
+{% block crumb %}{{ <crumb label="Katalog UI"/> }}{% endblock crumb %}
+{% block tabs %}{{ <project_tabs views={views} action="/_dev/echo" return_to="/_dev/ui"/> }}{% endblock tabs %}
+{% block mtabs %}{{ <project_tabs views={views} action="/_dev/echo" return_to="/_dev/ui" mobile={true}/> }}{% endblock mtabs %}
+{% block actions %}{{ <button label="Bagikan" variant="ghost" icon="link" size="sm"/> }}{% endblock actions %}
+{% block width %}mid{% endblock width %}
+{% block leading %}{{ <project_logo initials="WE" color="#5b5bd6" size="lg"/> }}{% endblock leading %}
+{% block heading %}Katalog UI{% endblock heading %}
+{% block description %}Token sistem desain dan setiap komponen di assets/views/components dengan variannya.{% endblock description %}
+{% block head_actions %}{{ <button label="Ganti tema" variant="outline" icon="moon" attrs="data-theme-toggle"/> }}{{ <button label="Aksi utama" icon="plus"/> }}{% endblock head_actions %}
+{% block main %}
+<div id="stats">{{ <stats items={stats}/> }}</div>
 
-<section class="mt-8" id="tokens">
-  <h2 class="text-lg font-semibold">Token warna</h2>
-  <div class="mt-4 grid gap-6 md:grid-cols-2">
-    {%- set scales = [["Indigo (aksen)", "indigo"], ["Slate (netral)", "slate"]] %}
-    {%- for scale in scales %}
-    <div>
-      <h3 class="text-sm font-semibold">{{ scale[0] }}</h3>
-      <ul class="mt-2 flex flex-wrap gap-2">
-        {%- if scale[1] == "indigo" %}{% set steps = ["50", "100", "200", "600", "700", "800", "900"] %}{% else %}{% set steps = ["50", "100", "200", "300", "600", "900"] %}{% endif %}
-        {%- for step in steps %}
-        <li class="grid w-20 gap-1">
-          <span class="h-12 rounded-md border border-border" style="background: var(--ag-{{ scale[1] }}-{{ step }})"></span>
-          <span class="font-mono text-xs">{{ scale[1] }}-{{ step }}</span>
-        </li>
-        {%- endfor %}
-      </ul>
+<div id="tokens">
+{% <card title="Token" description="Permukaan, teks, aksen, status, dan prioritas (terang/gelap dari token --ag-*)."> %}
+  <div class="app-catalog-swatches">
+    {%- for name in ["bg", "bg-sub", "side", "page", "raised", "hover", "active", "line", "line2", "fg", "fg2", "muted", "faint", "accent", "accent-soft", "success", "warn", "danger", "info", "p1-bg", "p2-bg", "p3-bg", "p4-bg"] %}
+    <span><i style="background: var(--ag-{{ name }})"></i><code class="app-code">{{ name }}</code></span>
+    {%- endfor %}
+  </div>
+  <div class="app-bar">
+    {%- for variant in ["primary", "secondary", "outline", "destructive", "info", "ai", "gate", "success", "neutral"] %}{{ <badge label={variant} variant={variant}/> }}{% endfor %}
+    {{ <badge label="main" variant="neutral" code={true}/> }}
+    {%- for p in [1, 2, 3, 4] %}<span class="app-prio" data-p="{{ p }}">P{{ p }}</span>{% endfor %}
+    <span class="app-count">3</span><span class="app-count" data-tone="alert">2</span><span class="app-count" data-tone="accent">5</span>
+  </div>
+{% </card> %}
+</div>
+
+<div id="buttons">
+{% <card title="button" description="Varian dan ukuran; tombol bisa berupa tautan, pembuka dialog, atau submit."> %}
+  <div class="app-bar">
+    {%- for variant in ["primary", "secondary", "outline", "ghost", "destructive", "danger", "link"] %}{{ <button label={variant} variant={variant}/> }}{% endfor %}
+  </div>
+  <div class="app-bar">
+    {{ <button label="Kecil" size="sm" icon="plus"/> }}{{ <button label="Besar" size="lg"/> }}
+    {{ <button icon="settings" size="icon" variant="outline" aria_label="Pengaturan"/> }}{{ <button icon="dots" size="icon-sm" variant="ghost" aria_label="Lainnya"/> }}
+    {{ <button label="Tautan" href="/_dev/ui" variant="outline" icon="arrow-right"/> }}{{ <button label="Nonaktif" disabled={true}/> }}
+  </div>
+{% </card> %}
+</div>
+
+<div class="app-grid" data-cols="two" id="form">
+{% <card title="field, textarea_field, select_field" form="/_dev/echo" cancel_href="/_dev/ui" note="Perubahan belum disimpan"> %}
+  <div class="app-form">
+    {{ <field id="catalog-email" name="email" type="email" label="Email" value="ana@agentgate" error="email-invalid"/> }}
+    {{ <field id="catalog-password" name="password" type="password" label="Password" error="password-too-short" error_min={12}/> }}
+    {{ <field id="catalog-slug" name="slug" label="Alamat URL" prefix="agentgate.id/w/" value="acme" mono={true} hint="Huruf kecil, angka, dan tanda hubung."/> }}
+    {{ <textarea_field id="catalog-textarea" name="description" label="Deskripsi" optional="opsional"/> }}
+    {{ <select_field id="catalog-select" name="role" label="Role" options={[{"id": "1", "name": "Admin"}, {"id": "2", "name": "Member"}]} value="2"/> }}
+    <div class="app-bar">
+      <label class="app-check-row"><input type="checkbox" class="app-check" checked> Kotak centang</label>
+      <label class="app-check-row"><input type="checkbox" class="app-switch" role="switch" checked> Sakelar</label>
+      <label class="app-check-row"><input type="radio" class="app-radio" name="catalog-radio" checked> Radio</label>
     </div>
-    {% endfor %}
   </div>
-  <h3 class="mt-6 text-sm font-semibold">Status</h3>
-  <div class="mt-2 flex flex-wrap items-center gap-3">
-    {{ <badge label="Siap dikerjakan" variant="info"/> }}
-    {{ <badge label="Dikerjakan AI" variant="ai"/> }}
-    {{ <badge label="Menunggu gate" variant="gate"/> }}
-    {{ <badge label="Selesai" variant="success"/> }}
-    {{ <badge label="Diarsipkan" variant="neutral"/> }}
-    {{ <badge label="Gagal" variant="destructive"/> }}
-  </div>
-  <h3 class="mt-6 text-sm font-semibold">Tipografi</h3>
-  <div class="mt-2 grid gap-2">
-    <p class="text-[1.375rem] font-bold tracking-tight">IBM Plex Sans 700 · judul halaman</p>
-    <p class="text-base font-semibold">IBM Plex Sans 600 · judul bagian</p>
-    <p class="text-sm">IBM Plex Sans 400 · teks dasar 14px untuk isi dan form.</p>
-    <p class="font-mono text-sm">IBM Plex Mono · KSR-24 · pt-contoh · PR #142</p>
-  </div>
-  <h3 class="mt-6 text-sm font-semibold">Permukaan</h3>
-  <div class="mt-2 grid gap-3 md:grid-cols-3">
-    <div class="ag-tint p-4 text-sm">Area bertint (ag-tint)</div>
-    {% <card size="sm"> %}<p>Kartu: putih, garis indigo-100</p>{% </card> %}
-    <div class="rounded-lg bg-sidebar p-4 text-sm text-sidebar-foreground">Sidebar indigo-900</div>
-  </div>
-</section>
+{% </card> %}
+{% <card title="setting_row" description="Baris pengaturan di kartu flush." flush={true}> %}
+  {% <setting_row title="Wajibkan autentikasi dua langkah" description="Anggota tanpa 2FA diarahkan ke halaman setup."> %}<input type="checkbox" class="app-switch" role="switch" aria-label="Wajibkan 2FA" checked>{% </setting_row> %}
+  {% <setting_row title="Nama" description="Tampil di sidebar dan email."> %}<input class="app-input" value="Acme Studio" aria-label="Nama">{% </setting_row> %}
+{% </card> %}
+</div>
 
-<section class="mt-8" id="button">
-  <h2 class="text-lg font-semibold">button</h2>
-  <div class="mt-4 flex flex-wrap items-center gap-3">
-    {% for variant in ["primary", "secondary", "outline", "ghost", "destructive", "link"] %}
-      {{ <button label={variant} variant={variant}/> }}
-    {% endfor %}
+<div class="app-grid" data-cols="two" id="combo">
+{% <card title="combo" description="Pilihan yang bisa dicari: satu atau banyak orang/tim (static/js/combobox.js)."> %}
+  <div class="app-form">
+    {{ <combo id="catalog-person" name="user" label="Penanggung jawab" options={people} value="budi@agentgate.test"/> }}
+    {{ <combo id="catalog-people" name="users" label="Anggota" options={people} values={["ana@agentgate.test", "citra@agentgate.test"]} multiple={true}/> }}
   </div>
-  <div class="mt-4 flex flex-wrap items-center gap-3">
-    {% for size in ["sm", "default", "lg"] %}
-      {{ <button label={size} size={size} icon="plus"/> }}
-    {% endfor %}
-    {{ <button label="submit" type="submit" icon="check"/> }}
-    {{ <button label="disabled" icon="plus" disabled={true}/> }}
+{% </card> %}
+{% <card title="color_picker, uploader" description="18 warna palet + warna lain; unggah logo dengan tarik-lepas."> %}
+  <div class="app-form">
+    {{ <color_picker id="catalog-color" name="color" label="Warna project" value="#5b5bd6"/> }}
+    {{ <uploader action="/_dev/echo" title="Logo project" hint="PNG, JPG, atau WebP. Maks 1 MB." upload_label="Unggah logo" initials="WE" color="#5b5bd6"/> }}
   </div>
-</section>
+{% </card> %}
+</div>
 
-<section class="mt-8 max-w-md" id="field">
-  <h2 class="text-lg font-semibold">field</h2>
-  <form class="form mt-4 grid gap-6">
-    {{ <field id="catalog-name" name="name" label="Nama" value="Ana"/> }}
-    {{ <field id="catalog-email" name="email" type="email" label="Email" value="ana@example.test" autocomplete="email" required={true}/> }}
-    {{ <field id="catalog-password" name="password" type="password" label="Password" value="tidak-dirender" error="password-too-short" error_min={12}/> }}
-  </form>
-</section>
+<div id="table">
+{% <card title="datatable" description="Tabel server-side: cari, filter, sort, per halaman, halaman. Coba langsung." count="12" flush={true}> %}
+  {% <datatable table={table} empty_title="Belum ada anggota" attrs="data-catalog-table"> %}
+    {%- for row in rows %}
+    <tr>
+      <td>{{ <person name={row.name} initials={row.initials} color={row.color} detail={row.email}/> }}</td>
+      <td data-hide="md">{{ <badge label={row.role} variant="neutral"/> }}</td>
+      <td data-actions>
+        {% <action_menu id={"catalog-row-" ~ loop.index} label={"Aksi untuk " ~ row.name}> %}
+          <a class="app-menu-item" href="/_dev/ui">{{ icon(name="pencil") }}Ubah</a>
+          <form method="post" action="/_dev/echo"><button type="submit" class="app-menu-item" data-variant="destructive">{{ icon(name="trash") }}Hapus</button></form>
+        {% </action_menu> %}
+      </td>
+    </tr>
+    {%- endfor %}
+  {% </datatable> %}
+{% </card> %}
+</div>
 
-<section class="mt-8 max-w-md" id="flash">
-  <h2 class="text-lg font-semibold">flash</h2>
-  <div class="mt-4 grid gap-3">
-    {% for kind in ["info", "success", "error"] %}
-      {{ <flash kind={kind} message={"Pesan " ~ kind}/> }}
-    {% endfor %}
+<div id="layout">
+{% <subpage title="subpage" description="Menu tab vertikal (varian E): setiap item adalah halaman server." items={subnav}> %}
+  {% <card title="Ganti password" description="Isi kartu menyatu dengan panel." form="/_dev/echo"> %}
+    <div class="app-form">{{ <field id="catalog-current" name="current" type="password" label="Password saat ini"/> }}</div>
+  {% </card> %}
+{% </subpage> %}
+</div>
+
+<div class="app-grid" data-cols="duo" id="lists">
+{% <card title="card + list" description="Baris daftar, umpan aktivitas, properti." link_label="Lihat semua" link_href="/_dev/ui" count="3" flush={true}> %}
+  <a class="app-lrow" href="/_dev/ui">{{ <project_logo initials="WE" color="#5b5bd6" size="sm"/> }}<span class="app-lrow-main"><b>Website</b><small>WEB · 12 tiket terbuka</small></span>{{ icon(name="chevron-right") }}</a>
+  <div class="app-lrow">{{ <person name="Budi Santoso" initials="BS" color="#0d9488" detail="Developer"/> }}<span class="app-lrow-acts">{{ <button label="Review" size="sm"/> }}</span></div>
+  <div class="app-feed">
+    <div class="app-fe">{{ <avatar initials="AN" color="#5b5bd6" size="sm"/> }}<span><b>Ana</b> membuat project <b>Website</b></span><time>5 mnt</time></div>
   </div>
-</section>
+{% </card> %}
+{% <card title="Properti" variant="accent"> %}
+  <dl class="app-props"><dt>Status</dt><dd>{{ <badge label="Aktif" variant="success"/> }}</dd><dt>Kunci</dt><dd>{{ <badge label="WEB" variant="neutral" code={true}/> }}</dd><dt>Lead</dt><dd>{{ <avatar initials="AN" color="#5b5bd6" size="sm"/> }}Ana Nugraha</dd></dl>
+{% </card> %}
+</div>
 
-<section class="mt-8" id="page_header">
-  <h2 class="text-lg font-semibold">page_header</h2>
-  <div class="mt-4 grid gap-6 rounded-lg border border-border p-4">
-    {{ <page_header title="Beranda"/> }}
-    {% <page_header title="Project" description="Semua project yang bisa kamu akses."> %}
-      {{ <button label="Buat project" icon="plus"/> }}
-    {% </page_header> %}
+<div class="app-grid" data-cols="two" id="feedback">
+{% <card title="flash, empty_state"> %}
+  <div class="app-stack-v">
+    {{ <flash kind="info" message="Info netral."/> }}
+    {{ <flash kind="success" message="Berhasil disimpan."/> }}
+    {{ <flash kind="warn" title="Perlu perhatian" message="3 anggota belum mengaktifkan 2FA."/> }}
+    {{ <flash kind="error" message="Ada isian yang belum benar."/> }}
+    {{ <empty_state title="Belum ada tiket" description="Tiket hadir di M2. Board ini akan terisi otomatis." icon="layout-kanban"/> }}
   </div>
-</section>
-
-<section class="mt-8" id="card">
-  <h2 class="text-lg font-semibold">card</h2>
-  <div class="mt-4 grid max-w-3xl gap-4 md:grid-cols-2">
-    {% <card title="Profil" description="Nama dan email akun."> %}
-      <p>Isi card ukuran default.</p>
-    {% </card> %}
-    {% <card title="Ringkas" description="Ukuran sm." size="sm"> %}
-      <p>Isi card ukuran sm.</p>
-    {% </card> %}
-    {% <card> %}
-      <p>Card tanpa judul.</p>
-    {% </card> %}
+{% </card> %}
+{% <card title="Zona berbahaya" description="dialog, action_menu, tabs" variant="danger"> %}
+  <div class="app-stack-v">
+    {{ <tabs label="Contoh tab" items={tabs}/> }}
+    <div class="app-bar">
+      {{ <button label="Hapus workspace" variant="danger" icon="trash" dialog="catalog-dialog"/> }}
+      {% <action_menu id="catalog-menu" label="Aksi contoh"> %}<a class="app-menu-item" href="/_dev/ui">{{ icon(name="pencil") }}Ubah</a>{% </action_menu> %}
+    </div>
+    <div class="app-bar">{% for size in ["sm", "default", "md", "lg", "xl"] %}{{ <avatar initials="AN" color="#5b5bd6" label="Ana Nugraha" size={size}/> }}{% endfor %}{{ <dot color="#16a34a"/> }}</div>
   </div>
-</section>
+{% </card> %}
+</div>
 
-<section class="mt-8" id="badge">
-  <h2 class="text-lg font-semibold">badge</h2>
-  <div class="mt-4 flex flex-wrap items-center gap-3">
-    {% for variant in ["primary", "secondary", "outline", "destructive", "info", "ai", "gate", "success", "neutral"] %}
-      {{ <badge label={variant} variant={variant}/> }}
-    {% endfor %}
-    {{ <badge label="KSR" variant="outline" code={true}/> }}
-  </div>
-</section>
-
-<section class="mt-8 max-w-3xl" id="empty_state">
-  <h2 class="text-lg font-semibold">empty_state</h2>
-  <div class="mt-4 grid gap-4 md:grid-cols-2">
-    {{ <empty_state title="Belum ada project" description="Project yang kamu buat atau diundang akan tampil di sini."/> }}
-    {% <empty_state title="Belum ada anggota" description="Undang rekan ke workspace ini." icon="users" variant="dashed"> %}
-      {{ <button label="Undang anggota" icon="plus" size="sm"/> }}
-    {% </empty_state> %}
-  </div>
-</section>
-
-<section class="mt-8 max-w-3xl" id="table">
-  <h2 class="text-lg font-semibold">table</h2>
-  {% <table headers={["Nama", "Email", "Status"]} caption="Anggota workspace" class="mt-4"> %}
-    <tr><td>Ana Nugraha</td><td>ana@agentgate.test</td><td>{{ <badge label="Owner" variant="primary"/> }}</td></tr>
-    <tr><td>Budi Santoso</td><td>budi@agentgate.test</td><td>{{ <badge label="Member"/> }}</td></tr>
-  {% </table> %}
-</section>
-
-<section class="mt-8" id="avatar">
-  <h2 class="text-lg font-semibold">avatar</h2>
-  <div class="mt-4 flex flex-wrap items-center gap-3">
-    {% for size in ["sm", "default", "lg"] %}
-      {{ <avatar initials="AN" label="Ana Nugraha" size={size}/> }}
-    {% endfor %}
-    {{ <avatar initials="B"/> }}
-  </div>
-</section>
-
-<section class="mt-8 max-w-xs" id="sidebar_nav">
-  <h2 class="text-lg font-semibold">sidebar_nav</h2>
-  <p class="mt-2 text-sm text-muted-foreground">Gaya item hanya berlaku di dalam <code>.sidebar &gt; nav</code>; contoh bergaya ada di sidebar kiri halaman ini. Daftar ini menunjukkan markup setiap state.</p>
-  <div class="mt-4 rounded-lg border border-border p-2 text-sm">
-    <ul class="grid gap-1">
-      {{ <sidebar_nav label="Halaman ini (current)" href="/_dev/ui" icon="home" state="current"/> }}
-      {{ <sidebar_nav label="Biasa (default)" href="/account" icon="user"/> }}
-      {% <sidebar_nav label="Bagian aktif (active)" href="/_dev/ui" icon="folder" state="active"> %}
-        {{ <sidebar_nav label="Sub-item" href="/_dev/ui" size="sm"/> }}
-        {{ <sidebar_nav label="Nonaktif" icon="robot" state="disabled" soon={true}/> }}
-      {% </sidebar_nav> %}
-      {{ <sidebar_nav label="Nonaktif (disabled)" icon="book" state="disabled" soon={true}/> }}
-    </ul>
-  </div>
-</section>
-{% endblock content %}
+<div id="editor">
+{% <card title="md_editor" description="Editor markdown Milkdown Crepe (dimuat saat dipakai); tanpa JS menjadi textarea."> %}
+  {{ <md_editor id="catalog-editor" name="body" label="Deskripsi" value="## Tujuan\n\nKasir bisa menerima **QRIS**." action="/_dev/echo" cancel_href="/_dev/ui"/> }}
+{% </card> %}
+</div>
+{% <dialog id="catalog-dialog" title="Hapus workspace?" description="Workspace dijadwalkan hapus permanen 30 hari lagi." icon="trash" tone="danger"> %}
+<form method="post" action="/_dev/echo">
+  <section>{{ <field id="catalog-confirm" name="confirm" label="Ketik nama workspace untuk konfirmasi"/> }}</section>
+  <footer><button type="button" class="btn" data-variant="outline" data-dialog-close>Batal</button><button type="submit" class="btn" data-variant="danger">Hapus</button></footer>
+</form>
+{% </dialog> %}
+{% endblock main %}

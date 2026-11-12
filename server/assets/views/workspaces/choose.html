@@ -1,27 +1,22 @@
-{#- Pilih workspace (`/`, user dengan lebih dari satu workspace).
-    Variabel: choices ([{name, slug, href}]). -#}
-{% extends "layouts/app.html" %}
+{#- Pilih workspace (`/`, user dengan lebih dari satu workspace): halaman solo (prototype
+    "Pilih workspace"). Variabel: choices ([views::layout::WorkspaceLink]), shell (user). -#}
+{% extends "layouts/public.html" %}
 {% block title %}{{ t(key="workspace-choose-title", lang="id") }}{% endblock title %}
 {% block content %}
-<div class="mx-auto grid max-w-xl gap-6">
-  {% <page_header title={t(key="workspace-choose-title", lang="id")} description={t(key="workspace-choose-description", lang="id")}> %}
-    <a href="/w/new" class="btn" data-variant="outline">{{ icon(name="plus", class="size-4") }}{{ t(key="nav-create-workspace", lang="id") }}</a>
-  {% </page_header> %}
-  <ul class="grid gap-3" hx-preload:inherited="mouseover">
-    {%- for choice in choices %}
-    <li>
-      <a href="{{ choice.href }}" data-workspace-choice class="card flex-row items-center gap-3 px-6 hover:bg-accent">
-        <span class="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground" aria-hidden="true">
-          {{- icon(name="building-skyscraper", class="size-4") -}}
-        </span>
-        <span class="grid min-w-0 flex-1 leading-tight">
-          <span class="truncate font-semibold">{{ choice.name }}</span>
-          <span class="truncate font-mono text-xs text-muted-foreground">/w/{{ choice.slug }}</span>
-        </span>
-        {{- icon(name="chevron-right", class="size-4 text-muted-foreground") -}}
-      </a>
-    </li>
-    {%- endfor %}
-  </ul>
-</div>
+<header class="app-solo-head">
+  <h1>{{ t(key="workspace-choose-title", lang="id") }}</h1>
+  <p>{{ t(key="workspace-choose-count", lang="id", count=choices | length) }}</p>
+</header>
+<div class="app-card"><div class="app-card-b" data-flush hx-preload:inherited="mouseover">
+  {%- for choice in choices %}
+  <a class="app-lrow" href="{{ choice.href }}" data-workspace-choice>
+    {{ <project_logo initials={choice.initials} color={choice.color}/> }}
+    <span class="app-lrow-main"><b>{{ choice.name }}</b><small class="app-code">/w/{{ choice.slug }}</small></span>
+    {{- icon(name="chevron-right") -}}
+  </a>
+  {%- endfor %}
+</div></div>
+{{ <button label={t(key="workspace-new-title", lang="id")} href="/w/new" variant="outline" icon="plus" full={true}/> }}
+{{ <flash kind="neutral" message={t(key="workspace-choose-invite-hint", lang="id", email=shell.user.email)}/> }}
 {% endblock content %}
+{% block foot %}{% include "workspaces/_signed_in_as.html" %}{% endblock foot %}

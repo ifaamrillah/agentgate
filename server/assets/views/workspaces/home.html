@@ -1,85 +1,59 @@
-{#- Beranda workspace: statistik singkat + tabel project. Variabel: workspace_name (string),
-    create_href (path form buat project, atau null bila role tidak memegang CreateProjects),
-    stats (views::workspaces::HomeStats: active_projects, archived_projects, members, teams); daftar project = shell.projects
-    (project yang bisa dibuka user, sama dengan sidebar: {name, key, href, archived,
-    description}). Statistik tiket menyusul di M2. -#}
-{% extends "layouts/app.html" %}
+{#- Beranda workspace (prototype "Beranda"): salam + tanggal, stats, kartu yang menunggu M2/M3
+    sebagai empty state jujur, daftar project, aktivitas.
+    Variabel (views::workspaces::HomePage): workspace_name, first_name, today (LongDate),
+    create_href (atau null), stats ([Stat]), audit_href (atau null); daftar project =
+    shell.projects ({name, key, href, archived, description, color, initials, logo_href}). -#}
+{% extends "layouts/page.html" %}
 {% block title %}{{ workspace_name }}{% endblock title %}
-{% block content %}
-<div class="grid gap-6">
-  {% <page_header title={workspace_name} description={t(key="workspace-home-description", lang="id")}> %}
-    {%- if create_href %}
-    <a href="{{ create_href }}" class="btn" data-create-project>{{ icon(name="plus", class="size-4") }}{{ t(key="workspace-create-project", lang="id") }}</a>
-    {%- endif %}
-  {% </page_header> %}
+{% block crumb %}{{ <crumb label={t(key="nav-home", lang="id")}/> }}{% endblock crumb %}
+{% block page_attrs %}data-workspace-home{% endblock page_attrs %}
+{% block heading %}{% if first_name %}{{ t(key=today.greeting_key, lang="id") }}, {{ first_name }}{% else %}{{ workspace_name }}{% endif %}{% endblock heading %}
+{% block description %}{{ t(key=today.weekday_key, lang="id") }}, {{ today.day }} {{ t(key=today.month_key, lang="id") }} {{ today.year }} · {{ t(key="workspace-home-description", lang="id") }}{% endblock description %}
+{% block head_actions %}
+  {%- if create_href %}{{ <button label={t(key="workspace-create-project", lang="id")} href={create_href} icon="plus" attrs="data-create-project"/> }}{% endif -%}
+{% endblock head_actions %}
+{% block main %}
+<div data-home-stats>{{ <stats items={stats}/> }}</div>
 
-  <div class="grid grid-cols-2 gap-4 lg:grid-cols-4" data-home-stats>
-    <div class="card" data-size="sm">
-      <section class="grid gap-1">
-        <span class="flex items-center gap-2 text-sm text-muted-foreground">{{ icon(name="folder", class="size-4") }}{{ t(key="workspace-stat-projects", lang="id") }}</span>
-        <strong class="text-2xl font-bold">{{ stats.active_projects }}</strong>
-      </section>
-    </div>
-    <div class="card" data-size="sm">
-      <section class="grid gap-1">
-        <span class="flex items-center gap-2 text-sm text-muted-foreground">{{ icon(name="archive", class="size-4") }}{{ t(key="workspace-stat-archived", lang="id") }}</span>
-        <strong class="text-2xl font-bold">{{ stats.archived_projects }}</strong>
-      </section>
-    </div>
-    <div class="card" data-size="sm">
-      <section class="grid gap-1">
-        <span class="flex items-center gap-2 text-sm text-muted-foreground">{{ icon(name="users", class="size-4") }}{{ t(key="workspace-stat-members", lang="id") }}</span>
-        <strong class="text-2xl font-bold">{{ stats.members }}</strong>
-      </section>
-    </div>
-    <div class="card" data-size="sm">
-      <section class="grid gap-1">
-        <span class="flex items-center gap-2 text-sm text-muted-foreground">{{ icon(name="users-group", class="size-4") }}{{ t(key="workspace-stat-teams", lang="id") }}</span>
-        <strong class="text-2xl font-bold">{{ stats.teams }}</strong>
-      </section>
-    </div>
-  </div>
-
-  {%- if shell.projects %}
-  <section class="card py-0" data-projects>
-    <div class="table-container">
-      <table class="table">
-        <thead>
-          <tr>
-            <th scope="col">{{ t(key="workspace-column-project", lang="id") }}</th>
-            <th scope="col" class="hidden md:table-cell">{{ t(key="project-description", lang="id") }}</th>
-            <th scope="col">{{ t(key="workspace-column-status", lang="id") }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {%- for project in shell.projects %}
-          <tr data-project="{{ project.key }}">
-            <td>
-              <a href="{{ project.href }}" class="flex items-center gap-3 hover:underline">
-                {{ <badge label={project.key} variant="outline" code={true}/> }}
-                <span class="font-medium">{{ project.name }}</span>
-              </a>
-            </td>
-            <td class="hidden max-w-md truncate text-muted-foreground md:table-cell">{% if project.description %}{{ project.description }}{% else %}—{% endif %}</td>
-            <td>
-              {%- if project.archived %}
-              <span data-project-archived>{{ <badge label={t(key="project-archived", lang="id")} variant="neutral"/> }}</span>
-              {%- else %}
-              {{ <badge label={t(key="project-active", lang="id")} variant="success"/> }}
-              {%- endif %}
-            </td>
-          </tr>
-          {%- endfor %}
-        </tbody>
-      </table>
-    </div>
-  </section>
-  {%- elif create_href %}
-  {% <empty_state title={t(key="workspace-no-projects-title", lang="id")} description={t(key="workspace-no-projects-description", lang="id")} variant="dashed"> %}
-    <a href="{{ create_href }}" class="btn" data-variant="outline">{{ icon(name="plus", class="size-4") }}{{ t(key="workspace-create-project", lang="id") }}</a>
-  {% </empty_state> %}
-  {%- else %}
-  {{ <empty_state title={t(key="workspace-no-projects-title", lang="id")} description={t(key="workspace-no-projects-member-description", lang="id")} variant="dashed"/> }}
-  {%- endif %}
+<div class="app-grid" data-cols="duo">
+  {% <card title={t(key="home-action-title", lang="id")} description={t(key="home-action-description", lang="id")}> %}
+    {{ <empty_state title={t(key="home-action-empty-title", lang="id")} description={t(key="home-action-empty-description", lang="id")} icon="inbox" variant="plain"/> }}
+  {% </card> %}
+  {% <card title={t(key="home-runner-title", lang="id")} description={t(key="home-runner-description", lang="id")}> %}
+    {{ <empty_state title={t(key="home-runner-empty-title", lang="id")} description={t(key="home-runner-empty-description", lang="id")} icon="device-laptop" variant="plain"/> }}
+  {% </card> %}
 </div>
-{% endblock content %}
+
+<div class="app-grid" data-cols="two">
+  {% <card title={t(key="home-agents-title", lang="id")} description={t(key="home-agents-description", lang="id")}> %}
+    {{ <empty_state title={t(key="home-agents-empty-title", lang="id")} description={t(key="home-agents-empty-description", lang="id")} icon="sparkles" variant="plain"/> }}
+  {% </card> %}
+  <div data-projects>
+  {% <card title={t(key="nav-projects", lang="id")} description={t(key="home-projects-description", lang="id")} count={shell.projects | length ~ ""} flush={shell.projects | length > 0}> %}
+    {%- if shell.projects %}
+    {%- for project in shell.projects %}
+    <a class="app-lrow" href="{{ project.href }}" data-project="{{ project.key }}">
+      {{ <project_logo initials={project.initials} color={project.color} image={project.logo_href} size="sm"/> }}
+      <span class="app-lrow-main">
+        <b>{{ project.name }} <span class="app-code app-muted">{{ project.key }}</span></b>
+        <small>{% if project.description %}{{ project.description }}{% else %}{{ t(key="home-project-no-description", lang="id") }}{% endif %}</small>
+      </span>
+      {%- if project.archived %}<span data-project-archived>{{ <badge label={t(key="project-archived", lang="id")} variant="neutral"/> }}</span>{% endif %}
+      {{ icon(name="chevron-right") }}
+    </a>
+    {%- endfor %}
+    {%- elif create_href %}
+    {% <empty_state title={t(key="workspace-no-projects-title", lang="id")} description={t(key="workspace-no-projects-description", lang="id")} icon="folder" variant="plain"> %}
+      {{ <button label={t(key="workspace-create-project", lang="id")} href={create_href} variant="outline" icon="plus"/> }}
+    {% </empty_state> %}
+    {%- else %}
+    {{ <empty_state title={t(key="workspace-no-projects-title", lang="id")} description={t(key="workspace-no-projects-member-description", lang="id")} icon="folder" variant="plain"/> }}
+    {%- endif %}
+  {% </card> %}
+  </div>
+</div>
+
+{% <card title={t(key="home-activity-title", lang="id")} description={t(key="home-activity-description", lang="id")} link_label={audit_href and t(key="home-activity-audit", lang="id") or ""} link_href={audit_href or ""}> %}
+  {{ <empty_state title={t(key="home-activity-empty-title", lang="id")} description={t(key="home-activity-empty-description", lang="id")} icon="list" variant="plain"/> }}
+{% </card> %}
+{% endblock main %}

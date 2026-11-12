@@ -72,6 +72,8 @@ base64 = "0.22"
 validator = { version = "0.20", features = ["derive"] }
 # Id UUID v7 untuk semua tabel.
 uuid = { version = "1", features = ["v7", "serde"] }
+# Query string tautan tabel data (sort, filter, halaman) di views::datatable.
+serde_urlencoded = "0.7"
 # Timestamp (timestamptz) dan perhitungan umur token/sesi.
 chrono = "0.4"
 

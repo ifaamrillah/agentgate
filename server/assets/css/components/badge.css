@@ -1,14 +1,31 @@
-/* Badge: pill lembut. Varian status semantik selain varian Basecoat (primary/secondary/outline/destructive). */
+/* Override `.badge` Basecoat menjadi pill prototype (22px, sudut penuh).
+   data-variant: outline/secondary (garis), neutral (abu), success, gate (kuning-oranye),
+   destructive, ai/primary (aksen), info. data-code: font mono. Titik warna: <i> di dalam badge. */
 @layer components {
   .badge {
-    border-radius: 9999px;
-    font-weight: 600;
+    height: 22px; padding: 0 8px; border-radius: 11px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center;
+    gap: 5px; border: 1px solid var(--ag-line2); color: var(--ag-fg2); background: var(--ag-raised); white-space: nowrap; flex-shrink: 0;
   }
+  .badge > i { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; background: currentColor; }
+  .badge svg { width: 13px; height: 13px; }
+  .badge[data-variant='neutral'] { background: var(--ag-hover); border-color: transparent; color: var(--ag-muted); }
+  .badge[data-variant='success'] { background: var(--ag-success-soft); border-color: transparent; color: var(--ag-success); }
+  .badge[data-variant='gate'] { background: var(--ag-warn-soft); border-color: transparent; color: var(--ag-warn); }
+  .badge[data-variant='destructive'] { background: var(--ag-danger-soft); border-color: transparent; color: var(--ag-danger); }
+  .badge:is([data-variant='ai'], [data-variant='primary']) { background: var(--ag-accent-soft); border-color: transparent; color: var(--ag-accent-fg); }
+  .badge[data-variant='info'] { background: var(--ag-info-soft); border-color: transparent; color: var(--ag-info); }
+  .badge[data-code] { font-family: var(--ag-mono); font-size: 11.5px; }
+  .badge[data-shape='square'] { border-radius: 5px; }
 
-  .badge[data-variant="info"] { background: var(--ag-status-info-bg); color: var(--ag-status-info-fg); }
-  .badge[data-variant="ai"] { background: var(--ag-status-ai-bg); color: var(--ag-status-ai-fg); }
-  .badge[data-variant="gate"] { background: var(--ag-status-gate-bg); color: var(--ag-status-gate-fg); }
-  .badge[data-variant="success"] { background: var(--ag-status-success-bg); color: var(--ag-status-success-fg); }
-  .badge[data-variant="neutral"] { background: var(--ag-status-neutral-bg); color: var(--ag-status-neutral-fg); }
-  .badge[data-variant="destructive"] { background: var(--ag-status-danger-bg); color: var(--ag-status-danger-fg); }
+  /* Hitungan kecil di samping judul kartu atau tab ("Anggota 12"). */
+  .app-count { display: inline-flex; align-items: center; height: 18px; padding: 0 6px; border-radius: 9px; background: var(--ag-hover); color: var(--ag-fg2); font-size: 11px; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .app-count[data-tone='alert'] { background: var(--ag-danger); color: #fff; }
+  .app-count[data-tone='accent'] { background: var(--ag-accent); color: var(--ag-on-accent); }
+
+  /* Label prioritas P1–P4 (varian C). */
+  .app-prio { display: inline-flex; align-items: center; height: 20px; padding: 0 6px; border-radius: 5px; font-size: 11px; font-weight: 600; font-family: var(--ag-mono); flex-shrink: 0; white-space: nowrap; }
+  .app-prio[data-p='1'] { background: var(--ag-p1-bg); color: var(--ag-p1-fg); }
+  .app-prio[data-p='2'] { background: var(--ag-p2-bg); color: var(--ag-p2-fg); }
+  .app-prio[data-p='3'] { background: var(--ag-p3-bg); color: var(--ag-p3-fg); }
+  .app-prio[data-p='4'] { background: var(--ag-p4-bg); color: var(--ag-p4-fg); }
 }

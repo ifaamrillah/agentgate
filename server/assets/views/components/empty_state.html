@@ -1,22 +1,18 @@
-{#- Komponen empty state: belum ada data, dengan ajakan bertindak opsional.
-    Dipanggil inline, atau sebagai blok bila ada aksi (body = tombol/link di footer).
+{#- Empty state: belum ada data atau fitur yang menunggu milestone-nya (jujur, tanpa data palsu).
+    Dipanggil inline, atau sebagai blok bila ada aksi (body = tombol/tautan).
     Parameter:
-      title: string             judul (sudah diterjemahkan pemanggil)
+      title: string             judul (sudah diterjemahkan)
       description: string       penjelasan (default "")
       icon: nama ikon Tabler    (default "folder"; "" = tanpa ikon)
-      variant: plain|dashed     (default plain; dashed = bingkai garis putus, untuk area kosong
-                                di dalam halaman)
-      class: hanya untuk layout (margin, lebar), bukan warna/ukuran -#}
-{% component empty_state(title: string, description: string = "", icon: string = "folder", variant: string = "plain", class: string = "") %}
+      variant: dashed|plain     (default dashed; plain = tanpa bingkai, di dalam kartu)
+      attrs: string             penanda tes tanpa kutip (default "")
+      class: hanya untuk layout -#}
+{% component empty_state(title: string, description: string = "", icon: string = "folder", variant: string = "dashed", attrs: string = "", class: string = "") %}
 {%- if variant not in ["plain", "dashed"] %}{{ throw(message="empty_state: variant tidak dikenal: " ~ variant) }}{% endif -%}
-<div class="{% if variant == "dashed" %}empty border border-dashed{% else %}empty{% endif %} {{ class }}">
-  <header>
-    {%- if icon %}<figure>{{ icon(name=icon, class="size-6") }}</figure>{% endif %}
-    <h3>{{ title }}</h3>
-    {%- if description %}<p>{{ description }}</p>{% endif %}
-  </header>
-  {%- if body is defined %}
-  <footer>{{ body }}</footer>
-  {%- endif %}
+<div class="app-empty {{ class }}" data-variant="{{ variant }}" {{ attrs }}>
+  {%- if icon %}<span class="app-tile" data-size="lg">{{ icon(name=icon) }}</span>{% endif %}
+  <b>{{ title }}</b>
+  {%- if description %}<span>{{ description }}</span>{% endif %}
+  {%- if body is defined %}<div>{{ body }}</div>{% endif %}
 </div>
 {%- endcomponent empty_state %}

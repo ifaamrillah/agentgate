@@ -33,11 +33,14 @@ use crate::common::text;
 pub const PROJECT_KEY_INVALID: &str = "project-key-invalid";
 pub const PROJECT_KEY_TAKEN: &str = "project-key-taken";
 pub const PROJECT_DESCRIPTION_TOO_LONG: &str = "project-description-too-long";
+/// Warna bukan `#rrggbb`.
+pub const PROJECT_COLOR_INVALID: &str = "project-color-invalid";
 /// Kode error field milik model ini; masing-masing punya pesan di Fluent (dijaga tes i18n).
 pub const ERROR_CODES: &[&str] = &[
     PROJECT_KEY_INVALID,
     PROJECT_KEY_TAKEN,
     PROJECT_DESCRIPTION_TOO_LONG,
+    PROJECT_COLOR_INVALID,
 ];
 
 /// Panjang key project: huruf pertama ditambah 1–9 huruf/angka.
@@ -70,7 +73,17 @@ pub struct NewProject {
     pub key: String,
     pub name: String,
     pub description: String,
+    /// Warna dari pemilih warna (`""` = warna palet bawaan dari key).
+    pub color: String,
     pub created_by: Option<Uuid>,
+}
+
+/// Logo project yang tersimpan di storage (rules §8: DB menyimpan key, tipe, dan ukuran).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Logo {
+    pub key: String,
+    pub content_type: String,
+    pub size: i32,
 }
 
 impl TenantEntity for Entity {
@@ -185,17 +198,50 @@ impl Model {
         db: &C,
         name: &str,
         description: &str,
+        color: &str,
     ) -> Result<Self, ProjectError> {
         let mut errors = ValidationErrors::new();
         let name = validated_name(name, &mut errors);
         let description = validated_description(description, &mut errors);
+        let color = validated_color(color, &mut errors);
         if !errors.is_empty() {
             return Err(ProjectError::Invalid(errors.into()));
         }
         let mut project = self.into_active_model();
         project.name = Set(name);
         project.description = Set(description);
+        project.color = Set(color);
         Ok(project.update(db).await?)
+    }
+
+    /// Logo terunggah (`None` = tidak ada).
+    #[must_use]
+    pub fn logo(&self) -> Option<Logo> {
+        match (&self.logo_key, &self.logo_content_type, self.logo_size) {
+            (Some(key), Some(content_type), Some(size)) => Some(Logo {
+                key: key.clone(),
+                content_type: content_type.clone(),
+                size,
+            }),
+            _ => None,
+        }
+    }
+
+    /// Ganti atau hapus (`None`) logo. File lama di storage dihapus pemanggil setelah commit.
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn set_logo<C: ConnectionTrait>(
+        self,
+        db: &C,
+        logo: Option<Logo>,
+    ) -> Result<Self, DbErr> {
+        let mut project = self.into_active_model();
+        project.logo_key = Set(logo.as_ref().map(|l| l.key.clone()));
+        project.logo_content_type = Set(logo.as_ref().map(|l| l.content_type.clone()));
+        project.logo_size = Set(logo.as_ref().map(|l| l.size));
+        project.update(db).await
     }
 
     /// Tandai project diarsipkan (sekarang). Project yang sudah diarsipkan tidak diubah.
@@ -233,6 +279,7 @@ impl ActiveModel {
         }
         let name = validated_name(&new.name, &mut errors);
         let description = validated_description(&new.description, &mut errors);
+        let color = validated_color(&new.color, &mut errors);
         if !errors.is_empty() {
             return Err(ProjectError::Invalid(errors.into()));
         }
@@ -241,6 +288,7 @@ impl ActiveModel {
             key: Set(key),
             name: Set(name),
             description: Set(description),
+            color: Set(color),
             created_by: Set(new.created_by),
             ..Default::default()
         }
@@ -310,9 +358,35 @@ fn validated_description(description: &str, errors: &mut ValidationErrors) -> St
     description
 }
 
+/// Warna dari isian: kosong = `None` (warna palet bawaan), selain itu `#rrggbb` huruf kecil.
+fn validated_color(color: &str, errors: &mut ValidationErrors) -> Option<String> {
+    let color = color.trim().to_ascii_lowercase();
+    if color.is_empty() {
+        return None;
+    }
+    if !text::is_hex_color(&color) {
+        errors.add("color", ValidationError::new(PROJECT_COLOR_INVALID));
+        return None;
+    }
+    Some(color)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn color_is_optional_lowercase_hex() {
+        let mut errors = ValidationErrors::new();
+        assert_eq!(validated_color("", &mut errors), None);
+        assert_eq!(
+            validated_color(" #5B5BD6 ", &mut errors),
+            Some("#5b5bd6".into())
+        );
+        assert!(errors.is_empty());
+        assert_eq!(validated_color("red", &mut errors), None);
+        assert!(!errors.is_empty());
+    }
 
     #[test]
     fn key_is_upper_letter_then_one_to_nine_letters_or_digits() {
