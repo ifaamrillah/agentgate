@@ -38,13 +38,27 @@ static COLUMNS: &[ColumnSpec] = &[
     ColumnSpec::new("member-column-team").hide("md"),
     ColumnSpec::new("member-column-role").sort("role"),
     ColumnSpec::new("member-column-two-factor").hide("md"),
-    ColumnSpec::new("member-column-joined").sort("joined").hide("lg"),
+    ColumnSpec::new("member-column-joined")
+        .sort("joined")
+        .hide("lg"),
     ColumnSpec::new("member-column-actions").right(),
 ];
 static FILTERS: &[FilterSpec] = &[
-    FilterSpec { key: "role", label_key: "member-column-role", icon: "key" },
-    FilterSpec { key: "team", label_key: "member-column-team", icon: "users-group" },
-    FilterSpec { key: "tfa", label_key: "member-column-two-factor", icon: "shield-check" },
+    FilterSpec {
+        key: "role",
+        label_key: "member-column-role",
+        icon: "key",
+    },
+    FilterSpec {
+        key: "team",
+        label_key: "member-column-team",
+        icon: "users-group",
+    },
+    FilterSpec {
+        key: "tfa",
+        label_key: "member-column-two-factor",
+        icon: "shield-check",
+    },
 ];
 /// Tabel anggota server-side (id DOM `members-table`).
 pub const MEMBERS_TABLE: TableSpec = TableSpec {

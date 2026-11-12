@@ -113,13 +113,23 @@ async fn render(
     }
     if WorkspaceOwner::allows(&tenant.role) {
         subnav.push(
-            NavItem::link("security", "workspace-security-title", "shield-check", &format!("{base}/security"))
-                .describe("workspace-security-desc")
-                .counted(without_two_factor, without_two_factor > 0),
+            NavItem::link(
+                "security",
+                "workspace-security-title",
+                "shield-check",
+                &format!("{base}/security"),
+            )
+            .describe("workspace-security-desc")
+            .counted(without_two_factor, without_two_factor > 0),
         );
         subnav.push(
-            NavItem::link("danger", "workspace-danger-title", "alert-triangle", &format!("{base}/danger"))
-                .describe("workspace-danger-desc"),
+            NavItem::link(
+                "danger",
+                "workspace-danger-title",
+                "alert-triangle",
+                &format!("{base}/danger"),
+            )
+            .describe("workspace-danger-desc"),
         );
     }
     let subnav = nav::mark(subnav, section.key());
@@ -258,7 +268,15 @@ pub(super) async fn update(
                 form: Some(&form),
                 ..Rejected::default()
             };
-            render(&ctx, &v, tenant, Section::Profile, rejected, StatusCode::UNPROCESSABLE_ENTITY).await
+            render(
+                &ctx,
+                &v,
+                tenant,
+                Section::Profile,
+                rejected,
+                StatusCode::UNPROCESSABLE_ENTITY,
+            )
+            .await
         }
         Err(e) => Err(e.into()),
     }
@@ -290,7 +308,15 @@ pub(super) async fn require_2fa(
                 flash: Some(Flash::error(REQUIRE_2FA_ACTOR_MISSING)),
                 ..Rejected::default()
             };
-            render(&ctx, &v, tenant, Section::Security, rejected, StatusCode::UNPROCESSABLE_ENTITY).await
+            render(
+                &ctx,
+                &v,
+                tenant,
+                Section::Security,
+                rejected,
+                StatusCode::UNPROCESSABLE_ENTITY,
+            )
+            .await
         }
         Err(RequireTwoFactorError::NotFound) => Err(Error::NotFound),
         Err(RequireTwoFactorError::Db(e)) => Err(e.into()),
@@ -324,7 +350,15 @@ pub(super) async fn schedule_deletion(
                 delete_error: Some(DELETE_CONFIRM_MISMATCH),
                 ..Rejected::default()
             };
-            render(&ctx, &v, tenant, Section::Danger, rejected, StatusCode::UNPROCESSABLE_ENTITY).await
+            render(
+                &ctx,
+                &v,
+                tenant,
+                Section::Danger,
+                rejected,
+                StatusCode::UNPROCESSABLE_ENTITY,
+            )
+            .await
         }
         Err(DeletionError::NotFound) => Err(Error::NotFound),
         Err(DeletionError::Db(e)) => Err(e.into()),

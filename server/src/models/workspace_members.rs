@@ -4,9 +4,11 @@
 
 use loco_rs::model::{TenantEntity, TenantQueryExt};
 use sea_orm::{
-    ActiveValue::Set, Condition, DatabaseTransaction, Order, QuerySelect, QueryTrait,
-    sea_query::{ExprTrait, Func}, IntoActiveModel, QueryOrder, SqlErr, TransactionTrait,
+    ActiveValue::Set,
+    Condition, DatabaseTransaction, IntoActiveModel, Order, QueryOrder, QuerySelect, QueryTrait,
+    SqlErr, TransactionTrait,
     entity::prelude::*,
+    sea_query::{ExprTrait, Func},
 };
 
 pub use super::_entities::workspace_members::{ActiveModel, Column, Entity, Model};
@@ -135,8 +137,17 @@ impl Model {
             let pattern = format!("%{}%", escape_like(&q.trim().to_lowercase()));
             select = select.filter(
                 Condition::any()
-                    .add(Expr::expr(Func::lower(Expr::col((users::Entity, users::Column::Name)))).like(pattern.clone()))
-                    .add(Expr::expr(Func::lower(Expr::col((users::Entity, users::Column::Email)))).like(pattern)),
+                    .add(
+                        Expr::expr(Func::lower(Expr::col((users::Entity, users::Column::Name))))
+                            .like(pattern.clone()),
+                    )
+                    .add(
+                        Expr::expr(Func::lower(Expr::col((
+                            users::Entity,
+                            users::Column::Email,
+                        ))))
+                        .like(pattern),
+                    ),
             );
         }
         if !query.role_ids.is_empty() {
@@ -368,5 +379,7 @@ pub struct MemberQuery<'a> {
 
 /// Escape `%`, `_`, dan `\` untuk pola `LIKE`.
 fn escape_like(raw: &str) -> String {
-    raw.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_")
+    raw.replace('\\', "\\\\")
+        .replace('%', "\\%")
+        .replace('_', "\\_")
 }

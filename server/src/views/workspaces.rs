@@ -159,5 +159,9 @@ pub fn people_options(
     v: &impl ViewRenderer,
     options: &[super::ui::ComboOption],
 ) -> Result<Response> {
-    format::render().view(v, "workspaces/people_options.html", data!({ "options": options }))
+    format::render().view(
+        v,
+        "workspaces/people_options.html",
+        data!({ "options": options }),
+    )
 }

@@ -22,7 +22,11 @@ async fn enable_totp(ctx: &AppContext, user: &users::Model) {
 fn names(html: &str) -> Vec<String> {
     select(html, "#members-table tbody tr[data-member] .app-who b")
         .iter()
-        .map(|b| b.trim_start_matches("<b>").trim_end_matches("</b>").to_string())
+        .map(|b| {
+            b.trim_start_matches("<b>")
+                .trim_end_matches("</b>")
+                .to_string()
+        })
         .collect()
 }
 
@@ -53,12 +57,23 @@ async fn members_table_searches_filters_sorts_and_pages() {
         assert!(html.contains("1–25 dari 29"), "{html}");
         assert_eq!(names(&html).first().map(String::as_str), Some("Ana Owner"));
         assert_css_exists(&html, "#members-table [data-member-team]");
-        assert_css_exists(&html, "#members-table .app-dt-pg a[href=\"/w/acme/settings/members?page=2\"]");
+        assert_css_exists(
+            &html,
+            "#members-table .app-dt-pg a[href=\"/w/acme/settings/members?page=2\"]",
+        );
 
         // Halaman 2: sisa 4; halaman di luar jangkauan dijepit ke halaman terakhir.
-        let html = request.get(&format!("{MEMBERS}?page=2")).add_cookie(cookie.clone()).await.text();
+        let html = request
+            .get(&format!("{MEMBERS}?page=2"))
+            .add_cookie(cookie.clone())
+            .await
+            .text();
         assert_count(&html, "#members-table tbody tr[data-member]", 4);
-        let html = request.get(&format!("{MEMBERS}?page=99")).add_cookie(cookie.clone()).await.text();
+        let html = request
+            .get(&format!("{MEMBERS}?page=99"))
+            .add_cookie(cookie.clone())
+            .await
+            .text();
         assert_count(&html, "#members-table tbody tr[data-member]", 4);
 
         // Sort nama menurun.
@@ -70,9 +85,17 @@ async fn members_table_searches_filters_sorts_and_pages() {
         assert_eq!(names(&html).first().map(String::as_str), Some("Zaki Admin"));
 
         // Cari (nama atau email, tanpa beda huruf besar), `%` tidak dianggap wildcard.
-        let html = request.get(&format!("{MEMBERS}?q=ANGGOTA0")).add_cookie(cookie.clone()).await.text();
+        let html = request
+            .get(&format!("{MEMBERS}?q=ANGGOTA0"))
+            .add_cookie(cookie.clone())
+            .await
+            .text();
         assert_count(&html, "#members-table tbody tr[data-member]", 10);
-        let html = request.get(&format!("{MEMBERS}?q=%25")).add_cookie(cookie.clone()).await.text();
+        let html = request
+            .get(&format!("{MEMBERS}?q=%25"))
+            .add_cookie(cookie.clone())
+            .await
+            .text();
         assert_css_exists(&html, "#members-table .app-dt-empty");
 
         // Filter role Admin, tim Backend, dan 2FA aktif.
@@ -94,10 +117,21 @@ async fn members_table_searches_filters_sorts_and_pages() {
             .add_cookie(cookie.clone())
             .await
             .text();
-        assert_eq!(names(&html), vec!["Anggota 00".to_string(), "Anggota 01".to_string()]);
-        let html = request.get(&format!("{MEMBERS}?tfa=on")).add_cookie(cookie.clone()).await.text();
+        assert_eq!(
+            names(&html),
+            vec!["Anggota 00".to_string(), "Anggota 01".to_string()]
+        );
+        let html = request
+            .get(&format!("{MEMBERS}?tfa=on"))
+            .add_cookie(cookie.clone())
+            .await
+            .text();
         assert_eq!(names(&html), vec!["Ana Owner".to_string()]);
-        let html = request.get(&format!("{MEMBERS}?tfa=off&per=10")).add_cookie(cookie.clone()).await.text();
+        let html = request
+            .get(&format!("{MEMBERS}?tfa=off&per=10"))
+            .add_cookie(cookie.clone())
+            .await
+            .text();
         assert_count(&html, "#members-table tbody tr[data-member]", 10);
         assert!(html.contains("1–10 dari 28"), "{html}");
     })
@@ -109,7 +143,11 @@ async fn people_options_match_query_for_members_only() {
     request::<App, _, _>(|request, ctx| async move {
         let owner = a_user().name("Ana Owner").create(&ctx).await;
         let workspace = a_workspace(&owner).slug("acme").create(&ctx).await;
-        let budi = a_user().name("Budi Santoso").email("budi@agentgate.test").create(&ctx).await;
+        let budi = a_user()
+            .name("Budi Santoso")
+            .email("budi@agentgate.test")
+            .create(&ctx)
+            .await;
         add_member(&ctx, &workspace, &budi, RoleKey::Viewer).await;
         let citra = a_user().name("Citra Lestari").create(&ctx).await;
         add_member(&ctx, &workspace, &citra, RoleKey::Member).await;
@@ -131,10 +169,19 @@ async fn people_options_match_query_for_members_only() {
         let html = res.text();
         assert!(!html.contains("<html"), "{html}");
         assert_count(&html, "option", 1);
-        assert_css_exists(&html, &format!("option[value=\"{}\"][data-sub=\"budi@agentgate.test\"]", budi.id));
+        assert_css_exists(
+            &html,
+            &format!(
+                "option[value=\"{}\"][data-sub=\"budi@agentgate.test\"]",
+                budi.id
+            ),
+        );
         assert!(!html.contains("Budi Lain"));
         // GET tidak menulis.
-        assert_eq!(audit_events::Entity::find().count(&ctx.db).await.unwrap(), audit_before);
+        assert_eq!(
+            audit_events::Entity::find().count(&ctx.db).await.unwrap(),
+            audit_before
+        );
 
         // not_in_team membuang anggota tim itu.
         let html = request

@@ -23,8 +23,8 @@ use crate::{
     views::{
         self,
         flash::Flash,
-        ui::ComboOption,
         teams::{TeamFormView, TeamLink, TeamMemberRow, TeamPage},
+        ui::ComboOption,
     },
 };
 
@@ -104,7 +104,10 @@ async fn render_team(
         .filter(|(_, user, _)| !members.iter().any(|(m, _)| m.user_id == user.id))
         .map(|(_, user, _)| ComboOption::person(user.id, &user.name, &user.email))
         .collect();
-    let people_src = format!("/w/{}/people?not_in_team={}", tenant.workspace.slug, team.id);
+    let people_src = format!(
+        "/w/{}/people?not_in_team={}",
+        tenant.workspace.slug, team.id
+    );
     let page = TeamPage::new(
         team,
         &teams_path(&tenant.workspace.slug),

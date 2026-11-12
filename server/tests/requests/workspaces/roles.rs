@@ -45,14 +45,8 @@ async fn custom_role_with_permissions_can_be_created() {
             .add_cookie(cookie.clone())
             .await
             .text();
-        assert_css_exists(
-            &html,
-            ".app-side a[href=\"/w/acme/settings/roles\"]",
-        );
-        assert_css_exists(
-            &html,
-            ".app-side a[href=\"/w/acme/settings/job-titles\"]",
-        );
+        assert_css_exists(&html, ".app-side a[href=\"/w/acme/settings/roles\"]");
+        assert_css_exists(&html, ".app-side a[href=\"/w/acme/settings/job-titles\"]");
 
         let form = request
             .get("/w/acme/settings/roles/new")

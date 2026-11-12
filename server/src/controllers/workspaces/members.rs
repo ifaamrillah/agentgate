@@ -30,8 +30,8 @@ use crate::{
     },
     views::{
         self,
-        flash::Flash,
         datatable::{FilterOption, TableView},
+        flash::Flash,
         members::{
             InvitationRow, InviteFormView, MEMBERS_TABLE, MemberRow, MembersPage, OptionView,
             TeamTag,
@@ -85,7 +85,10 @@ pub(super) async fn render_index(
 
 /// Nilai filter id (role/tim) dari query string; id tidak valid diabaikan.
 fn ids(values: &[String]) -> Vec<Uuid> {
-    values.iter().filter_map(|v| Uuid::parse_str(v).ok()).collect()
+    values
+        .iter()
+        .filter_map(|v| Uuid::parse_str(v).ok())
+        .collect()
 }
 
 /// Halaman anggota dengan tabel server-side menurut `query` (cari, filter, sort, halaman).
@@ -110,7 +113,10 @@ async fn render_table(
         q: state.query(),
         role_ids: ids(state.filter("role")),
         team_ids: ids(state.filter("team")),
-        two_factor: match (tfa.iter().any(|v| v == "on"), tfa.iter().any(|v| v == "off")) {
+        two_factor: match (
+            tfa.iter().any(|v| v == "on"),
+            tfa.iter().any(|v| v == "off"),
+        ) {
             (true, false) => Some(true),
             (false, true) => Some(false),
             _ => None,
@@ -134,10 +140,13 @@ async fn render_table(
             offset: (table.page - 1) * table.per,
             ..member_query
         };
-        workspace_members::Model::page_in(&ctx.db, wid, &clamped).await?.0
+        workspace_members::Model::page_in(&ctx.db, wid, &clamped)
+            .await?
+            .0
     };
     let memberships =
-        team_members::Model::in_teams_of(&ctx.db, wid, rows.iter().map(|(m, ..)| m.user_id)).await?;
+        team_members::Model::in_teams_of(&ctx.db, wid, rows.iter().map(|(m, ..)| m.user_id))
+            .await?;
     let teams_base = super::teams_path(&tenant.workspace.slug);
     let members = rows
         .iter()
