@@ -1,10 +1,51 @@
-/* Editor Markdown lengkap (Milkdown Crepe, static/js/md-editor.js): bingkai `app-editor` dengan
-   toolbar, area tulis, dan footer Batal/Simpan. Tanpa JS, textarea Markdown tetap tampil. */
+/* Editor Markdown lengkap (komponen md_editor, static/js/md-editor.js): bingkai `app-editor` dengan
+   area tulis Milkdown Crepe dan footer Batal/Simpan. Tanpa JS, textarea Markdown tetap tampil.
+   CSS Crepe (static/vendor/milkdown-crepe-7.23.0/crepe-*.css, 72 KB) TIDAK di-import di sini:
+   md-editor.js menyisipkannya sebagai <link> hanya di halaman yang punya editor. */
 @layer components {
   .app-editor { border: 1px solid var(--ag-input); border-radius: 8px; background: var(--ag-raised); display: flex; flex-direction: column; min-width: 0; }
   .app-editor:focus-within { border-color: var(--ag-accent); box-shadow: var(--ag-ring); }
   .app-editor > textarea { border: 0; border-radius: 8px 8px 0 0; font-family: var(--ag-mono); font-size: 12.5px; min-height: var(--h, 180px); padding: 14px 16px; resize: vertical; background: var(--ag-raised); color: var(--ag-fg); outline: none; line-height: 1.6; width: 100%; }
-  .app-editor-foot { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-top: 1px solid var(--ag-line); color: var(--ag-muted); font-size: 12px; }
-  .app-editor-foot svg { width: 14px; height: 14px; }
+  .app-editor > textarea[hidden], .app-editor-surface[hidden] { display: none; }
+  .app-editor-surface { min-height: var(--h, 180px); border-radius: 8px 8px 0 0; }
+  .app-editor[data-md-ready='loading'] > textarea { opacity: 0.6; }
+  .app-editor-foot { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-top: 1px solid var(--ag-line); color: var(--ag-muted); font-size: 12px; flex-wrap: wrap; }
+  .app-editor-foot > svg { width: 14px; height: 14px; color: var(--ag-faint); }
   .app-editor-foot > [data-grow] { flex: 1; }
+  @media (max-width: 899px) { .app-editor-hint { display: none; } }
 }
+
+/* Sengaja di luar @layer: CSS vendor Crepe dimuat tanpa layer, dan aturan tanpa layer selalu
+   mengalahkan aturan ber-layer. Selector `.app-editor .milkdown` lebih spesifik dari `.milkdown`
+   vendor, jadi token di bawah yang dipakai (terang/gelap otomatis lewat --ag-*). */
+.app-editor .milkdown {
+  --crepe-color-background: var(--ag-raised);
+  --crepe-color-on-background: var(--ag-fg);
+  --crepe-color-surface: var(--ag-bg-sub);
+  --crepe-color-surface-low: var(--ag-hover);
+  --crepe-color-on-surface: var(--ag-fg);
+  --crepe-color-on-surface-variant: var(--ag-muted);
+  --crepe-color-outline: var(--ag-line2);
+  --crepe-color-primary: var(--ag-accent);
+  --crepe-color-secondary: var(--ag-accent-soft);
+  --crepe-color-on-secondary: var(--ag-fg);
+  --crepe-color-inverse: var(--ag-fg);
+  --crepe-color-on-inverse: var(--ag-bg);
+  --crepe-color-inline-code: var(--ag-danger);
+  --crepe-color-error: var(--ag-danger);
+  --crepe-color-hover: var(--ag-hover);
+  --crepe-color-selected: var(--ag-active);
+  --crepe-color-inline-area: var(--ag-code-bg);
+  --crepe-base-font-size: 14px;
+  --crepe-font-title: var(--ag-font);
+  --crepe-font-default: var(--ag-font);
+  --crepe-font-code: var(--ag-mono);
+  --crepe-shadow-1: var(--ag-shadow-sm);
+  --crepe-shadow-2: var(--ag-shadow-md);
+  background: transparent;
+  border-radius: 8px 8px 0 0;
+}
+.app-editor .milkdown .ProseMirror { padding: 14px 16px 14px 48px; min-height: var(--h, 180px); outline: none; }
+.app-editor .milkdown .ProseMirror h1 { font-size: 20px; }
+.app-editor .milkdown .ProseMirror h2 { font-size: 17px; }
+.app-editor .milkdown .ProseMirror h3 { font-size: 15px; }

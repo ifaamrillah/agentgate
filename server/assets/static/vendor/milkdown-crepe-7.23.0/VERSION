@@ -1,0 +1,7 @@
+@milkdown/crepe 7.23.0 (MIT, lihat LICENSE)
+crepe.bundle.mjs : https://esm.sh/@milkdown/crepe@7.23.0/X-ZGNvZGVtaXJyb3JANi4wLjI/es2022/crepe.bundle.mjs
+                   (resolver: https://esm.sh/@milkdown/crepe@7.23.0?bundle&deps=codemirror@6.0.2&target=es2022)
+crepe-common.css : lib/theme/common/style.css dari tarball npm @milkdown/crepe 7.23.0, @import diratakan
+                   (termasuk @milkdown/prose 7.23.0 dan prosemirror-virtual-cursor 0.4.2; katex di-skip)
+crepe-frame.css  : lib/theme/frame/style.css dari tarball yang sama
+Resep dan alasan pin codemirror@6.0.2: docs/spikes/2026-11-11-wysiwyg-tanpa-bundler.md
