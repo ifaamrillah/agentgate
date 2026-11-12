@@ -11,7 +11,7 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 | UI "Tenang" | selesai (2026-11-12) | Desain prototype diterapkan ke semua halaman M0–M1; pustaka komponen untuk M2–M12 (`docs/reference/design-system.md`) |
 | M2 Tiket & board | selesai (2026-11-12) | Tipe + field custom, template kode (alias), board/daftar, detail, komentar + @mention, kotak masuk, lampiran S3, relasi (blocks ditegakkan), riwayat, sampah 30 hari, pencarian; 396 tes |
 | M3 Workflow & gate | selesai (2026-11-12) | Builder workflow + YAML impor/ekspor, 9 template, versi + migrasi tiket, workflow per tipe/project, stage per tiket (stepper, gate, approve/reject, batas gagal → Butuh keputusan, 5 keputusan, lompat/paksa Admin, penugasan), artifact + versi + diff, tab kotak masuk "Butuh keputusan", board per stage; 430 tes |
-| M4 MCP & persona | belum mulai | |
+| M4 MCP & persona | selesai (2026-11-13) | OAuth 2.1 (DCR, PKCE S256, consent pilih workspace, refresh rotasi, revoke) untuk `/mcp`; server MCP rmcp (7 tool, slash command = prompt MCP per stage + utilitas); persona DB (CRUD, warna/ikon, instruksi, skill, tools, model per client); skill pack (impor GitHub + pemindaian statis + review manusia); review draft tiket brainstorming; Akun → Hubungkan client AI; 467 tes |
 | M5 CLI & runner | belum mulai | |
 | M6 Git & PR | belum mulai | |
 | M7 Code graph | belum mulai | |
@@ -94,9 +94,8 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 
 ## Utang teknis yang harus ditangani di milestone tertentu
 
-- **M4/M5**: layer `html_errors` mengubah *semua* respons error non-HTML menjadi halaman HTML. Sebelum endpoint
-  JSON (MCP, API runner, API publik) ada, batasi layer ini ke request browser (`Accept: text/html`) atau
-  kecualikan prefix API.
+- ~~**M4/M5**: layer `html_errors` mengubah semua error non-HTML menjadi HTML~~ selesai di M4: path API
+  (`controllers::api_routes::is_api`: `/mcp`, `/oauth/*`, `/.well-known/*`, API publik) selalu dibalas JSON.
 - Daftar pengecualian CSRF ada di `server/src/controllers/middleware/csrf.rs` (`EXEMPT_PATHS`), bukan di `app.rs`
   seperti di rencana M0 — satu tempat yang sama dengan aturannya.
 
@@ -128,6 +127,15 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
   dengan panah gagal dan kelompok paralel seperti prototype; belum ada "Izin aksi berbahaya" per stage dan
   belum ada perkiraan "N tiket ikut dimigrasi" di bar simpan. Impor YAML lewat textarea (belum unggah berkas).
   Notifikasi review/keputusan hanya in-app.
+- **M4 MCP & persona (2026-11-13)**: DCR (`/oauth/register`) terbuka tanpa rate limit dan tanpa CORS
+  (cukup untuk client CLI; perlu rate limit sebelum produksi). Kode otorisasi tidak dibatalkan setelah percobaan
+  PKCE salah (tetap kedaluwarsa 10 menit, sekali pakai). Daftar `mcp_tools` persona belum ditegakkan per sesi
+  MCP (semua tool tersedia; izin tetap dicek per role/project). Skill pack yang sudah disetujui belum bisa
+  diperbarui dari repo (impor ulang = pack baru); pack dari repo tidak bisa diedit. Halaman Hubungkan client
+  belum punya menu per client (ganti nama, lihat token/refresh). Halaman draft tiket belum punya kunci sesi,
+  pecah/gabung draft, chip repo, dan panel estimasi AI seperti prototype. "File aturan di repo" dan Knowledge
+  persona tampil "segera" (M5/M8). Tool `ag_ask` hanya menulis komentar + notifikasi in-app (belum menunggu
+  jawaban secara sinkron).
 - Role custom tidak pernah menjadi "admin di semua project": hanya Owner/Admin bawaan yang boleh menugaskan
   role Admin bawaan (termasuk di grant project) dan mengubah izin role yang dipakai grant project.
 
@@ -148,6 +156,21 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
   di dalam builder.
 - M3: workflow bawaan "Subtask ringkas" (Dev → Review → Selesai) untuk tipe Subtask.
 
+- M4: persona disimpan di DB per workspace dan dirujuk lewat `key`; hapus = soft delete dengan persona
+  pengganti untuk stage yang memakainya. Avatar builder prototype diganti pilihan warna + ikon.
+- M4: impor skill pack lewat arsip GitHub (codeload) + pemindaian statis (skrip, perintah berbahaya, URL);
+  pack wajib disetujui manusia sebelum bisa dipasang ke persona.
+- M4: redirect URI client OAuth hanya https, loopback (`127.0.0.1`/`localhost`/`[::1]`, port bebas), atau skema
+  privat (`com.example:/cb`). CSP halaman consent mengizinkan `form-action` ke origin redirect client itu saja.
+- M4: "Hubungkan client AI" ada di menu Akun (token milik user, bukan workspace); satu token terikat satu
+  workspace yang dipilih di consent.
+- M4: server MCP stateless dengan respons JSON (tanpa sesi SSE); validasi Host dimatikan karena auth memakai
+  bearer token. Nama, deskripsi, dan teks tool/prompt berbahasa Indonesia.
+- M4: slash command = prompt MCP `ag-<key-stage>` (unik per workspace) + utilitas (`ag-status`, `ag-next`, dst.);
+  di Claude Code tampil sebagai `/mcp__agentgate__ag-…`.
+- M4: draft dari `ag_draft_tickets` tercentang secara default; halaman draft dibuka dari tautan di board
+  (bukan menu sendiri). Membuat tiket mengikuti urutan induk → anak dalam satu transaksi.
+
 ## Perlu dari user (dikumpulkan untuk akhir)
 
 - Remote GitHub untuk repo ini (CI GitHub Actions baru jalan setelah di-push).
@@ -156,6 +179,10 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 - Server SMTP untuk staging/production (`MAIL_FROM`, `SMTP_*`).
 - M3: konfirmasi apakah gate evidence boleh dipenuhi manual (centang + unggah bukti) sebelum runner/git
   tersedia, atau tetap hanya lewat lompat/paksa Admin seperti sekarang.
+- M4: URL publik produksi (`PUBLIC_BASE_URL`) dipakai sebagai issuer OAuth dan resource MCP; harus https
+  di staging/prod agar Claude Code/Codex/Gemini bisa login.
+- M4: konfirmasi daftar redirect URI yang diizinkan dan apakah DCR perlu dibatasi (mis. hanya user login /
+  allowlist nama client).
 
 ## Catatan untuk sesi berikutnya
 
@@ -172,3 +199,6 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 - Screenshot UI memakai Playwright dari npm di scratchpad (Playwright MCP tidak bisa start: Chrome tidak terpasang).
 - Seed dev M3 (`seed_workflows`) memakai template Superpowers untuk tipe Story di KSR dan membuat KSR-11..13
   (menunggu review, butuh keputusan, eksekusi). Dilewati bila workflow Superpowers sudah ada.
+- Seed dev M4 (`seed_agents`): skill pack "Konvensi kasir" (disetujui, terpasang di persona Developer) dan 6 draft
+  tiket di KSR (`/w/pt-contoh/p/KSR/drafts`). Uji MCP manual: `claude mcp add --transport http agentgate
+  http://localhost:5150/mcp`, lalu `/mcp` → Authenticate.
