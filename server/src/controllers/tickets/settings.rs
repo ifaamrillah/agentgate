@@ -248,6 +248,7 @@ pub(super) async fn create_type(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn render_type(
     ctx: &AppContext,
     v: &TeraView,
@@ -615,7 +616,7 @@ pub(super) async fn update_field(
     let field = find_field(&ctx, &access, id.id).await?;
     let input = FieldInput {
         name: get(&pairs, "name").to_string(),
-        kind: field.kind().map_err(|e| Error::DB(e))?,
+        kind: field.kind().map_err(Error::DB)?,
         options: get(&pairs, "options").lines().map(str::to_string).collect(),
         required: !get(&pairs, "required").is_empty(),
     };

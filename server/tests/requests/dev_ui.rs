@@ -54,14 +54,18 @@ async fn component_catalog_renders_shared_components() {
             &html,
             ".app-pbar [data-tabs] a[data-nav=\"overview\"][aria-current=\"page\"]",
         );
-        assert_css_exists(
-            &html,
-            ".app-pbar [data-tabs] a[data-nav=\"board\"][href]",
-        );
+        assert_css_exists(&html, ".app-pbar [data-tabs] a[data-nav=\"board\"][href]");
         assert_css_exists(
             &html,
             "dialog#views-dialog form [data-view-row] input.app-switch[name=\"view\"]",
         );
+        // Komponen tiket M2.
+        assert_css_exists(
+            &html,
+            "#tickets article.app-tcard[data-ticket=\"KSR-12\"] .app-prio[data-p=\"2\"]",
+        );
+        assert_css_exists(&html, "#tickets .app-type[data-tile]");
+        assert_css_exists(&html, "#tickets .app-status-pill[data-status=\"done\"]");
         // subpage E: item aktif dari data.
         assert_css_exists(
             &html,

@@ -91,11 +91,21 @@ Semua di `server/assets/views/components/`; parameter lengkap ada di komentar ke
 | `avatar`, `person`, `project_logo`, `dot` | identitas orang/project (inisial di atas warna palet, atau gambar) | `palette::initials`, `color_for` |
 | `badge` | status pill (info, ai, gate, success, neutral, destructive, primary, secondary, outline; `code`) | — |
 | `crumb` | bagian breadcrumb di block `crumb` | — |
+| `type_icon` | ikon tipe tiket berwarna (`tile` = kotak lembut) | `views::tickets::TypeView` |
+| `prio` | label prioritas C (P1–P4), `full` menampilkan nama | `views::tickets::PriorityView` |
+| `ticket_card` | kartu tiket board C: tipe + kode, judul, prioritas, label, poin, tenggat, penerima; menu ⋯ pindah status tanpa JS, drag-drop (`board-dnd.js`) | `views::tickets::TicketRow` |
 
 Pola isi (class): `app-grid[data-cols=duo|two|three]`, `app-stack-v`, `app-form`, `app-form-row`,
 `app-blk`, `app-lrow` (baris daftar), `app-srow`, `app-props` (dl properti), `app-feed`/`app-fe`
 (aktivitas), `app-who`, `app-bar`, `app-link`, `app-code`, `app-hint`, `app-muted`, `app-prio`,
 `app-count`.
+
+Tiket (M2, `components/ticket.css`): `app-status`/`app-status-pill[data-status]` (backlog abu, todo
+info, dikerjakan aksen, selesai sukses), `app-chip[aria-pressed]` (filter cepat), `app-label-pill`,
+`app-points`, `app-due[data-overdue]`, `app-av-empty` (belum ada penerima), `app-tref` (tipe +
+kode), `app-board` > `app-bcol` (kolom, `data-drop` saat diseret), `app-ticket` (detail dua
+kolom), `app-prose` (teks pre-wrap), `app-inline-form`, `app-drop` (area unggah lampiran),
+`app-meter` (progres per status).
 
 ### Tabel server-side
 
@@ -127,6 +137,6 @@ Pola isi (class): `app-grid[data-cols=duo|two|three]`, `app-stack-v`, `app-form`
 
 ## M2+ (dari prototype)
 
-Board varian C (kartu tiket `ticketCard` di prototype), prioritas C (`app-prio`), panel detail
-tiket di kanan board. Pakai `screens-m2-m3.js` dst. sebagai acuan markup; komponen baru masuk
+Board varian C sudah dibangun di M2 (`ticket_card`, `tickets/board.html`), prioritas C
+(`prio`). Detail tiket di M2 berupa halaman sendiri (`/w/{slug}/t/{code}`), bukan panel kanan. Pakai `screens-m2-m3.js` dst. sebagai acuan markup; komponen baru masuk
 katalog `/_dev/ui` di commit yang sama.

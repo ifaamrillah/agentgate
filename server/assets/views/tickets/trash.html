@@ -25,7 +25,7 @@
   {%- for row in rows %}
   <div class="app-lrow" data-trashed="{{ row.ticket.code }}">
     {{ <type_icon icon={row.ticket.ticket_type.icon} color={row.ticket.ticket_type.color} label={row.ticket.ticket_type.name}/> }}
-    <span class="app-code app-tcard-code">{{ row.ticket.code }}</span>
+    <span class="app-code app-hint">{{ row.ticket.code }}</span>
     <span class="app-lrow-main"><b>{{ row.ticket.title }}</b>
       <small>{% if row.deleted_by %}{{ t(key="trash-deleted-by", lang="id", name=row.deleted_by.name, at=row.deleted_at) }}{% else %}{{ t(key="trash-deleted-at", lang="id", at=row.deleted_at) }}{% endif %} · {{ t(key="trash-purge-on", lang="id", date=row.purge_on) }}</small></span>
     {%- if row.can_restore %}

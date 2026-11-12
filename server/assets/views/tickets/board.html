@@ -11,13 +11,10 @@
 {% block actions %}
   {%- if can_edit %}{{ <button label={t(key="ticket-new", lang="id")} icon="plus" href={paths.new_ticket} size="sm" attrs="data-new-ticket"/> }}{% endif -%}
 {% endblock actions %}
-{% block page_attrs %}data-board-page{% endblock page_attrs %}
-{% block description %}{{ t(key="board-description", lang="id") }}{% endblock description %}
-{% block head_actions %}
-  {{ <button label={t(key="project-view-list", lang="id")} icon="list" variant="outline" size="sm" href={paths.list}/> }}
-  {{ <button label={t(key="trash-title", lang="id")} icon="trash" variant="ghost" size="sm" href={paths.trash} attrs="data-trash-link"/> }}
-{% endblock head_actions %}
-{% block main %}
+{#- Board penuh tanpa kepala halaman (prototype): bar filter langsung di atas kolom. -#}
+{% block content %}
+<div class="app-stack-v" data-board-page>
+<h1 class="sr-only">{{ t(key="project-view-board", lang="id") }} · {{ project.name }}</h1>
 <form class="app-fr app-board-bar" method="get" action="{{ paths.board }}" role="search" data-board-filter>
   <label class="app-fsearch">{{ icon(name="search") }}<input type="search" name="q" value="{{ filter.q }}" placeholder="{{ t(key="board-search-placeholder", lang="id") }}" aria-label="{{ t(key="board-search-placeholder", lang="id") }}"></label>
   {%- if who %}<input type="hidden" name="who" value="{{ who }}">{% endif %}
@@ -27,6 +24,7 @@
   <span data-grow></span>
   <span class="app-hint" data-board-count>{{ t(key="board-count", lang="id", count=filter.total) }}</span>
   {%- if can_edit %}<span class="app-hint app-board-hint">{{ icon(name="grip-vertical") }}{{ t(key="board-drag-hint", lang="id") }}</span>{% endif %}
+  {{ <button label={t(key="trash-title", lang="id")} icon="trash" variant="ghost" size="sm" href={paths.trash} attrs="data-trash-link"/> }}
 </form>
 
 <div class="app-board" data-board{% if can_edit %} data-board-dnd{% endif %}>
@@ -52,4 +50,5 @@
   <input type="hidden" name="status"><input type="hidden" name="before"><input type="hidden" name="return_to" value="{{ return_to }}">
 </form>
 {%- endif %}
-{% endblock main %}
+</div>
+{% endblock content %}

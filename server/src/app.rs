@@ -208,8 +208,244 @@ impl Hooks for App {
             db::seed::<users::ActiveModel>(&ctx.db, &base.join("users.yaml").to_string_lossy())
                 .await?;
         }
-        seed_workspace(ctx).await
+        seed_workspace(ctx).await?;
+        seed_tickets(ctx).await
     }
+}
+
+/// Tiket contoh di KSR (sekali: dilewati bila KSR sudah punya tiket): epic dengan story dan
+/// subtask, bug, relasi `blocks`, komentar dengan @mention, lewat service produksi.
+/// Satu tiket contoh; `parent` = indeks tiket sebelumnya di `SEED_TICKETS`.
+struct SeedTicket {
+    title: &'static str,
+    kind: &'static str,
+    status: &'static str,
+    priority: &'static str,
+    labels: &'static str,
+    points: &'static str,
+    assignee: &'static str,
+    parent: Option<usize>,
+}
+
+const SEED_TICKETS: &[SeedTicket] = &[
+    SeedTicket {
+        title: "Rilis kasir offline v1",
+        kind: "epic",
+        status: "in_progress",
+        priority: "high",
+        labels: "rilis",
+        points: "",
+        assignee: SEED_MARKER_EMAIL,
+        parent: None,
+    },
+    SeedTicket {
+        title: "Sinkronisasi transaksi saat koneksi kembali",
+        kind: "story",
+        status: "in_progress",
+        priority: "urgent",
+        labels: "offline, sync",
+        points: "8",
+        assignee: "dev@agentgate.test",
+        parent: Some(0),
+    },
+    SeedTicket {
+        title: "Simpan transaksi ke IndexedDB",
+        kind: "subtask",
+        status: "done",
+        priority: "medium",
+        labels: "offline",
+        points: "3",
+        assignee: "dev@agentgate.test",
+        parent: Some(1),
+    },
+    SeedTicket {
+        title: "Antrean retry dengan backoff",
+        kind: "subtask",
+        status: "todo",
+        priority: "medium",
+        labels: "sync",
+        points: "2",
+        assignee: "dev@agentgate.test",
+        parent: Some(1),
+    },
+    SeedTicket {
+        title: "Cetak struk thermal 58 mm",
+        kind: "story",
+        status: "todo",
+        priority: "high",
+        labels: "printer",
+        points: "5",
+        assignee: "",
+        parent: Some(0),
+    },
+    SeedTicket {
+        title: "Total diskon salah saat item dihapus",
+        kind: "bug",
+        status: "in_progress",
+        priority: "urgent",
+        labels: "kasir, diskon",
+        points: "2",
+        assignee: "qa@agentgate.test",
+        parent: None,
+    },
+    SeedTicket {
+        title: "Driver printer Bluetooth Android",
+        kind: "task",
+        status: "backlog",
+        priority: "medium",
+        labels: "printer",
+        points: "3",
+        assignee: "",
+        parent: None,
+    },
+    SeedTicket {
+        title: "Laporan penjualan harian per kasir",
+        kind: "story",
+        status: "backlog",
+        priority: "low",
+        labels: "laporan",
+        points: "5",
+        assignee: "",
+        parent: None,
+    },
+    SeedTicket {
+        title: "Uji regresi alur pembayaran QRIS",
+        kind: "task",
+        status: "todo",
+        priority: "medium",
+        labels: "qa",
+        points: "",
+        assignee: "qa@agentgate.test",
+        parent: None,
+    },
+    SeedTicket {
+        title: "Ekspor laporan ke Excel",
+        kind: "task",
+        status: "done",
+        priority: "low",
+        labels: "laporan",
+        points: "1",
+        assignee: SEED_MARKER_EMAIL,
+        parent: None,
+    },
+];
+
+async fn seed_tickets(ctx: &AppContext) -> Result<()> {
+    use crate::{
+        models::{ticket_types, tickets::TicketInput},
+        services::{
+            tickets::{self as ticket_service, create::TicketForm},
+            workspaces::Acting,
+        },
+    };
+    let Some(workspace) = workspaces::Model::find_by_slug(&ctx.db, SEED_WORKSPACE_SLUG).await?
+    else {
+        return Ok(());
+    };
+    let wid = workspace.workspace_id();
+    let Some(project) = projects::Model::find_by_key(&ctx.db, wid, SEED_PROJECT.0).await? else {
+        return Ok(());
+    };
+    if tickets_exist(ctx, wid, project.id).await? {
+        tracing::info!("seed tiket dilewati: KSR sudah punya tiket");
+        return Ok(());
+    }
+    let owner = users::Model::find_by_email(&ctx.db, SEED_MARKER_EMAIL)
+        .await?
+        .ok_or_else(|| loco_rs::Error::string("owner seed tidak ada"))?;
+    let (_, role) = workspace_members::Model::find_with_role(&ctx.db, wid, owner.id)
+        .await?
+        .ok_or_else(|| loco_rs::Error::string("owner seed bukan anggota"))?;
+    let acting = Acting {
+        workspace: &workspace,
+        user: &owner,
+        role: &role,
+        request_id: None,
+    };
+    let types = ticket_types::Model::all_in(&ctx.db, wid).await?;
+    let fail =
+        |e: ticket_service::TicketFailure| loco_rs::Error::string(&format!("seed tiket: {e:?}"));
+    let mut codes: Vec<String> = Vec::new();
+    for SeedTicket {
+        title,
+        kind,
+        status,
+        priority,
+        labels,
+        points,
+        assignee,
+        parent,
+    } in SEED_TICKETS
+    {
+        let assignee = if assignee.is_empty() {
+            String::new()
+        } else {
+            users::Model::find_by_email(&ctx.db, assignee)
+                .await?
+                .map(|u| u.id.to_string())
+                .unwrap_or_default()
+        };
+        let form = TicketForm {
+            input: TicketInput {
+                title: (*title).to_string(),
+                description: format!(
+                    "{title}.\n\nKriteria selesai:\n- Diuji di perangkat kasir\n- Tercatat di changelog"
+                ),
+                status: (*status).to_string(),
+                priority: (*priority).to_string(),
+                labels: (*labels).to_string(),
+                due_on: String::new(),
+                story_points: (*points).to_string(),
+            },
+            type_id: types
+                .iter()
+                .find(|t| t.key == *kind)
+                .map(|t| t.id.to_string())
+                .unwrap_or_default(),
+            assignee,
+            parent: parent.map(|i| codes[i].clone()).unwrap_or_default(),
+            custom: std::collections::BTreeMap::new(),
+        };
+        let ticket = ticket_service::create::run(&ctx.db, &acting, project.id, &form)
+            .await
+            .map_err(fail)?;
+        codes.push(ticket.code);
+    }
+    // Driver printer memblokir cetak struk; komentar dengan @mention ke dev.
+    let struk = tickets_by_code(ctx, wid, &codes[4]).await?;
+    ticket_service::links::add(&ctx.db, &acting, struk, "blocked_by", &codes[6])
+        .await
+        .map_err(fail)?;
+    let sync = tickets_by_code(ctx, wid, &codes[1]).await?;
+    ticket_service::comments::post(
+        &ctx.db,
+        &acting,
+        sync,
+        "@dev tolong cek konflik bila transaksi yang sama terkirim dua kali.",
+    )
+    .await
+    .map_err(fail)?;
+    Ok(())
+}
+
+async fn tickets_exist(
+    ctx: &AppContext,
+    wid: workspaces::WorkspaceId,
+    project_id: uuid::Uuid,
+) -> Result<bool> {
+    let counts = crate::models::tickets::Model::count_by_status(&ctx.db, wid, project_id).await?;
+    Ok(counts.iter().any(|(_, n)| *n > 0))
+}
+
+async fn tickets_by_code(
+    ctx: &AppContext,
+    wid: workspaces::WorkspaceId,
+    code: &str,
+) -> Result<uuid::Uuid> {
+    crate::models::tickets::Model::find_by_code(&ctx.db, wid, code)
+        .await?
+        .map(|(t, _)| t.id)
+        .ok_or_else(|| loco_rs::Error::string("tiket seed tidak ada"))
 }
 
 /// Workspace contoh lewat jalur produksi (`create::run_in`), sehingga isinya sama dengan

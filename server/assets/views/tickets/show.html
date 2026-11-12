@@ -17,9 +17,8 @@
   <div class="app-ticket-main">
     <div id="description">
     {%- if can_edit %}
-    {% <card title={t(key="ticket-field-description", lang="id")}> %}
+    {% <card title={t(key="ticket-field-description", lang="id")} flush={true}> %}
       <form method="post" action="{{ paths.show }}" class="app-form" data-ticket-edit>
-        {{ <field id="ticket-title" name="title" label={t(key="ticket-field-title", lang="id")} value={form.title} error={form.errors.title.code} error_max={form.errors.title.max} required={true}/> }}
         {{ <md_editor id="ticket-description" name="description" label={t(key="ticket-field-description", lang="id")} value={form.description} placeholder={t(key="ticket-description-placeholder", lang="id")} cancel_href={paths.show} hide_label={true} rows={8}/> }}
         {%- if form.errors.description.code %}<p class="app-field-error" role="alert">{{ t(key=form.errors.description.code, lang="id", max=form.errors.description.max) }}</p>{% endif %}
       </form>
@@ -36,7 +35,7 @@
       {%- for c in children %}
       <a class="app-lrow" href="{{ c.href }}" data-subtask="{{ c.code }}">
         {{ <type_icon icon={c.ticket_type.icon} color={c.ticket_type.color} label={c.ticket_type.name}/> }}
-        <span class="app-code app-tcard-code">{{ c.code }}</span>
+        <span class="app-code app-hint">{{ c.code }}</span>
         <span class="app-lrow-main"><b>{{ c.title }}</b></span>
         <span class="app-status-pill" data-status="{{ c.status.value }}">{{ icon(name=c.status.icon) }}{{ t(key=c.status.label_key, lang="id") }}</span>
       </a>
@@ -136,7 +135,7 @@
 
   <aside class="app-ticket-side">
     <div id="status">
-    {% <card title={t(key="ticket-field-status", lang="id")}> %}
+    {% <card title={t(key="ticket-field-status", lang="id")} flush={true}> %}
       <div class="app-blk">
         <span class="app-status-pill" data-status="{{ ticket.status.value }}" data-current-status>{{ icon(name=ticket.status.icon) }}{{ t(key=ticket.status.label_key, lang="id") }}</span>
         {%- if can_edit %}
@@ -155,7 +154,7 @@
     {% </card> %}
     </div>
 
-    {% <card title={t(key="ticket-section-details", lang="id")} attrs="data-ticket-details"> %}
+    {% <card title={t(key="ticket-section-details", lang="id")} attrs="data-ticket-details" flush={true}> %}
       <dl class="app-props">
         <dt>{{ t(key="ticket-field-assignee", lang="id") }}</dt>
         <dd>{% if ticket.assignee %}{{ <person name={ticket.assignee.name} initials={ticket.assignee.initials} color={ticket.assignee.color} size="default"/> }}{% else %}<span class="app-hint">{{ t(key="ticket-unassigned", lang="id") }}</span>{% endif %}</dd>
@@ -193,6 +192,7 @@
 {% <dialog id="ticket-edit" title={t(key="ticket-edit-details", lang="id")} icon="pencil" tone="accent" open={details_open}> %}
 <form method="post" action="{{ paths.show }}" data-ticket-edit data-ticket-form>
   <section><div class="app-stack-v" data-gap="sm">
+    {{ <field id="ticket-title" name="title" label={t(key="ticket-field-title", lang="id")} value={form.title} error={form.errors.title.code} error_max={form.errors.title.max} required={true}/> }}
     {%- set id_prefix = "ticket" %}{% include "tickets/_props_fields.html" %}
   </div></section>
   <footer>

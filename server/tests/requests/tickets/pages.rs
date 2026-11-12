@@ -83,12 +83,14 @@ async fn every_ticket_page_renders_with_rich_data() {
         let res = request
             .post(&format!("/w/acme/t/{code}/attachments"))
             .add_cookie(f.cookie.clone())
-            .multipart(MultipartForm::new().add_part(
-                "file",
-                Part::bytes(b"isi".to_vec())
-                    .file_name("catatan.txt")
-                    .mime_type("text/plain"),
-            ))
+            .multipart(
+                MultipartForm::new().add_part(
+                    "file",
+                    Part::bytes(b"isi".to_vec())
+                        .file_name("catatan.txt")
+                        .mime_type("text/plain"),
+                ),
+            )
             .await;
         assert_eq!(res.status_code(), 303);
 
@@ -136,7 +138,11 @@ async fn every_ticket_page_renders_with_rich_data() {
 
         // Kotak masuk member berisi notifikasi; semua tab ter-render.
         let cookie = sign_in_as(&request, &member).await;
-        for path in ["/w/acme/inbox", "/w/acme/inbox?tab=unread", "/w/acme/inbox?tab=mentions"] {
+        for path in [
+            "/w/acme/inbox",
+            "/w/acme/inbox?tab=unread",
+            "/w/acme/inbox?tab=mentions",
+        ] {
             let res = request.get(path).add_cookie(cookie.clone()).await;
             assert_eq!(res.status_code(), 200, "{path}: {}", res.text());
         }

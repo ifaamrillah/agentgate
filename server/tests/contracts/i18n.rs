@@ -173,7 +173,10 @@ fn every_ticket_enum_and_view_key_has_a_translation() {
         used.push(format!("ticket-event-{}", value.replace('_', "-")));
     }
     for kind in NotificationKind::iter() {
-        used.push(format!("notification-{}", sea_orm::ActiveEnum::to_value(&kind)));
+        used.push(format!(
+            "notification-{}",
+            sea_orm::ActiveEnum::to_value(&kind)
+        ));
     }
     for s in views::tickets::status_options() {
         used.push(s.label_key.to_string());
@@ -191,7 +194,10 @@ fn every_ticket_enum_and_view_key_has_a_translation() {
         used.push(t.label_key.to_string());
     }
     for field in agentgate_server::views::tickets::TICKET_FIELDS {
-        used.push(format!("ticket-field-{}", field.trim_end_matches("_id").replace('_', "-")));
+        used.push(format!(
+            "ticket-field-{}",
+            field.trim_end_matches("_id").replace('_', "-")
+        ));
     }
     used.push("ticket-field-custom-values".into());
     used.retain(|k| !keys.contains(k));

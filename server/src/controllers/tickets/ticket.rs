@@ -248,12 +248,10 @@ async fn render_show(
     let base_form = current_form(t, parent.as_ref().map(|p| p.code.as_str()));
     let form = form.cloned().unwrap_or(base_form);
     let form_errors = errors.form.as_ref();
-    // Dialog Detail langsung terbuka bila error ada di luar judul/deskripsi.
-    let details_open = form_errors.is_some_and(|e| {
-        e.errors
-            .keys()
-            .any(|k| k.as_str() != "title" && k.as_str() != "description")
-    });
+    // Dialog Ubah detail (judul, properti, field custom) langsung terbuka bila error ada di
+    // luar deskripsi.
+    let details_open =
+        form_errors.is_some_and(|e| e.errors.keys().any(|k| k.as_str() != "description"));
     let custom = custom_for_form(ctx, &access.access, &form, form_errors).await?;
     let types: Vec<TypeView> = ticket_types::Model::all_in(&ctx.db, wid)
         .await?
