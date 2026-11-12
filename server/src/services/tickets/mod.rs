@@ -13,14 +13,16 @@
 pub mod attachments;
 pub mod comments;
 pub mod create;
+pub mod gates;
 pub mod links;
 pub mod mentions;
 pub mod settings;
+pub mod stages;
 pub mod trash;
 pub mod update;
 
 use loco_rs::validation::ModelValidationErrors;
-use sea_orm::{ActiveEnum, DatabaseConnection, DatabaseTransaction, DbErr, TransactionTrait};
+use sea_orm::{DatabaseConnection, DatabaseTransaction, DbErr, TransactionTrait};
 use uuid::Uuid;
 use validator::{ValidationError, ValidationErrors};
 
@@ -249,13 +251,14 @@ pub async fn set_watching(
     Ok(())
 }
 
-/// Pindah status (board drag-drop, tombol status). `before` = kartu yang akan berada di bawah
-/// kartu ini di kolom tujuan (`None` = paling bawah).
+/// Pindah status (jalur M2: board per status, tombol status): pindah ke stage pertama
+/// berkategori `to` di workflow tiket, dengan aturan gate yang sama ([`stages::move_to`]).
+/// `before` = kartu yang akan berada di bawah kartu ini di kolom tujuan (`None` = paling bawah).
 ///
 /// # Errors
 ///
-/// [`TicketFailure::Invalid`] (`ticket-blocked` pada field `status`), `NotFound`, atau error
-/// database.
+/// [`TicketFailure::Invalid`] (`ticket-blocked` pada field `status`, kode gate pada `stage`),
+/// `NotFound`, atau error database.
 pub async fn transition(
     db: &DatabaseConnection,
     acting: &Acting<'_>,
@@ -263,29 +266,5 @@ pub async fn transition(
     to: TicketStatus,
     before: Option<Uuid>,
 ) -> Result<tickets::Model, TicketFailure> {
-    let work = Working::begin(db, acting, ticket_id, Permission::EditProject, false).await?;
-    ensure_can_move(&work.txn, work.wid, &work.ticket, to).await?;
-    let position = match before {
-        Some(id) if id != ticket_id => tickets::Model::find_in(&work.txn, work.wid, id)
-            .await?
-            .filter(|t| t.project_id == work.ticket.project_id && !t.is_trashed())
-            .map_or_else(tickets::bottom_position, |t| t.position - 1),
-        _ => tickets::bottom_position(),
-    };
-    let from = work.ticket.status.clone();
-    let ticket = work
-        .ticket
-        .clone()
-        .set_status(&work.txn, to, position)
-        .await?;
-    if from != ticket.status {
-        work.event(
-            acting.user.id,
-            EventKind::StatusChanged,
-            serde_json::json!({ "status": { "from": from, "to": to.to_value() } }),
-        )
-        .await?;
-    }
-    work.txn.commit().await?;
-    Ok(ticket)
+    stages::move_to(db, acting, ticket_id, stages::Target::Category(to), before).await
 }

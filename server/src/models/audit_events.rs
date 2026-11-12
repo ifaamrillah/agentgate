@@ -109,6 +109,25 @@ pub enum AuditAction {
     /// Template kode tiket workspace atau project diubah.
     #[sea_orm(string_value = "ticket_code.updated")]
     TicketCodeUpdated,
+    #[sea_orm(string_value = "workflow.created")]
+    WorkflowCreated,
+    /// Versi baru workflow disimpan dari builder atau YAML.
+    #[sea_orm(string_value = "workflow.updated")]
+    WorkflowUpdated,
+    #[sea_orm(string_value = "workflow.deleted")]
+    WorkflowDeleted,
+    /// Tiket dipindah ke stage lain karena stage-nya dihapus atau workflow tipenya diganti.
+    #[sea_orm(string_value = "workflow.migrated")]
+    WorkflowMigrated,
+    /// Workflow per tipe tiket atau aturan transisi project diubah.
+    #[sea_orm(string_value = "project.workflows_changed")]
+    ProjectWorkflowsChanged,
+    /// Admin melompati stage (alasan di `changes`).
+    #[sea_orm(string_value = "ticket.stage_jumped")]
+    TicketStageJumped,
+    /// Admin memaksa transisi walau gate belum terpenuhi (alasan di `changes`).
+    #[sea_orm(string_value = "ticket.transition_forced")]
+    TicketTransitionForced,
 }
 
 /// Kelompok aksi untuk filter halaman audit: awalan `<subjek>` dari aksi, kecuali jabatan
@@ -183,7 +202,8 @@ impl AuditAction {
             | Self::ProjectArchived
             | Self::ProjectAccessGranted
             | Self::ProjectAccessChanged
-            | Self::ProjectAccessRevoked => AuditGroup::Project,
+            | Self::ProjectAccessRevoked
+            | Self::ProjectWorkflowsChanged => AuditGroup::Project,
             Self::RepoAdded | Self::RepoUpdated | Self::RepoRemoved => AuditGroup::Repo,
             Self::TicketTrashed
             | Self::TicketRestored
@@ -194,7 +214,13 @@ impl AuditAction {
             | Self::CustomFieldCreated
             | Self::CustomFieldUpdated
             | Self::CustomFieldDeleted
-            | Self::TicketCodeUpdated => AuditGroup::Ticket,
+            | Self::TicketCodeUpdated
+            | Self::WorkflowCreated
+            | Self::WorkflowUpdated
+            | Self::WorkflowDeleted
+            | Self::WorkflowMigrated
+            | Self::TicketStageJumped
+            | Self::TicketTransitionForced => AuditGroup::Ticket,
         }
     }
 }
@@ -285,6 +311,8 @@ pub enum AuditSubject {
     TicketType,
     #[sea_orm(string_value = "custom_field")]
     CustomField,
+    #[sea_orm(string_value = "workflow")]
+    Workflow,
 }
 
 /// Data satu baris audit untuk [`ActiveModel::append`].

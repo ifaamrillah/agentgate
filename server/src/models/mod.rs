@@ -37,6 +37,7 @@ macro_rules! standard_behavior {
 }
 
 pub mod _entities;
+pub mod artifact_versions;
 pub mod audit_events;
 pub mod custom_fields;
 pub mod identities;
@@ -47,12 +48,14 @@ pub mod notifications;
 pub mod permission;
 pub mod project_access;
 pub mod project_grants;
+pub mod project_workflows;
 pub mod projects;
 pub mod recovery_codes;
 pub mod repos;
 pub mod roles;
 pub mod team_members;
 pub mod teams;
+pub mod ticket_artifacts;
 pub mod ticket_attachments;
 pub mod ticket_code;
 pub mod ticket_codes;
@@ -60,11 +63,14 @@ pub mod ticket_comments;
 pub mod ticket_counters;
 pub mod ticket_events;
 pub mod ticket_links;
+pub mod ticket_stage_people;
 pub mod ticket_type_fields;
 pub mod ticket_types;
 pub mod ticket_watchers;
 pub mod tickets;
 pub mod user_tokens;
 pub mod users;
+pub mod workflow_versions;
+pub mod workflows;
 pub mod workspace_members;
 pub mod workspaces;

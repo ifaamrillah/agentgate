@@ -251,7 +251,7 @@ const SEED_TICKETS: &[SeedTicket] = &[
     SeedTicket {
         title: "Simpan transaksi ke IndexedDB",
         kind: "subtask",
-        status: "done",
+        status: "in_progress",
         priority: "medium",
         labels: "offline",
         points: "3",
@@ -405,6 +405,7 @@ async fn seed_tickets(ctx: &AppContext) -> Result<()> {
             assignee,
             parent: parent.map(|i| codes[i].clone()).unwrap_or_default(),
             custom: std::collections::BTreeMap::new(),
+            stage: String::new(),
         };
         let ticket = ticket_service::create::run(&ctx.db, &acting, project.id, &form)
             .await

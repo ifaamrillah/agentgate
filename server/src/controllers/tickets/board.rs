@@ -79,6 +79,7 @@ pub(super) fn ticket_form(pairs: &[(String, String)], current: Option<&TicketFor
         assignee: get("assignee", current.map(|_| &base.assignee)),
         parent: get("parent", current.map(|_| &base.parent)),
         custom,
+        stage: get("stage", None),
     }
 }
 

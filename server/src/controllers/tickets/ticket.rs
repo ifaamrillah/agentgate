@@ -86,6 +86,7 @@ fn current_form(t: &tickets::Model, parent_code: Option<&str>) -> TicketForm {
         assignee: view.assignee,
         parent: view.parent,
         custom: t.custom_values().0,
+        stage: String::new(),
     }
 }
 
@@ -416,10 +417,12 @@ pub(super) async fn activity(
             let kind = e.kind().unwrap_or(EventKind::Updated);
             let kind_value = sea_orm::ActiveEnum::to_value(&kind);
             let mut changes = Vec::new();
-            if matches!(kind, EventKind::Updated | EventKind::StatusChanged)
-                && let Some(map) = e.changes.as_object()
-            {
+            let all_fields = matches!(kind, EventKind::Updated | EventKind::StatusChanged);
+            if let Some(map) = e.changes.as_object() {
                 for (field, change) in map {
+                    if !all_fields && change.get("to").is_none() {
+                        continue;
+                    }
                     let mut from = change_text(field, &change["from"], &lookup, &parent_codes);
                     let mut to = change_text(field, &change["to"], &lookup, &parent_codes);
                     let translate = field == "status" || field == "priority";
@@ -441,7 +444,12 @@ pub(super) async fn activity(
                     });
                 }
             }
-            let detail = ["code", "other", "filename"]
+            let detail = ["code", "other", "filename", "bug", "stage"]
+                .iter()
+                .find_map(|k| e.changes[*k].as_str())
+                .unwrap_or_default()
+                .to_string();
+            let note = ["note", "reason"]
                 .iter()
                 .find_map(|k| e.changes[*k].as_str())
                 .unwrap_or_default()
@@ -453,6 +461,7 @@ pub(super) async fn activity(
                 at: views::time::wib_datetime(&e.created_at),
                 changes,
                 detail,
+                note,
             }
         })
         .collect();

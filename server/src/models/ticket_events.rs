@@ -31,6 +31,35 @@ pub enum EventKind {
     Trashed,
     #[sea_orm(string_value = "restored")]
     Restored,
+    /// Pindah stage (maju, mundur, atau hasil keputusan). `changes.stage {from, to}`.
+    #[sea_orm(string_value = "stage_changed")]
+    StageChanged,
+    #[sea_orm(string_value = "review_requested")]
+    ReviewRequested,
+    #[sea_orm(string_value = "approved")]
+    Approved,
+    /// Reject dengan catatan (`changes.note`); satu putaran gagal.
+    #[sea_orm(string_value = "rejected")]
+    Rejected,
+    /// Putaran gagal mencapai batas: tiket berstatus Butuh keputusan.
+    #[sea_orm(string_value = "decision_needed")]
+    DecisionNeeded,
+    /// Keputusan manusia (`changes.choice`, `changes.note`).
+    #[sea_orm(string_value = "decided")]
+    Decided,
+    #[sea_orm(string_value = "stage_jumped")]
+    StageJumped,
+    #[sea_orm(string_value = "transition_forced")]
+    TransitionForced,
+    /// Stage dipindah oleh migrasi workflow.
+    #[sea_orm(string_value = "workflow_migrated")]
+    WorkflowMigrated,
+    /// Artifact baru atau versi baru (`changes.name`, `changes.version`).
+    #[sea_orm(string_value = "artifact_saved")]
+    ArtifactSaved,
+    /// Penugasan stage diubah.
+    #[sea_orm(string_value = "people_changed")]
+    PeopleChanged,
 }
 
 impl TenantEntity for Entity {

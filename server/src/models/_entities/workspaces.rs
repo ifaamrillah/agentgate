@@ -25,6 +25,8 @@ pub struct Model {
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
+    #[sea_orm(has_many = "super::artifact_versions::Entity")]
+    ArtifactVersions,
     #[sea_orm(has_many = "super::audit_events::Entity")]
     AuditEvents,
     #[sea_orm(has_one = "super::custom_fields::Entity")]
@@ -37,6 +39,8 @@ pub enum Relation {
     Notifications,
     #[sea_orm(has_many = "super::project_grants::Entity")]
     ProjectGrants,
+    #[sea_orm(has_many = "super::project_workflows::Entity")]
+    ProjectWorkflows,
     #[sea_orm(has_one = "super::projects::Entity")]
     Projects,
     #[sea_orm(has_many = "super::repos::Entity")]
@@ -47,6 +51,8 @@ pub enum Relation {
     TeamMembers,
     #[sea_orm(has_one = "super::teams::Entity")]
     Teams,
+    #[sea_orm(has_many = "super::ticket_artifacts::Entity")]
+    TicketArtifacts,
     #[sea_orm(has_many = "super::ticket_attachments::Entity")]
     TicketAttachments,
     #[sea_orm(has_one = "super::ticket_codes::Entity")]
@@ -59,6 +65,8 @@ pub enum Relation {
     TicketEvents,
     #[sea_orm(has_many = "super::ticket_links::Entity")]
     TicketLinks,
+    #[sea_orm(has_many = "super::ticket_stage_people::Entity")]
+    TicketStagePeople,
     #[sea_orm(has_many = "super::ticket_type_fields::Entity")]
     TicketTypeFields,
     #[sea_orm(has_one = "super::ticket_types::Entity")]
@@ -75,8 +83,18 @@ pub enum Relation {
         on_delete = "SetNull"
     )]
     Users,
+    #[sea_orm(has_many = "super::workflow_versions::Entity")]
+    WorkflowVersions,
+    #[sea_orm(has_one = "super::workflows::Entity")]
+    Workflows,
     #[sea_orm(has_many = "super::workspace_members::Entity")]
     WorkspaceMembers,
+}
+
+impl Related<super::artifact_versions::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::ArtifactVersions.def()
+    }
 }
 
 impl Related<super::audit_events::Entity> for Entity {
@@ -115,6 +133,12 @@ impl Related<super::project_grants::Entity> for Entity {
     }
 }
 
+impl Related<super::project_workflows::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::ProjectWorkflows.def()
+    }
+}
+
 impl Related<super::projects::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Projects.def()
@@ -142,6 +166,12 @@ impl Related<super::team_members::Entity> for Entity {
 impl Related<super::teams::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Teams.def()
+    }
+}
+
+impl Related<super::ticket_artifacts::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::TicketArtifacts.def()
     }
 }
 
@@ -181,6 +211,12 @@ impl Related<super::ticket_links::Entity> for Entity {
     }
 }
 
+impl Related<super::ticket_stage_people::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::TicketStagePeople.def()
+    }
+}
+
 impl Related<super::ticket_type_fields::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::TicketTypeFields.def()
@@ -208,6 +244,18 @@ impl Related<super::tickets::Entity> for Entity {
 impl Related<super::users::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Users.def()
+    }
+}
+
+impl Related<super::workflow_versions::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::WorkflowVersions.def()
+    }
+}
+
+impl Related<super::workflows::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Workflows.def()
     }
 }
 

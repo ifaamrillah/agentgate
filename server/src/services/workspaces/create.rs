@@ -1,15 +1,17 @@
-//! Membuat workspace baru: satu transaksi berisi workspace, empat role bawaan, tipe tiket
-//! bawaan, pembuatnya
+//! Membuat workspace baru: satu transaksi berisi workspace, empat role bawaan, workflow bawaan
+//! (Kanban, Subtask ringkas), tipe tiket bawaan, pembuatnya
 //! sebagai Owner, dan audit `workspace.created`. Dipanggil `POST /w/new` dan seed dev. Siapa
 //! pun yang login boleh membuat workspace (spec: pendaftaran terbuka seperti Jira).
 
 use loco_rs::app::AppContext;
 use sea_orm::{ConnectionTrait, TransactionTrait};
 
+use agentgate_core::workflow::templates::{self, Template};
+
 use crate::{
     models::{
         roles::{self, RoleKey},
-        ticket_types, users, workspace_members,
+        ticket_types, users, workflows, workspace_members,
         workspaces::{self, CreateWorkspace, WorkspaceError},
     },
     services::audit::{self, AuditAction, AuditEntry, AuditSubject},
@@ -66,7 +68,9 @@ pub async fn run_in<C: ConnectionTrait>(
         .find(|r| r.role_key().ok().flatten() == Some(RoleKey::Owner))
         .ok_or_else(|| sea_orm::DbErr::RecordNotFound("owner role".to_string()))?;
     workspace_members::ActiveModel::add(txn, wid, owner.id, owner_role.id).await?;
-    ticket_types::ActiveModel::create_builtin_set(txn, wid).await?;
+    let kanban = create_builtin_workflow(txn, wid, templates::kanban(), owner.id).await?;
+    let subtask = create_builtin_workflow(txn, wid, templates::SUBTASK, owner.id).await?;
+    ticket_types::ActiveModel::create_builtin_set(txn, wid, kanban.id, subtask.id).await?;
     audit::record(
         txn,
         AuditEntry {
@@ -80,4 +84,26 @@ pub async fn run_in<C: ConnectionTrait>(
     )
     .await?;
     Ok(workspace)
+}
+
+/// Workflow bawaan dari template (Kanban untuk semua tipe, Subtask ringkas untuk Subtask).
+async fn create_builtin_workflow<C: ConnectionTrait>(
+    txn: &C,
+    wid: workspaces::WorkspaceId,
+    template: Template,
+    owner: uuid::Uuid,
+) -> Result<workflows::Model, sea_orm::DbErr> {
+    let doc = template.document();
+    workflows::ActiveModel::create(
+        txn,
+        wid,
+        workflows::NewWorkflow {
+            name: &doc.name,
+            description: &doc.description,
+            template_key: Some(template.key),
+            definition: &doc.definition,
+            created_by: Some(owner),
+        },
+    )
+    .await
 }

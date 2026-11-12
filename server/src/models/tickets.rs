@@ -90,6 +90,22 @@ impl TicketStatus {
     }
 }
 
+/// Keadaan tiket di stage sekarang (M3).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter, DeriveActiveEnum, Serialize)]
+#[sea_orm(rs_type = "String", db_type = "Text")]
+#[serde(rename_all = "snake_case")]
+pub enum StageState {
+    /// Sedang dikerjakan.
+    #[sea_orm(string_value = "active")]
+    Active,
+    /// Menunggu review approver stage.
+    #[sea_orm(string_value = "review")]
+    Review,
+    /// Putaran gagal mencapai batas: Butuh keputusan manusia.
+    #[sea_orm(string_value = "decision")]
+    Decision,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter, DeriveActiveEnum, Serialize)]
 #[sea_orm(rs_type = "String", db_type = "Text")]
 #[serde(rename_all = "snake_case")]
@@ -346,6 +362,13 @@ impl Model {
     /// Nilai kolom bukan varian [`TicketPriority`].
     pub fn priority(&self) -> Result<TicketPriority, DbErr> {
         TicketPriority::try_from_value(&self.priority)
+    }
+
+    /// # Errors
+    ///
+    /// Nilai kolom bukan varian [`StageState`].
+    pub fn stage_state(&self) -> Result<StageState, DbErr> {
+        StageState::try_from_value(&self.stage_state)
     }
 
     #[must_use]

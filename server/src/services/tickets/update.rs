@@ -10,11 +10,12 @@ use uuid::Uuid;
 use super::{
     TicketFailure, Working,
     create::{TicketForm, resolve},
-    ensure_can_move, mentions, notify, watch_if_member,
+    ensure_can_move, mentions, notify, stages, watch_if_member,
 };
 use crate::{
     models::{
-        notifications::NotificationKind, permission::Permission, ticket_events::EventKind, tickets,
+        notifications::NotificationKind, permission::Permission, project_workflows,
+        ticket_events::EventKind, tickets,
     },
     services::{audit, workspaces::Acting},
 };
@@ -92,18 +93,46 @@ pub async fn run(
     model.due_on = Set(valid.due_on);
     model.story_points = Set(valid.story_points);
     model.custom_values = Set(resolved.custom.to_json());
-    let updated = model.update(&work.txn).await?;
-    let updated = if updated.status == valid.status.to_value() {
-        updated
-    } else {
-        updated
-            .set_status(&work.txn, valid.status, tickets::bottom_position())
-            .await?
-    };
+    let mut updated = model.update(&work.txn).await?;
+    if before.type_id != resolved.ticket_type.id {
+        let workflow_id = project_workflows::Model::effective(
+            &work.txn,
+            work.wid,
+            work.project.id,
+            resolved.ticket_type.id,
+        )
+        .await?;
+        let (ticket, moved) =
+            stages::follow_workflow(&work.txn, work.wid, updated, workflow_id).await?;
+        updated = ticket;
+        if let Some((from, to)) = moved {
+            changes.insert(
+                "stage".into(),
+                serde_json::json!({ "from": from, "to": to }),
+            );
+        }
+    }
+    if updated.status != valid.status.to_value() {
+        let flow = stages::Flow::load(&work.txn, work.wid, &updated).await?;
+        let to = stages::category(&valid.status)
+            .and_then(|c| flow.current.first_in(c))
+            .cloned()
+            .ok_or_else(|| TicketFailure::field("status", stages::STAGE_UNKNOWN))?;
+        stages::check_move(&work.txn, work.wid, &updated, &flow, &to).await?;
+        let from = flow
+            .rule(&updated.stage_key)
+            .map_or_else(|| updated.stage_key.clone(), |s| s.name.clone());
+        updated = stages::enter_stage(&work.txn, work.wid, updated, &flow, &to).await?;
+        changes.insert(
+            "stage".into(),
+            serde_json::json!({ "from": from, "to": to.name }),
+        );
+    }
+    let status_only = changes.keys().all(|k| k == "status" || k == "stage");
     work.event(
         acting.user.id,
-        if changes.len() == 1 && changes.contains_key("status") {
-            EventKind::StatusChanged
+        if status_only {
+            EventKind::StageChanged
         } else {
             EventKind::Updated
         },

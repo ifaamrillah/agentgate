@@ -736,8 +736,10 @@ pub struct EventView {
     pub label_key: String,
     /// Perubahan field: `field` = kunci Fluent label field, `from`/`to` teks tampil.
     pub changes: Vec<ChangeView>,
-    /// Teks tambahan (kode tiket terkait, nama berkas).
+    /// Teks tambahan (kode tiket terkait, nama berkas, nama stage).
     pub detail: String,
+    /// Catatan reject/keputusan atau alasan lompat/paksa.
+    pub note: String,
 }
 
 #[derive(Debug, Serialize)]

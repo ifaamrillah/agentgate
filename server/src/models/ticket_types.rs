@@ -184,6 +184,7 @@ impl ActiveModel {
         input: &TypeInput,
         builtin: bool,
         position: i32,
+        workflow_id: Uuid,
     ) -> Result<Model, TicketTypeError> {
         let mut errors = ValidationErrors::new();
         let key = input.key.trim().to_lowercase();
@@ -203,6 +204,7 @@ impl ActiveModel {
             color: Set(fields.color),
             builtin: Set(builtin),
             position: Set(position),
+            workflow_id: Set(workflow_id),
             ..Default::default()
         }
         .insert(db)
@@ -210,7 +212,8 @@ impl ActiveModel {
         .map_err(name_taken)
     }
 
-    /// Tipe bawaan untuk workspace baru.
+    /// Tipe bawaan untuk workspace baru: Subtask memakai `subtask_workflow`, sisanya
+    /// `workflow`.
     ///
     /// # Errors
     ///
@@ -218,6 +221,8 @@ impl ActiveModel {
     pub async fn create_builtin_set<C: ConnectionTrait>(
         db: &C,
         workspace_id: WorkspaceId,
+        workflow: Uuid,
+        subtask_workflow: Uuid,
     ) -> Result<Vec<Model>, DbErr> {
         let mut out = Vec::with_capacity(BUILTIN_TYPES.len());
         for (position, (key, name, description, icon, color)) in BUILTIN_TYPES.iter().enumerate() {
@@ -229,8 +234,13 @@ impl ActiveModel {
                 color: (*color).to_string(),
             };
             let position = i32::try_from(position).unwrap_or(i32::MAX);
+            let wf = if *key == "subtask" {
+                subtask_workflow
+            } else {
+                workflow
+            };
             out.push(
-                Self::create(db, workspace_id, &input, true, position)
+                Self::create(db, workspace_id, &input, true, position, wf)
                     .await
                     .map_err(|e| match e {
                         TicketTypeError::Db(e) => e,

@@ -28,14 +28,25 @@ pub struct Model {
     pub position: i32,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
+    pub workflow_id: Uuid,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
+    #[sea_orm(has_many = "super::project_workflows::Entity")]
+    ProjectWorkflows,
     #[sea_orm(has_many = "super::ticket_type_fields::Entity")]
     TicketTypeFields,
     #[sea_orm(has_many = "super::tickets::Entity")]
     Tickets,
+    #[sea_orm(
+        belongs_to = "super::workflows::Entity",
+        from = "(Column::WorkflowId, Column::WorkspaceId)",
+        to = "(super::workflows::Column::Id, super::workflows::Column::WorkspaceId)",
+        on_update = "NoAction",
+        on_delete = "NoAction"
+    )]
+    Workflows,
     #[sea_orm(
         belongs_to = "super::workspaces::Entity",
         from = "Column::WorkspaceId",
@@ -44,6 +55,12 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     Workspaces,
+}
+
+impl Related<super::project_workflows::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::ProjectWorkflows.def()
+    }
 }
 
 impl Related<super::ticket_type_fields::Entity> for Entity {
@@ -55,6 +72,12 @@ impl Related<super::ticket_type_fields::Entity> for Entity {
 impl Related<super::tickets::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Tickets.def()
+    }
+}
+
+impl Related<super::workflows::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Workflows.def()
     }
 }
 

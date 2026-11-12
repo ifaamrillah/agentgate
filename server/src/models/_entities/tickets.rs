@@ -42,6 +42,17 @@ pub struct Model {
     pub created_by: Option<Uuid>,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
+    pub workflow_id: Uuid,
+    #[sea_orm(column_type = "Text")]
+    pub stage_key: String,
+    pub stage_version: i32,
+    #[sea_orm(column_type = "Text")]
+    pub stage_state: String,
+    pub fail_count: i32,
+    #[sea_orm(column_type = "Text", nullable)]
+    pub fail_stage_key: Option<String>,
+    pub stage_entered_at: DateTimeWithTimeZone,
+    pub cancelled_at: Option<DateTimeWithTimeZone>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -56,6 +67,8 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     Projects,
+    #[sea_orm(has_many = "super::ticket_artifacts::Entity")]
+    TicketArtifacts,
     #[sea_orm(has_many = "super::ticket_attachments::Entity")]
     TicketAttachments,
     #[sea_orm(has_many = "super::ticket_codes::Entity")]
@@ -64,6 +77,8 @@ pub enum Relation {
     TicketComments,
     #[sea_orm(has_many = "super::ticket_events::Entity")]
     TicketEvents,
+    #[sea_orm(has_many = "super::ticket_stage_people::Entity")]
+    TicketStagePeople,
     #[sea_orm(
         belongs_to = "super::ticket_types::Entity",
         from = "(Column::TypeId, Column::WorkspaceId)",
@@ -115,6 +130,14 @@ pub enum Relation {
     )]
     Users1,
     #[sea_orm(
+        belongs_to = "super::workflows::Entity",
+        from = "(Column::WorkflowId, Column::WorkspaceId)",
+        to = "(super::workflows::Column::Id, super::workflows::Column::WorkspaceId)",
+        on_update = "NoAction",
+        on_delete = "NoAction"
+    )]
+    Workflows,
+    #[sea_orm(
         belongs_to = "super::workspaces::Entity",
         from = "Column::WorkspaceId",
         to = "super::workspaces::Column::Id",
@@ -133,6 +156,12 @@ impl Related<super::notifications::Entity> for Entity {
 impl Related<super::projects::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Projects.def()
+    }
+}
+
+impl Related<super::ticket_artifacts::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::TicketArtifacts.def()
     }
 }
 
@@ -160,6 +189,12 @@ impl Related<super::ticket_events::Entity> for Entity {
     }
 }
 
+impl Related<super::ticket_stage_people::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::TicketStagePeople.def()
+    }
+}
+
 impl Related<super::ticket_types::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::TicketTypes.def()
@@ -169,6 +204,12 @@ impl Related<super::ticket_types::Entity> for Entity {
 impl Related<super::ticket_watchers::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::TicketWatchers.def()
+    }
+}
+
+impl Related<super::workflows::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Workflows.def()
     }
 }
 

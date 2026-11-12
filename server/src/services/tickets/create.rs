@@ -10,24 +10,27 @@ use std::collections::BTreeMap;
 use chrono::Datelike;
 use loco_rs::validation::ModelValidationErrors;
 use sea_orm::{
-    ActiveEnum, ActiveModelTrait, ActiveValue::Set, ConnectionTrait, DatabaseConnection, DbErr,
-    EntityTrait, TransactionTrait,
+    ActiveEnum, ActiveModelTrait, ActiveValue::Set, ConnectionTrait, DatabaseConnection,
+    DatabaseTransaction, DbErr, EntityTrait, TransactionTrait,
 };
 use uuid::Uuid;
 use validator::{ValidationError, ValidationErrors};
 
-use super::{TicketFailure, access_in, mentions, notify, watch_if_member};
+use agentgate_core::workflow::Definition;
+
+use super::{TicketFailure, access_in, mentions, notify, stages, watch_if_member};
 use crate::{
     models::{
         custom_fields,
         notifications::NotificationKind,
         permission::Permission,
-        project_access, projects,
+        project_access, project_workflows, projects,
         ticket_code::{self, CodeParts, CounterScope},
         ticket_codes, ticket_counters,
         ticket_events::{self, EventKind},
         ticket_type_fields, ticket_types, ticket_watchers,
-        tickets::{self, CustomValues, TicketInput, ValidTicket},
+        tickets::{self, CustomValues, TicketInput, TicketStatus, ValidTicket},
+        workflows,
         workspaces::{self, WorkspaceId},
     },
     services::workspaces::Acting,
@@ -48,6 +51,8 @@ pub struct TicketForm {
     pub parent: String,
     /// Nilai field custom mentah per id field.
     pub custom: BTreeMap<Uuid, String>,
+    /// Kunci stage awal (hanya saat membuat); kosong = stage pertama berkategori `status`.
+    pub stage: String,
 }
 
 /// Isian yang sudah divalidasi dan di-resolve ke baris database.
@@ -236,15 +241,39 @@ pub async fn run(
     project_id: Uuid,
     form: &TicketForm,
 ) -> Result<tickets::Model, TicketFailure> {
-    let wid = acting.workspace_id();
     let txn = db.begin().await?;
-    let project = projects::Model::find_in(&txn, wid, project_id)
+    let ticket = run_in(&txn, acting, project_id, form).await?;
+    txn.commit().await?;
+    Ok(ticket)
+}
+
+/// Langkah [`run`] di transaksi `txn` (juga dipakai tiket Bug lanjutan dari keputusan gate).
+pub(crate) async fn run_in(
+    txn: &DatabaseTransaction,
+    acting: &Acting<'_>,
+    project_id: Uuid,
+    form: &TicketForm,
+) -> Result<tickets::Model, TicketFailure> {
+    let wid = acting.workspace_id();
+    let project = projects::Model::find_in(txn, wid, project_id)
         .await?
         .ok_or(TicketFailure::NotFound)?;
-    access_in(&txn, acting, project.id, Permission::EditProject).await?;
-    let resolved = resolve(&txn, wid, &project, form, None).await?;
+    access_in(txn, acting, project.id, Permission::EditProject).await?;
+    let resolved = resolve(txn, wid, &project, form, None).await?;
+    let workflow_id =
+        project_workflows::Model::effective(txn, wid, project.id, resolved.ticket_type.id).await?;
+    let workflow = workflows::Model::find_in(txn, wid, workflow_id)
+        .await?
+        .ok_or(TicketFailure::NotFound)?;
+    let flow = stages::Flow {
+        current: workflow.definition(txn).await?,
+        rules: Definition::default(),
+        workflow,
+    };
+    let stage = stages::initial_stage(&flow.current, &form.stage, resolved.valid.status)?.clone();
+    let status = TicketStatus::parse(stage.category.as_str()).unwrap_or(TicketStatus::Todo);
     let workspace = workspaces::Entity::find_by_id(wid.get())
-        .one(&txn)
+        .one(txn)
         .await?
         .ok_or(TicketFailure::NotFound)?;
     let (template, scope) = effective_template(&workspace, &project);
@@ -252,12 +281,12 @@ pub async fn run(
     let counter = scope.counter_key(resolved.ticket_type.id, year);
     let mut chosen = None;
     for _ in 0..MAX_CODE_ATTEMPTS {
-        let number = ticket_counters::next_number(&txn, wid, project.id, &counter).await?;
+        let number = ticket_counters::next_number(txn, wid, project.id, &counter).await?;
         let code = ticket_code::render(
             &template,
             &code_parts(&project, &resolved.ticket_type.key, year, number),
         );
-        if ticket_codes::Model::find(&txn, wid, &code).await?.is_none() {
+        if ticket_codes::Model::find(txn, wid, &code).await?.is_none() {
             chosen = Some((number, code));
             break;
         }
@@ -273,7 +302,10 @@ pub async fn run(
         code: Set(code.clone()),
         title: Set(valid.title.clone()),
         description: Set(valid.description.clone()),
-        status: Set(valid.status.to_value()),
+        status: Set(status.to_value()),
+        workflow_id: Set(flow.workflow.id),
+        stage_key: Set(stage.key.clone()),
+        stage_version: Set(flow.workflow.version),
         priority: Set(valid.priority.to_value()),
         assignee_id: Set(resolved.assignee_id),
         reporter_id: Set(Some(acting.user.id)),
@@ -283,19 +315,17 @@ pub async fn run(
         story_points: Set(valid.story_points),
         custom_values: Set(resolved.custom.to_json()),
         position: Set(tickets::bottom_position()),
-        done_at: Set(
-            (valid.status == tickets::TicketStatus::Done).then(|| chrono::Utc::now().into())
-        ),
+        done_at: Set((status == TicketStatus::Done).then(|| chrono::Utc::now().into())),
         created_by: Set(Some(acting.user.id)),
         ..Default::default()
     }
-    .insert(&txn)
+    .insert(txn)
     .await?;
-    if !ticket_codes::ActiveModel::claim(&txn, wid, ticket.id, &code).await? {
+    if !ticket_codes::ActiveModel::claim(txn, wid, ticket.id, &code).await? {
         return Err(TicketFailure::field("title", ticket_code::CODE_COLLISION));
     }
     ticket_events::ActiveModel::record(
-        &txn,
+        txn,
         wid,
         ticket.id,
         Some(acting.user.id),
@@ -303,11 +333,12 @@ pub async fn run(
         serde_json::json!({ "code": code, "title": ticket.title }),
     )
     .await?;
-    ticket_watchers::ActiveModel::watch(&txn, wid, ticket.id, acting.user.id).await?;
+    ticket_watchers::ActiveModel::watch(txn, wid, ticket.id, acting.user.id).await?;
+    stages::seed_people(txn, wid, ticket.id, &stage).await?;
     if let Some(assignee) = ticket.assignee_id {
-        watch_if_member(&txn, wid, ticket.id, assignee).await?;
+        watch_if_member(txn, wid, ticket.id, assignee).await?;
         notify(
-            &txn,
+            txn,
             wid,
             acting.user.id,
             assignee,
@@ -317,9 +348,9 @@ pub async fn run(
         )
         .await?;
     }
-    for user in mentions::mentioned(&txn, wid, project.id, &ticket.description).await? {
+    for user in mentions::mentioned(txn, wid, project.id, &ticket.description).await? {
         notify(
-            &txn,
+            txn,
             wid,
             acting.user.id,
             user.id,
@@ -329,6 +360,5 @@ pub async fn run(
         )
         .await?;
     }
-    txn.commit().await?;
     Ok(ticket)
 }
