@@ -12,3 +12,14 @@ doctest = false
 
 [lints]
 workspace = true
+
+[dependencies]
+# Definisi workflow bertipe, disimpan server sebagai jsonb dan diekspor/impor sebagai YAML.
+serde = { version = "1", features = ["derive"] }
+# YAML impor/ekspor workflow. Versi yang sama dengan parser config Loco (sudah ada di lockfile).
+serde_yaml_ng = "0.10"
+# Id user di penugasan default stage.
+uuid = { version = "1", features = ["serde"] }
+
+[dev-dependencies]
+serde_json = "1"

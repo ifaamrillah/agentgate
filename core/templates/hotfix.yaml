@@ -1,0 +1,41 @@
+workflow: hotfix
+nama: Hotfix/Incident
+deskripsi: Triage, perbaikan cepat, deploy, lalu postmortem.
+stages:
+  - id: triage
+    nama: Triage
+    kategori: todo
+    transisi: tunggu_approve
+  - id: fix
+    nama: Perbaikan
+    kategori: in_progress
+    persona: dev
+    gate: [pr_open, ci_green]
+    transisi: tunggu_approve
+  - id: deploy
+    nama: Deploy
+    kategori: in_progress
+    persona: devops
+    gate: [prs_merged]
+    transisi: tunggu_approve
+  - id: postmortem
+    nama: Postmortem
+    kategori: in_progress
+    persona: writer
+    output: postmortem.md
+    template_output: |
+      # Postmortem
+
+      ## Ringkasan
+
+      ## Kronologi
+
+      ## Akar masalah
+
+      ## Tindak lanjut
+      - [ ] 
+    gate: [artifact_exists]
+    transisi: tunggu_approve
+  - id: done
+    nama: Selesai
+    kategori: done

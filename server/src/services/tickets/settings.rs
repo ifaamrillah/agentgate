@@ -85,9 +85,19 @@ pub async fn create_type(
             .len(),
     )
     .unwrap_or(i32::MAX);
-    let created =
-        ticket_types::ActiveModel::create(&txn, workspace.workspace_id(), input, false, position)
-            .await?;
+    // Tipe baru memakai workflow tertua (Kanban bawaan); diganti per project di Workflow project.
+    let workflow = crate::models::workflows::Model::oldest_in(&txn, workspace.workspace_id())
+        .await?
+        .ok_or(TicketFailure::NotFound)?;
+    let created = ticket_types::ActiveModel::create(
+        &txn,
+        workspace.workspace_id(),
+        input,
+        false,
+        position,
+        workflow.id,
+    )
+    .await?;
     audit::record(
         &txn,
         acting.actor().audit(

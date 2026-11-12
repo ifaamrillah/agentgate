@@ -1,0 +1,16 @@
+workflow: kanban
+nama: Kanban
+deskripsi: Alur sederhana tanpa agent. Tiket dipindah manusia lewat board.
+stages:
+  - id: backlog
+    nama: Backlog
+    kategori: backlog
+  - id: todo
+    nama: To do
+    kategori: todo
+  - id: in_progress
+    nama: Dikerjakan
+    kategori: in_progress
+  - id: done
+    nama: Selesai
+    kategori: done

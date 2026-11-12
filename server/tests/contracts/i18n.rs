@@ -97,6 +97,12 @@ fn every_validation_error_code_has_a_message() {
         agentgate_server::models::ticket_comments::ERROR_CODES,
         agentgate_server::models::ticket_code::ERROR_CODES,
         agentgate_server::models::custom_fields::ERROR_CODES,
+        agentgate_server::models::workflows::ERROR_CODES,
+        agentgate_server::models::ticket_artifacts::ERROR_CODES,
+        agentgate_server::services::tickets::stages::ERROR_CODES,
+        agentgate_server::services::workflows::ERROR_CODES,
+        agentgate_core::workflow::definition::ERROR_CODES,
+        agentgate_core::workflow::yaml::ERROR_CODES,
     ]
     .concat();
     let missing: Vec<_> = codes.iter().filter(|c| !keys.contains(**c)).collect();
@@ -126,6 +132,7 @@ fn every_auth_message_key_has_a_translation() {
         views::teams::MESSAGE_KEYS,
         views::projects::MESSAGE_KEYS,
         views::tickets::MESSAGE_KEYS,
+        views::workflow::MESSAGE_KEYS,
         oauth::ERROR_CODES,
     ]
     .concat()
@@ -172,6 +179,7 @@ fn every_ticket_enum_and_view_key_has_a_translation() {
         let value = sea_orm::ActiveEnum::to_value(&kind);
         used.push(format!("ticket-event-{}", value.replace('_', "-")));
     }
+    used.extend(views::workflow::label_keys());
     for kind in NotificationKind::iter() {
         used.push(format!(
             "notification-{}",

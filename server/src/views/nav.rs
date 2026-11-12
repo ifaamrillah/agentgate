@@ -96,6 +96,7 @@ pub const SETTINGS_SECTIONS: &[&str] = &[
     "job_titles",
     "roles",
     "audit",
+    "workflows",
     "ticket_types",
     "ticket_code",
 ];
@@ -106,6 +107,7 @@ pub const PROJECT_SETTINGS_SECTIONS: &[&str] = &[
     "project_general",
     "project_access",
     "project_repos",
+    "project_workflow",
     "project_ticket_code",
 ];
 
@@ -133,6 +135,12 @@ pub fn settings_nav(settings_href: &str, links: &SettingsLinks) -> Vec<NavItem> 
             "settings-audit-title",
             "list-details",
             &links.audit,
+        ),
+        (
+            "workflows",
+            "settings-workflows-title",
+            "git-merge",
+            &links.workflows,
         ),
         (
             "ticket_types",
@@ -185,6 +193,12 @@ pub fn project_settings_nav(paths: &ProjectPaths, current: &str) -> Vec<NavItem>
                 "project-settings-repos",
                 "git-branch",
                 &paths.repos,
+            ),
+            NavItem::link(
+                "workflow",
+                "settings-workflows-title",
+                "git-merge",
+                &paths.workflow,
             ),
             NavItem::link(
                 "ticket_code",

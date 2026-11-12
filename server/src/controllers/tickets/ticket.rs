@@ -56,6 +56,9 @@ struct PageErrors {
     comment_body: String,
     link: String,
     attachment: String,
+    /// Penolakan aksi stage (kode Fluent) dan dialog yang dibuka lagi.
+    stage: String,
+    stage_dialog: &'static str,
     /// Flash dari redirect sebelumnya (hanya GET Ringkasan).
     flash: Option<Flash>,
 }
@@ -86,6 +89,7 @@ fn current_form(t: &tickets::Model, parent_code: Option<&str>) -> TicketForm {
         assignee: view.assignee,
         parent: view.parent,
         custom: t.custom_values().0,
+        stage: String::new(),
     }
 }
 
@@ -98,7 +102,12 @@ async fn parent_code(ctx: &AppContext, access: &TicketAccess) -> Result<Option<S
     })
 }
 
-fn tabs(paths: &TicketPaths, current: &str, events: u64) -> Vec<NavItem> {
+pub(super) fn tabs(
+    paths: &TicketPaths,
+    current: &str,
+    events: u64,
+    artifacts: (u64, u64),
+) -> Vec<NavItem> {
     let mut items = vec![
         NavItem::link("summary", "ticket-tab-summary", "file-text", &paths.show),
         NavItem::link(
@@ -108,6 +117,13 @@ fn tabs(paths: &TicketPaths, current: &str, events: u64) -> Vec<NavItem> {
             &paths.activity,
         )
         .counted(events, false),
+        NavItem::link(
+            "artifacts",
+            "ticket-tab-artifacts",
+            "files",
+            &paths.artifacts,
+        )
+        .counted(artifacts.0, artifacts.1 > 0),
     ];
     for item in &mut items {
         item.current = item.key == current;
@@ -264,6 +280,8 @@ async fn render_show(
         .collect();
     let board = BoardPaths::new(&super::project_paths(&access.access).home);
 
+    let stage = super::stage::panel(ctx, access).await?;
+    let artifact_counts = super::artifact::counts(ctx, access).await?;
     let shell = app_shell(ctx, &tenant.user, Some(tenant), Some(&access.access))
         .await?
         .at("project_ticket");
@@ -299,9 +317,11 @@ async fn render_show(
             "paths": paths,
             "people_src": board.people,
             "board": board,
-            "tabs": tabs(&paths, "summary", events.len() as u64),
+            "tabs": tabs(&paths, "summary", events.len() as u64, artifact_counts),
+            "stage": stage,
             "can_edit": can_edit,
             "errors": {
+                "dialogs": super::stage::errors_view(&errors.stage, errors.stage_dialog),
                 "status": errors.status,
                 "status_codes": errors.status_codes,
                 "comment": errors.comment,
@@ -416,10 +436,12 @@ pub(super) async fn activity(
             let kind = e.kind().unwrap_or(EventKind::Updated);
             let kind_value = sea_orm::ActiveEnum::to_value(&kind);
             let mut changes = Vec::new();
-            if matches!(kind, EventKind::Updated | EventKind::StatusChanged)
-                && let Some(map) = e.changes.as_object()
-            {
+            let all_fields = matches!(kind, EventKind::Updated | EventKind::StatusChanged);
+            if let Some(map) = e.changes.as_object() {
                 for (field, change) in map {
+                    if !all_fields && change.get("to").is_none() {
+                        continue;
+                    }
                     let mut from = change_text(field, &change["from"], &lookup, &parent_codes);
                     let mut to = change_text(field, &change["to"], &lookup, &parent_codes);
                     let translate = field == "status" || field == "priority";
@@ -441,7 +463,12 @@ pub(super) async fn activity(
                     });
                 }
             }
-            let detail = ["code", "other", "filename"]
+            let detail = ["code", "other", "filename", "bug", "stage"]
+                .iter()
+                .find_map(|k| e.changes[*k].as_str())
+                .unwrap_or_default()
+                .to_string();
+            let note = ["note", "reason"]
                 .iter()
                 .find_map(|k| e.changes[*k].as_str())
                 .unwrap_or_default()
@@ -453,6 +480,7 @@ pub(super) async fn activity(
                 at: views::time::wib_datetime(&e.created_at),
                 changes,
                 detail,
+                note,
             }
         })
         .collect();
@@ -471,7 +499,9 @@ pub(super) async fn activity(
             "events": event_views,
             "paths": paths,
             "board": BoardPaths::new(&super::project_paths(&access.access).home),
-            "tabs": tabs(&paths, "activity", events.len() as u64),
+            "tabs": tabs(&paths, "activity", events.len() as u64, super::artifact::counts(&ctx, &access).await?),
+            "stage": super::stage::panel(&ctx, &access).await?,
+            "errors": { "dialogs": super::stage::errors_view("", "") },
             "can_edit": access.can(Permission::EditProject),
             "watching": ticket_watchers::Model::user_ids(&ctx.db, wid, t.id)
                 .await?
@@ -559,6 +589,9 @@ fn blocked_codes(errors: &ModelValidationErrors) -> String {
 pub struct StatusForm {
     #[serde(default)]
     status: String,
+    /// Kunci stage tujuan (board per stage, pilihan "Pindah stage"); mengalahkan `status`.
+    #[serde(default)]
+    stage: String,
     /// Id kartu yang akan berada di bawah kartu ini (drag-drop); kosong = paling bawah.
     #[serde(default)]
     before: String,
@@ -576,26 +609,31 @@ pub(super) async fn status(
 ) -> Result<Response> {
     access.require(Permission::EditProject)?;
     let tenant = &access.access.tenant;
-    let Some(to) = TicketStatus::parse(&form.status) else {
-        return render_show(
-            &ctx,
-            &v,
-            &access,
-            None,
-            PageErrors {
-                status: tickets::STATUS_INVALID.into(),
-                ..PageErrors::default()
-            },
-            StatusCode::UNPROCESSABLE_ENTITY,
-        )
-        .await;
+    let target = if form.stage.trim().is_empty() {
+        let Some(to) = TicketStatus::parse(&form.status) else {
+            return render_show(
+                &ctx,
+                &v,
+                &access,
+                None,
+                PageErrors {
+                    status: tickets::STATUS_INVALID.into(),
+                    ..PageErrors::default()
+                },
+                StatusCode::UNPROCESSABLE_ENTITY,
+            )
+            .await;
+        };
+        service::stages::Target::Category(to)
+    } else {
+        service::stages::Target::Stage(form.stage.trim().to_string())
     };
     let before = Uuid::parse_str(form.before.trim()).ok();
-    match service::transition(
+    match service::stages::move_to(
         &ctx.db,
         &acting(tenant, request_id),
         access.ticket.id,
-        to,
+        target,
         before,
     )
     .await
@@ -612,7 +650,7 @@ pub(super) async fn status(
                 &access,
                 None,
                 PageErrors {
-                    status: first_code(&errors, "status"),
+                    status: super::stage::stage_error(&errors),
                     status_codes: blocked_codes(&errors),
                     ..PageErrors::default()
                 },
@@ -1012,4 +1050,27 @@ pub(super) async fn trash(
     let session = flash::set(session, &Flash::success(views::tickets::FLASH_TRASHED))?;
     let to = BoardPaths::new(&super::project_paths(&access.access).home).board;
     Ok((session, format::redirect(&to)?).into_response())
+}
+
+/// Halaman detail 422 dengan pesan penolakan aksi stage; `dialog` dibuka lagi.
+pub(super) async fn render_with_stage_error(
+    ctx: &AppContext,
+    v: &TeraView,
+    access: &TicketAccess,
+    code: String,
+    dialog: &'static str,
+) -> Result<Response> {
+    render_show(
+        ctx,
+        v,
+        access,
+        None,
+        PageErrors {
+            stage: code,
+            stage_dialog: dialog,
+            ..PageErrors::default()
+        },
+        StatusCode::UNPROCESSABLE_ENTITY,
+    )
+    .await
 }

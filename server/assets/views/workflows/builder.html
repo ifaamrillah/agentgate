@@ -1,0 +1,157 @@
+{#- Builder workflow (prototype "Workflow builder"): tab Builder (kanvas stage + konfigurasi
+    stage terpilih), YAML (sunting seluruh draf), Riwayat versi. Perubahan masuk ke draf; tombol
+    Terbitkan menjadikan draf versi baru (tiket di stage yang dihapus dipetakan di halaman
+    migrasi). Variabel: lihat controllers::tickets::workflow::render_builder. -#}
+{% extends "layouts/settings.html" %}
+{% block title %}{{ workflow.name }} · {{ t(key="settings-workflows-title", lang="id") }}{% endblock title %}
+{% block crumb_label %}<a href="{{ paths.list }}">{{ t(key="settings-workflows-title", lang="id") }}</a> / {{ workflow.name }}{% endblock crumb_label %}
+{% block width %}wide{% endblock width %}
+{% block page_attrs %}data-workflow-builder{% endblock page_attrs %}
+{% block settings %}
+<header class="app-page-head">
+  <span class="app-tile" data-size="lg" data-tone="accent">{{ icon(name="git-merge") }}</span>
+  <div class="app-page-title"><h1>{{ workflow.name }}</h1><p>{% if workflow.description %}{{ workflow.description }} · {% endif %}{{ t(key="workflow-active-version", lang="id", version=workflow.version) }}</p></div>
+  <div class="app-page-acts">
+    {%- if workflow.draft %}{{ <badge label={t(key="workflow-draft-pill", lang="id", version=workflow.next_version)} variant="gate"/> }}{% endif %}
+    {{ <button label={t(key="workflow-rename", lang="id")} icon="pencil" variant="ghost" size="sm" dialog="workflow-identity"/> }}
+    {{ <button label={t(key="workflow-export", lang="id")} icon="download" variant="outline" size="sm" href={paths.export}/> }}
+  </div>
+</header>
+{{ <tabs label={t(key="workflow-tabs", lang="id")} items={tabs}/> }}
+{%- if errors.stages %}{{ <flash kind="error" title={details.stages} message={t(key=errors.stages, lang="id")}/> }}{% endif %}
+{%- for f in ["workflow", "draft", "mapping", "stage"] %}{% if errors[f] %}{{ <flash kind="error" message={t(key=errors[f], lang="id", detail=details[f])}/> }}{% endif %}{% endfor %}
+{%- if workflow.draft %}
+<div class="alert" data-variant="warn" role="status" data-draft-bar>
+  {{ icon(name="info-circle") }}
+  <h2>{{ t(key="workflow-draft-title", lang="id", version=workflow.next_version) }}</h2>
+  <section>
+    <p>{% if plan and plan.needs_mapping %}{{ t(key="workflow-draft-needs-mapping", lang="id", count=plan.removed) }}{% else %}{{ t(key="workflow-draft-body", lang="id") }}{% endif %}</p>
+    <div class="app-inline-form">
+      <form method="post" action="{{ paths.publish }}">{{ <button label={t(key="workflow-publish", lang="id", version=workflow.next_version)} icon="check" size="sm" type="submit" attrs="data-publish"/> }}</form>
+      <form method="post" action="{{ paths.discard }}">{{ <button label={t(key="workflow-discard", lang="id")} variant="ghost" size="sm" type="submit" attrs="data-discard"/> }}</form>
+    </div>
+  </section>
+</div>
+{%- endif %}
+
+{%- if tab == "builder" %}
+<div class="app-builder">
+  {% <card title={t(key="workflow-canvas", lang="id")} description={t(key="workflow-canvas-description", lang="id")} count={nodes | length ~ ""} class="app-builder-canvas"> %}
+    <ol class="app-flow" data-flow>
+      {%- for n in nodes %}
+      <li class="app-node" data-stage="{{ n.key }}" data-category="{{ n.category }}"{% if n.state == "current" %} aria-current="true"{% endif %}{% if n.parallel %} data-parallel{% endif %}>
+        <a href="{{ n.href }}" class="app-node-main">
+          <span class="app-tile">{{ icon(name=n.icon) }}</span>
+          <span class="app-node-text"><b>{{ n.name }}</b><small>{% if n.persona_key %}{{ t(key=n.persona_key, lang="id") }} · {{ t(key=n.mode_key, lang="id") }}{% else %}{{ t(key="workflow-no-agent", lang="id") }}{% endif %}</small></span>
+          <span class="app-node-meta">
+            {%- if n.gates %}<span class="app-hint" title="{{ t(key="workflow-gate-count", lang="id", count=n.gates) }}">{{ icon(name="shield-check") }}{{ n.gates }}</span>{% endif %}
+            {%- if n.exit == "approval" %}<span class="app-hint" title="{{ t(key=n.exit_key, lang="id") }}">{{ icon(name="user-check") }}</span>{% elif n.exit == "auto" %}<span class="app-hint" title="{{ t(key=n.exit_key, lang="id") }}">{{ icon(name="bolt") }}</span>{% endif %}
+          </span>
+        </a>
+        {%- if n.parallel %}<span class="app-node-note">{{ t(key="workflow-parallel-note", lang="id") }}</span>{% endif %}
+        {%- if n.fail_to %}<span class="app-node-note" data-tone="danger">{{ t(key="workflow-fail-note", lang="id", stage=n.fail_to, limit=n.fail_limit) }}</span>{% endif %}
+      </li>
+      {%- endfor %}
+    </ol>
+    <form method="post" action="{{ paths.stages }}" class="app-inline-form app-flow-add" data-add-stage>
+      <input class="app-input" name="name" required maxlength="60" placeholder="{{ t(key="workflow-stage-name-placeholder", lang="id") }}" aria-label="{{ t(key="workflow-stage-name", lang="id") }}">
+      <select class="app-input" name="category" aria-label="{{ t(key="workflow-stage-category", lang="id") }}">
+        {%- for c in categories %}<option value="{{ c.value }}"{% if c.value == "in_progress" %} selected{% endif %}>{{ t(key=c.label_key, lang="id") }}</option>{% endfor %}
+      </select>
+      {{ <button label={t(key="workflow-add-stage", lang="id")} icon="plus" variant="outline" size="sm" type="submit"/> }}
+    </form>
+  {% </card> %}
+
+  {%- if stage %}
+  <div class="app-builder-side">
+  {% <card title={stage.name} description={t(key="workflow-stage-config", lang="id", id=stage.key)} form={paths.stage} cancel_href={paths.self ~ "?stage=" ~ stage.key} save_label={t(key="workflow-save-draft", lang="id")} attrs="data-stage-form" flush={true}> %}
+    <input type="hidden" name="key" value="{{ stage.key }}">
+    <div class="app-blk app-stack-v" data-gap="sm">
+      <p class="app-section-label">{{ t(key="workflow-section-general", lang="id") }}</p>
+      {{ <field id="stage-name" name="name" label={t(key="workflow-stage-name", lang="id")} value={stage.name} error={errors.name} required={true}/> }}
+      {{ <select_field id="stage-category" name="category" label={t(key="workflow-stage-category", lang="id")} options={categories} option_value="value" option_label="label_key" translate={true} value={stage.category} error={errors.category} hint={t(key="workflow-stage-category-hint", lang="id")}/> }}
+      {{ <select_field id="stage-persona" name="persona" label={t(key="workflow-persona", lang="id")} options={personas} option_value="value" option_label="label_key" translate={true} empty_label={t(key="workflow-no-agent", lang="id")} value={stage.persona} hint={t(key="workflow-persona-hint", lang="id")}/> }}
+      {{ <select_field id="stage-mode" name="mode" label={t(key="workflow-mode", lang="id")} options={modes} option_value="value" option_label="label_key" translate={true} value={stage.mode} error={errors.mode}/> }}
+      <label class="app-check-row"><input type="checkbox" class="app-check" name="parallel" value="1"{% if stage.parallel %} checked{% endif %}> {{ t(key="workflow-parallel", lang="id") }}</label>
+      {%- if errors.parallel %}<p class="app-field-error" role="alert">{{ t(key=errors.parallel, lang="id") }}</p>{% endif %}
+    </div>
+    <div class="app-blk app-stack-v" data-gap="sm">
+      <p class="app-section-label">{{ t(key="workflow-section-instructions", lang="id") }}</p>
+      {{ <field id="stage-skill" name="skill" label={t(key="workflow-skill", lang="id")} value={stage.skill} error={errors.skill} mono={true} hint={t(key="workflow-skill-hint", lang="id")}/> }}
+      {{ <textarea_field id="stage-prompt" name="prompt" label={t(key="workflow-prompt", lang="id")} value={stage.prompt} rows={3} error={errors.prompt}/> }}
+      {{ <field id="stage-inputs" name="inputs" label={t(key="workflow-inputs", lang="id")} value={stage.inputs} error={errors.inputs} mono={true} hint={t(key="workflow-list-hint", lang="id")}/> }}
+      {{ <field id="stage-output" name="output" label={t(key="workflow-output", lang="id")} value={stage.output} error={errors.output} mono={true} hint={t(key="workflow-output-hint", lang="id")}/> }}
+      {{ <textarea_field id="stage-template" name="output_template" label={t(key="workflow-output-template", lang="id")} value={stage.output_template} rows={4} error={errors.output_template} class="app-mono"/> }}
+    </div>
+    <div class="app-blk app-stack-v" data-gap="sm">
+      <p class="app-section-label">{{ t(key="workflow-section-gates", lang="id") }}</p>
+      <div class="app-checks" data-gate-options>
+        {%- for g in gate_options %}
+        <label class="app-check-row"><input type="checkbox" class="app-check" name="gates" value="{{ g.value }}"{% if g.value in stage.gates %} checked{% endif %}> {{ t(key=g.label_key, lang="id") }}{% if g.evidence %} <span class="app-hint">· {{ t(key="workflow-gate-evidence", lang="id") }}</span>{% endif %}</label>
+        {%- endfor %}
+      </div>
+      <p class="app-hint">{{ t(key="workflow-gates-hint", lang="id") }}</p>
+      {%- if errors.gates %}<p class="app-field-error" role="alert">{{ t(key=errors.gates, lang="id") }}</p>{% endif %}
+      {{ <field id="stage-tools" name="tools" label={t(key="workflow-tools", lang="id")} value={stage.tools} error={errors.tools} hint={t(key="workflow-list-hint", lang="id")}/> }}
+    </div>
+    <div class="app-blk app-stack-v" data-gap="sm">
+      <p class="app-section-label">{{ t(key="workflow-section-people", lang="id") }}</p>
+      {{ <combo id="stage-executors" name="executors" label={t(key="stage-role-executor", lang="id")} options={people} values={stage.executors} multiple={true}/> }}
+      {{ <combo id="stage-approvers" name="approvers" label={t(key="stage-role-approver", lang="id")} options={people} values={stage.approvers} multiple={true} hint={t(key="stage-one-approver", lang="id")}/> }}
+      {{ <combo id="stage-watchers" name="watchers" label={t(key="stage-role-watcher", lang="id")} options={people} values={stage.watchers} multiple={true} error={errors.people}/> }}
+    </div>
+    <div class="app-blk app-stack-v" data-gap="sm">
+      <p class="app-section-label">{{ t(key="workflow-section-exit", lang="id") }}</p>
+      <div class="app-choices" data-cols="one" role="radiogroup" aria-label="{{ t(key="workflow-section-exit", lang="id") }}">
+        {%- for e in exits %}
+        <label class="app-choice"><input type="radio" class="app-radio" name="exit" value="{{ e.value }}"{% if e.value == stage.exit %} checked{% endif %}><span><b>{{ t(key=e.label_key, lang="id") }}</b><small>{{ t(key=e.hint_key, lang="id") }}</small></span></label>
+        {%- endfor %}
+      </div>
+      <div class="app-form-row">
+        {{ <field id="stage-fail-limit" name="fail_limit" type="number" label={t(key="workflow-fail-limit", lang="id")} value={stage.fail_limit ~ ""} error={errors.fail_limit} hint={t(key="workflow-fail-limit-hint", lang="id")}/> }}
+        {{ <select_field id="stage-fail-to" name="fail_to" label={t(key="workflow-fail-to", lang="id")} options={earlier} empty_label={t(key="workflow-fail-to-none", lang="id")} value={stage.fail_to} error={errors.fail_to}/> }}
+      </div>
+    </div>
+  {% </card> %}
+  <div class="app-inline-form app-stage-tools">
+    <form method="post" action="{{ paths.move }}"><input type="hidden" name="key" value="{{ stage.key }}"><input type="hidden" name="by" value="-1">{{ <button label={t(key="workflow-move-up", lang="id")} icon="arrow-up" variant="ghost" size="sm" type="submit"/> }}</form>
+    <form method="post" action="{{ paths.move }}"><input type="hidden" name="key" value="{{ stage.key }}"><input type="hidden" name="by" value="1">{{ <button label={t(key="workflow-move-down", lang="id")} icon="arrow-down" variant="ghost" size="sm" type="submit"/> }}</form>
+    <form method="post" action="{{ paths.remove }}"><input type="hidden" name="key" value="{{ stage.key }}">{{ <button label={t(key="workflow-remove-stage", lang="id")} icon="trash" variant="ghost" size="sm" type="submit" attrs="data-remove-stage"/> }}</form>
+  </div>
+  </div>
+  {%- endif %}
+</div>
+{%- elif tab == "yaml" %}
+{% <card title={t(key="workflow-tab-yaml", lang="id")} description={t(key="workflow-yaml-description", lang="id")} form={paths.yaml} cancel_href={paths.self ~ "?tab=yaml"} save_label={t(key="workflow-save-draft", lang="id")} attrs="data-yaml-form"> %}
+  {{ <textarea_field id="workflow-yaml" name="yaml" label={t(key="workflow-yaml", lang="id")} value={yaml} rows={24} error={errors.yaml} hide_label={true} class="app-mono"/> }}
+  {%- if details.yaml %}<p class="app-hint" data-yaml-detail>{{ details.yaml }}</p>{% endif %}
+{% </card> %}
+{%- else %}
+{% <card title={t(key="workflow-tab-versions", lang="id")} description={t(key="workflow-versions-description", lang="id")} count={versions | length ~ ""} flush={true}> %}
+  {%- for ver in versions %}
+  <div class="app-lrow" data-version="{{ ver.version }}">
+    <span class="app-code">v{{ ver.version }}</span>
+    <span class="app-lrow-main"><b>{{ t(key="workflow-version-stages", lang="id", count=ver.stages) }}</b><small>{% if ver.author %}{{ ver.author.name }} · {% endif %}{{ ver.at }}</small></span>
+    {%- if ver.active %}{{ <badge label={t(key="workflow-version-active", lang="id")} variant="success"/> }}{% endif %}
+  </div>
+  {%- endfor %}
+{% </card> %}
+{% <card title={t(key="workflow-delete-title", lang="id")} description={t(key="workflow-delete-description", lang="id")} variant="danger"> %}
+  <form method="post" action="{{ paths.delete }}">{{ <button label={t(key="workflow-delete", lang="id")} icon="trash" variant="destructive" size="sm" type="submit" disabled={workflow.in_use} attrs="data-delete-workflow"/> }}</form>
+  {%- if workflow.in_use %}<p class="app-hint">{{ t(key="workflow-in-use", lang="id") }}</p>{% endif %}
+{% </card> %}
+{%- endif %}
+
+{% <dialog id="workflow-identity" title={t(key="workflow-rename", lang="id")} icon="pencil" tone="accent" open={errors.workflow_name != "" or errors.workflow_description != ""}> %}
+<form method="post" action="{{ paths.identity }}">
+  <section><div class="app-stack-v" data-gap="sm">
+    {{ <field id="identity-name" name="name" label={t(key="workflow-name", lang="id")} value={workflow.name} error={errors.workflow_name} required={true}/> }}
+    {{ <textarea_field id="identity-description" name="description" label={t(key="workflow-description", lang="id")} value={workflow.description} rows={2} error={errors.workflow_description}/> }}
+  </div></section>
+  <footer>
+    <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+    {{ <button label={t(key="action-save", lang="id")} type="submit"/> }}
+  </footer>
+</form>
+{% </dialog> %}
+{% endblock settings %}

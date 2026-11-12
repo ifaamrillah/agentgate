@@ -1,0 +1,17 @@
+workflow: subtask
+nama: Subtask ringkas
+deskripsi: Workflow ringkas untuk subtask, Dev lalu Review lalu Selesai.
+stages:
+  - id: todo
+    nama: To do
+    kategori: todo
+  - id: dev
+    nama: Dev
+    kategori: in_progress
+  - id: review
+    nama: Review
+    kategori: in_progress
+    transisi: tunggu_approve
+  - id: done
+    nama: Selesai
+    kategori: done

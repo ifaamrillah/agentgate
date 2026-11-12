@@ -66,6 +66,8 @@ pub struct ProjectPaths {
     pub logo_delete: String,
     /// Pengaturan project → Kode tiket.
     pub ticket_code: String,
+    /// Pengaturan project → Workflow.
+    pub workflow: String,
 }
 
 impl ProjectPaths {
@@ -87,6 +89,7 @@ impl ProjectPaths {
             logo_upload: format!("{home}/settings/logo"),
             logo_delete: format!("{home}/settings/logo/delete"),
             ticket_code: format!("{home}/settings/ticket-code"),
+            workflow: format!("{home}/settings/workflow"),
             home,
         }
     }

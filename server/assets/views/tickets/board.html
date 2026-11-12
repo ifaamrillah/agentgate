@@ -1,8 +1,8 @@
-{#- Project → Board (board C): kolom per status (kategori stage M3) dengan jumlah, kartu tiket,
+{#- Project → Board (board C): kolom per stage workflow (M3; gabungan stage workflow project) dengan jumlah, kartu tiket,
     filter cepat (cari, Saya, Belum ada penerima), drag-drop antar kolom (static/js/board-dnd.js:
     drop mengisi form tersembunyi lalu submit biasa) dan menu ⋯ per kartu tanpa JS.
     Variabel: project, views, views_action, return_to (layouts/project.html), columns
-    ([BoardColumn {status, cards}]), filter (BoardFilter), who, paths (BoardPaths), can_edit,
+    ([StageColumn {key, name, status, cards}]), filter (BoardFilter), who, paths (BoardPaths), can_edit,
     flash. -#}
 {% extends "layouts/project.html" %}
 {% block title %}{{ t(key="project-view-board", lang="id") }} · {{ project.name }}{% endblock title %}
@@ -29,16 +29,16 @@
 
 <div class="app-board" data-board{% if can_edit %} data-board-dnd{% endif %}>
   {%- for col in columns %}
-  <section class="app-bcol" data-column="{{ col.status.value }}" aria-labelledby="col-{{ col.status.value }}">
+  <section class="app-bcol" data-column="{{ col.key }}" data-category="{{ col.status.value }}" aria-labelledby="col-{{ col.key }}">
     <header class="app-bcol-h">
       <span class="app-status" data-status="{{ col.status.value }}">{{ icon(name=col.status.icon) }}</span>
-      <h2 id="col-{{ col.status.value }}">{{ t(key=col.status.label_key, lang="id") }}</h2>
+      <h2 id="col-{{ col.key }}">{{ col.name }}</h2>
       <span class="app-bcol-n">{{ col.cards | length }}</span>
-      {%- if can_edit %}<a class="app-bcol-add" href="{{ paths.new_ticket }}?status={{ col.status.value }}" aria-label="{{ t(key="board-add-in", lang="id", column=t(key=col.status.label_key, lang="id")) }}">{{ icon(name="plus") }}</a>{% endif %}
+      {%- if can_edit %}<a class="app-bcol-add" href="{{ paths.new_ticket }}?stage={{ col.key }}&amp;status={{ col.status.value }}" aria-label="{{ t(key="board-add-in", lang="id", column=col.name) }}">{{ icon(name="plus") }}</a>{% endif %}
     </header>
     <div class="app-bcol-cards" data-cards>
       {%- for card in col.cards %}
-      {%- if can_edit %}{{ <ticket_card ticket={card} statuses={statuses} return_to={return_to} move={true}/> }}{% else %}{{ <ticket_card ticket={card}/> }}{% endif %}
+      {%- if can_edit %}{{ <ticket_card ticket={card} stages={columns} return_to={return_to} move={true}/> }}{% else %}{{ <ticket_card ticket={card}/> }}{% endif %}
       {%- endfor %}
       {%- if not col.cards %}<p class="app-bcol-empty">{{ t(key="board-column-empty", lang="id") }}</p>{% endif %}
     </div>
@@ -47,7 +47,7 @@
 </div>
 {%- if can_edit %}
 <form method="post" hidden data-board-move-form>
-  <input type="hidden" name="status"><input type="hidden" name="before"><input type="hidden" name="return_to" value="{{ return_to }}">
+  <input type="hidden" name="stage"><input type="hidden" name="before"><input type="hidden" name="return_to" value="{{ return_to }}">
 </form>
 {%- endif %}
 </div>

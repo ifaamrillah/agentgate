@@ -4,6 +4,7 @@
 {% extends "tickets/_layout.html" %}
 {% block page_attrs %}data-ticket-activity{% endblock page_attrs %}
 {% block main %}
+{% include "tickets/_stage_head.html" %}
 {{ <tabs label={t(key="ticket-tabs", lang="id")} items={tabs}/> }}
 {% <card title={t(key="ticket-activity-title", lang="id")} count={events | length ~ ""}> %}
   {%- if events %}
@@ -15,6 +16,7 @@
         <b>{% if e.actor %}{{ e.actor.name }}{% else %}{{ t(key="person-removed", lang="id") }}{% endif %}</b>
         {{ t(key=e.label_key, lang="id", detail=e.detail) }}
         <time>{{ e.at }}</time>
+        {%- if e.note %}<q class="app-event-note" data-event-note>{{ e.note }}</q>{% endif %}
         {%- if e.changes %}
         <ul class="app-changes">
           {%- for c in e.changes %}

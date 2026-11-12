@@ -18,6 +18,16 @@ pub enum NotificationKind {
     Assigned,
     #[sea_orm(string_value = "commented")]
     Commented,
+    /// Tiket menunggu review approver stage.
+    #[sea_orm(string_value = "review_requested")]
+    ReviewRequested,
+    #[sea_orm(string_value = "approved")]
+    Approved,
+    #[sea_orm(string_value = "rejected")]
+    Rejected,
+    /// Putaran gagal mencapai batas; perlu keputusan manusia.
+    #[sea_orm(string_value = "decision_needed")]
+    DecisionNeeded,
 }
 
 impl TenantEntity for Entity {

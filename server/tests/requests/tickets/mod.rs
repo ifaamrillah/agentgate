@@ -9,7 +9,9 @@ mod flow;
 mod pages;
 mod search;
 mod settings;
+mod stages;
 mod trash;
+mod workflows;
 
 use agentgate_server::models::{tickets, users, workspaces};
 use loco_rs::{TestServer, app::AppContext, auth::cookies::Cookie};

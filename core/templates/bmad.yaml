@@ -1,0 +1,76 @@
+workflow: bmad
+nama: BMAD
+deskripsi: Analisis, PRD, arsitektur, story, lalu implementasi dan QA ala BMAD Method.
+stages:
+  - id: backlog
+    nama: Backlog
+    kategori: backlog
+  - id: analysis
+    nama: Analisis
+    kategori: in_progress
+    persona: analyst
+    mode: interaktif
+    output: brief.md
+    template_output: |
+      # Project brief
+
+      ## Masalah
+
+      ## Pengguna
+
+      ## Ide solusi
+    gate: [artifact_exists]
+    transisi: tunggu_approve
+  - id: prd
+    nama: PRD
+    kategori: in_progress
+    persona: pm
+    input: [brief.md]
+    output: prd.md
+    template_output: |
+      # PRD
+
+      ## Tujuan
+
+      ## Acceptance criteria
+      - [ ] 
+
+      ## Di luar cakupan
+    gate: [artifact_exists, acceptance_criteria]
+    transisi: tunggu_approve
+  - id: architecture
+    nama: Arsitektur
+    kategori: in_progress
+    persona: architect
+    input: [prd.md]
+    output: arsitektur.md
+    gate: [artifact_exists]
+    transisi: tunggu_approve
+  - id: stories
+    nama: Story
+    kategori: in_progress
+    persona: pm
+    input: [prd.md, arsitektur.md]
+    output: story.md
+    gate: [artifact_exists]
+    transisi: tunggu_approve
+  - id: dev
+    nama: Development
+    kategori: in_progress
+    persona: dev
+    input: [story.md, arsitektur.md]
+    gate: [pr_open]
+    transisi: tunggu_approve
+  - id: qa
+    nama: QA
+    kategori: in_progress
+    persona: qa
+    input: [story.md]
+    output: laporan-test.md
+    gate: [tests_passed]
+    tooling: [Playwright CLI]
+    transisi: tunggu_approve
+    gagal_ke: dev
+  - id: done
+    nama: Selesai
+    kategori: done

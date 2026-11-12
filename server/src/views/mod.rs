@@ -19,6 +19,7 @@ pub mod teams;
 pub mod tickets;
 pub mod time;
 pub mod ui;
+pub mod workflow;
 pub mod workspaces;
 
 /// Header untuk halaman yang membawa token di URL (reset, verifikasi, undangan, login dengan

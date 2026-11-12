@@ -1,0 +1,55 @@
+{#- Dialog aksi stage: reject (catatan wajib), lompat/paksa (Admin, alasan wajib), penugasan
+    stage. Panel keputusan ada di _decision.html. Variabel: stage, paths, errors. -#}
+{%- if stage.state == "review" and stage.can_decide %}
+{% <dialog id="reject-dialog" title={t(key="stage-reject-title", lang="id", stage=stage.current.name)} description={t(key="stage-reject-description", lang="id")} icon="x" tone="danger" open={errors.dialogs.reject != ""}> %}
+<form method="post" action="{{ paths.reject }}" data-reject-form>
+  <section><div class="app-stack-v" data-gap="sm">
+    {{ <textarea_field id="reject-note" name="note" label={t(key="stage-reject-note", lang="id")} rows={4} required={true} error={errors.dialogs.reject} hint={t(key="stage-reject-hint", lang="id", count=stage.fail_count + 1, limit=stage.fail_limit)}/> }}
+  </div></section>
+  <footer>
+    <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+    {{ <button label={t(key="stage-reject", lang="id")} variant="destructive" type="submit" icon="x"/> }}
+  </footer>
+</form>
+{% </dialog> %}
+{%- endif %}
+{%- if stage.is_admin and not stage.cancelled %}
+{% <dialog id="jump-dialog" title={t(key="stage-admin-move", lang="id")} description={t(key="stage-admin-move-description", lang="id")} icon="player-skip-forward" tone="warn" open={errors.dialogs.admin_move != ""}> %}
+<form method="post" action="{{ paths.admin_move }}" data-admin-move-form>
+  <section><div class="app-stack-v" data-gap="sm">
+    <div class="app-field">
+      <label for="admin-move-stage">{{ t(key="stage-admin-move-to", lang="id") }}</label>
+      <select class="app-input" id="admin-move-stage" name="stage" required>
+        {%- for s in stage.targets %}<option value="{{ s.key }}"{% if stage.next and s.key == stage.next.key %} selected{% endif %}>{{ s.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="app-choices" data-cols="one" role="radiogroup" aria-label="{{ t(key="stage-admin-move-kind", lang="id") }}">
+      <label class="app-choice"><input type="radio" class="app-radio" name="kind" value="jump" checked> <span><b>{{ t(key="stage-jump", lang="id") }}</b><small class="app-hint">{{ t(key="stage-jump-hint", lang="id") }}</small></span></label>
+      {%- if stage.allow_force %}
+      <label class="app-choice"><input type="radio" class="app-radio" name="kind" value="force"> <span><b>{{ t(key="stage-force", lang="id") }}</b><small class="app-hint">{{ t(key="stage-force-hint", lang="id", ok=stage.gates_ok, total=stage.gates | length) }}</small></span></label>
+      {%- endif %}
+    </div>
+    {{ <textarea_field id="admin-move-reason" name="reason" label={t(key="stage-reason", lang="id")} rows={3} required={true} error={errors.dialogs.admin_move} hint={t(key="stage-reason-hint", lang="id")}/> }}
+  </div></section>
+  <footer>
+    <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+    {{ <button label={t(key="stage-admin-move-submit", lang="id")} variant="primary" type="submit"/> }}
+  </footer>
+</form>
+{% </dialog> %}
+{%- endif %}
+{%- if stage.can_edit %}
+{% <dialog id="people-dialog" title={t(key="stage-people-title", lang="id", stage=stage.current.name)} description={t(key="stage-people-description", lang="id")} icon="users" tone="accent" open={errors.dialogs.people != ""}> %}
+<form method="post" action="{{ paths.people }}" data-people-form>
+  <section><div class="app-stack-v" data-gap="sm">
+    {{ <combo id="people-executors" name="executors" label={t(key="stage-role-executor", lang="id")} options={stage.people_options} values={stage.people_values.executors} multiple={true}/> }}
+    {{ <combo id="people-approvers" name="approvers" label={t(key="stage-role-approver", lang="id")} options={stage.people_options} values={stage.people_values.approvers} multiple={true} hint={t(key="stage-one-approver", lang="id")}/> }}
+    {{ <combo id="people-watchers" name="watchers" label={t(key="stage-role-watcher", lang="id")} options={stage.people_options} values={stage.people_values.watchers} multiple={true} error={errors.dialogs.people}/> }}
+  </div></section>
+  <footer>
+    <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+    {{ <button label={t(key="action-save", lang="id")} type="submit"/> }}
+  </footer>
+</form>
+{% </dialog> %}
+{%- endif %}

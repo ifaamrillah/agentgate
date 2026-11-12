@@ -1,0 +1,78 @@
+{#- Tiket → Artifact (prototype "Artifact"): kiri daftar artifact per stage (status versi
+    terbaru), kanan pratinjau versi terpilih dengan tab versi, Buka editor, Bandingkan, dan
+    Approve/Reject bila stage-nya menunggu review Anda. Markdown tampil apa adanya (pre-wrap).
+    Variabel: lihat controllers::tickets::artifact::render_index. -#}
+{% extends "tickets/_layout.html" %}
+{% block page_attrs %}data-ticket-artifacts{% endblock page_attrs %}
+{% block main %}
+{% include "tickets/_stage_head.html" %}
+{{ <tabs label={t(key="ticket-tabs", lang="id")} items={tabs}/> }}
+{%- if error %}{{ <flash kind="error" message={t(key=error, lang="id")}/> }}{% endif %}
+<div class="app-artifacts">
+  <div class="app-artifacts-nav">
+  {% <card title={t(key="artifact-list-title", lang="id")} flush={true}> %}
+    {%- for g in groups %}
+    <p class="app-artifact-group">{{ g.stage }}</p>
+    {%- for a in g.items %}
+    <a class="app-lrow" href="{{ a.href }}" data-artifact="{{ a.name }}"{% if a.current %} aria-current="true"{% endif %}>
+      <span class="app-tile">{{ icon(name="file-text") }}</span>
+      <span class="app-lrow-main"><b class="app-code">{{ a.name }}</b>{% if a.latest %}<small>v{{ a.latest.number }} · {{ a.latest.at }}</small>{% endif %}</span>
+      {%- if a.latest %}{{ <badge label={t(key=a.latest.status_key, lang="id")} variant={a.latest.variant}/> }}{% endif %}
+    </a>
+    {%- endfor %}
+    {%- endfor %}
+    {%- if not groups %}{{ <empty_state title={t(key="artifact-empty-title", lang="id")} description={t(key="artifact-empty-description", lang="id")} icon="files" variant="plain"/> }}{% endif %}
+    {%- if can_edit %}
+    <div class="app-blk">{{ <button label={t(key="artifact-new", lang="id")} icon="file-plus" variant="outline" size="sm" dialog="artifact-new" full={true}/> }}</div>
+    {%- endif %}
+  {% </card> %}
+  </div>
+  <div class="app-artifacts-preview">
+  {%- if preview %}
+  {% <card attrs="data-artifact-preview" flush={true}> %}
+    <div class="app-artifact-head">
+      <div class="app-stage-title"><b class="app-code">{{ preview.name }}</b><small>{{ t(key="artifact-of-stage", lang="id", stage=preview.stage) }}</small></div>
+      <div class="app-artifact-acts">
+        {%- if preview.compare_href %}{{ <button label={t(key="artifact-compare", lang="id")} icon="arrows-diff" variant="outline" size="sm" href={preview.compare_href}/> }}{% endif %}
+        {%- if can_edit %}{{ <button label={t(key="artifact-open-editor", lang="id")} icon="pencil" variant="outline" size="sm" href={preview.edit_href} attrs="data-open-editor"/> }}{% endif %}
+      </div>
+    </div>
+    <nav class="app-versions" aria-label="{{ t(key="artifact-versions", lang="id") }}">
+      {%- for v in preview.versions %}<a href="{{ v.href }}" class="app-version" data-version="{{ v.number }}"{% if v.current %} aria-current="true"{% endif %}>v{{ v.number }}</a>{% endfor %}
+    </nav>
+    {%- if preview.shown %}
+    <div class="app-blk app-artifact-meta">
+      {{ <badge label={t(key=preview.shown.status_key, lang="id")} variant={preview.shown.variant}/> }}
+      <span class="app-hint">{% if preview.shown.author %}{{ preview.shown.author.name }} · {% endif %}{{ preview.shown.at }}</span>
+    </div>
+    {%- if preview.shown.note %}{{ <flash kind="neutral" title={t(key="artifact-decision-note", lang="id")} message={preview.shown.note}/> }}{% endif %}
+    {%- endif %}
+    <div class="app-blk">
+      {%- if preview.body %}<div class="app-prose app-artifact-body" data-artifact-body>{{ preview.body }}</div>{% else %}<p class="app-hint">{{ t(key="artifact-body-empty", lang="id") }}</p>{% endif %}
+    </div>
+    {%- if preview.in_review and stage.can_decide %}
+    <div class="app-blk app-artifact-decide">
+      <span class="app-hint">{{ t(key="artifact-review-hint", lang="id") }}</span>
+      {{ <button label={t(key="stage-reject", lang="id")} icon="x" variant="outline" size="sm" dialog="reject-dialog"/> }}
+      <form method="post" action="{{ paths.approve }}">{{ <button label={t(key="stage-approve", lang="id")} icon="check" size="sm" type="submit" attrs="data-approve"/> }}</form>
+    </div>
+    {%- endif %}
+  {% </card> %}
+  {%- endif %}
+  </div>
+</div>
+{%- if can_edit %}
+{% <dialog id="artifact-new" title={t(key="artifact-new", lang="id")} description={t(key="artifact-new-description", lang="id", stage=stage.current.name)} icon="file-plus" tone="accent" open={new_open}> %}
+<form method="post" action="{{ paths.artifacts }}" data-artifact-new>
+  <section><div class="app-stack-v" data-gap="sm">
+    {{ <field id="artifact-name" name="name" label={t(key="artifact-name", lang="id")} value={new_name} mono={true} required={true} error={error} hint={t(key="artifact-name-hint", lang="id")}/> }}
+  </div></section>
+  <footer>
+    <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+    {{ <button label={t(key="artifact-create", lang="id")} type="submit" icon="plus"/> }}
+  </footer>
+</form>
+{% </dialog> %}
+{%- endif %}
+{% include "tickets/_stage_dialogs.html" %}
+{% endblock main %}

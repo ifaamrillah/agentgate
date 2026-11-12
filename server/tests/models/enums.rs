@@ -391,3 +391,110 @@ async fn ticket_enum_checks_match_enums() {
         );
     }
 }
+
+/// Kolom enum tabel M3 (keadaan stage tiket, status versi artifact, peran penugasan stage):
+/// setiap varian diterima CHECK, literal lain ditolak.
+#[tokio::test]
+async fn workflow_enum_checks_match_enums() {
+    use agentgate_server::models::{
+        artifact_versions::{self, VersionStatus},
+        ticket_artifacts,
+        ticket_stage_people::{self, StagePeople, StageRole},
+        tickets::{StageState, TicketInput},
+    };
+    use agentgate_server::services::{tickets::create, workspaces::Acting};
+
+    use crate::support::{a_project, a_user, a_workspace, builtin_role};
+
+    let boot = boot_test::<App>().await.unwrap();
+    let ctx = &boot.app_context;
+    let db = &ctx.db;
+    let owner = a_user().create(ctx).await;
+    let workspace = a_workspace(&owner).create(ctx).await;
+    let wid = workspace.workspace_id();
+    let project = a_project(ctx, &workspace, "WFE").await;
+    let role = builtin_role(ctx, &workspace, RoleKey::Owner).await;
+    let acting = Acting {
+        workspace: &workspace,
+        user: &owner,
+        role: &role,
+        request_id: None,
+    };
+    let form = create::TicketForm {
+        input: TicketInput {
+            title: "Satu".into(),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let ticket = create::run(db, &acting, project.id, &form).await.unwrap();
+    let artifact =
+        ticket_artifacts::ActiveModel::create(db, wid, ticket.id, "todo", "prd.md", owner.id)
+            .await
+            .unwrap();
+    let version = artifact_versions::ActiveModel::append(
+        db,
+        wid,
+        artifact.id,
+        "# PRD",
+        VersionStatus::Draft,
+        owner.id,
+    )
+    .await
+    .unwrap();
+    ticket_stage_people::ActiveModel::replace(
+        db,
+        wid,
+        ticket.id,
+        "todo",
+        &StagePeople {
+            executors: vec![owner.id],
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+    let person: Uuid = db
+        .query_one_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "SELECT id FROM ticket_stage_people WHERE ticket_id = $1",
+            [Value::from(ticket.id)],
+        ))
+        .await
+        .unwrap()
+        .unwrap()
+        .try_get("", "id")
+        .unwrap();
+    let cases: Vec<(&str, &str, Uuid, Vec<String>)> = vec![
+        (
+            "tickets",
+            "stage_state",
+            ticket.id,
+            StageState::iter().map(|v| v.to_value()).collect(),
+        ),
+        (
+            "artifact_versions",
+            "status",
+            version.id,
+            VersionStatus::iter().map(|v| v.to_value()).collect(),
+        ),
+        (
+            "ticket_stage_people",
+            "role",
+            person,
+            StageRole::iter().map(|v| v.to_value()).collect(),
+        ),
+    ];
+    for (table, column, id, values) in cases {
+        for value in &values {
+            assert!(
+                update_ok(db, table, column, id, value).await,
+                "{table}.{column} = {value}"
+            );
+        }
+        assert!(
+            !update_ok(db, table, column, id, "bogus").await,
+            "{table}.{column}"
+        );
+    }
+}

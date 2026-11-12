@@ -177,7 +177,7 @@ pub(super) async fn inbox(
     let wid = tenant.workspace_id();
     let user_id = tenant.user.id;
     let tab = match query.tab.as_str() {
-        "unread" | "mentions" => query.tab.as_str(),
+        "unread" | "mentions" | "decisions" => query.tab.as_str(),
         _ => "",
     };
     let kinds: &[NotificationKind] = if tab == "mentions" {
@@ -215,6 +215,17 @@ pub(super) async fn inbox(
     };
     let actors: Vec<Uuid> = rows.iter().filter_map(|n| n.actor_id).collect();
     let names = project_names(&ctx.db, wid, projects.iter().map(|p| p.id)).await?;
+    // Butuh keputusan: tiket menunggu review/keputusan pelaku.
+    let waiting = crate::services::tickets::stages::awaiting(
+        &ctx.db,
+        wid,
+        user_id,
+        &projects.iter().map(|p| p.id).collect::<Vec<_>>(),
+    )
+    .await?;
+    let mut all_tickets = tickets.clone();
+    all_tickets.extend(waiting.iter().cloned());
+    let tickets = all_tickets;
     let lookup = lookup(&ctx.db, &tenant, &tickets, &actors)
         .await?
         .with_projects(
@@ -243,9 +254,25 @@ pub(super) async fn inbox(
             }
         })
         .collect();
+    let mut decisions = Vec::new();
+    for t in &waiting {
+        let flow = crate::services::tickets::stages::Flow::load(&ctx.db, wid, t).await?;
+        decisions.push(serde_json::json!({
+            "ticket": lookup.row(t),
+            "stage": flow.rule(&t.stage_key).map_or_else(|| t.stage_key.clone(), |s| s.name.clone()),
+            "state": t.stage_state,
+            "since": views::time::wib_datetime(&t.stage_entered_at),
+            "fails": t.fail_count,
+        }));
+    }
     let tabs: Vec<NavItem> = [
         ("", "inbox-tab-all", None),
         ("unread", "inbox-tab-unread", Some(unread)),
+        (
+            "decisions",
+            "inbox-tab-decisions",
+            Some(waiting.len() as u64),
+        ),
         ("mentions", "inbox-tab-mentions", None),
     ]
     .iter()
@@ -257,7 +284,7 @@ pub(super) async fn inbox(
             &with_tab(&base, key),
         );
         if let Some(n) = count {
-            item = item.counted(*n, false);
+            item = item.counted(*n, *key == "decisions" && *n > 0);
         }
         item.current = *key == tab;
         item
@@ -285,6 +312,8 @@ pub(super) async fn inbox(
         StatusCode::OK,
         data!({
             "items": items,
+            "tab": tab,
+            "decisions": decisions,
             "tabs": tabs,
             "total": total,
             "unread": unread,

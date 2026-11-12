@@ -1,0 +1,22 @@
+{#- Kepala stage di halaman tiket (Ringkasan, Aktivitas, Artifact): stepper workflow lalu alert
+    keadaan stage (menunggu review, butuh keputusan, dibatalkan) dan penolakan aksi stage.
+    Variabel: stage (controllers::tickets::stage::StagePanel), errors.dialogs.stage, paths. -#}
+{{ <stage_stepper steps={stage.steps} label={t(key="stage-stepper-label", lang="id", workflow=stage.workflow)}/> }}
+{%- if errors.dialogs.stage and not errors.dialogs.in_dialog %}<div data-stage-error="{{ errors.dialogs.stage }}">{{ <flash kind="error" message={t(key=errors.dialogs.stage, lang="id")} title={t(key="stage-action-failed", lang="id")}/> }}</div>{% endif %}
+{%- if stage.cancelled %}
+{{ <flash kind="neutral" title={t(key="stage-cancelled-title", lang="id")} message={t(key="stage-cancelled-body", lang="id")}/> }}
+{%- elif stage.state == "review" and stage.can_decide %}
+<div class="alert" data-variant="warn" role="status" data-stage-alert="review-mine">
+  {{ icon(name="eye") }}
+  <h2>{{ t(key="stage-review-mine-title", lang="id") }}</h2>
+  <section><p>{{ t(key="stage-review-mine-body", lang="id", stage=stage.current.name) }} <a class="app-link" href="{{ paths.artifacts }}">{{ t(key="stage-open-artifacts", lang="id") }}</a></p></section>
+</div>
+{%- elif stage.state == "review" %}
+{{ <flash kind="info" title={t(key="stage-review-title", lang="id")} message={t(key="stage-review-body", lang="id", stage=stage.current.name)}/> }}
+{%- elif stage.state == "decision" %}
+<div class="alert" data-variant="destructive" role="status" data-stage-alert="decision">
+  {{ icon(name="alert-triangle") }}
+  <h2>{{ t(key="stage-decision-title", lang="id") }}</h2>
+  <section><p>{{ t(key="stage-decision-body", lang="id", stage=stage.current.name, count=stage.fail_count) }}</p></section>
+</div>
+{%- endif %}

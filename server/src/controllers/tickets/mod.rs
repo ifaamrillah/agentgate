@@ -16,10 +16,13 @@ use loco_rs::prelude::*;
 use sea_orm::{ColumnTrait, ConnectionTrait, DbErr, EntityTrait, QueryFilter};
 use uuid::Uuid;
 
+mod artifact;
 mod board;
 mod inbox;
 mod settings;
+mod stage;
 mod ticket;
+mod workflow;
 
 use super::extractors::{ProjectAccess, Tenant};
 use crate::{
@@ -211,7 +214,7 @@ async fn table_page<C: ConnectionTrait>(
 const ATTACHMENT_BODY_LIMIT: usize = ticket_attachments::MAX_BYTES + 512 * 1024;
 
 pub fn routes() -> Routes {
-    Routes::new()
+    let routes = Routes::new()
         // Project
         .add("/w/{slug}/p/{key}/board", get(board::board))
         .add("/w/{slug}/p/{key}/list", get(board::list))
@@ -252,6 +255,28 @@ pub fn routes() -> Routes {
             post(ticket::remove_attachment),
         )
         .add("/w/{slug}/t/{code}/watch", post(ticket::watch))
+        .add("/w/{slug}/t/{code}/stage/complete", post(stage::complete))
+        .add("/w/{slug}/t/{code}/stage/approve", post(stage::approve))
+        .add("/w/{slug}/t/{code}/stage/reject", post(stage::reject))
+        .add("/w/{slug}/t/{code}/stage/decide", post(stage::decide))
+        .add(
+            "/w/{slug}/t/{code}/stage/admin-move",
+            post(stage::admin_move),
+        )
+        .add("/w/{slug}/t/{code}/stage/people", post(stage::people))
+        .add(
+            "/w/{slug}/t/{code}/artifacts",
+            get(artifact::index).post(artifact::create),
+        )
+        .add("/w/{slug}/t/{code}/artifacts/{id}", post(artifact::save))
+        .add(
+            "/w/{slug}/t/{code}/artifacts/{id}/edit",
+            get(artifact::edit),
+        )
+        .add(
+            "/w/{slug}/t/{code}/artifacts/{id}/compare",
+            get(artifact::compare),
+        )
         .add("/w/{slug}/t/{code}/delete", post(ticket::trash))
         // Workspace
         .add("/w/{slug}/my", get(inbox::my))
@@ -285,7 +310,8 @@ pub fn routes() -> Routes {
         .add(
             "/w/{slug}/settings/ticket-code",
             get(settings::code).post(settings::save_code),
-        )
+        );
+    workflow::add(routes)
 }
 
 #[cfg(test)]

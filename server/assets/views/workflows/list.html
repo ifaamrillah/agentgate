@@ -1,0 +1,88 @@
+{#- Pengaturan → Workflow (ManageTicketSettings): tab Workflow di workspace (daftar + default per
+    tipe), Template bawaan (9 template, "Pakai template"), Ekspor & impor (YAML). Workflow baru
+    lewat dialog (kosong, template, atau salinan). Variabel: lihat
+    controllers::tickets::workflow::render_list. -#}
+{% extends "layouts/settings.html" %}
+{% block title %}{{ t(key="settings-workflows-title", lang="id") }}{% endblock title %}
+{% block crumb_label %}{{ t(key="settings-workflows-title", lang="id") }}{% endblock crumb_label %}
+{% block page_attrs %}data-workflows{% endblock page_attrs %}
+{% block settings %}
+<header class="app-page-head">
+  <div class="app-page-title"><h1>{{ t(key="settings-workflows-title", lang="id") }}</h1><p>{{ t(key="settings-workflows-description", lang="id") }}</p></div>
+  <div class="app-page-acts">
+    {{ <button label={t(key="workflow-import", lang="id")} icon="file-import" variant="outline" href="?tab=import"/> }}
+    {{ <button label={t(key="workflow-new", lang="id")} icon="plus" dialog="workflow-new" attrs="data-workflow-new"/> }}
+  </div>
+</header>
+{{ <tabs label={t(key="settings-workflows-title", lang="id")} items={tabs}/> }}
+{%- if errors.workflow %}{{ <flash kind="error" message={t(key=errors.workflow, lang="id")}/> }}{% endif %}
+
+{%- if tab == "workspace" %}
+{% <card title={t(key="workflow-tab-workspace", lang="id")} description={t(key="workflow-list-description", lang="id")} count={workflows | length ~ ""} flush={true}> %}
+  {%- for w in workflows %}
+  <a class="app-lrow" href="{{ w.href }}" data-workflow="{{ w.name }}">
+    <span class="app-tile" data-tone="accent">{{ icon(name="git-merge") }}</span>
+    <span class="app-lrow-main"><b>{{ w.name }}</b><small>{{ t(key="workflow-row-meta", lang="id", stages=w.stages, version=w.version, tickets=w.tickets) }}{% if w.types %} · {{ w.types | join(sep=", ") }}{% endif %}</small></span>
+    {%- if w.draft %}{{ <badge label={t(key="workflow-draft-badge", lang="id")} variant="gate"/> }}{% endif %}
+    {{ icon(name="chevron-right") }}
+  </a>
+  {%- endfor %}
+{% </card> %}
+{% <card title={t(key="workflow-defaults-title", lang="id")} description={t(key="workflow-defaults-description", lang="id")} form={defaults_action} cancel_href={create_action} flush={true} attrs="data-workflow-defaults"> %}
+  {%- for row in types %}
+  {% <setting_row title={row.type.name} description={row.type.description}> %}
+    <select class="app-input" name="type_{{ row.type.id }}" aria-label="{{ t(key="workflow-for-type", lang="id", type=row.type.name) }}">
+      {%- for o in options %}<option value="{{ o.id }}"{% if o.id == row.workflow %} selected{% endif %}>{{ o.name }}</option>{% endfor %}
+    </select>
+  {% </setting_row> %}
+  {%- endfor %}
+{% </card> %}
+{%- elif tab == "templates" %}
+<div class="app-grid" data-cols="two">
+  {%- for tpl in templates %}
+  {% <card title={tpl.name} description={tpl.description} attrs="data-template" class="app-template"> %}
+    <ol class="app-template-stages">{% for s in tpl.stages %}<li>{{ s }}</li>{% endfor %}</ol>
+    <p class="app-hint">{{ t(key="workflow-template-meta", lang="id", stages=tpl.stages | length, gates=tpl.gates, approvals=tpl.approvals) }}</p>
+    <form method="post" action="{{ create_action }}">
+      <input type="hidden" name="source" value="template:{{ tpl.key }}">
+      {{ <button label={t(key="workflow-use-template", lang="id")} icon="plus" variant="outline" size="sm" type="submit" attrs="data-use-template"/> }}
+    </form>
+  {% </card> %}
+  {%- endfor %}
+</div>
+{%- else %}
+{% <card title={t(key="workflow-import-title", lang="id")} description={t(key="workflow-import-description", lang="id")} form={import_action} save_label={t(key="workflow-import", lang="id")} cancel_href="?tab=import" attrs="data-workflow-import"> %}
+  {{ <textarea_field id="workflow-yaml" name="yaml" label={t(key="workflow-yaml", lang="id")} value={yaml} rows={16} error={errors.yaml} hide_label={true} class="app-mono" placeholder="workflow: nama_workflow"/> }}
+  {%- if details.yaml %}<p class="app-hint" data-yaml-detail>{{ details.yaml }}</p>{% endif %}
+{% </card> %}
+{% <card title={t(key="workflow-export-title", lang="id")} description={t(key="workflow-export-description", lang="id")} flush={true}> %}
+  {%- for w in workflows %}
+  <div class="app-lrow">
+    <span class="app-tile">{{ icon(name="git-merge") }}</span>
+    <span class="app-lrow-main"><b>{{ w.name }}</b><small>v{{ w.version }}</small></span>
+    {{ <button label={t(key="workflow-export", lang="id")} icon="download" variant="ghost" size="sm" href={w.href ~ "/export"}/> }}
+  </div>
+  {%- endfor %}
+{% </card> %}
+{%- endif %}
+
+{% <dialog id="workflow-new" title={t(key="workflow-new", lang="id")} description={t(key="workflow-new-description", lang="id")} icon="git-merge" tone="accent" open={new_open}> %}
+<form method="post" action="{{ create_action }}" data-workflow-new-form>
+  <section><div class="app-stack-v" data-gap="sm">
+    {{ <field id="workflow-name" name="name" label={t(key="workflow-name", lang="id")} value={new.name} error={errors.name} required={true}/> }}
+    {{ <textarea_field id="workflow-description" name="description" label={t(key="workflow-description", lang="id")} value={new.description} rows={2} error={errors.description} optional={t(key="field-optional", lang="id")}/> }}
+    <div class="app-field{% if errors.source %} app-invalid{% endif %}">
+      <label for="workflow-source">{{ t(key="workflow-source", lang="id") }}</label>
+      <select class="app-input" id="workflow-source" name="source">
+        {%- for o in sources %}<option value="{{ o.id }}"{% if o.id == new.source %} selected{% endif %}>{{ t(key=o.label_key, lang="id", name=o.name) }}</option>{% endfor %}
+      </select>
+      {%- if errors.source %}<p class="app-field-error" role="alert">{{ t(key=errors.source, lang="id") }}</p>{% endif %}
+    </div>
+  </div></section>
+  <footer>
+    <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+    {{ <button label={t(key="workflow-create", lang="id")} type="submit" icon="plus"/> }}
+  </footer>
+</form>
+{% </dialog> %}
+{% endblock settings %}

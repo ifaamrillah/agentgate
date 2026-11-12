@@ -5,6 +5,7 @@
 {% extends "tickets/_layout.html" %}
 {% block page_attrs %}data-ticket-page{% endblock page_attrs %}
 {% block main %}
+{% include "tickets/_stage_head.html" %}
 {{ <tabs label={t(key="ticket-tabs", lang="id")} items={tabs}/> }}
 {%- if blockers %}
 <div class="alert" data-variant="destructive" role="status" data-blocked>
@@ -15,6 +16,7 @@
 {%- endif %}
 <div class="app-ticket">
   <div class="app-ticket-main">
+    {% include "tickets/_decision.html" %}
     <div id="description">
     {%- if can_edit %}
     {% <card title={t(key="ticket-field-description", lang="id")} flush={true}> %}
@@ -134,25 +136,7 @@
   </div>
 
   <aside class="app-ticket-side">
-    <div id="status">
-    {% <card title={t(key="ticket-field-status", lang="id")} flush={true}> %}
-      <div class="app-blk">
-        <span class="app-status-pill" data-status="{{ ticket.status.value }}" data-current-status>{{ icon(name=ticket.status.icon) }}{{ t(key=ticket.status.label_key, lang="id") }}</span>
-        {%- if can_edit %}
-        <form method="post" action="{{ paths.status }}" class="app-inline-form" data-status-form>
-          <select class="app-input" name="status" aria-label="{{ t(key="ticket-move-to", lang="id") }}">
-            {%- for s in statuses %}<option value="{{ s.value }}"{% if s.value == ticket.status.value %} selected{% endif %}>{{ t(key=s.label_key, lang="id") }}</option>{% endfor %}
-          </select>
-          {{ <button label={t(key="ticket-move-submit", lang="id")} variant="outline" size="sm" type="submit"/> }}
-        </form>
-        {%- endif %}
-        {%- if errors.status %}
-        <p class="app-field-error" role="alert" data-status-error>{{ icon(name="lock") }}{% if errors.status == "ticket-blocked" %}{{ t(key="ticket-blocked", lang="id", codes=errors.status_codes) }}{% else %}{{ t(key=errors.status, lang="id") }}{% endif %}</p>
-        {%- endif %}
-        <p class="app-hint">{{ t(key="ticket-stage-soon", lang="id") }}</p>
-      </div>
-    {% </card> %}
-    </div>
+    {% include "tickets/_stage_card.html" %}
 
     {% <card title={t(key="ticket-section-details", lang="id")} attrs="data-ticket-details" flush={true}> %}
       <dl class="app-props">
@@ -188,6 +172,7 @@
   </aside>
 </div>
 
+{% include "tickets/_stage_dialogs.html" %}
 {%- if can_edit %}
 {% <dialog id="ticket-edit" title={t(key="ticket-edit-details", lang="id")} icon="pencil" tone="accent" open={details_open}> %}
 <form method="post" action="{{ paths.show }}" data-ticket-edit data-ticket-form>

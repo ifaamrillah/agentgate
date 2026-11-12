@@ -1,0 +1,38 @@
+{#- Panel "Butuh keputusan" (prototype): penyebab (putaran gagal + catatan reject), lima pilihan,
+    catatan, Kirim keputusan. Tampil di Ringkasan saat keadaan stage `decision`.
+    Variabel: stage, paths, errors. -#}
+{%- if stage.state == "decision" %}
+<div id="decision">
+{% <card title={t(key="decision-title", lang="id")} description={t(key="decision-description", lang="id", stage=stage.current.name, count=stage.fail_count)} variant="danger" attrs="data-decision" flush={true}> %}
+  {%- if stage.rounds %}
+  <div class="table-container"><table class="table app-rounds">
+    <thead><tr><th>{{ t(key="decision-round", lang="id") }}</th><th>{{ t(key="decision-note", lang="id") }}</th><th>{{ t(key="decision-by", lang="id") }}</th></tr></thead>
+    <tbody>
+    {%- for r in stage.rounds %}
+      <tr data-round="{{ r.round }}"><td class="app-code">{{ r.round }}</td><td>{{ r.note }}</td><td><span class="app-hint">{% if r.actor %}{{ r.actor.name }} · {% endif %}{{ r.at }}</span></td></tr>
+    {%- endfor %}
+    </tbody>
+  </table></div>
+  {%- endif %}
+  {%- if stage.can_decide %}
+  <form method="post" action="{{ paths.decide }}" class="app-blk app-stack-v" data-gap="sm" data-decision-form>
+    <div class="app-choices" data-cols="one" role="radiogroup" aria-label="{{ t(key="decision-title", lang="id") }}">
+      {%- for d in stage.decisions %}
+      <label class="app-choice"><input type="radio" class="app-radio" name="choice" value="{{ d.value }}"{% if loop.first %} checked{% endif %}><span><b>{{ t(key=d.label_key, lang="id") }}</b><small>{{ t(key=d.hint_key, lang="id") }}</small></span></label>
+      {%- endfor %}
+    </div>
+    {%- if stage.earlier %}
+    <div class="app-field">
+      <label for="decision-target">{{ t(key="decision-target", lang="id") }}</label>
+      <select class="app-input" id="decision-target" name="target">
+        {%- for s in stage.earlier %}<option value="{{ s.key }}">{{ s.name }}</option>{% endfor %}
+      </select>
+    </div>
+    {%- endif %}
+    {{ <textarea_field id="decision-note" name="note" label={t(key="decision-note", lang="id")} rows={3} hint={t(key="decision-note-hint", lang="id")} error={errors.dialogs.decision}/> }}
+    <div class="app-form-acts">{{ <button label={t(key="decision-submit", lang="id")} icon="send" type="submit"/> }}</div>
+  </form>
+  {%- endif %}
+{% </card> %}
+</div>
+{%- endif %}

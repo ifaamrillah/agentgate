@@ -118,8 +118,8 @@ async fn create_show_update_and_move_ticket() {
             [
                 EventKind::Created,
                 EventKind::Updated,
-                EventKind::StatusChanged,
-                EventKind::StatusChanged
+                EventKind::StageChanged,
+                EventKind::StageChanged
             ]
         );
 
@@ -147,7 +147,7 @@ async fn create_show_update_and_move_ticket() {
             .add_cookie(f.cookie.clone())
             .await;
         assert_eq!(activity.status_code(), 200);
-        assert_css_exists(&activity.text(), "[data-event='status_changed']");
+        assert_css_exists(&activity.text(), "[data-event='stage_changed']");
 
         // Ringkasan project menghitung tiket per status.
         let home = request

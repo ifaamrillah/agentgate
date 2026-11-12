@@ -1,0 +1,46 @@
+workflow: bug_triage
+nama: Bug Triage
+deskripsi: Bug dipilah, direproduksi dengan screenshot, diperbaiki, lalu diverifikasi QA.
+stages:
+  - id: new
+    nama: Baru
+    kategori: backlog
+  - id: triage
+    nama: Triage
+    kategori: todo
+    transisi: tunggu_approve
+  - id: reproduce
+    nama: Reproduksi
+    kategori: in_progress
+    persona: qa
+    output: reproduksi.md
+    template_output: |
+      # Langkah reproduksi
+
+      1. 
+
+      ## Hasil
+
+      ## Seharusnya
+    gate: [artifact_exists, screenshot_exists]
+    tooling: [Playwright CLI]
+    transisi: tunggu_approve
+  - id: fix
+    nama: Perbaikan
+    kategori: in_progress
+    persona: dev
+    input: [reproduksi.md]
+    gate: [pr_open]
+    transisi: tunggu_approve
+  - id: verify
+    nama: Verifikasi
+    kategori: in_progress
+    persona: qa
+    input: [reproduksi.md]
+    gate: [tests_passed]
+    tooling: [Playwright CLI]
+    transisi: tunggu_approve
+    gagal_ke: fix
+  - id: done
+    nama: Selesai
+    kategori: done

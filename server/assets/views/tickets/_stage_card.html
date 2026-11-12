@@ -1,0 +1,70 @@
+{#- Kartu "Stage sekarang" di kolom kanan Ringkasan tiket (prototype detail tiket): persona,
+    mode, gate keluar, penugasan, transisi, lalu aksi sesuai keadaan stage.
+    Variabel: stage (StagePanel), paths, errors. -#}
+<div id="stage">
+{% <card attrs="data-stage-card" flush={true}> %}
+  <div class="app-stage-head">
+    <span class="app-tile" data-tone="accent">{{ icon(name=stage.current.icon) }}</span>
+    <div class="app-stage-title"><b data-current-stage>{{ stage.current.name }}</b><small>{{ t(key="stage-current", lang="id") }} · {{ stage.workflow }}</small></div>
+    {%- if stage.current.persona_key %}{{ <badge label={t(key=stage.current.mode_key, lang="id")} variant="ai"/> }}{% endif %}
+  </div>
+  {%- if stage.current.persona_key %}
+  <div class="app-blk app-stage-persona">{{ icon(name="robot") }}<span><b>{{ t(key="stage-agent", lang="id", persona=t(key=stage.current.persona_key, lang="id")) }}</b><small>{{ t(key="stage-agent-soon", lang="id") }}</small></span></div>
+  {%- endif %}
+  {%- if stage.gates %}
+  <div class="app-blk">
+    <p class="app-hint app-stage-gate-head">{{ icon(name="shield-check") }}{{ t(key="stage-gates-summary", lang="id", ok=stage.gates_ok, total=stage.gates | length) }}</p>
+    {{ <gate_list gates={stage.gates}/> }}
+  </div>
+  {%- endif %}
+  <dl class="app-props app-stage-props">
+    <dt>{{ t(key="stage-role-executor", lang="id") }}</dt>
+    <dd>{% for p in stage.people.executors %}{{ <avatar initials={p.initials} color={p.color} label={p.name} size="sm"/> }}{% else %}<span class="app-hint">—</span>{% endfor %}</dd>
+    <dt>{{ t(key="stage-role-approver", lang="id") }}</dt>
+    <dd>{% for p in stage.people.approvers %}{{ <avatar initials={p.initials} color={p.color} label={p.name} size="sm"/> }}{% else %}<span class="app-hint">{{ t(key="stage-approver-any", lang="id") }}</span>{% endfor %}{% if stage.can_decide and stage.people.approvers %} <span class="app-hint">{{ t(key="stage-including-you", lang="id") }}</span>{% endif %}</dd>
+    <dt>{{ t(key="stage-role-watcher", lang="id") }}</dt>
+    <dd>{% for p in stage.people.watchers %}{{ <avatar initials={p.initials} color={p.color} label={p.name} size="sm"/> }}{% else %}<span class="app-hint">—</span>{% endfor %}</dd>
+    <dt>{{ t(key="stage-transition", lang="id") }}</dt>
+    <dd>{{ t(key=stage.current.exit_key, lang="id") }}</dd>
+    {%- if stage.fail_count > 0 %}
+    <dt>{{ t(key="stage-fail-rounds", lang="id") }}</dt>
+    <dd><span class="app-stage-fails" data-fail-count>{{ stage.fail_count }}/{{ stage.fail_limit }}</span></dd>
+    {%- endif %}
+  </dl>
+  {%- if not stage.cancelled %}
+  <div class="app-blk app-stage-acts" data-stage-actions>
+    {%- if stage.state == "review" and stage.can_decide %}
+    <form method="post" action="{{ paths.approve }}">{{ <button label={t(key="stage-approve", lang="id")} icon="check" variant="primary" type="submit" full={true} attrs="data-approve"/> }}</form>
+    <div class="app-stage-pair">
+      {{ <button label={t(key="stage-edit-approve", lang="id")} icon="pencil" variant="outline" href={paths.artifacts}/> }}
+      {{ <button label={t(key="stage-reject", lang="id")} icon="x" variant="outline" dialog="reject-dialog" attrs="data-reject"/> }}
+    </div>
+    <p class="app-hint">{{ t(key="stage-one-approver", lang="id") }}</p>
+    {%- elif stage.state == "decision" and stage.can_decide %}
+    {{ <button label={t(key="stage-decide", lang="id")} icon="flag" variant="primary" href="#decision" full={true} attrs="data-open-decision"/> }}
+    {%- elif stage.state == "active" and stage.can_edit %}
+      {%- if stage.current.exit == "approval" %}
+      <form method="post" action="{{ paths.complete }}">{{ <button label={t(key="stage-request-review", lang="id")} icon="send" type="submit" full={true} attrs="data-complete"/> }}</form>
+      {%- elif stage.next %}
+      <form method="post" action="{{ paths.complete }}">{{ <button label={t(key="stage-move-next", lang="id", stage=stage.next.name)} icon="arrow-right" type="submit" full={true} attrs="data-complete"/> }}</form>
+      {%- endif %}
+    {%- endif %}
+    {%- if stage.can_edit %}
+    <form method="post" action="{{ paths.status }}" class="app-inline-form" data-status-form>
+      <select class="app-input" name="stage" aria-label="{{ t(key="ticket-move-to", lang="id") }}">
+        {%- for s in stage.steps %}<option value="{{ s.key }}"{% if s.state == "current" %} selected{% endif %}>{{ s.name }}</option>{% endfor %}
+      </select>
+      {{ <button label={t(key="ticket-move-submit", lang="id")} variant="outline" size="sm" type="submit"/> }}
+    </form>
+    {%- if errors.status %}
+    <p class="app-field-error" role="alert" data-status-error>{{ icon(name="lock") }}{% if errors.status == "ticket-blocked" %}{{ t(key="ticket-blocked", lang="id", codes=errors.status_codes) }}{% else %}{{ t(key=errors.status, lang="id") }}{% endif %}</p>
+    {%- endif %}
+    <div class="app-stage-pair">
+      {{ <button label={t(key="stage-people-edit", lang="id")} icon="users" variant="ghost" size="sm" dialog="people-dialog"/> }}
+      {%- if stage.is_admin %}{{ <button label={t(key="stage-admin-move", lang="id")} icon="player-skip-forward" variant="ghost" size="sm" dialog="jump-dialog" attrs="data-jump"/> }}{% endif %}
+    </div>
+    {%- endif %}
+  </div>
+  {%- endif %}
+{% </card> %}
+</div>

@@ -15,6 +15,19 @@
 {% endblock head_actions %}
 {% block main %}
 {{ <tabs label={t(key="inbox-title", lang="id")} items={tabs}/> }}
+{%- if tab == "decisions" %}
+{% <card title={t(key="inbox-decisions-title", lang="id")} description={t(key="inbox-decisions-description", lang="id")} flush={true} attrs="data-decisions"> %}
+  {%- for d in decisions %}
+  <a class="app-lrow" href="{{ d.ticket.href }}" data-decision-ticket="{{ d.ticket.code }}">
+    {{ <type_icon icon={d.ticket.ticket_type.icon} color={d.ticket.ticket_type.color} label={d.ticket.ticket_type.name}/> }}
+    <span class="app-lrow-main"><b>{{ d.ticket.title }}</b><small><span class="app-code">{{ d.ticket.code }}</span> · {{ d.stage }}{% if d.ticket.project %} · {{ d.ticket.project }}{% endif %} · {{ d.since }}</small></span>
+    {%- if d.state == "decision" %}{{ <badge label={t(key="stage-state-decision", lang="id")} variant="destructive"/> }}{% else %}{{ <badge label={t(key="stage-state-review", lang="id")} variant="gate"/> }}{% endif %}
+    {{ icon(name="chevron-right") }}
+  </a>
+  {%- endfor %}
+  {%- if not decisions %}{{ <empty_state title={t(key="inbox-decisions-empty-title", lang="id")} description={t(key="inbox-decisions-empty-description", lang="id")} icon="circle-check" variant="plain"/> }}{% endif %}
+{% </card> %}
+{%- else %}
 {% <card flush={true}> %}
   {%- for n in items %}
   <form method="post" action="{{ n.read_action }}" class="app-inbox-item">
@@ -33,7 +46,8 @@
   {%- endfor %}
   {%- if not items %}{{ <empty_state title={t(key="inbox-empty-title", lang="id")} description={t(key="inbox-empty-description", lang="id")} icon="inbox" variant="plain"/> }}{% endif %}
 {% </card> %}
-{%- if pages > 1 %}
+{%- endif %}
+{%- if pages > 1 and tab != "decisions" %}
 <nav class="app-pager" aria-label="{{ t(key="table-pages", lang="id") }}">
   {%- if prev_href %}{{ <button label={t(key="table-prev", lang="id")} icon="chevron-left" variant="outline" size="sm" href={prev_href}/> }}{% endif %}
   <span class="app-hint">{{ t(key="inbox-page-of", lang="id", page=page, pages=pages) }}</span>

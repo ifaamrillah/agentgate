@@ -37,12 +37,15 @@ pub struct Model {
     pub ticket_counter_scope: Option<String>,
     #[sea_orm(column_type = "Text", nullable)]
     pub team_code: Option<String>,
+    pub allow_force_transition: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(has_many = "super::project_grants::Entity")]
     ProjectGrants,
+    #[sea_orm(has_many = "super::project_workflows::Entity")]
+    ProjectWorkflows,
     #[sea_orm(has_many = "super::repos::Entity")]
     Repos,
     #[sea_orm(has_many = "super::ticket_counters::Entity")]
@@ -70,6 +73,12 @@ pub enum Relation {
 impl Related<super::project_grants::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::ProjectGrants.def()
+    }
+}
+
+impl Related<super::project_workflows::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::ProjectWorkflows.def()
     }
 }
 

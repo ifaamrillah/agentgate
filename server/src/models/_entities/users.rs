@@ -40,6 +40,8 @@ pub enum Relation {
     Projects,
     #[sea_orm(has_many = "super::recovery_codes::Entity")]
     RecoveryCodes,
+    #[sea_orm(has_many = "super::ticket_artifacts::Entity")]
+    TicketArtifacts,
     #[sea_orm(has_many = "super::ticket_attachments::Entity")]
     TicketAttachments,
     #[sea_orm(has_many = "super::ticket_comments::Entity")]
@@ -50,6 +52,10 @@ pub enum Relation {
     TicketLinks,
     #[sea_orm(has_many = "super::user_tokens::Entity")]
     UserTokens,
+    #[sea_orm(has_many = "super::workflow_versions::Entity")]
+    WorkflowVersions,
+    #[sea_orm(has_many = "super::workflows::Entity")]
+    Workflows,
     #[sea_orm(has_many = "super::workspace_members::Entity")]
     WorkspaceMembers,
     #[sea_orm(has_many = "super::workspaces::Entity")]
@@ -92,6 +98,12 @@ impl Related<super::recovery_codes::Entity> for Entity {
     }
 }
 
+impl Related<super::ticket_artifacts::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::TicketArtifacts.def()
+    }
+}
+
 impl Related<super::ticket_attachments::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::TicketAttachments.def()
@@ -119,6 +131,18 @@ impl Related<super::ticket_links::Entity> for Entity {
 impl Related<super::user_tokens::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::UserTokens.def()
+    }
+}
+
+impl Related<super::workflow_versions::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::WorkflowVersions.def()
+    }
+}
+
+impl Related<super::workflows::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Workflows.def()
     }
 }
 

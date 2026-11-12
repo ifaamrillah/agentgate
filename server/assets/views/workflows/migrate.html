@@ -1,0 +1,33 @@
+{#- Migrasi tiket saat menerbitkan draf (prototype "Migrasi workflow"): statistik, perubahan lain,
+    pemetaan stage yang dihapus ke stage versi baru, Terapkan migrasi.
+    Variabel: lihat controllers::tickets::workflow::render_migrate. -#}
+{% extends "layouts/settings.html" %}
+{% block title %}{{ t(key="workflow-migrate-title", lang="id") }} · {{ workflow.name }}{% endblock title %}
+{% block crumb_label %}{{ workflow.name }} / {{ t(key="workflow-migrate-title", lang="id") }}{% endblock crumb_label %}
+{% block page_attrs %}data-workflow-migrate{% endblock page_attrs %}
+{% block settings %}
+<header class="app-page-head">
+  <div class="app-page-title"><h1>{{ t(key="workflow-migrate-title", lang="id") }}</h1><p>{{ t(key="workflow-migrate-description", lang="id", name=workflow.name, from=workflow.version, to=workflow.next_version) }}</p></div>
+</header>
+{%- if errors.mapping %}{{ <flash kind="error" message={t(key=errors.mapping, lang="id", detail=details.mapping)}/> }}{% endif %}
+{{ <stats items={stats}/> }}
+{%- if added or changed %}
+{% <card title={t(key="workflow-migrate-changes", lang="id")}> %}
+  <ul class="app-change-list">
+    {%- for n in added %}<li>{{ icon(name="plus") }}{{ t(key="workflow-migrate-added", lang="id", stage=n) }}</li>{% endfor %}
+    {%- for n in changed %}<li>{{ icon(name="pencil") }}{{ t(key="workflow-migrate-changed", lang="id", stage=n) }}</li>{% endfor %}
+  </ul>
+{% </card> %}
+{%- endif %}
+{% <card title={t(key="workflow-migrate-mapping", lang="id")} description={t(key="workflow-migrate-mapping-description", lang="id")} form={action} cancel_href={back} save_label={t(key="workflow-migrate-apply", lang="id")} flush={true} attrs="data-mapping-form"> %}
+  {%- for r in removed %}
+  {% <setting_row title={r.name} description={t(key="workflow-migrate-row", lang="id", count=r.tickets, category=t(key=r.category_key, lang="id"))} attrs="data-removed-stage"> %}
+    {%- if r.tickets > 0 %}
+    <select class="app-input" name="map_{{ r.key }}" aria-label="{{ t(key="workflow-migrate-target", lang="id", stage=r.name) }}">
+      {%- for o in targets %}<option value="{{ o.id }}"{% if o.id == r.selected %} selected{% endif %}>{{ o.name }}</option>{% endfor %}
+    </select>
+    {%- else %}<span class="app-hint">{{ t(key="workflow-migrate-no-tickets", lang="id") }}</span>{% endif %}
+  {% </setting_row> %}
+  {%- endfor %}
+{% </card> %}
+{% endblock settings %}

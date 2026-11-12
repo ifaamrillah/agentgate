@@ -1,0 +1,16 @@
+{#- Stepper stage tiket (M3): chip per stage versi aktif workflow, yang sudah dilewati bercentang,
+    stage sekarang beraksen. Bergulir horizontal di layar sempit.
+    Parameter:
+      steps: array   [views::workflow::StageView] dengan state done|current|todo
+      label: string  label navigasi (sudah diterjemahkan) -#}
+{% component stage_stepper(steps: array, label: string) %}
+<ol class="app-stepper" aria-label="{{ label }}" data-stepper>
+  {%- for s in steps %}
+  {%- if not loop.first %}<li class="app-stepper-arr" aria-hidden="true">{{ icon(name="chevron-right") }}</li>{% endif %}
+  <li class="app-stage-step" data-state="{{ s.state }}" data-stage="{{ s.key }}"{% if s.state == "current" %} aria-current="step"{% endif %}>
+    {%- if s.state == "done" %}{{ icon(name="check") }}{% elif s.state == "current" %}{{ icon(name=s.icon) }}{% elif s.category == "done" %}{{ icon(name="circle-check") }}{% else %}{{ icon(name="circle-dashed") }}{% endif %}
+    <span>{{ s.name }}</span>
+  </li>
+  {%- endfor %}
+</ol>
+{%- endcomponent stage_stepper %}

@@ -93,7 +93,9 @@ Semua di `server/assets/views/components/`; parameter lengkap ada di komentar ke
 | `crumb` | bagian breadcrumb di block `crumb` | — |
 | `type_icon` | ikon tipe tiket berwarna (`tile` = kotak lembut) | `views::tickets::TypeView` |
 | `prio` | label prioritas C (P1–P4), `full` menampilkan nama | `views::tickets::PriorityView` |
-| `ticket_card` | kartu tiket board C: tipe + kode, judul, prioritas, label, poin, tenggat, penerima; menu ⋯ pindah status tanpa JS, drag-drop (`board-dnd.js`) | `views::tickets::TicketRow` |
+| `ticket_card` | kartu tiket board C: tipe + kode, judul, prioritas, label, poin, tenggat, penerima; menu ⋯ pindah status tanpa JS, drag-drop (`board-dnd.js`); `stages` = kolom stage, badge Menunggu review / Butuh keputusan (`app-tcard-state`) | `views::tickets::TicketRow` |
+| `stage_stepper` | chip per stage workflow (selesai hijau bercentang, sekarang aksen, `aria-current=step`), gulir horizontal | `views::workflow::stepper` → `StageView` |
+| `gate_list` | daftar gate keluar stage: centang hijau terpenuhi, silang merah belum, dengan petunjuk | `views::workflow::GateView` |
 
 Pola isi (class): `app-grid[data-cols=duo|two|three]`, `app-stack-v`, `app-form`, `app-form-row`,
 `app-blk`, `app-lrow` (baris daftar), `app-srow`, `app-props` (dl properti), `app-feed`/`app-fe`
@@ -106,6 +108,17 @@ info, dikerjakan aksen, selesai sukses), `app-chip[aria-pressed]` (filter cepat)
 kode), `app-board` > `app-bcol` (kolom, `data-drop` saat diseret), `app-ticket` (detail dua
 kolom), `app-prose` (teks pre-wrap), `app-inline-form`, `app-drop` (area unggah lampiran),
 `app-meter` (progres per status).
+
+Workflow (M3, `components/workflow.css`): `app-stepper`/`app-stage-step[data-state]`, `app-gates`
+(`li[data-ok]`), kartu stage tiket (`app-stage-head`, `app-stage-persona`, `app-stage-props`,
+`app-stage-acts`, `app-stage-pair`), `app-choices[data-cols=one]` (radio kartu satu kolom:
+transisi keluar, keputusan), `app-rounds` (tabel putaran gagal), artifact (`app-artifacts` =
+navigator 300px | pratinjau, `app-versions`/`app-version[aria-current]`, `app-artifact-decide`),
+`app-diff` > `span[data-line=add|del|same]`, builder (`app-builder` = kanvas | konfigurasi,
+`app-flow` > `app-node[data-parallel]`, `app-node-note[data-tone=danger]`, `app-section-label`),
+`app-template-stages` (chip nama stage), `app-change-list`, `app-event-note` (catatan di riwayat).
+Halaman tiket memuat `tickets/_stage_head.html` (stepper + alert keadaan stage) di atas tab, dan
+`tickets/_stage_dialogs.html` (reject, lompat/paksa, penugasan) sekali per halaman.
 
 ### Tabel server-side
 

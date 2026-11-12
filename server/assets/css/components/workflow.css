@@ -1,0 +1,119 @@
+/* Workflow & gate (M3): stepper stage, daftar gate, panel stage, keputusan, artifact + versi + diff,
+   builder workflow (kanvas stage), template, migrasi. Prototype: docs/reference/ui-prototype/style.css
+   (.stages/.stg, .diff, .step) dan screens-m2-m3.js. */
+@layer components {
+  /* Stepper stage tiket: chip per stage; selesai hijau, sekarang aksen. Gulir horizontal. */
+  .app-stepper { list-style: none; margin: 0; padding: 0 0 2px; display: flex; align-items: center; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+  .app-stepper::-webkit-scrollbar { display: none; }
+  .app-stage-step { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 6px; border: 1px solid var(--ag-line2); background: var(--ag-raised); color: var(--ag-muted); white-space: nowrap; font-weight: 500; font-size: 12.5px; flex-shrink: 0; }
+  .app-stage-step svg { width: 14px; height: 14px; }
+  .app-stepper-arr { display: inline-flex; color: var(--ag-input); flex-shrink: 0; }
+  .app-stepper-arr svg { width: 14px; height: 14px; }
+  .app-stage-step[data-state='done'] { color: var(--ag-success); border-color: transparent; background: var(--ag-success-soft); }
+  .app-stage-step[data-state='current'] { color: var(--ag-accent-fg); border-color: var(--ag-accent); background: var(--ag-accent-soft); }
+
+  /* Daftar gate: ikon hijau = terpenuhi, merah = belum. */
+  .app-gates { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+  .app-gates li { display: flex; gap: 8px; align-items: flex-start; }
+  .app-gates li > svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; color: var(--ag-danger); }
+  .app-gates li[data-ok='true'] > svg { color: var(--ag-success); }
+  .app-gates li > span { display: grid; min-width: 0; }
+  .app-gates b { font-weight: 500; font-size: 13px; }
+  .app-gates small { color: var(--ag-muted); font-size: 12px; }
+
+  /* Kartu stage sekarang. */
+  .app-stage-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--ag-line); }
+  .app-stage-title { display: grid; min-width: 0; flex: 1; }
+  .app-stage-title > b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .app-stage-title > small { color: var(--ag-muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .app-stage-persona { display: flex; gap: 8px; align-items: flex-start; }
+  .app-stage-persona > svg { width: 16px; height: 16px; color: var(--ag-accent-fg); flex-shrink: 0; margin-top: 1px; }
+  .app-stage-persona > span { display: grid; }
+  .app-stage-persona small { color: var(--ag-muted); font-size: 12px; }
+  .app-stage-gate-head { display: flex; align-items: center; gap: 6px; }
+  .app-stage-gate-head svg { width: 14px; height: 14px; }
+  .app-stage-props { padding: 12px 16px; border-top: 1px solid var(--ag-line); margin: 0; }
+  .app-stage-props dd { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+  .app-stage-fails { color: var(--ag-danger); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .app-stage-acts { display: grid; gap: 8px; }
+  .app-stage-acts > form { display: grid; }
+  .app-stage-acts > .app-inline-form { display: flex; }
+  .app-stage-pair { display: flex; gap: 8px; flex-wrap: wrap; }
+  .app-stage-pair > * { flex: 1; }
+
+  /* Pilihan satu kolom (transisi keluar, keputusan). */
+  .app-choices[data-cols='one'] { grid-template-columns: minmax(0, 1fr); }
+  .app-choice:has(input:checked) { border-color: var(--ag-accent); background: var(--ag-accent-soft); }
+  .app-choice > span { display: grid; gap: 2px; min-width: 0; }
+  .app-choice small { color: var(--ag-muted); font-size: 12px; }
+
+  /* Riwayat putaran gagal di panel keputusan. */
+  .app-rounds td { vertical-align: top; }
+  .app-rounds td:nth-child(2) { min-width: 180px; overflow-wrap: anywhere; }
+  .app-rounds td:first-child { font-variant-numeric: tabular-nums; color: var(--ag-muted); white-space: nowrap; }
+
+  /* Kartu board: keadaan stage. */
+  .app-tcard-state { display: flex; }
+  /* Catatan di riwayat (alasan lompat, catatan reject). */
+  .app-event-note { display: block; margin-top: 4px; padding: 6px 10px; border-left: 2px solid var(--ag-line2); color: var(--ag-fg2); font-size: 12.5px; white-space: pre-wrap; overflow-wrap: anywhere; quotes: none; }
+
+  /* Artifact: navigator kiri, pratinjau kanan; satu kolom di layar sempit. */
+  .app-artifacts { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 16px; align-items: start; }
+  .app-artifacts-nav, .app-artifacts-preview { min-width: 0; display: grid; gap: 16px; }
+  @media (max-width: 899px) { .app-artifacts { grid-template-columns: minmax(0, 1fr); } }
+  .app-artifact-group { padding: 10px 16px 4px; font-size: 11.5px; font-weight: 600; color: var(--ag-faint); text-transform: uppercase; letter-spacing: 0.04em; }
+  .app-artifacts-nav .app-lrow[aria-current='true'] { background: var(--ag-accent-soft); }
+  .app-artifact-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--ag-line); flex-wrap: wrap; }
+  .app-artifact-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+  .app-artifact-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .app-artifact-body { font-size: 13px; }
+  .app-artifact-decide { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; border-top: 1px solid var(--ag-line); }
+  .app-artifact-decide > .app-hint { margin-right: auto; }
+  .app-versions { display: flex; gap: 4px; padding: 8px 16px; border-bottom: 1px solid var(--ag-line); overflow-x: auto; }
+  .app-version { height: 24px; padding: 0 8px; border-radius: 6px; font-size: 12px; font-family: var(--ag-mono); display: inline-flex; align-items: center; color: var(--ag-muted); border: 1px solid var(--ag-line2); }
+  .app-version:hover { color: var(--ag-fg); border-color: var(--ag-input); }
+  .app-version[aria-current='true'] { color: var(--ag-accent-fg); border-color: var(--ag-accent); background: var(--ag-accent-soft); }
+
+  /* Diff baris. */
+  .app-diff { margin: 0; font-family: var(--ag-mono); font-size: 12px; line-height: 1.65; overflow-x: auto; border-top: 1px solid var(--ag-line); }
+  .app-diff > span { display: block; padding: 0 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .app-diff > span[data-line='add'] { background: var(--ag-success-soft); color: var(--ag-success); }
+  .app-diff > span[data-line='del'] { background: var(--ag-danger-soft); color: var(--ag-danger); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--ag-danger) 40%, transparent); }
+  .app-diff > span[data-line='same'] { color: var(--ag-fg2); }
+
+  /* Builder workflow: kanvas stage | konfigurasi stage terpilih. */
+  .app-builder { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 420px); gap: 16px; align-items: start; }
+  @media (max-width: 1099px) { .app-builder { grid-template-columns: minmax(0, 1fr); } }
+  .app-builder-side { display: grid; gap: 16px; min-width: 0; }
+  .app-flow { list-style: none; margin: 0; padding: 16px; display: grid; gap: 0; }
+  .app-node { position: relative; display: grid; gap: 4px; padding-bottom: 18px; }
+  .app-node:last-child { padding-bottom: 0; }
+  .app-node:not(:last-child)::after { content: ""; position: absolute; left: 25px; bottom: 2px; height: 14px; width: 1px; background: var(--ag-input); }
+  .app-node[data-parallel] { margin-left: 24px; }
+  .app-node-main { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--ag-line2); border-radius: 8px; background: var(--ag-raised); box-shadow: var(--ag-shadow-xs); min-width: 0; }
+  .app-node-main:hover { border-color: var(--ag-input); }
+  .app-node[aria-current='true'] > .app-node-main { border-color: var(--ag-accent); box-shadow: var(--ag-ring); }
+  .app-node-text { display: grid; min-width: 0; flex: 1; }
+  .app-node-text b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .app-node-text small { color: var(--ag-muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .app-node-meta { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .app-node-meta .app-hint { display: inline-flex; align-items: center; gap: 2px; }
+  .app-node-meta svg { width: 14px; height: 14px; }
+  .app-node-note { font-size: 11.5px; color: var(--ag-muted); padding-left: 12px; }
+  .app-node-note[data-tone='danger'] { color: var(--ag-danger); }
+  .app-flow-add { border-top: 1px solid var(--ag-line); }
+  .app-section-label { font-size: 11.5px; font-weight: 600; color: var(--ag-faint); text-transform: uppercase; letter-spacing: 0.04em; margin: 0; }
+  .app-stage-tools { border-top: 1px solid var(--ag-line); }
+
+  /* Template bawaan. */
+  .app-template-stages { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; }
+  .app-template-stages li { height: 22px; padding: 0 8px; border-radius: 5px; font-size: 12px; display: inline-flex; align-items: center; background: var(--ag-hover); color: var(--ag-fg2); }
+
+  /* Migrasi: daftar perubahan. */
+  .app-change-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .app-change-list li { display: flex; align-items: center; gap: 6px; }
+  .app-change-list svg { width: 14px; height: 14px; color: var(--ag-faint); }
+
+  /* Textarea YAML. */
+  .app-mono textarea, textarea.app-mono { font-family: var(--ag-mono); font-size: 12.5px; }
+}

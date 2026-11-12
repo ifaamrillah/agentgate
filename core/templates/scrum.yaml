@@ -1,0 +1,39 @@
+workflow: scrum
+nama: Scrum
+deskripsi: Sprint backlog, development, code review, dan testing dengan approve di tiap stage kerja.
+stages:
+  - id: backlog
+    nama: Backlog
+    kategori: backlog
+  - id: sprint
+    nama: Sprint backlog
+    kategori: todo
+  - id: dev
+    nama: Development
+    kategori: in_progress
+    persona: dev
+    skill: test-driven-development
+    output: rencana-implementasi.md
+    gate: [pr_open]
+    transisi: tunggu_approve
+  - id: review
+    nama: Code review
+    kategori: in_progress
+    persona: reviewer
+    input: [rencana-implementasi.md]
+    output: review-ai.md
+    gate: [artifact_exists, ci_green]
+    transisi: tunggu_approve
+    gagal_ke: dev
+  - id: test
+    nama: Testing
+    kategori: in_progress
+    persona: qa
+    output: laporan-test.md
+    gate: [tests_passed, screenshot_exists]
+    tooling: [Playwright CLI]
+    transisi: tunggu_approve
+    gagal_ke: dev
+  - id: done
+    nama: Selesai
+    kategori: done
