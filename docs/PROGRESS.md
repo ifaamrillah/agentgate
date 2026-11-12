@@ -10,7 +10,7 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 | M1 Identitas & tenancy | selesai (2026-11-11) | Akun, 2FA, OAuth (fake di test), workspace/role/undangan/tim/project/repo, audit log, hapus workspace |
 | UI "Tenang" | selesai (2026-11-12) | Desain prototype diterapkan ke semua halaman M0–M1; pustaka komponen untuk M2–M12 (`docs/reference/design-system.md`) |
 | M2 Tiket & board | selesai (2026-11-12) | Tipe + field custom, template kode (alias), board/daftar, detail, komentar + @mention, kotak masuk, lampiran S3, relasi (blocks ditegakkan), riwayat, sampah 30 hari, pencarian; 396 tes |
-| M3 Workflow & gate | belum mulai | |
+| M3 Workflow & gate | selesai (2026-11-12) | Builder workflow + YAML impor/ekspor, 9 template, versi + migrasi tiket, workflow per tipe/project, stage per tiket (stepper, gate, approve/reject, batas gagal → Butuh keputusan, 5 keputusan, lompat/paksa Admin, penugasan), artifact + versi + diff, tab kotak masuk "Butuh keputusan", board per stage; 430 tes |
 | M4 MCP & persona | belum mulai | |
 | M5 CLI & runner | belum mulai | |
 | M6 Git & PR | belum mulai | |
@@ -68,6 +68,16 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 | 2026-11-12 | Lampiran ≤ 10 MB, diunduh `attachment` + `nosniff` + `no-store`; key `tickets/<ticket>/<uuid>`. **Dev memakai S3 SeaweedFS** (`storage_aws_s3`, bucket `agentgate-dev` dibuat `bin/_lib.sh`); tes memakai storage memori | Brief M2 |
 | 2026-11-12 | Sampah: `deleted_at`, 404 di semua halaman kecuali Sampah, purge > 30 hari oleh langkah `tickets` di task `cleanup` (berkas lampiran dihapus setelah commit) | Spec |
 | 2026-11-12 | Seed dev menambah 10 tiket contoh KSR (epic, story, subtask, bug, relasi blocks, komentar @mention) lewat service produksi; dilewati bila KSR sudah punya tiket | Layar bisa dicek tanpa input manual |
+| 2026-11-12 | M3: definisi workflow disimpan JSON per versi (`workflow_versions`); `workflows.version` = versi aktif, `workflows.draft` = draf builder (selalu valid). Terbitkan = versi baru; stage dihapus yang masih berisi tiket wajib dipetakan di halaman migrasi | Tiket yang berjalan tetap memakai aturan versi saat masuk stage-nya (`tickets.stage_version`) |
+| 2026-11-12 | M3: tiket menyimpan `workflow_id`, `stage_key`, `stage_version`, `stage_state` (active/review/decision), `fail_count`, `stage_entered_at`, `cancelled_at`; `tickets.status` tetap = kategori stage | Laporan/filter M2 tetap bekerja per kategori |
+| 2026-11-12 | M3: workflow default per tipe tiket (`ticket_types.workflow_id`), override per project (`project_workflows`). Workspace baru: Kanban untuk semua tipe, "Subtask ringkas" untuk Subtask. Ganti workflow → tiket pindah ke stage dengan ID sama, lalu kategori sama | Spec "workflow per tipe tiket" |
+| 2026-11-12 | M3: kelola workflow memakai izin `ManageTicketSettings`; workflow project memakai `AdministerProject` | Tidak menambah izin baru |
+| 2026-11-12 | M3: maju ke stage berikut butuh stage aktif, bukan stage approval, gate terpenuhi, dan tidak melewati stage yang menegakkan gate/approval; selain itu = lompat (Admin, alasan wajib, audit). Paksa transisi butuh `projects.allow_force_transition`. Mundur bebas bagi yang bisa mengubah tiket | Server menegakkan gate (spec) |
+| 2026-11-12 | M3: approve/reject oleh approver stage; bila stage tanpa approver, siapa pun yang bisa mengubah tiket. Reject wajib catatan, menambah putaran gagal dan kembali ke `gagal_ke`; mencapai batas → Butuh keputusan | |
+| 2026-11-12 | M3: lima keputusan (petunjuk, perbaiki sendiri, ubah requirement, terima dengan catatan → tiket Bug baru berelasi "terkait", batalkan → stage terakhir + `cancelled_at`) | Spec "Butuh keputusan" |
+| 2026-11-12 | M3: kolom board = gabungan stage semua workflow di project, urut (kategori, indeks); drag-drop mengirim `stage` | Board satu project bisa berisi beberapa workflow |
+| 2026-11-12 | M3: artifact per stage, setiap simpan = versi baru (draft/pending/approved/rejected); versi yang disimpan saat stage menunggu review langsung `pending`; approve/reject memutuskan versi terbaru stage itu. Diff = LCS baris sederhana | |
+| 2026-11-12 | M3: event `status_changed` M2 diganti `stage_changed`; tiket baru tidak boleh mulai di stage yang didahului stage approval/gate (seed subtask diubah ke Dikerjakan) | |
 
 ## Temuan spike yang mengubah rencana
 
@@ -109,6 +119,15 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
   menghapus berkas lampiran tiket di storage. Logo project di dev kini ikut S3: logo lama yang tersimpan di
   disk dev tidak muncul lagi (unggah ulang). Notifikasi belum dikirim lewat email/push. Field custom belum
   bisa diurutkan dan belum ada jenis multi-pilih/orang. Label tiket teks bebas tanpa warna.
+- **M3 Workflow (2026-11-12)**: gate evidence (screenshot, tes, PR, merged, CI) selalu belum terpenuhi sampai
+  runner (M5) dan provider git (M6) ada; stage dengan gate itu hanya bisa dilewati lompat/paksa Admin. Stage
+  paralel dijalani berurutan (flag `paralel` hanya disimpan dan ditampilkan). Persona agent tetap 9 bawaan
+  sampai M4; prompt/skill/tooling belum dipakai. Migrasi tiket saat terbitkan berjalan dalam satu transaksi
+  (pindahkan ke job bila ribuan tiket). Artifact tampil teks pre-wrap (belum render Markdown) dan editor
+  artifact memakai textarea `md_editor` tanpa unggah gambar. Builder berupa daftar vertikal, belum kanvas graf
+  dengan panah gagal dan kelompok paralel seperti prototype; belum ada "Izin aksi berbahaya" per stage dan
+  belum ada perkiraan "N tiket ikut dimigrasi" di bar simpan. Impor YAML lewat textarea (belum unggah berkas).
+  Notifikasi review/keputusan hanya in-app.
 - Role custom tidak pernah menjadi "admin di semua project": hanya Owner/Admin bawaan yang boleh menugaskan
   role Admin bawaan (termasuk di grant project) dan mengubah izin role yang dipakai grant project.
 
@@ -120,7 +139,14 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 - Tim, Jabatan, dan Role tetap daftar sederhana (tanpa bulk action) sampai datanya besar.
 - M2: detail tiket sebagai halaman sendiri (bukan panel samping board); header detail memakai ikon tipe +
   judul + kode/status, belum stepper stage (M3) dan estimasi AI (M9).
-- M2: status/kolom board tetap 4 (Backlog, To do, Dikerjakan, Selesai) sampai workflow M3.
+- ~~M2: status/kolom board tetap 4~~ digantikan kolom per stage workflow (M3).
+- M3: header tiket menampilkan stepper stage di bawah judul; badge "Menunggu review"/PR dan estimasi AI
+  di header prototype belum ada (PR = M6, estimasi = M9).
+- M3: tombol Approve memakai varian primer (aksen), bukan hijau seperti prototype, supaya konsisten dengan
+  sistem desain (satu tombol primer per area).
+- M3: builder workflow memakai daftar vertikal + panel konfigurasi (bukan kanvas graf); tab Riwayat versi
+  di dalam builder.
+- M3: workflow bawaan "Subtask ringkas" (Dev → Review → Selesai) untuk tipe Subtask.
 
 ## Perlu dari user (dikumpulkan untuk akhir)
 
@@ -128,6 +154,8 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 - OAuth app **Google** dan **GitHub** (client ID/secret, callback `{APP_URL}/auth/google/callback` dan
   `{APP_URL}/auth/github/callback`). Selama M1 login sosial hanya diuji dengan provider palsu.
 - Server SMTP untuk staging/production (`MAIL_FROM`, `SMTP_*`).
+- M3: konfirmasi apakah gate evidence boleh dipenuhi manual (centang + unggah bukti) sebelum runner/git
+  tersedia, atau tetap hanya lewat lompat/paksa Admin seperti sekarang.
 
 ## Catatan untuk sesi berikutnya
 
@@ -142,3 +170,5 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 - Rencana milestone: `docs/superpowers/plans/`. Sumber dependency Loco/Tera untuk referensi API ada di `tmp/src/`
   (gitignored; salin ulang dari `/usr/local/cargo/registry/src` di container bila hilang).
 - Screenshot UI memakai Playwright dari npm di scratchpad (Playwright MCP tidak bisa start: Chrome tidak terpasang).
+- Seed dev M3 (`seed_workflows`) memakai template Superpowers untuk tipe Story di KSR dan membuat KSR-11..13
+  (menunggu review, butuh keputusan, eksekusi). Dilewati bila workflow Superpowers sudah ada.
