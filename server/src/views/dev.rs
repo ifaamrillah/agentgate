@@ -6,8 +6,7 @@ use loco_rs::prelude::*;
 use super::{
     datatable::{ColumnSpec, FilterOption, FilterSpec, TableSpec, TableView},
     layout::{AppShell, ProjectLink, UserView, WorkspaceLink, WorkspaceView, app_page},
-    nav,
-    palette,
+    nav, palette,
     ui::{ComboOption, Stat},
 };
 

@@ -12,6 +12,9 @@ use super::{
 pub const FLASH_PROFILE_SAVED: &str = "flash-profile-saved";
 pub const FLASH_PASSWORD_CHANGED: &str = "flash-password-changed";
 pub const FLASH_TWO_FACTOR_DISABLED: &str = "flash-two-factor-disabled";
+/// Tab tampilan project tersimpan / ditolak karena tidak ada yang disematkan.
+pub const FLASH_VIEWS_SAVED: &str = "flash-project-views-saved";
+pub const FLASH_VIEWS_NONE: &str = "flash-project-views-none";
 /// Kode konfirmasi setup 2FA salah.
 pub const TOTP_CODE_INVALID: &str = "totp-code-invalid";
 /// Kode TOTP/kode pemulihan untuk mematikan 2FA kosong, salah, atau sudah dipakai.
@@ -21,6 +24,8 @@ pub const MESSAGE_KEYS: &[&str] = &[
     FLASH_PROFILE_SAVED,
     FLASH_PASSWORD_CHANGED,
     FLASH_TWO_FACTOR_DISABLED,
+    FLASH_VIEWS_SAVED,
+    FLASH_VIEWS_NONE,
     TOTP_CODE_INVALID,
     TOTP_DISABLE_CODE_INVALID,
 ];

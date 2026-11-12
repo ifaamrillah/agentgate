@@ -96,6 +96,10 @@ auth:
   oauth:
     base_url: http://localhost:<%= get_env(name="PORT") %>
 
+# Storage tes: driver in-memory dipasang App::after_context (Loco tidak punya kind memori).
+storage:
+  kind: "Null"
+
 settings:
   app_name: Agent Gate
   # Basis link di email; dev/test dilayani di localhost:PORT.

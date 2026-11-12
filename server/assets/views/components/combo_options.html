@@ -2,6 +2,6 @@
     TeraView::render_component. Parameter: options: array [views::ui::ComboOption]. -#}
 {% component combo_options(options: array) %}
 {%- for o in options %}
-<option value="{{ o.value }}"{% if o.sub %} data-sub="{{ o.sub }}"{% endif %}{% if o.initials %} data-initials="{{ o.initials }}"{% endif %}{% if o.color %} data-color="{{ o.color }}"{% endif %}{% if o.group %} data-group="{{ o.group }}"{% endif %}>{{ o.label }}</option>
+<option value="{{ o.value }}"{% if o.sub %} data-sub="{{ o.sub }}"{% endif %}{% if o.initials %} data-initials="{{ o.initials }}"{% endif %}{% if o.color %} data-color="{{ o.color }}"{% endif %}{% if o.group_key %} data-group="{{ t(key=o.group_key, lang="id") }}"{% elif o.group %} data-group="{{ o.group }}"{% endif %}>{{ o.label }}</option>
 {%- endfor %}
 {%- endcomponent combo_options %}

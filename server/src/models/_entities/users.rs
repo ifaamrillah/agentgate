@@ -21,6 +21,7 @@ pub struct Model {
     pub totp_secret_encrypted: Option<Vec<u8>>,
     pub totp_enabled_at: Option<DateTimeWithTimeZone>,
     pub totp_last_step: Option<i64>,
+    pub project_views: Vec<String>,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
 }

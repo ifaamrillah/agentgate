@@ -26,7 +26,7 @@ pub const ERROR_CODES: &[&str] = &[CURRENT_PASSWORD_WRONG];
 #[derive(Debug)]
 pub enum Changed {
     /// Password diganti dan semua sesi user dicabut; berisi user terbaru.
-    Done(users::Model),
+    Done(Box<users::Model>),
     /// Password saat ini salah dan/atau password baru tidak memenuhi aturan.
     Invalid(ModelValidationErrors),
     /// Terlalu banyak password salah: tidak diperiksa, coba lagi setelah kunci habis.
@@ -75,5 +75,5 @@ pub async fn change(
     let hash = password::hash(&settings.auth, new_password).await?;
     let user = user.change_password(&ctx.db, hash).await?;
     session_store::sign_out_everywhere(ctx, &user.id.to_string()).await?;
-    Ok(Changed::Done(user))
+    Ok(Changed::Done(Box::new(user)))
 }

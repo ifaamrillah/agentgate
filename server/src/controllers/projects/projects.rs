@@ -20,7 +20,8 @@ use crate::{
     views::{
         self,
         flash::Flash,
-        projects::{ProjectFormView, ProjectPaths, RepoView},
+        nav,
+        projects::{MemberRow, ProjectFormView, ProjectPaths, RepoView, ShowPage},
     },
 };
 
@@ -34,6 +35,9 @@ pub struct ProjectForm {
     name: String,
     #[serde(default)]
     description: String,
+    /// Dari pemilih warna; kosong = warna palet bawaan.
+    #[serde(default)]
+    color: String,
 }
 
 #[debug_handler]
@@ -73,6 +77,7 @@ pub(super) async fn create(
         key: form.key.clone(),
         name: form.name.clone(),
         description: form.description.clone(),
+        color: form.color.clone(),
     };
     match service::create(&ctx.db, &actor, input).await {
         Ok(project) => {
@@ -85,7 +90,8 @@ pub(super) async fn create(
                 form.name.trim(),
                 form.description.trim(),
                 Some(&errors),
-            );
+            )
+            .colored(&form.color);
             views::projects::new(
                 &v,
                 &shell,
@@ -116,34 +122,58 @@ pub(super) async fn show(
         .role
         .has(Permission::AdministerProject)
         .then(|| paths(&access));
+    let members = super::access::grant_rows(&ctx, &access)
+        .await?
+        .iter()
+        .map(MemberRow::of)
+        .collect();
     let shell = app_shell(
         &ctx,
         &access.tenant.user,
         Some(&access.tenant),
         Some(&access),
     )
-    .await?;
-    views::projects::show(&v, &shell, &summary(&access), &repos, admin_paths.as_ref())
+    .await?
+    .at("project_overview");
+    let project = summary(&access);
+    let views = nav::project_views(
+        &paths(&access).home,
+        &access.tenant.user.project_views,
+        "overview",
+    );
+    views::projects::show(
+        &v,
+        &shell,
+        &ShowPage {
+            project: &project,
+            repos: &repos,
+            members,
+            paths: admin_paths.as_ref(),
+            views,
+        },
+    )
 }
 
-async fn render_settings(
+/// Pengaturan project → Umum. `logo_error` = kode error unggah logo (`""` = tanpa error).
+pub(super) async fn render_settings(
     ctx: &AppContext,
     v: &TeraView,
     access: &ProjectAccess,
     form: &ProjectFormView,
+    logo_error: &str,
     flash: Option<Flash>,
     status: StatusCode,
 ) -> Result<Response> {
-    let shell = app_shell(ctx, &access.tenant.user, Some(&access.tenant), Some(access)).await?;
-    views::projects::settings(
-        v,
-        &shell,
-        &summary(access),
-        &paths(access),
+    let shell = app_shell(ctx, &access.tenant.user, Some(&access.tenant), Some(access))
+        .await?
+        .at("project_general");
+    let page = views::projects::SettingsPage {
+        project: &summary(access),
+        paths: &paths(access),
         form,
-        flash,
-        status,
-    )
+        logo_error,
+    };
+    views::projects::settings(v, &shell, &page, flash, status)
 }
 
 #[debug_handler]
@@ -155,7 +185,7 @@ pub(super) async fn settings(
 ) -> Result<Response> {
     let (session, flash) = flash::take(session);
     let form = ProjectFormView::of(&access.project);
-    let res = render_settings(&ctx, &v, &access, &form, flash, StatusCode::OK).await?;
+    let res = render_settings(&ctx, &v, &access, &form, "", flash, StatusCode::OK).await?;
     Ok((session, res).into_response())
 }
 
@@ -175,6 +205,7 @@ pub(super) async fn update(
         access.project.id,
         &form.name,
         &form.description,
+        &form.color,
     )
     .await
     {
@@ -188,12 +219,14 @@ pub(super) async fn update(
                 form.name.trim(),
                 form.description.trim(),
                 Some(&errors),
-            );
+            )
+            .colored(&form.color);
             render_settings(
                 &ctx,
                 &v,
                 &access,
                 &form,
+                "",
                 None,
                 StatusCode::UNPROCESSABLE_ENTITY,
             )

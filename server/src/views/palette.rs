@@ -4,26 +4,22 @@
 
 /// Urutan sama dengan prototype (`AG.COLORS`).
 pub const COLORS: [&str; 18] = [
-    "#7c3aed", "#5b5bd6", "#2563eb", "#0ea5e9", "#0891b2", "#0d9488", "#0f8a5f", "#65a30d", "#ca8a04",
-    "#f59e0b", "#ea580c", "#dc2626", "#e11d48", "#db2777", "#c026d3", "#64748b", "#475569", "#1f2937",
+    "#7c3aed", "#5b5bd6", "#2563eb", "#0ea5e9", "#0891b2", "#0d9488", "#0f8a5f", "#65a30d",
+    "#ca8a04", "#f59e0b", "#ea580c", "#dc2626", "#e11d48", "#db2777", "#c026d3", "#64748b",
+    "#475569", "#1f2937",
 ];
 
 /// Warna palet yang stabil untuk `seed` (FNV-1a, bukan untuk keamanan).
 #[must_use]
 pub fn color_for(seed: &str) -> &'static str {
-    let hash = seed
-        .bytes()
-        .fold(0x811c_9dc5_u32, |h, b| (h ^ u32::from(b)).wrapping_mul(0x0100_0193));
+    let hash = seed.bytes().fold(0x811c_9dc5_u32, |h, b| {
+        (h ^ u32::from(b)).wrapping_mul(0x0100_0193)
+    });
     COLORS[(hash % 18) as usize]
 }
 
 /// Warna hex `#rrggbb` yang valid (warna custom dari pemilih warna).
-#[must_use]
-pub fn is_hex_color(value: &str) -> bool {
-    value.len() == 7
-        && value.starts_with('#')
-        && value[1..].chars().all(|c| c.is_ascii_hexdigit())
-}
+pub use crate::common::text::is_hex_color;
 
 /// Inisial 1–2 huruf: huruf pertama dua kata pertama, atau huruf pertama `fallback`.
 #[must_use]

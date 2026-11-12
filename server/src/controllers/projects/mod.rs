@@ -1,10 +1,12 @@
 //! Project di dalam workspace: buat (`/w/{slug}/projects/new`, `Require<CreateProjects>`),
 //! beranda project (`/w/{slug}/p/{key}`, `ProjectAccess`), dan pengaturan project (Umum, Akses,
-//! Repo; `ProjectAdmin` = `AdministerProject`). Project tanpa akses, milik workspace lain, atau
+//! Repo, logo; `ProjectAdmin` = `AdministerProject`). Gambar logo (`/w/{slug}/p/{key}/logo`)
+//! untuk semua yang punya akses project. Project tanpa akses, milik workspace lain, atau
 //! key yang tidak ada → 404.
 use loco_rs::prelude::*;
 
 mod access;
+mod logo;
 #[allow(clippy::module_inception)]
 mod projects;
 mod repos;
@@ -26,7 +28,7 @@ fn paths(access: &ProjectAccess) -> ProjectPaths {
 }
 
 fn summary(access: &ProjectAccess) -> ProjectSummary {
-    ProjectSummary::new(&access.project, access.role.label())
+    ProjectSummary::new(&access.project, access.role.label(), &paths(access))
 }
 
 fn acting(access: &ProjectAccess, request_id: Option<String>) -> Acting<'_> {
@@ -45,6 +47,9 @@ pub fn routes() -> Routes {
             get(projects::new).post(projects::create),
         )
         .add("/w/{slug}/p/{key}", get(projects::show))
+        .add("/w/{slug}/p/{key}/logo", get(logo::show))
+        .add("/w/{slug}/p/{key}/settings/logo", post(logo::upload))
+        .add("/w/{slug}/p/{key}/settings/logo/delete", post(logo::delete))
         .add(
             "/w/{slug}/p/{key}/settings",
             get(projects::settings).post(projects::update),

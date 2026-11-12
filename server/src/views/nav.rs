@@ -100,7 +100,8 @@ pub const SETTINGS_SECTIONS: &[&str] = &[
 /// Bagian Akun.
 pub const ACCOUNT_SECTIONS: &[&str] = &["profile", "password", "two_factor"];
 /// Bagian Pengaturan project (sidebar menu Pengaturan, project aktif terbuka).
-pub const PROJECT_SETTINGS_SECTIONS: &[&str] = &["project_general", "project_access", "project_repos"];
+pub const PROJECT_SETTINGS_SECTIONS: &[&str] =
+    &["project_general", "project_access", "project_repos"];
 
 /// Menu kiri Pengaturan workspace: Umum selalu ada (indeks Pengaturan), sisanya menurut izin role.
 #[must_use]
@@ -147,23 +148,6 @@ pub fn account_nav() -> Vec<NavItem> {
             "/account/2fa",
         ),
     ]
-}
-
-/// Tab halaman project. Board, Backlog, Knowledge, AI Office menunggu milestone-nya; Pengaturan
-/// hanya untuk Admin project (`settings_href` = `None` untuk lainnya).
-#[must_use]
-pub fn project_tabs(home_href: &str, settings_href: Option<&str>, current: &str) -> Vec<NavItem> {
-    let mut items = vec![
-        NavItem::link("overview", "project-tab-overview", "home", home_href),
-        NavItem::soon("board", "nav-board", "layout-dashboard"),
-        NavItem::soon("backlog", "nav-backlog", "ticket"),
-        NavItem::soon("knowledge", "nav-knowledge", "book"),
-        NavItem::soon("ai_office", "nav-ai-office", "robot"),
-    ];
-    if let Some(href) = settings_href {
-        items.push(NavItem::link("settings", "nav-settings", "settings", href));
-    }
-    mark(items, current)
 }
 
 /// Menu kiri Pengaturan project.
@@ -256,7 +240,10 @@ pub fn side_nav(shell: &AppShell) -> Vec<SideGroup> {
 }
 
 fn app_side(shell: &AppShell) -> Vec<SideGroup> {
-    let home_href = shell.current_workspace.as_ref().map_or("/", |w| w.href.as_str());
+    let home_href = shell
+        .current_workspace
+        .as_ref()
+        .map_or("/", |w| w.href.as_str());
     let mut home = NavItem::link("home", "nav-home", "home", home_href);
     home.current = shell.area == "home";
     let mut groups = vec![SideGroup::new(None, vec![SideItem::nav(&home, false)])];
@@ -304,7 +291,12 @@ fn project_side_views() -> Vec<NavItem> {
 
 fn settings_side(shell: &AppShell) -> Vec<SideGroup> {
     let back_href = shell.current_project.as_ref().map_or_else(
-        || shell.current_workspace.as_ref().map_or("/", |w| w.href.as_str()),
+        || {
+            shell
+                .current_workspace
+                .as_ref()
+                .map_or("/", |w| w.href.as_str())
+        },
         |p| p.href.as_str(),
     );
     let back = SideItem {
@@ -376,6 +368,18 @@ pub const PROJECT_VIEWS: &[(&str, &str, &str)] = &[
     ("releases", "project-view-releases", "rocket"),
     ("reports", "project-view-reports", "chart-line"),
 ];
+/// Kunci tampilan yang dikenal dari isian user, urut dan tanpa duplikat (POST "Atur tab").
+#[must_use]
+pub fn known_views<'a>(keys: impl IntoIterator<Item = &'a str>) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for key in keys {
+        if PROJECT_VIEWS.iter().any(|(k, ..)| *k == key) && !out.iter().any(|o| o == key) {
+            out.push(key.to_string());
+        }
+    }
+    out
+}
+
 /// Tab yang disematkan bila user belum mengatur sendiri.
 pub const DEFAULT_PINNED_VIEWS: &[&str] = &["overview", "board", "list", "backlog"];
 
@@ -394,14 +398,23 @@ pub struct ProjectViews {
 /// dikenal diabaikan; kosong = bawaan).
 #[must_use]
 pub fn project_views(home_href: &str, pinned: &[String], current: &str) -> ProjectViews {
-    let known = |k: &str| PROJECT_VIEWS.iter().find(|(key, ..)| *key == k).map(|(key, ..)| *key);
+    let known = |k: &str| {
+        PROJECT_VIEWS
+            .iter()
+            .find(|(key, ..)| *key == k)
+            .map(|(key, ..)| *key)
+    };
     let mut pinned_keys: Vec<&'static str> = pinned.iter().filter_map(|k| known(k)).collect();
     pinned_keys.dedup();
     if pinned_keys.is_empty() {
         pinned_keys = DEFAULT_PINNED_VIEWS.to_vec();
     }
     let item = |key: &'static str| {
-        let (_, label, icon) = PROJECT_VIEWS.iter().find(|(k, ..)| *k == key).copied().unwrap_or(PROJECT_VIEWS[0]);
+        let (_, label, icon) = PROJECT_VIEWS
+            .iter()
+            .find(|(k, ..)| *k == key)
+            .copied()
+            .unwrap_or(PROJECT_VIEWS[0]);
         let mut nav = if key == "overview" {
             NavItem::link(key, label, icon, home_href)
         } else {
@@ -411,7 +424,12 @@ pub fn project_views(home_href: &str, pinned: &[String], current: &str) -> Proje
         nav
     };
     let mut order: Vec<&'static str> = pinned_keys.clone();
-    order.extend(PROJECT_VIEWS.iter().map(|(k, ..)| *k).filter(|k| !pinned_keys.contains(k)));
+    order.extend(
+        PROJECT_VIEWS
+            .iter()
+            .map(|(k, ..)| *k)
+            .filter(|k| !pinned_keys.contains(k)),
+    );
     let all: Vec<NavItem> = order.iter().map(|k| item(k)).collect();
     let mut shown: Vec<NavItem> = pinned_keys.iter().map(|k| item(k)).collect();
     if !pinned_keys.contains(&current) && known(current).is_some() {
@@ -448,25 +466,24 @@ mod tests {
     }
 
     #[test]
-    fn project_tabs_hide_settings_for_non_admin() {
-        let tabs = project_tabs("/p", None, "overview");
-        assert!(tabs.iter().all(|t| t.key != "settings"));
-        assert!(tabs.iter().filter(|t| t.soon).all(|t| t.href.is_none()));
-        assert!(tabs[0].current);
-    }
-
-    #[test]
     fn project_views_default_pins_and_more_menu() {
         let v = project_views("/p", &[], "overview");
         let keys: Vec<_> = v.pinned.iter().map(|i| i.key).collect();
         assert_eq!(keys, DEFAULT_PINNED_VIEWS);
-        assert_eq!(v.more.len(), PROJECT_VIEWS.len() - DEFAULT_PINNED_VIEWS.len());
+        assert_eq!(
+            v.more.len(),
+            PROJECT_VIEWS.len() - DEFAULT_PINNED_VIEWS.len()
+        );
         assert!(v.pinned[0].current);
     }
 
     #[test]
     fn project_views_follow_user_order_and_ignore_unknown() {
-        let v = project_views("/p", &["reports".into(), "nope".into(), "overview".into()], "overview");
+        let v = project_views(
+            "/p",
+            &["reports".into(), "nope".into(), "overview".into()],
+            "overview",
+        );
         let keys: Vec<_> = v.pinned.iter().map(|i| i.key).collect();
         assert_eq!(keys, ["reports", "overview"]);
         assert_eq!(v.all[0].key, "reports");

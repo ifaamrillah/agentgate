@@ -22,7 +22,7 @@
       {%- if not multiple %}<option value="">{{ ph }}</option>{% endif %}
       {%- for o in options %}
       <option value="{{ o.value }}"{% if (multiple and o.value in values) or (not multiple and o.value == value) %} selected{% endif %}
-        {%- if o.sub %} data-sub="{{ o.sub }}"{% endif %}{% if o.initials %} data-initials="{{ o.initials }}"{% endif %}{% if o.color %} data-color="{{ o.color }}"{% endif %}{% if o.group %} data-group="{{ o.group }}"{% endif %}>{{ o.label }}</option>
+        {%- if o.sub %} data-sub="{{ o.sub }}"{% endif %}{% if o.initials %} data-initials="{{ o.initials }}"{% endif %}{% if o.color %} data-color="{{ o.color }}"{% endif %}{% if o.group_key %} data-group="{{ t(key=o.group_key, lang="id") }}"{% elif o.group %} data-group="{{ o.group }}"{% endif %}>{{ o.label }}</option>
       {%- endfor %}
     </select>
     <button type="button" class="app-input app-combo-btn" hidden aria-haspopup="listbox" aria-expanded="false" aria-controls="{{ id }}-pop" aria-label="{{ label }}"><span class="app-combo-val"></span>{{ icon(name="selector") }}</button>

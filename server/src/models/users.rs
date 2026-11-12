@@ -78,6 +78,22 @@ impl ActiveModelBehavior for ActiveModel {
 }
 
 impl Model {
+    /// Simpan tampilan project yang disematkan user di bar tab (urut). Kunci divalidasi
+    /// pemanggil (`views::nav::PROJECT_VIEWS`); kosong = bawaan.
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn set_project_views<C: ConnectionTrait>(
+        self,
+        db: &C,
+        views: Vec<String>,
+    ) -> Result<Self, DbErr> {
+        let mut user = self.into_active_model();
+        user.project_views = Set(views);
+        user.update(db).await
+    }
+
     /// User dengan email ini (setelah normalisasi), aktif atau tidak.
     ///
     /// # Errors

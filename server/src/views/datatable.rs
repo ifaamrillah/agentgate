@@ -332,7 +332,12 @@ impl TableView {
                 align_right: c.align_right,
             })
             .collect();
-        let page_href = |n: u64| href(&TableState { page: n, ..state.clone() });
+        let page_href = |n: u64| {
+            href(&TableState {
+                page: n,
+                ..state.clone()
+            })
+        };
         let mut page_links: Vec<PageLink> = Vec::new();
         for n in 1..=pages {
             if n == 1 || n == pages || n.abs_diff(state.page) <= 1 {
@@ -478,18 +483,30 @@ mod tests {
     };
 
     fn pairs(raw: &[(&str, &str)]) -> Vec<(String, String)> {
-        raw.iter().map(|(k, v)| ((*k).into(), (*v).into())).collect()
+        raw.iter()
+            .map(|(k, v)| ((*k).into(), (*v).into()))
+            .collect()
     }
 
     #[test]
     fn unknown_values_fall_back_to_defaults() {
-        let s = SPEC.parse(&pairs(&[("sort", "password"), ("per", "7"), ("page", "-3"), ("dir", "up")]));
+        let s = SPEC.parse(&pairs(&[
+            ("sort", "password"),
+            ("per", "7"),
+            ("page", "-3"),
+            ("dir", "up"),
+        ]));
         assert_eq!((s.sort, s.desc, s.per, s.page), ("name", false, 10, 1));
     }
 
     #[test]
     fn filters_and_search_are_kept() {
-        let s = SPEC.parse(&pairs(&[("q", " budi "), ("role", "a"), ("role", "b"), ("x", "y")]));
+        let s = SPEC.parse(&pairs(&[
+            ("q", " budi "),
+            ("role", "a"),
+            ("role", "b"),
+            ("x", "y"),
+        ]));
         assert_eq!(s.query(), Some("budi"));
         assert_eq!(s.filter("role"), ["a", "b"]);
     }
@@ -502,7 +519,10 @@ mod tests {
         assert_eq!(v.prev_href.as_deref(), Some("/m?role=a&page=2"));
         assert!(v.next_href.is_none());
         assert_eq!(v.columns[0].sorted, Some("asc"));
-        assert_eq!(v.columns[0].sort_href.as_deref(), Some("/m?role=a&sort=name&dir=desc"));
+        assert_eq!(
+            v.columns[0].sort_href.as_deref(),
+            Some("/m?role=a&sort=name&dir=desc")
+        );
         assert_eq!(v.active[0].remove_href, "/m");
         assert_eq!(v.clear_href, "/m");
     }
@@ -510,8 +530,13 @@ mod tests {
     #[test]
     fn filter_options_rename_chips_and_check() {
         let s = SPEC.parse(&pairs(&[("role", "id-1")]));
-        let v = TableView::new(&SPEC, &s, "/m", 1)
-            .with_filter_options("role", vec![FilterOption::raw("id-1", "Admin"), FilterOption::raw("id-2", "Viewer")]);
+        let v = TableView::new(&SPEC, &s, "/m", 1).with_filter_options(
+            "role",
+            vec![
+                FilterOption::raw("id-1", "Admin"),
+                FilterOption::raw("id-2", "Viewer"),
+            ],
+        );
         assert_eq!(v.active[0].value, "Admin");
         assert!(v.filters[0].options[0].checked);
         assert!(!v.filters[0].options[1].checked);

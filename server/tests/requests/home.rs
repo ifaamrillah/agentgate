@@ -38,17 +38,15 @@ async fn app_layout_renders_with_minimal_shell() {
     request::<App, _, _>(|request, ctx| async move {
         let user = a_user().name("Budi Santoso").create(&ctx).await;
         let cookie = sign_in_as(&request, &user).await;
-        // User tanpa workspace: `/` mengarah ke `/w/new`, yang memakai shell tanpa workspace.
-        let html = request.get("/w/new").add_cookie(cookie).await.text();
+        // User tanpa workspace: halaman akun memakai shell tanpa workspace (`/w/new` adalah
+        // halaman satu kolom tanpa shell).
+        let html = request.get("/account").add_cookie(cookie).await.text();
         assert_css_exists(
             &html,
-            "aside.sidebar#app-sidebar > nav[hx-preload\\:inherited=\"mouseover\"]",
+            "aside.app-side#app-side[hx-preload\\:inherited=\"mouseover\"]",
         );
         // Tombol menu mobile menunjuk ke sidebar.
-        assert_css_exists(
-            &html,
-            "button[data-sidebar-toggle=\"app-sidebar\"][aria-controls=\"app-sidebar\"]",
-        );
+        assert_css_exists(&html, "button[data-nav-toggle][aria-controls=\"app-side\"]");
         // Switcher tanpa workspace: hanya "Buat workspace", tanpa daftar.
         assert_css_exists(
             &html,
@@ -65,7 +63,7 @@ async fn app_layout_renders_with_minimal_shell() {
             "form[method=\"post\"][action=\"/logout\"] button[type=\"submit\"]",
         );
         assert_css_not_exists(&html, "a[href=\"/logout\"]");
-        assert_css_eq(&html, "#profile-menu-trigger .avatar > span", "BS");
+        assert_css_eq(&html, "#me-menu-trigger .app-av", "BS");
         assert!(html.contains("Budi Santoso"));
     })
     .await;

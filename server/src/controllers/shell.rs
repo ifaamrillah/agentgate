@@ -12,8 +12,21 @@ use loco_rs::{Result, app::AppContext};
 use super::extractors::{ProjectAccess, Tenant};
 use crate::{
     models::{permission::Permission, projects, users, workspace_members},
-    views::layout::{AppShell, ProjectLink, WorkspaceLink, WorkspaceView},
+    views::{
+        self,
+        layout::{AppShell, ProjectLink, WorkspaceLink, WorkspaceView},
+    },
 };
+
+/// Tautan project di sidebar/breadcrumb/beranda: warna dan logo tersimpan ikut terbawa.
+fn project_link(slug: &str, p: &projects::Model) -> ProjectLink {
+    let link = ProjectLink::new(slug, &p.name, &p.key)
+        .archived(p.is_archived())
+        .described(&p.description)
+        .colored(p.color.as_deref());
+    let logo = views::projects::logo_href(&link.href, p);
+    link.with_logo(logo)
+}
 
 /// # Errors
 ///
@@ -37,11 +50,7 @@ pub async fn app_shell(
     let projects = projects::Model::accessible_for(&ctx.db, &tenant.accessor())
         .await?
         .iter()
-        .map(|p| {
-            ProjectLink::new(slug, &p.name, &p.key)
-                .archived(p.is_archived())
-                .described(&p.description)
-        })
+        .map(|p| project_link(slug, p))
         .collect();
     let shell = shell
         .with_current_workspace(
@@ -64,10 +73,7 @@ pub async fn app_shell(
         )
         .with_projects(projects);
     Ok(match project {
-        Some(access) => shell.with_current_project(
-            ProjectLink::new(slug, &access.project.name, &access.project.key)
-                .archived(access.project.is_archived()),
-        ),
+        Some(access) => shell.with_current_project(project_link(slug, &access.project)),
         None => shell,
     })
 }

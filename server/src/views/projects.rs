@@ -11,7 +11,9 @@ use super::{
     form::{FieldErrors, field_errors},
     layout::{AppShell, app_page},
     members::OptionView,
-    nav,
+    nav::ProjectViews,
+    palette,
+    ui::ComboOption,
 };
 use crate::models::{
     project_grants::{self, GrantSubject},
@@ -28,6 +30,8 @@ pub const FLASH_ACCESS_REVOKED: &str = "flash-project-access-revoked";
 pub const FLASH_REPO_ADDED: &str = "flash-repo-added";
 pub const FLASH_REPO_UPDATED: &str = "flash-repo-updated";
 pub const FLASH_REPO_REMOVED: &str = "flash-repo-removed";
+pub const FLASH_LOGO_SAVED: &str = "flash-project-logo-saved";
+pub const FLASH_LOGO_REMOVED: &str = "flash-project-logo-removed";
 /// Kunci Fluent yang dikirim sebagai variabel ke template (dijaga tes i18n).
 pub const MESSAGE_KEYS: &[&str] = &[
     FLASH_SAVED,
@@ -38,9 +42,13 @@ pub const MESSAGE_KEYS: &[&str] = &[
     FLASH_REPO_ADDED,
     FLASH_REPO_UPDATED,
     FLASH_REPO_REMOVED,
+    FLASH_LOGO_SAVED,
+    FLASH_LOGO_REMOVED,
 ];
 
-pub const PROJECT_FIELDS: &[&str] = &["key", "name", "description"];
+pub const PROJECT_FIELDS: &[&str] = &["key", "name", "description", "color"];
+/// Field form unggah logo.
+pub const LOGO_FIELDS: &[&str] = &["logo"];
 pub const REPO_FIELDS: &[&str] = &["name", "provider", "url", "default_branch"];
 
 /// Path halaman project `/w/{slug}/p/{key}` dan turunannya.
@@ -51,6 +59,11 @@ pub struct ProjectPaths {
     pub archive: String,
     pub access: String,
     pub repos: String,
+    /// GET gambar logo (cek akses project).
+    pub logo: String,
+    /// POST unggah logo (multipart) dan POST hapus logo.
+    pub logo_upload: String,
+    pub logo_delete: String,
 }
 
 impl ProjectPaths {
@@ -68,6 +81,9 @@ impl ProjectPaths {
             archive: format!("{home}/settings/archive"),
             access: format!("{home}/settings/access"),
             repos: format!("{home}/settings/repos"),
+            logo: format!("{home}/logo"),
+            logo_upload: format!("{home}/settings/logo"),
+            logo_delete: format!("{home}/settings/logo/delete"),
             home,
         }
     }
@@ -79,6 +95,8 @@ pub struct ProjectFormView {
     pub key: String,
     pub name: String,
     pub description: String,
+    /// Warna tersimpan atau isian (`""` = warna palet bawaan).
+    pub color: String,
     pub errors: FieldErrors,
 }
 
@@ -94,13 +112,22 @@ impl ProjectFormView {
             key: key.to_string(),
             name: name.to_string(),
             description: description.to_string(),
+            color: String::new(),
             errors: field_errors(PROJECT_FIELDS, errors),
         }
+    }
+
+    /// Isian warna (dari form atau tersimpan).
+    #[must_use]
+    pub fn colored(mut self, color: &str) -> Self {
+        self.color = color.trim().to_ascii_lowercase();
+        self
     }
 
     #[must_use]
     pub fn of(project: &projects::Model) -> Self {
         Self::new(&project.key, &project.name, &project.description, None)
+            .colored(project.color.as_deref().unwrap_or_default())
     }
 }
 
@@ -113,19 +140,47 @@ pub struct ProjectSummary {
     pub archived: bool,
     /// Label izin project user (nama role, atau gabungannya).
     pub role_label: String,
+    /// Logo: gambar (`logo_href`, `""` = belum ada) atau inisial di atas `color`.
+    pub initials: String,
+    pub color: String,
+    pub logo_href: String,
+    /// Warna disimpan sendiri (bukan warna palet bawaan dari key).
+    pub custom_color: bool,
 }
 
 impl ProjectSummary {
     #[must_use]
-    pub fn new(project: &projects::Model, role_label: &str) -> Self {
+    pub fn new(project: &projects::Model, role_label: &str, paths: &ProjectPaths) -> Self {
         Self {
             key: project.key.clone(),
             name: project.name.clone(),
             description: project.description.clone(),
             archived: project.is_archived(),
             role_label: role_label.to_string(),
+            initials: palette::initials(&project.name, &project.key),
+            color: color_of(project),
+            logo_href: logo_href(&paths.home, project).unwrap_or_default(),
+            custom_color: project.color.is_some(),
         }
     }
+}
+
+/// Warna tampil project: tersimpan, atau warna palet dari key.
+#[must_use]
+pub fn color_of(project: &projects::Model) -> String {
+    project
+        .color
+        .clone()
+        .unwrap_or_else(|| palette::color_for(&project.key).to_string())
+}
+
+/// URL gambar logo project (`home` = `/w/{slug}/p/{key}`), dengan versi dari key storage supaya
+/// logo baru tidak tertahan cache browser; `None` = belum ada logo.
+#[must_use]
+pub fn logo_href(home: &str, project: &projects::Model) -> Option<String> {
+    let logo = project.logo()?;
+    let version = logo.key.rsplit('-').next().unwrap_or_default();
+    Some(format!("{home}/logo?v={version}"))
 }
 
 /// Satu repo di beranda project.
@@ -191,45 +246,96 @@ pub fn new(
     )
 }
 
-/// Tab project untuk halaman di dalam project (`shell.current_project` terisi).
-fn tabs(shell: &AppShell, paths: Option<&ProjectPaths>, current: &str) -> Vec<nav::NavItem> {
-    let home = shell
-        .current_project
-        .as_ref()
-        .map_or("", |p| p.href.as_str());
-    nav::project_tabs(home, paths.map(|p| p.settings.as_str()), current)
+/// Tujuan POST preferensi tab tampilan project (`controllers::account`).
+pub const PROJECT_VIEWS_ACTION: &str = "/account/project-views";
+
+/// Satu orang/tim dengan akses project (kartu Anggota di ringkasan).
+#[derive(Debug, Serialize)]
+pub struct MemberRow {
+    pub is_team: bool,
+    pub name: String,
+    pub detail: String,
+    pub role_name: String,
+    pub initials: String,
+    pub color: &'static str,
 }
 
-/// Beranda project. `paths` hanya untuk Admin project (tautan pengaturan), `None` untuk lainnya.
-pub fn show(
-    v: &impl ViewRenderer,
-    shell: &AppShell,
-    project: &ProjectSummary,
-    repos: &[RepoView],
-    paths: Option<&ProjectPaths>,
-) -> Result<Response> {
+impl MemberRow {
+    #[must_use]
+    pub fn of(grant: &GrantRow) -> Self {
+        Self {
+            is_team: grant.is_team,
+            name: grant.subject_name.clone(),
+            detail: grant.subject_detail.clone(),
+            role_name: grant.role_name.clone(),
+            initials: palette::initials(&grant.subject_name, &grant.subject_detail),
+            color: palette::color_for(if grant.subject_detail.is_empty() {
+                &grant.subject_name
+            } else {
+                &grant.subject_detail
+            }),
+        }
+    }
+}
+
+/// Data `projects/show.html`.
+#[derive(Debug, Serialize)]
+pub struct ShowPage<'a> {
+    pub project: &'a ProjectSummary,
+    pub repos: &'a [RepoView],
+    pub members: Vec<MemberRow>,
+    /// Tautan pengaturan, hanya untuk Admin project.
+    pub paths: Option<&'a ProjectPaths>,
+    pub views: ProjectViews,
+}
+
+/// Ringkasan project. `pinned` = tampilan yang disematkan user (`users.project_views`).
+pub fn show(v: &impl ViewRenderer, shell: &AppShell, page: &ShowPage<'_>) -> Result<Response> {
+    let home = &page.project_home();
     format::render().view(
         v,
         "projects/show.html",
         app_page(
             shell,
             data!({
-                "project": project,
-                "repos": repos,
-                "paths": paths,
-                "tabs": tabs(shell, paths, "overview"),
+                "project": page.project,
+                "repos": page.repos,
+                "members": page.members,
+                "paths": page.paths,
+                "views": page.views,
+                "views_action": PROJECT_VIEWS_ACTION,
+                "return_to": home,
             }),
         ),
     )
 }
 
-/// Pengaturan project → Umum (nama, deskripsi, arsip).
+impl ShowPage<'_> {
+    fn project_home(&self) -> String {
+        self.views
+            .all
+            .iter()
+            .find(|v| v.key == "overview")
+            .and_then(|v| v.href.clone())
+            .unwrap_or_default()
+    }
+}
+
+/// Isi halaman Pengaturan project → Umum.
+#[derive(Debug, Serialize)]
+pub struct SettingsPage<'a> {
+    pub project: &'a ProjectSummary,
+    pub paths: &'a ProjectPaths,
+    pub form: &'a ProjectFormView,
+    /// Kode error unggah logo; `""` = tanpa.
+    pub logo_error: &'a str,
+}
+
+/// Pengaturan project → Umum (logo, nama, deskripsi, warna, arsip).
 pub fn settings(
     v: &impl ViewRenderer,
     shell: &AppShell,
-    project: &ProjectSummary,
-    paths: &ProjectPaths,
-    form: &ProjectFormView,
+    page: &SettingsPage<'_>,
     flash: Option<Flash>,
     status: StatusCode,
 ) -> Result<Response> {
@@ -239,12 +345,11 @@ pub fn settings(
         app_page(
             shell,
             data!({
-                "project": project,
-                "paths": paths,
-                "form": form,
+                "project": page.project,
+                "paths": page.paths,
+                "form": page.form,
+                "logo_error": page.logo_error,
                 "flash": flash,
-                "tabs": tabs(shell, Some(paths), "settings"),
-                "subnav": nav::project_settings_nav(paths, "general"),
             }),
         ),
     )
@@ -310,13 +415,13 @@ pub fn parse_subject(raw: &str) -> Option<GrantSubject> {
     }
 }
 
-/// Data `projects/access.html`. `teams`/`people` = subjek yang belum punya grant; `roles` = role
+/// Data `projects/access.html`. `subjects` = subjek yang belum punya grant; `roles` = role
 /// yang boleh diberikan pelaku.
 #[derive(Debug, Serialize)]
 pub struct AccessPage {
     pub grants: Vec<GrantRow>,
-    pub teams: Vec<OptionView>,
-    pub people: Vec<OptionView>,
+    /// Tim dan orang yang belum punya grant, untuk combobox (grup Tim / Orang).
+    pub subjects: Vec<ComboOption>,
     pub roles: Vec<OptionView>,
     pub action: String,
     pub flash: Option<Flash>,
@@ -340,8 +445,6 @@ pub fn access(
                 "paths": paths,
                 "page": page,
                 "flash": page.flash,
-                "tabs": tabs(shell, Some(paths), "settings"),
-                "subnav": nav::project_settings_nav(paths, "access"),
             }),
         ),
     )
@@ -444,8 +547,6 @@ pub fn repos(
                 "paths": paths,
                 "page": page,
                 "flash": page.flash,
-                "tabs": tabs(shell, Some(paths), "settings"),
-                "subnav": nav::project_settings_nav(paths, "repos"),
             }),
         ),
     )

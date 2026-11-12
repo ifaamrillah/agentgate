@@ -89,6 +89,7 @@ fn every_validation_error_code_has_a_message() {
         deletion::ERROR_CODES,
         require_two_factor::ERROR_CODES,
         agentgate_server::services::workspaces::teams::ERROR_CODES,
+        agentgate_server::services::projects::logo::ERROR_CODES,
     ]
     .concat();
     let missing: Vec<_> = codes.iter().filter(|c| !keys.contains(**c)).collect();

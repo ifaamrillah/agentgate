@@ -73,6 +73,8 @@ pub struct ComboOption {
     pub color: String,
     /// Judul kelompok (opsi berurutan dengan kelompok sama digabung); `""` = tanpa.
     pub group: String,
+    /// Judul kelompok sebagai kunci Fluent (diterjemahkan template); mengalahkan `group`.
+    pub group_key: Option<&'static str>,
 }
 
 impl ComboOption {
@@ -85,6 +87,7 @@ impl ComboOption {
             initials: String::new(),
             color: String::new(),
             group: String::new(),
+            group_key: None,
         }
     }
 
@@ -100,6 +103,10 @@ impl ComboOption {
     }
 
     #[must_use]
+    #[expect(
+        clippy::should_implement_trait,
+        reason = "builder field `sub` (teks kecil), bukan operator"
+    )]
     pub fn sub(mut self, sub: impl ToString) -> Self {
         self.sub = sub.to_string();
         self
@@ -108,6 +115,13 @@ impl ComboOption {
     #[must_use]
     pub fn group(mut self, group: impl ToString) -> Self {
         self.group = group.to_string();
+        self
+    }
+
+    /// Kelompok berlabel kunci Fluent (mis. `grant-subject-teams`).
+    #[must_use]
+    pub const fn group_key(mut self, key: &'static str) -> Self {
+        self.group_key = Some(key);
         self
     }
 

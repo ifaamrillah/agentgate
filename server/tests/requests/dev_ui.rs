@@ -58,7 +58,10 @@ async fn component_catalog_renders_shared_components() {
             &html,
             ".app-pbar [data-tabs] a[data-nav=\"board\"][aria-disabled=\"true\"]:not([href])",
         );
-        assert_css_exists(&html, "dialog#views-dialog form [data-view-row] input.app-switch[name=\"view\"]");
+        assert_css_exists(
+            &html,
+            "dialog#views-dialog form [data-view-row] input.app-switch[name=\"view\"]",
+        );
         // subpage E: item aktif dari data.
         assert_css_exists(
             &html,
@@ -76,12 +79,22 @@ async fn component_catalog_renders_shared_components() {
         assert_css_exists(&html, "#catalog-table th[data-hide=\"md\"]");
         assert_count(&html, "#catalog-table tbody tr", 10);
         assert_css_exists(&html, "#catalog-table .app-dt-pg a[aria-current=\"page\"]");
-        assert_css_exists(&html, "#catalog-table td[data-actions] .popover [data-popover] form");
+        assert_css_exists(
+            &html,
+            "#catalog-table td[data-actions] .popover [data-popover] form",
+        );
         // combo, color_picker, uploader.
         assert_css_exists(&html, "#combo [data-combo] select#catalog-person");
         assert_css_exists(&html, "#combo [data-combo] select[multiple]");
-        assert_count(&html, "#catalog-color input[type=\"radio\"][name=\"color\"]", 19);
-        assert_css_exists(&html, "form[enctype=\"multipart/form-data\"] input[type=\"file\"]");
+        assert_count(
+            &html,
+            "#catalog-color input[type=\"radio\"][name=\"color\"]",
+            19,
+        );
+        assert_css_exists(
+            &html,
+            "form[enctype=\"multipart/form-data\"] input[type=\"file\"]",
+        );
         // dialog, setting_row, avatar.
         assert_css_exists(&html, "dialog.dialog#catalog-dialog form footer");
         // md_editor: textarea tetap nilai form; footer Batal + Simpan.
@@ -107,10 +120,16 @@ async fn component_catalog_table_sorts_filters_and_pages() {
         let html = request.get("/_dev/ui?role=admin").await.text();
         assert_count(&html, "#catalog-table tbody tr", 2);
         assert_css_exists(&html, "#catalog-table .app-fpill a[href=\"/_dev/ui\"]");
-        assert_css_exists(&html, "#catalog-table input[name=\"role\"][value=\"admin\"][checked]");
+        assert_css_exists(
+            &html,
+            "#catalog-table input[name=\"role\"][value=\"admin\"][checked]",
+        );
         // Sort nama menurun: baris pertama Lina.
         let html = request.get("/_dev/ui?sort=name&dir=desc").await.text();
-        let first = select(&html, "#catalog-table tbody tr td").first().cloned().unwrap_or_default();
+        let first = select(&html, "#catalog-table tbody tr td")
+            .first()
+            .cloned()
+            .unwrap_or_default();
         assert!(first.contains("Lina Marlina"), "{first}");
         // Cari tanpa hasil: empty state "tidak ada yang cocok".
         let html = request.get("/_dev/ui?q=zzz").await.text();
@@ -124,10 +143,19 @@ async fn component_catalog_uses_app_shell_with_sample_workspaces() {
     request::<App, _, _>(|request, _ctx| async move {
         let html = request.get("/_dev/ui").await.text();
         assert_css_exists(&html, "aside.app-side#app-side");
-        assert_css_exists(&html, ".app-topbar button[data-nav-toggle][aria-controls=\"app-side\"]");
+        assert_css_exists(
+            &html,
+            ".app-topbar button[data-nav-toggle][aria-controls=\"app-side\"]",
+        );
         assert!(select(&html, "[data-workspace-item]").len() >= 2);
-        assert_css_exists(&html, "[data-project-list] a.app-ni[data-nav=\"project-WEB\"] .app-dot");
-        assert_css_exists(&html, "[data-project-list] a[data-create-project][href=\"/w/acme/projects/new\"]");
+        assert_css_exists(
+            &html,
+            "[data-project-list] a.app-ni[data-nav=\"project-WEB\"] .app-dot",
+        );
+        assert_css_exists(
+            &html,
+            "[data-project-list] a[data-create-project][href=\"/w/acme/projects/new\"]",
+        );
     })
     .await;
 }

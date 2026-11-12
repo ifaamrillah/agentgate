@@ -1,43 +1,68 @@
-{#- Project → Ringkasan. Variabel: project (views::projects::ProjectSummary), repos
-    ([views::projects::RepoView]: name, provider_key, url, default_branch), paths
-    (views::projects::ProjectPaths, atau null bila user bukan Admin project: tautan pengaturan
-    hanya untuk Admin), tabs (layouts/project.html). Board tiket datang di M2. -#}
+{#- Project → Ringkasan (prototype "Ringkasan project"). Board dan statistik tiket datang di M2:
+    kartu progres tampil sebagai empty state jujur.
+    Variabel: project (views::projects::ProjectSummary), repos ([RepoView]), members
+    ([MemberRow]: tim/orang dengan akses), paths (ProjectPaths atau null bila bukan Admin
+    project), views/views_action/return_to (layouts/project.html). -#}
 {% extends "layouts/project.html" %}
 {% block title %}{{ project.name }}{% endblock title %}
+{% block crumb %}{{ <crumb label={t(key="project-view-overview", lang="id")}/> }}{% endblock crumb %}
+{% block page_attrs %}data-project-home data-project-header{% endblock page_attrs %}
+{% block description %}
+  {%- if project.description %}{{ project.description }} · {% endif -%}
+  <span data-project-role>{{ t(key="project-your-access", lang="id", role=project.role_label) }}</span>
+{%- endblock description %}
+{% block head_actions %}
+  {%- if paths %}{{ <button icon="settings" variant="outline" size="icon" href={paths.settings} aria_label={t(key="project-settings-title", lang="id")}/> }}{% endif -%}
+{% endblock head_actions %}
 {% block main %}
-<div class="app-columns" data-project-home>
+<div class="app-grid" data-cols="duo">
   <div data-board-empty>
-  {% <panel title={t(key="nav-board", lang="id")}> %}
-    {{ <empty_state title={t(key="project-board-soon-title", lang="id")} description={t(key="project-board-soon-description", lang="id")} icon="layout-dashboard"/> }}
-  {% </panel> %}
+  {% <card title={t(key="project-progress-title", lang="id")} description={t(key="project-progress-description", lang="id")}> %}
+    {{ <empty_state title={t(key="project-board-soon-title", lang="id")} description={t(key="project-board-soon-description", lang="id")} icon="layout-kanban" variant="plain"/> }}
+  {% </card> %}
   </div>
-  <div class="app-page-main">
-    <div data-project-repos>
-    {% <panel title={t(key="project-repos-title", lang="id")} action_label={paths and t(key="project-repos-manage", lang="id") or ""} action_href={paths and paths.repos or ""} flush={repos | length > 0}> %}
-      {%- if repos %}
-      <ul class="app-list">
-        {%- for repo in repos %}
-        <li data-repo>
-          <div class="app-list-row">
-            <span class="app-repo">{{ icon(name="git-branch", class="size-4") }}<span class="app-code app-strong">{{ repo.name }}</span></span>
-            {{ <badge label={repo.default_branch} variant="neutral" code={true}/> }}
-          </div>
-          <p class="app-muted app-truncate">{{ t(key=repo.provider_key, lang="id") }} · <span class="app-code">{{ repo.url }}</span></p>
-        </li>
-        {%- endfor %}
-      </ul>
-      {%- else %}
-      <p class="app-muted">{{ t(key="project-repos-empty", lang="id") }}</p>
-      {%- endif %}
-    {% </panel> %}
+  {% <card title={t(key="project-about-title", lang="id")} description={t(key="project-about-description", lang="id")} link_label={paths and t(key="action-edit", lang="id") or ""} link_href={paths and paths.settings or ""}> %}
+    <dl class="app-props" data-project-props>
+      <dt>{{ t(key="project-status-label", lang="id") }}</dt>
+      <dd>{% if project.archived %}{{ <badge label={t(key="project-archived", lang="id")} variant="neutral"/> }}{% else %}{{ <badge label={t(key="project-active", lang="id")} variant="success"/> }}{% endif %}</dd>
+      <dt>{{ t(key="project-key", lang="id") }}</dt>
+      <dd>{{ <badge label={project.key} variant="neutral" code={true}/> }}</dd>
+      <dt>{{ t(key="project-color", lang="id") }}</dt>
+      <dd>{{ <dot color={project.color}/> }}<span class="app-code">{{ project.color }}</span></dd>
+      <dt>{{ t(key="project-access-label", lang="id") }}</dt>
+      <dd>{{ project.role_label }}</dd>
+    </dl>
+  {% </card> %}
+</div>
+
+<div class="app-grid" data-cols="duo">
+  <div data-project-repos>
+  {% <card title={t(key="project-repos-title", lang="id")} description={t(key="project-repos-description", lang="id")} count={repos | length ~ ""} link_label={paths and t(key="action-manage", lang="id") or ""} link_href={paths and paths.repos or ""} flush={repos | length > 0}> %}
+    {%- if repos %}
+    {%- for repo in repos %}
+    <div class="app-lrow" data-repo>
+      {{ icon(name="git-branch") }}
+      <span class="app-lrow-main"><b class="app-code">{{ repo.name }}</b><small>{{ t(key=repo.provider_key, lang="id") }} · {{ repo.url }}</small></span>
+      {{ <badge label={repo.default_branch} variant="neutral" code={true}/> }}
     </div>
-    {% <panel title={t(key="project-about-title", lang="id")}> %}
-      {{ <meta_list items={[
-        {"label": t(key="project-key", lang="id"), "value": project.key, "mono": true},
-        {"label": t(key="project-access-label", lang="id"), "value": project.role_label},
-        {"label": t(key="project-status-label", lang="id"), "value": project.archived and t(key="project-archived", lang="id") or t(key="project-active", lang="id")}
-      ]}/> }}
-    {% </panel> %}
+    {%- endfor %}
+    {%- else %}
+    {{ <empty_state title={t(key="project-repos-empty", lang="id")} description={t(key="project-repos-empty-description", lang="id")} icon="git-branch" variant="plain"/> }}
+    {%- endif %}
+  {% </card> %}
   </div>
+  {% <card title={t(key="project-members-title", lang="id")} description={t(key="project-members-description", lang="id")} count={members | length ~ ""} link_label={paths and t(key="action-manage", lang="id") or ""} link_href={paths and paths.access or ""} flush={members | length > 0}> %}
+    {%- if members %}
+    {%- for m in members %}
+    <div class="app-lrow" data-project-member>
+      {%- if m.is_team %}<span class="app-tile">{{ icon(name="users-group") }}</span><span class="app-lrow-main"><b>{{ m.name }}</b><small>{{ t(key="grant-subject-team", lang="id") }}</small></span>
+      {%- else %}{{ <person name={m.name} initials={m.initials} color={m.color} detail={m.detail}/> }}<span class="app-lrow-main"></span>{% endif %}
+      {{ <badge label={m.role_name} variant="neutral"/> }}
+    </div>
+    {%- endfor %}
+    {%- else %}
+    {{ <empty_state title={t(key="grants-empty-title", lang="id")} description={t(key="grants-empty-description", lang="id")} icon="users" variant="plain"/> }}
+    {%- endif %}
+  {% </card> %}
 </div>
 {% endblock main %}

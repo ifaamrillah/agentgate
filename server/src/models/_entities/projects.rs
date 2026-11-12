@@ -22,6 +22,13 @@ pub struct Model {
     pub description: String,
     pub created_by: Option<Uuid>,
     pub archived_at: Option<DateTimeWithTimeZone>,
+    #[sea_orm(column_type = "Text", nullable)]
+    pub color: Option<String>,
+    #[sea_orm(column_type = "Text", nullable)]
+    pub logo_key: Option<String>,
+    #[sea_orm(column_type = "Text", nullable)]
+    pub logo_content_type: Option<String>,
+    pub logo_size: Option<i32>,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
 }

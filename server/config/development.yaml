@@ -136,6 +136,11 @@ auth:
       # <% endif %>
     # <% endif %>
 
+# File upload (logo project): disk di folder storage/ (gitignored). DB menyimpan key, bukan path.
+storage:
+  kind: Local
+  path: <%= get_env(name="STORAGE_DIR", default="storage") %>
+
 settings:
   app_name: Agent Gate
   # Basis link di email; dev/test dilayani di localhost:PORT.

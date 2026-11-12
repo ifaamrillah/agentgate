@@ -8,6 +8,7 @@
 //! `ProjectAdmin`), dan perubahan akses pada satu project berjalan berurutan.
 
 pub mod access;
+pub mod logo;
 pub mod repos;
 
 use loco_rs::validation::ModelValidationErrors;
@@ -104,6 +105,8 @@ pub struct ProjectInput {
     pub key: String,
     pub name: String,
     pub description: String,
+    /// Warna project (`""` = warna palet bawaan).
+    pub color: String,
 }
 
 /// Buat project. Pelaku harus (masih) memegang `CreateProjects`; ia mendapat grant langsung
@@ -134,6 +137,7 @@ pub async fn create(
             key: input.key,
             name: input.name,
             description: input.description,
+            color: input.color,
             created_by: Some(acting.user.id),
         },
     )
@@ -171,7 +175,7 @@ pub async fn create(
     Ok(project)
 }
 
-/// Ganti nama dan deskripsi project. Tanpa perubahan: tidak menulis apa pun.
+/// Ganti nama, deskripsi, dan warna project. Tanpa perubahan: tidak menulis apa pun.
 ///
 /// # Errors
 ///
@@ -183,12 +187,13 @@ pub async fn update(
     project_id: Uuid,
     name: &str,
     description: &str,
+    color: &str,
 ) -> Result<projects::Model, ProjectFailure> {
     let admin = Administering::begin(db, acting, project_id).await?;
     let before = admin.project.clone();
     let after = admin
         .project
-        .update_details(&admin.txn, name, description)
+        .update_details(&admin.txn, name, description, color)
         .await?;
     let mut changes = serde_json::Map::new();
     if let Some(c) = audit::change(&before.name, &after.name) {
@@ -196,6 +201,9 @@ pub async fn update(
     }
     if let Some(c) = audit::change(&before.description, &after.description) {
         changes.insert("description".to_string(), c);
+    }
+    if let Some(c) = audit::change(&before.color, &after.color) {
+        changes.insert("color".to_string(), c);
     }
     if changes.is_empty() {
         admin.txn.rollback().await?;

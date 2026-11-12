@@ -28,6 +28,7 @@ const DEPLOY_ENV: &[(&str, &str)] = &[
         "ENCRYPTION_KEY",
         "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
     ),
+    ("STORAGE_DIR", "/var/lib/agentgate/storage"),
 ];
 
 /// Parameter argon2 minimal OWASP (m = 19 MiB, t = 2); staging/production tidak boleh di bawahnya.
