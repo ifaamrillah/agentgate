@@ -1,92 +1,132 @@
-# Sistem Desain Agent Gate
+# Sistem Desain Agent Gate — "Tenang"
 
-Acuan wajib untuk semua layar. Katalog hidup: `/_dev/ui` (development). Keputusan dan alasannya:
-`docs/superpowers/specs/2026-11-11-sistem-desain-design.md`.
+Acuan wajib untuk semua layar. Katalog hidup: `/_dev/ui` (development; tabelnya bisa di-sort,
+difilter, dan dipindah halaman). Prototype yang disetujui pemilik produk:
+`docs/reference/ui-prototype/` (buka `index.html`). Varian terpilih: shell A, judul seksi A,
+sub-navigasi E, tabel A, stat A, board C, prioritas C, layar masuk B. Rancangan pustaka:
+`docs/superpowers/specs/2026-11-12-pustaka-komponen-design.md`.
 
 ## Aturan
 
-1. **Tidak ada warna, font, atau radius ditulis langsung di template.** Pakai komponen di
-   `server/assets/views/components/`, utilitas Tailwind yang memetakan token (`bg-primary`,
-   `text-muted-foreground`, `bg-ag-tint`, `font-mono`, ...), atau variabel `var(--ag-*)`.
-   Halaman aplikasi hanya mengisi block `layouts/page.html` dan merangkai komponen; class tata letak
-   dibuat sebagai class `app-*` di `css/components/`, bukan utilitas Tailwind di halaman.
-2. Token hanya didefinisikan di `server/assets/css/app.css`. CSS komponen di `server/assets/css/components/`,
-   satu file per komponen. Basecoat (`css/vendor/`) tidak pernah diedit.
-3. Kontras teks minimal 4.5:1. Tanpa dark mode.
-4. Setelah mengubah file di `css/components/`, jalankan `bin/tailwind` (watch tidak selalu menangkap file
-   yang di-`@import`).
+1. **Tidak ada warna, font, atau radius ditulis langsung di template.** Halaman hanya mengisi block
+   layout dan merangkai komponen (`server/assets/views/components/`). Pola tata letak dibuat sebagai
+   class `app-*` di `server/assets/css/components/`, bukan utilitas Tailwind di halaman.
+2. Token hanya di `server/assets/css/app.css` (`--ag-*`, terang di `:root`, gelap di `html.dark`);
+   variabel Basecoat dipetakan ke token. CSS komponen satu file per komponen; Basecoat tidak diedit,
+   hanya ditimpa di `@layer components`.
+3. Kontras teks minimal 4.5:1 di kedua mode. Mode gelap dipasang `static/js/theme.js` (ikut sistem
+   sampai user memilih lewat menu profil "Ganti tema"; tersimpan di `localStorage` `ag-theme`).
+4. Kontrol form memakai class sendiri: `app-input` (input/select/textarea, `data-group` untuk
+   prefix), `app-check`, `app-switch` (`role="switch"`), `app-radio`, `app-choice`, `app-otp`.
+   Bukan `.input`/`.field` Basecoat.
+5. JS: satu file per perilaku di `static/js/`, dipanggil lewat atribut `data-*`; tanpa inline script.
+6. Fitur milestone berikutnya tidak dipalsukan: tampilkan `empty_state` yang jujur atau item
+   navigasi "segera" (`aria-disabled`, tanpa `href`).
+7. Setelah mengubah CSS komponen, jalankan `bin/tailwind`.
 
-## Ringkasan pilihan
+## Token
 
 | Bagian | Nilai |
 |---|---|
-| Layout | Sidebar kiri + konten; mulai M2 panel detail tiket 320px di kanan board |
-| Navigasi | Sidebar indigo-900 `#312e81`, teks putih, item aktif putih 14% |
-| Aksen | Indigo: 50 `#eef2ff`, 100 `#e0e7ff`, 200 `#c7d2fe`, 600 `#4f46e5`, 700 `#4338ca`, 800 `#3730a3`, 900 `#312e81` |
-| Netral | Slate: 50 `#f8fafc` (kepala tabel, hover baris), 100 `#f1f5f9`, 200 `#e2e8f0` (garis), 300 `#cbd5e1` (input), 600 `#475569` (teks redup), 900 `#0f172a` (teks) |
-| Font | IBM Plex Sans 400/500/600/700; IBM Plex Mono 400/500/600 untuk kode/ID (kunci tiket, slug, PR) |
-| Gaya | Flat: kanvas putih, panel bergaris slate-200 tanpa bayangan; tint indigo-50 hanya untuk penanda (item aktif, kotak kunci, ringkasan) |
-| Radius | Tombol/input 6px, kartu 8px, badge pill, avatar 6px (`--radius: 0.5rem`) |
-| Kepadatan | Teks dasar 14px, judul halaman 20px/600, judul panel 15px/600, meta 13px, tombol 36px, baris tabel 48px |
-| Ikon | Tabler, stroke 2, ukuran `size-4` (16px) di tombol/navigasi |
-| Badge | Pill lembut |
-| Tab tampilan | Garis bawah indigo-600 |
-| Tombol utama | Solid indigo-600, teks putih |
-| Avatar | Kotak membulat, inisial indigo-700 di atas indigo-100 |
+| Permukaan | `bg` #fff, `side` #f7f7f5 (sidebar hangat), `page` #fff, `hover` #f0f0ee, `active` #e9e9e6, `muted-bg` #fafafb |
+| Garis | `line` #ebebef, `line2` #e1e1e8, `input` #d9d9e1 |
+| Teks | `fg` #17171c, `fg2` #3d3d47, `muted` #63636f, `faint` #8d8d99 |
+| Aksen | `accent` #5b5bd6, `accent-soft` #f0f0fe, `accent-fg` #4747c2 |
+| Status | `success` #1c7f45, `warn` #a35407, `danger` #cf2e2e, `info` #1d63c9 (masing-masing `-soft`) |
+| Prioritas (C) | P1 merah solid, P2 oranye lembut, P3 kuning lembut, P4 abu (`.app-prio[data-p]`) |
+| Font | Geist 400/500/600, Geist Mono 400/500 (kode, kunci, slug). Teks dasar 13px |
+| Radius | tombol/input 6px, kartu 10px, panel utama 12px |
+| Ikon | Tabler 3.51.0 outline, 16px, stroke 1.75 (`icon(name=...)`) |
+| Palet project | 18 warna `views::palette::COLORS` + warna custom hex; warna bawaan dari kunci (`color_for`) |
 
-## Anatomi halaman (2026-11-12)
-
-Rancangan: `docs/superpowers/specs/2026-11-12-pustaka-komponen-design.md`. Semua halaman aplikasi:
+## Kerangka halaman
 
 ```
-sidebar │ topbar: breadcrumb Workspace / Project / Bagian
-        │ [subnav] │ kepala: [leading] judul + deskripsi        [actions]
-        │          │ [tabs]
-        │          │ main: panel, tabel, form
+sidebar 256px │ topbar 48px: ☰ workspace / ● project / … (breadcrumb)
+(menu app atau│ pbar: tab tampilan project ………………………… aksi
+ menu         │ konten (narrow 760 | mid 1040 | wide):
+ Pengaturan)  │   kepala halaman: [logo] judul + deskripsi        [aksi]
+              │   stats · card · grid · subpage
 ```
 
-| Layout | Isi | Dipakai |
+| Layout | Block | Dipakai |
 |---|---|---|
-| `layouts/app.html` | sidebar, topbar + breadcrumb (`shell.area`), banner hapus, flash | jangan langsung |
-| `layouts/page.html` | block `heading`, `description`, `leading`, `actions`, `tabs`, `main`, `aside`, `width` (`wide`/`narrow` 56rem), `page_attrs` | beranda, buat workspace/project, pilih, keluar |
-| `layouts/settings.html` | page + subnav Pengaturan (`shell.subnav`, `views::nav::settings_nav`), narrow | Pengaturan workspace (Anggota, Role, Audit: wide) |
-| `layouts/account.html` | page + subnav Akun, narrow | Akun |
-| `layouts/project.html` | page + key_tile, nama, deskripsi, tab (`views::nav::project_tabs`) | Ringkasan project |
-| `layouts/project_settings.html` | project + subnav Umum/Akses/Repo di `.app-split`; block `settings_main` | Pengaturan project |
+| `layouts/base.html` | `title`, `body`; memuat theme.js (head) dan semua JS `defer` | — |
+| `layouts/app.html` | `title`, `crumb`, `tabs`, `mtabs`, `actions`, `width`, `content`; sidebar dari `side` (`views::nav::side_nav`), banner hapus workspace, flash (sukses → toast) | jangan langsung |
+| `layouts/page.html` | + `leading`, `heading`, `description`, `head_actions`, `main`, `page_attrs` | beranda, halaman umum |
+| `layouts/project.html` | page + `project_tabs` di pbar, logo project | ringkasan project (dan tampilan M2+) |
+| `layouts/settings.html` | `crumb_label`, `settings`, `page_attrs`; sidebar menjadi menu Pengaturan (Akun, Workspace, Project) | semua pengaturan dan akun |
+| `layouts/auth.html` | `heading`, `description`, `card`, `below`; panel kiri gelap alur 4 langkah (B) | masuk, daftar, 2FA, reset, undangan |
+| `layouts/public.html` | `content`, `foot`; satu kolom di tengah | pilih/buat workspace, error |
 
-Navigasi (tab, menu kiri) hanya ditulis di `server/src/views/nav.rs`; item dirender dengan
-`data-nav="<key>"` dan `aria-current="page"`.
+Sidebar dan tab hanya dibangun di `server/src/views/nav.rs` (`side_nav`, `settings_nav`,
+`account_nav`, `project_settings_nav`, `project_views`). Item dirender dengan `data-nav="<key>"` dan
+`aria-current="page"`. Pengaturan tidak muncul sebagai item sidebar: dibuka dari menu profil, lalu
+sidebar berganti menjadi menu Pengaturan dengan "Kembali ke aplikasi".
 
-Komponen (`server/assets/views/components/`, contoh semuanya di `/_dev/ui`): `panel` (default, danger,
-tint; `flush` untuk tabel/daftar), `setting_row`, `tabs`, `subnav`, `table` (header objek `{label,
-hide, sr}`; td `data-hide`, `data-actions`), `action_menu`, `disclosure`, `stat`, `key_tile`,
-`meta_list`, `person`, `field`/`select_field`/`textarea_field` (`hint`, `hide_label`), `button`,
-`badge`, `avatar`, `flash`, `empty_state`, `sidebar_nav`. Pola tata letak di dalam isi: `app-form`,
-`app-form-actions`, `app-inline-form`, `app-toolbar`, `app-stack`, `app-button-row`, `app-columns`
-(2/3 + 1/3), `app-stats`, `app-master-detail`, `app-list`, `app-list-row`, `app-muted`, `app-code`.
-Halaman masuk/daftar tetap `auth/_layout_card.html` (layar terbelah, `app-auth-brand`).
+## Komponen
+
+Semua di `server/assets/views/components/`; parameter lengkap ada di komentar kepala tiap file.
+
+| Komponen | Pakai untuk | Data Rust |
+|---|---|---|
+| `button` | tombol/tautan/pembuka dialog (`dialog="id"`); varian primary, outline, secondary, ghost, destructive, danger, link; ukuran sm, lg, icon, icon-sm | — |
+| `field`, `textarea_field`, `select_field` | isian dengan label, hint, error Fluent (`error`, `error_min/max`), `prefix` | — |
+| `combo` (+ `combo_options`) | pilihan orang/tim yang bisa dicari, satu atau banyak (`multiple`), opsi dari server (`src` → GET `?q=` membalas `combo_options`) | `views::ui::ComboOption` |
+| `color_picker` | 18 warna palet + warna lain (hex) | `palette()` |
+| `uploader` | unggah logo/gambar (klik atau tarik-lepas, langsung submit), hapus | — |
+| `md_editor` | editor markdown Milkdown Crepe dengan Batal/Simpan; tanpa JS jadi textarea | — |
+| `card` | kartu seksi: judul, deskripsi, `count`, tautan "lihat semua", varian danger/accent, `flush` untuk daftar/tabel; `form="<action>"` membungkus kartu dengan `savebar` | — |
+| `savebar` | footer Batal + Simpan perubahan | — |
+| `setting_row` | baris pengaturan (judul + penjelasan kiri, kontrol kanan) di card flush | — |
+| `subpage` | halaman bertab vertikal (varian E): menu kiri + isi satu panel; tiap item = rute server | `[NavItem]` (`desc_key`, `count`, `alert`) |
+| `stats` | 2–4 kartu angka (stat A) dengan tone, penyebut, petunjuk, tautan | `[views::ui::Stat]` |
+| `tabs` | tab garis bawah dengan badge angka | `[NavItem]` |
+| `project_tabs` | tab tampilan project + menu "Lainnya" + dialog "Atur tab" (sematkan, urutkan; tersimpan per user) | `views::nav::ProjectViews` |
+| `datatable` | tabel server-side: cari, filter (menu checkbox + chip), sort, per halaman, nomor halaman, total; body = baris `<tr>` | `views::datatable::{TableSpec, TableView}` |
+| `empty_state` | keadaan kosong jujur (dashed / plain) | — |
+| `dialog` | dialog native; isi `<form><section/><footer/></form>` | — |
+| `action_menu` | menu ⋯ per baris (`app-menu-item`, `data-variant="destructive"`) | — |
+| `flash` | alert info/sukses/peringatan/error di atas konten | — |
+| `avatar`, `person`, `project_logo`, `dot` | identitas orang/project (inisial di atas warna palet, atau gambar) | `palette::initials`, `color_for` |
+| `badge` | status pill (info, ai, gate, success, neutral, destructive, primary, secondary, outline; `code`) | — |
+| `crumb` | bagian breadcrumb di block `crumb` | — |
+
+Pola isi (class): `app-grid[data-cols=duo|two|three]`, `app-stack-v`, `app-form`, `app-form-row`,
+`app-blk`, `app-lrow` (baris daftar), `app-srow`, `app-props` (dl properti), `app-feed`/`app-fe`
+(aktivitas), `app-who`, `app-bar`, `app-link`, `app-code`, `app-hint`, `app-muted`, `app-prio`,
+`app-count`.
+
+### Tabel server-side
+
+1. Definisikan `TableSpec` statis (kolom `ColumnSpec::new(key).sort(..).hide("md").right()`,
+   `FilterSpec`, sort bawaan, per halaman bawaan, kunci placeholder cari).
+2. Controller menerima `Query<Vec<(String, String)>>`, `spec.parse(&query)` → `TableState`
+   (`q`, `sort`, `desc`, `page`, `per`, `filter(key)`), jalankan query DB dengan `offset()`/`per`,
+   hitung total, lalu `TableView::new(&spec, &state, base_path, total).with_filter_options(..)`.
+3. Template: `{% <datatable table={table} empty_title=... > %}<tr>…</tr>{% </datatable> %}` di dalam
+   `card flush={true}`. Semua kontrol adalah GET biasa (jalan tanpa JS); HTMX menukar `#<id>` saja
+   (`hx-select` + `outerMorph`) dan memperbarui URL.
+
+### Combobox dengan opsi dari server
+
+`{{ <combo id=... name=... label=... options={[]} src="/w/acme/people"/> }}`; endpoint GET membaca
+`q`, membalas partial `components/combo_options.html` (hanya `<option>`). GET tidak mengubah data.
 
 ## Status (badge `variant`)
 
-| Variant | Arti | Latar / teks |
-|---|---|---|
-| `info` | Siap dikerjakan, informasi | `#e0f2fe` / `#075985` |
-| `ai` | Dikerjakan AI | indigo-100 / indigo-700 |
-| `gate` | Menunggu gate/persetujuan | `#fef3c7` / `#92400e` |
-| `success` | Selesai, aktif | `#dcfce7` / `#166534` |
-| `neutral` | Diarsipkan, nonaktif | slate-100 / slate-600 |
-| `destructive` | Gagal, kedaluwarsa | `#fee2e2` / `#b91c1c` |
-| `primary`, `secondary`, `outline` | Varian Basecoat (role, label umum) | — |
+| Variant | Arti |
+|---|---|
+| `info` | Siap dikerjakan, informasi |
+| `ai` | Dikerjakan AI |
+| `gate` | Menunggu gate/persetujuan |
+| `success` | Selesai, aktif |
+| `neutral` | Diarsipkan, nonaktif, label umum |
+| `destructive` | Gagal, kedaluwarsa |
+| `primary`, `secondary`, `outline` | Varian Basecoat (role, label umum) |
 
-Badge berisi kode/ID memakai `code={true}` (font mono).
+## M2+ (dari prototype)
 
-## Tipe tiket dan prioritas (M2+)
-
-Story `--ag-type-story` `#15803d`, Bug `--ag-type-bug` `#b91c1c`, Task `--ag-type-task` `#1d4ed8`.
-Prioritas: Tinggi `--ag-priority-high`, Sedang `--ag-priority-medium`, Rendah `--ag-priority-low`.
-
-## Kartu tiket (M2)
-
-Isi lengkap: baris atas kunci (mono) + tipe + prioritas; judul; chip gate (`gate`) bila menunggu;
-progres stage (5 segmen indigo-600 / slate-200) + teks stage mono; baris bawah nomor PR (mono) dan
-penanggung jawab (chip agent indigo-50 atau avatar). Kolom board memakai `ag-tint`.
+Board varian C (kartu tiket `ticketCard` di prototype), prioritas C (`app-prio`), panel detail
+tiket di kanan board. Pakai `screens-m2-m3.js` dst. sebagai acuan markup; komponen baru masuk
+katalog `/_dev/ui` di commit yang sama.

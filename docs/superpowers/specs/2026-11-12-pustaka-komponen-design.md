@@ -1,72 +1,74 @@
 # Pustaka Komponen & Kerangka Halaman
 
-Tanggal: 2026-11-12 · Status: dibangun di `feature/ui-library`, menunggu persetujuan user lewat screenshot
+Tanggal: 2026-11-12 · Status: revisi 2 — desain "Tenang" disetujui pemilik produk (prototype
+`docs/reference/ui-prototype/`), diterapkan di `feature/ui-tenang`. Revisi 1 (sidebar indigo, panel
+flat, IBM Plex) digantikan seluruhnya.
 
 ## Maksud
 
-User menilai UI masih jauh dari Jira/ClickUp/Asana: komponen kurang reusable, layout tidak konsisten.
-Akar masalahnya ada di cara halaman dibangun. Setiap halaman menyusun sendiri header, card + tabel,
-baris pengaturan, dan menu kiri dengan class Tailwind lokal, dan parameter `class` dipakai untuk
-mengubah tampilan (melanggar `loco-project-rules.md` §UI). Arah visual dirujuk dari skill
-`ui-ux-pro-max`: untuk tool produktivitas, *Flat + Minimalism/Swiss*, informasi padat tapi terbaca,
-hierarki lewat tipografi dan jarak, satu aksi utama per layar.
+Revisi 1 menyatukan anatomi halaman tetapi tampilannya masih dinilai lemah. Pemilik produk memilih
+arah "Tenang" yang mirip Linear: sidebar netral hangat, area kerja putih melayang, tipografi Geist
+13px, aksen indigo lembut `#5b5bd6`, kartu seksi dengan judul di dalam kartu, tab garis bawah, dan
+mode gelap. Pustaka komponen ditulis ulang supaya halaman M0–M1 dan M2–M12 merangkai komponen yang
+sama.
 
 ## Tujuan / non-tujuan / anti-tujuan
 
-- **Tujuan**: setiap halaman aplikasi punya anatomi yang sama dan hanya *merangkai* komponen. Navigasi
-  (tab, menu kiri) dibangun dari data Rust, bukan ditulis ulang di template.
-- **Non-tujuan**: dark mode; board tiket (M2, tetapi panel/kolom memakai komponen di sini).
-- **Anti-tujuan**: class tampilan di halaman; parameter `class` untuk warna/ukuran/padding; komponen
-  dengan nama lain untuk hal yang sama; struktur halaman berbeda per jenis halaman.
+- **Tujuan**: setiap halaman hanya merangkai komponen; navigasi (sidebar, tab, sub-halaman) dibangun
+  dari data Rust; tabel besar server-side; komponen form lengkap (combobox, warna, unggah, editor).
+- **Non-tujuan**: board tiket dan panel detail (M2) — pustaka menyediakan dasarnya (`app-prio`,
+  badge status, card).
+- **Anti-tujuan**: class tampilan di halaman; data palsu untuk fitur yang belum dibangun; panel JS
+  yang menyembunyikan sub-halaman (setiap sub-halaman adalah rute server).
 
-## Anatomi halaman (sama untuk semua halaman aplikasi)
+## Anatomi halaman
 
 ```
-┌ sidebar ┬──────────────────────────────────────────────────────────┐
-│ indigo  │ topbar 56px: breadcrumb (Workspace › Project › Bagian)   │
-│         ├──────────────────────────────────────────────────────────┤
-│         │ [subnav]  │ page head: judul + deskripsi      [aksi]     │
-│         │ (opsional)│ tab (opsional)                               │
-│         │           │ body: panel / tabel / form                   │
-└─────────┴──────────────────────────────────────────────────────────┘
+┌ sidebar 256 ─┬ topbar 48: ☰  workspace / ● project / bagian ────────────────┐
+│ workspace ▾  ├ pbar: Ringkasan  Board  Daftar  Backlog  Lainnya ▾ ……… aksi ┤
+│ Beranda      │ konten (narrow 760 | mid 1040 | wide)                        │
+│ PROJECT  +   │   kepala: [logo] judul + deskripsi                  [aksi]   │
+│ ● Website    │   stats                                                       │
+│   Board …    │   card │ card                                                 │
+│ (profil ⋯)   │                                                              │
+└──────────────┴──────────────────────────────────────────────────────────────┘
 ```
 
-- `layouts/app.html`: sidebar + topbar (breadcrumb dari `shell`) + slot konten.
-- `layouts/page.html`: block `heading`, `description`, `actions`, `tabs`, `body`, `width`
-  (`wide` = penuh, untuk tabel/board; `narrow` = maks 56rem, untuk form/pengaturan), dan `aside`
-  (menu kiri; bila diisi, menu berada di samping seluruh kepala + isi).
-- Pengaturan workspace dan Akun memakai menu kiri dari `shell.subnav` (Rust, `views::nav`);
-  halaman project memakai tab dari `views::nav::project_tabs`.
+- `layouts/app.html` (shell A): sidebar `app-side` dari `side` (`views::nav::side_nav`), topbar
+  breadcrumb, pbar (tab + aksi, otomatis disembunyikan bila kosong), banner hapus workspace, flash
+  (sukses → toast Basecoat), laci di < 900px.
+- `layouts/page.html`: kepala halaman + `main`. `layouts/project.html`: `project_tabs` di pbar.
+- `layouts/settings.html`: akun, pengaturan workspace, dan pengaturan project berbagi satu menu
+  Pengaturan di sidebar (Kembali ke aplikasi · Akun · Workspace · Project). Halaman dengan beberapa
+  bagian memakai `subpage` (varian E) yang item-itemnya rute server.
+- `layouts/auth.html` (B): panel gelap "alur 4 langkah" + kolom form 360px.
+  `layouts/public.html`: satu kolom di tengah.
 
-## Perubahan visual
+## Komponen
 
-- Kanvas putih (bukan slate-50), panel bergaris slate-200 radius 8px tanpa bayangan (gaya *flat*).
-  Tint indigo hanya untuk penanda: item aktif, kolom board, kotak kunci project, area ringkasan.
-- Topbar putih bergaris bawah, breadcrumb 13px. Judul halaman 20px/600, judul panel 15px/600,
-  teks 14px, meta 13px, label tabel 12px/500.
-- Ritme jarak 4/8: padding halaman 24px (32px ≥ lg), jarak antarpanel 24px, isi panel 20px, baris
-  tabel ≥ 44px dengan hover slate-50.
+Daftar lengkap dan cara pakai: `docs/reference/design-system.md`. Ringkasnya: `button`, `field`,
+`textarea_field`, `select_field`, `combo`/`combo_options`, `color_picker`, `uploader`, `md_editor`,
+`card`, `savebar`, `setting_row`, `subpage`, `stats`, `tabs`, `project_tabs`, `datatable`,
+`empty_state`, `dialog`, `action_menu`, `flash`, `avatar`, `person`, `project_logo`, `dot`,
+`badge`, `crumb`. Dihapus dari revisi 1: `panel`, `subnav`, `stat`, `key_tile`, `meta_list`,
+`disclosure`, `sidebar_nav`, `layouts/account.html`, `layouts/project_settings.html`,
+`auth/_layout_card.html`.
 
-## Komponen (lapisan 4) dan CSS (lapisan 3, prefiks `app-`)
+Data Rust: `views::nav` (sidebar, tab, sub-halaman), `views::datatable` (spec → state → view),
+`views::ui::{Stat, ComboOption}`, `views::palette` (18 warna, inisial, warna dari seed; fungsi Tera
+`palette()`).
 
-| Komponen | Isi | Varian |
-|---|---|---|
-| `panel` | judul, deskripsi, tautan aksi, isi | `default`, `danger`, `flush` (isi tanpa padding: tabel/daftar) |
-| `setting_row` | judul + penjelasan kiri, kontrol kanan | — |
-| `tabs` | tab tautan dari `items` | item: aktif, `soon` (nonaktif + label "segera") |
-| `subnav` | menu kiri dari `items`, judul kecil | sama |
-| `stat` | label, nilai, ikon | — |
-| `action_menu` | tombol ⋯ + popover berisi form | — |
-| `key_tile` | kotak kode project mono | `md`, `lg` |
-| `meta_list` | daftar label → nilai | nilai `mono` |
-| `select_field`, `textarea_field` | label + kontrol + error (pasangan `field`) | `hide_label` |
-| `table` | kini punya `flush` lewat panel | — |
-| yang ada | `button`, `badge`, `avatar`, `field`, `flash`, `empty_state` | tetap |
+## Keputusan
 
-`page_header` dan `card` dihapus setelah semua halaman pindah (digantikan layout halaman dan `panel`).
+- Kontrol form memakai class `app-*` sendiri, bukan `.input`/`.field` Basecoat (selector Basecoat
+  terlalu spesifik untuk ditimpa rapi). Basecoat tetap dipakai untuk tombol, dropdown/popover,
+  dialog, toast, alert, tabel, dan ditimpa di `@layer components`.
+- Tab tampilan project bisa disematkan dan diurutkan per user (disimpan di server, POST); tampilan
+  yang belum ada (M2+) tampil "segera".
+- Tabel memakai form GET biasa sehingga bekerja tanpa JS; HTMX hanya mempercepat (swap region).
+- Mode gelap mengikuti sistem sampai user memilih.
 
-## Yang diserahkan ke builder
+## Verifikasi
 
-Nama block persis, isi breadcrumb per jenis halaman, dan pemetaan halaman lama ke komponen baru.
-Verifikasi: `bin/ci` hijau, katalog `/_dev/ui` merender semua komponen + contoh halaman, screenshot
-desktop 1280 dan HP 390 untuk persetujuan user sebelum diterapkan ke semua halaman.
+`bin/ci` hijau; katalog `/_dev/ui` merender semua komponen (dengan tes); screenshot Playwright
+desktop, 390px, dan gelap dibandingkan dengan prototype.

@@ -75,3 +75,13 @@ table-range = { $from }–{ $to } dari { $total }
 table-zero = Tidak ada data
 table-no-match = Tidak ada yang cocok
 table-no-match-hint = Coba kata kunci lain atau lepas filter.
+
+## Katalog /_dev/ui (hanya development)
+dev-col-name = Nama
+dev-col-role = Role
+dev-search = Cari nama atau email…
+dev-stat-open = Tiket terbuka
+dev-stat-waiting = Menunggu Anda
+dev-stat-agents = Agent bekerja
+dev-stat-done = Selesai
+dev-stat-hint = di { $value } project

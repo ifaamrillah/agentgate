@@ -1,10 +1,14 @@
 //! Katalog komponen `/_dev/ui`. Data contoh statis (tanpa database), termasuk shell dengan
-//! workspace dan project supaya sidebar lengkap ikut terlihat.
+//! workspace dan project supaya sidebar lengkap ikut terlihat. Tabel contoh memakai
+//! `views::datatable` sungguhan atas data di memori, jadi sort/filter/halaman bisa dicoba.
 use loco_rs::prelude::*;
 
 use super::{
+    datatable::{ColumnSpec, FilterOption, FilterSpec, TableSpec, TableView},
     layout::{AppShell, ProjectLink, UserView, WorkspaceLink, WorkspaceView, app_page},
     nav,
+    palette,
+    ui::{ComboOption, Stat},
 };
 
 fn sample_shell() -> AppShell {
@@ -20,17 +24,116 @@ fn sample_shell() -> AppShell {
         ])
         .with_current_project(ProjectLink::new("acme", "Website", "WEB"))
         .can_manage_workspace(true)
+        .with_new_project_href(Some("/w/acme/projects/new".into()))
 }
 
-pub fn ui(v: &impl ViewRenderer) -> Result<Response> {
+const PEOPLE: &[(&str, &str, &str)] = &[
+    ("Ana Nugraha", "ana@agentgate.test", "owner"),
+    ("Budi Santoso", "budi@agentgate.test", "member"),
+    ("Citra Lestari", "citra@agentgate.test", "admin"),
+    ("Dewi Kusuma", "dewi@agentgate.test", "member"),
+    ("Eko Saputra", "eko@agentgate.test", "viewer"),
+    ("Fajar Nugroho", "fajar@agentgate.test", "member"),
+    ("Gita Permata", "gita@agentgate.test", "member"),
+    ("Hendra Gunawan", "hendra@agentgate.test", "admin"),
+    ("Indah Sari", "indah@agentgate.test", "viewer"),
+    ("Joko Pratama", "joko@agentgate.test", "member"),
+    ("Kartika Dewi", "kartika@agentgate.test", "member"),
+    ("Lina Marlina", "lina@agentgate.test", "member"),
+];
+
+static COLUMNS: &[ColumnSpec] = &[
+    ColumnSpec::new("dev-col-name").sort("name"),
+    ColumnSpec::new("dev-col-role").sort("role").hide("md"),
+    ColumnSpec::new("").right(),
+];
+static FILTERS: &[FilterSpec] = &[FilterSpec {
+    key: "role",
+    label_key: "dev-col-role",
+    icon: "key",
+}];
+/// Tabel contoh katalog (id DOM `catalog-table`).
+pub const SAMPLE_TABLE: TableSpec = TableSpec {
+    id: "catalog-table",
+    columns: COLUMNS,
+    filters: FILTERS,
+    default_sort: "name",
+    default_desc: false,
+    default_per: 10,
+    search_key: Some("dev-search"),
+};
+
+#[derive(serde::Serialize)]
+struct Row {
+    name: &'static str,
+    email: &'static str,
+    role: &'static str,
+    initials: String,
+    color: &'static str,
+}
+
+pub fn ui(v: &impl ViewRenderer, query: &[(String, String)]) -> Result<Response> {
+    let state = SAMPLE_TABLE.parse(query);
+    let mut rows: Vec<Row> = PEOPLE
+        .iter()
+        .filter(|(name, email, _)| {
+            state.query().is_none_or(|q| {
+                let q = q.to_lowercase();
+                name.to_lowercase().contains(&q) || email.contains(&q)
+            })
+        })
+        .filter(|(.., role)| {
+            let roles = state.filter("role");
+            roles.is_empty() || roles.iter().any(|r| r == role)
+        })
+        .map(|&(name, email, role)| Row {
+            name,
+            email,
+            role,
+            initials: palette::initials(name, email),
+            color: palette::color_for(email),
+        })
+        .collect();
+    rows.sort_by(|a, b| match state.sort {
+        "role" => a.role.cmp(b.role).then(a.name.cmp(b.name)),
+        _ => a.name.cmp(b.name),
+    });
+    if state.desc {
+        rows.reverse();
+    }
+    let total = rows.len() as u64;
+    let table = TableView::new(&SAMPLE_TABLE, &state, "/_dev/ui", total).with_filter_options(
+        "role",
+        ["owner", "admin", "member", "viewer"]
+            .iter()
+            .map(|r| FilterOption::raw(r, r))
+            .collect(),
+    );
+    let offset = usize::try_from((table.page - 1) * table.per).unwrap_or(0);
+    let per = usize::try_from(table.per).unwrap_or(10);
+    let page_rows: Vec<&Row> = rows.iter().skip(offset).take(per).collect();
+    let people: Vec<ComboOption> = PEOPLE
+        .iter()
+        .map(|(name, email, role)| ComboOption::person(email, name, email).group(role))
+        .collect();
     format::render().view(
         v,
         "dev/ui.html",
         app_page(
             &sample_shell(),
             data!({
-                "tabs": nav::project_tabs("/_dev/ui", Some("/_dev/ui#tabs"), "overview"),
+                "tabs": nav::mark(nav::account_nav(), "password"),
                 "subnav": nav::mark(nav::account_nav(), "password"),
+                "views": nav::project_views("/_dev/ui", &[], "overview"),
+                "stats": [
+                    Stat::new("dev-stat-open", 24, "ticket").hint("dev-stat-hint", 3).link("/_dev/ui#stats"),
+                    Stat::new("dev-stat-waiting", 4, "eye").tone("warn"),
+                    Stat::new("dev-stat-agents", 3, "sparkles").tone("accent"),
+                    Stat::new("dev-stat-done", 12, "circle-check").of(31).tone("success"),
+                ],
+                "people": people,
+                "table": table,
+                "rows": page_rows,
             }),
         ),
     )

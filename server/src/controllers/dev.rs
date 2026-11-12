@@ -5,8 +5,11 @@ use loco_rs::prelude::*;
 use crate::views;
 
 #[debug_handler]
-async fn ui(ViewEngine(v): ViewEngine<TeraView>) -> Result<Response> {
-    views::dev::ui(&v)
+async fn ui(
+    ViewEngine(v): ViewEngine<TeraView>,
+    Query(query): Query<Vec<(String, String)>>,
+) -> Result<Response> {
+    views::dev::ui(&v, &query)
 }
 
 /// Dipakai tes CSRF: POST/DELETE yang lolos membalas 200.
