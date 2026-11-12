@@ -23,14 +23,14 @@
 - [x] **2. Data menu dan palet di Rust.** `views::palette` (18 warna, warna dari seed, inisial), `views::nav::side_nav` (menu aplikasi / menu Pengaturan), `views::nav::project_views`, `views::datatable`, `views::ui::{Stat, ComboOption}`.
 - [x] **3. Komponen Tera.** button, field, textarea_field, select_field, combo (+ combo_options), card, savebar, subpage, stats, tabs, empty_state, dialog, flash, avatar, project_logo, person, setting_row, action_menu, color_picker, uploader, datatable, project_tabs, dot, crumb.
 - [x] **4. Layout.** base (theme.js di head), app (shell A), page, project (bar tab tampilan), settings (menu Pengaturan), auth (split B), public (solo).
-- [ ] **5. Halaman autentikasi, solo, error, akun** → `layouts/auth.html`, `layouts/public.html`, `layouts/settings.html`.
-- [ ] **6. Beranda, project, pengaturan project.** Stats + card; logo project (unggah/hapus, Loco storage) + warna (color picker); tab tampilan per user (kolom `users.project_views`, POST `/account/project-views`); akses project dengan combobox.
-- [ ] **7. Pengaturan workspace.** Umum (subpage E), Anggota (datatable server-side, kolom Tim, filter role/tim/2FA), Tim, Jabatan, Role, Audit log (datatable); endpoint combobox orang/tim.
-- [ ] **8. Katalog `/_dev/ui`** memuat semua komponen; tes layout (`dev_ui`, `contracts/views`, `home`) diperbarui.
-- [ ] **9. Tes baru:** unggah logo (tipe dari isi berkas, batas ukuran, akses), pagination/sort/filter tabel, endpoint combobox, simpan tab tampilan.
-- [ ] **10. Screenshot Playwright** desktop 1440px, 390px, mode gelap; bandingkan dengan prototype dan perbaiki.
-- [ ] **11. Dokumentasi:** `docs/reference/design-system.md` (pemakaian komponen), `docs/superpowers/specs/2026-11-12-pustaka-komponen-design.md`.
-- [ ] **12. `bin/ci` hijau**, merge `--no-ff` ke `staging`, `docs/PROGRESS.md` (keputusan + utang teknis), commit.
+- [x] **5. Halaman autentikasi, solo, error, akun** → `layouts/auth.html`, `layouts/public.html`, `layouts/settings.html`.
+- [x] **6. Beranda, project, pengaturan project.** Stats + card; logo project (unggah/hapus, Loco storage) + warna (color picker); tab tampilan per user (kolom `users.project_views`, POST `/account/project-views`); akses project dengan combobox.
+- [x] **7. Pengaturan workspace.** Umum (subpage E), Anggota (datatable server-side, kolom Tim, filter role/tim/2FA), Tim, Jabatan, Role, Audit log (datatable); endpoint combobox orang/tim.
+- [x] **8. Katalog `/_dev/ui`** memuat semua komponen; tes layout (`dev_ui`, `contracts/views`, `home`) diperbarui.
+- [x] **9. Tes baru:** unggah logo (tipe dari isi berkas, batas ukuran, akses), pagination/sort/filter tabel, endpoint combobox, simpan tab tampilan.
+- [x] **10. Screenshot Playwright** desktop 1440px, 390px, mode gelap; bandingkan dengan prototype dan perbaiki.
+- [x] **11. Dokumentasi:** `docs/reference/design-system.md` (pemakaian komponen), `docs/superpowers/specs/2026-11-12-pustaka-komponen-design.md`.
+- [x] **12. `bin/ci` hijau**, merge `--no-ff` ke `staging`, `docs/PROGRESS.md` (keputusan + utang teknis), commit.
 
 ## Keputusan desain
 

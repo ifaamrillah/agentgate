@@ -8,6 +8,7 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 |---|---|---|
 | M0 Fondasi | selesai (2026-11-11) | `bin/ci` hijau, `/_health` jalan, 3 spike tertulis |
 | M1 Identitas & tenancy | selesai (2026-11-11) | Akun, 2FA, OAuth (fake di test), workspace/role/undangan/tim/project/repo, audit log, hapus workspace |
+| UI "Tenang" | selesai (2026-11-12) | Desain prototype diterapkan ke semua halaman M0–M1; pustaka komponen untuk M2–M12 (`docs/reference/design-system.md`) |
 | M2 Tiket & board | belum mulai | |
 | M3 Workflow & gate | belum mulai | |
 | M4 MCP & persona | belum mulai | |
@@ -46,7 +47,16 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 | 2026-11-11 | Wajib 2FA dan hapus workspace hanya untuk Owner bawaan; hapus perlu ketik slug, tenggat 30 hari, purge oleh task `cleanup` 03:00 UTC (10:00 WIB) | Aksi paling berisiko tetap di tangan pemilik |
 | 2026-11-11 | Audit log ditulis di transaksi yang sama dengan perubahannya; kolom `changes` jsonb bebas bentuk | Payload berbeda per aksi |
 | 2026-11-11 | `bin/dev` menjalankan server + worker antrean (`--server-and-worker`); scheduler tidak jalan di dev | Email dev harus sampai ke Mailpit |
-| 2026-11-12 | Tata letak per halaman dipilih user (1A, 2A+card, 3B, 4A, 5A, 6C, 7A, 8B): kerangka `layouts/{project,project_settings,settings,account}.html`, layar masuk terbelah | Detail di `docs/reference/design-system.md` § Tata letak per halaman |
+| 2026-11-12 | ~~Tata letak per halaman 1A…8B~~ digantikan desain **Tenang** (prototype `docs/reference/ui-prototype/`, varian shell A, sec A, subnav E, table A, stat A, board C, prio C, auth B); font Geist/Geist Mono di-vendor, mode gelap via `html.dark` (`theme.js`) | Dipilih pemilik produk |
+| 2026-11-12 | Kontrol form memakai class sendiri (`app-input`, `app-check`, `app-switch`, `app-radio`), bukan `.input`/`.field` Basecoat; Basecoat tetap untuk tombol, dropdown, dialog, toast, alert, tabel | Selector Basecoat terlalu spesifik untuk ditimpa rapi |
+| 2026-11-12 | Akun, pengaturan workspace, dan pengaturan project berbagi satu menu Pengaturan di sidebar (dibuka dari menu profil); sub-halaman subpage E adalah rute server (`/settings`, `/settings/security`, `/settings/danger`) | Prototype `NAV_SETTINGS`; tanpa panel JS |
+| 2026-11-12 | Flash sukses tampil sebagai toast; info/peringatan/error sebagai alert | Prototype |
+| 2026-11-12 | Tabel besar server-side (`views::datatable`): form GET biasa, HTMX menukar region (`hx-select` + `outerMorph`), URL ikut berubah; anggota memakai limit/offset + count di DB. Audit log tetap pagination keyset (lebih lama/terbaru) | Bekerja tanpa JS; audit tidak bergeser saat kejadian baru masuk |
+| 2026-11-12 | Tab tampilan project disematkan/diurutkan per user (`users.project_views`, POST `/account/project-views`) | Aturan UX 9 |
+| 2026-11-12 | Logo project lewat Loco storage (disk di dev/staging/prod, memori di tes), PNG/JPEG/WebP ≤ 1 MB dicek dari isi berkas, SVG ditolak; disajikan controller dengan cek akses project (404); warna project `projects.color` (hex) | Aturan §8; SVG butuh sanitasi |
+| 2026-11-12 | Endpoint combobox `GET /w/{slug}/people?q=` membalas `<option>` (partial) | Pilihan orang yang bisa dicari tanpa memuat semua anggota |
+| 2026-11-12 | Sapaan UI "Anda" (bukan "kamu") di semua teks Fluent | Mengikuti prototype |
+| 2026-11-12 | `connect_timeout` pool DB tes 5 detik (sebelumnya 500ms) | Tes throttle burst 12 login gagal 500 karena acquire koneksi habis waktu |
 
 ## Temuan spike yang mengubah rencana
 
@@ -75,6 +85,12 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
   belum menghapus TOTP. Undangan (kirim/ulang/cabut) masih memakai role pelaku dari awal request.
 - **Deploy**: lockout login per IP memakai IP klien dari proxy; pastikan reverse proxy meneruskan IP asli,
   kalau tidak satu IP proxy bisa mengunci login semua orang.
+- **UI Tenang (2026-11-12)**: logo project di staging/prod masih disk lokal (`STORAGE_DIR`), S3 (`storage_aws_s3`)
+  belum diaktifkan (M12). SVG logo ditolak sampai ada sanitasi. Akses project belum memakai combobox `src`; tabel
+  Tim/Jabatan/Role belum datatable (data kecil), tanpa bulk action. Detail audit hanya tampil bila baris
+  terpilih ada di halaman yang dibuka. Profil akun belum punya foto/sesi aktif/akun terhubung; workspace belum
+  punya logo dan "Metode masuk" per workspace (tidak ada di backend M1). Tombol salin/unduh kode pemulihan
+  belum ada. Editor `md_editor` (Crepe, ~2,8 MB, dimuat lazy) belum dipakai halaman mana pun sampai M2.
 - Role custom tidak pernah menjadi "admin di semua project": hanya Owner/Admin bawaan yang boleh menugaskan
   role Admin bawaan (termasuk di grant project) dan mengubah izin role yang dipakai grant project.
 
@@ -86,6 +102,11 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 - Server SMTP untuk staging/production (`MAIL_FROM`, `SMTP_*`).
 
 ## Catatan untuk sesi berikutnya
+
+- Fork/subagen yang men-stub template sementara untuk menjalankan tes **tidak boleh** me-restore file milik orang
+  lain yang belum di-commit (katalog `/_dev/ui` sempat hilang karena ini). Commit dulu sebelum men-stub.
+- Tera memuat semua template saat start: satu template yang merujuk komponen/layout yang sudah dihapus membuat
+  seluruh tes gagal.
 
 - Migration M1 diedit di tempat selama branch belum di-merge. Database dev yang dibuat sebelum M1 di-merge
   perlu `bin/loco db reset` lalu `bin/loco db seed`.
