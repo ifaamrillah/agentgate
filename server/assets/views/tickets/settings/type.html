@@ -22,7 +22,7 @@
   {%- if fields %}
   <div class="app-checks">
   {%- for f in fields %}
-    <label class="app-check"><input type="checkbox" class="input" name="field_ids" value="{{ f.id }}"{% if f.checked %} checked{% endif %}> {{ f.name }} <span class="app-hint">· {{ t(key=f.kind_key, lang="id") }}{% if f.required %} · {{ t(key="custom-field-required", lang="id") }}{% endif %}</span></label>
+    <label class="app-check-row"><input type="checkbox" class="app-check" name="field_ids" value="{{ f.id }}"{% if f.checked %} checked{% endif %}> {{ f.name }} <span class="app-hint">· {{ t(key=f.kind_key, lang="id") }}{% if f.required %} · {{ t(key="custom-field-required", lang="id") }}{% endif %}</span></label>
   {%- endfor %}
   </div>
   {%- else %}{{ <empty_state title={t(key="custom-fields-empty-title", lang="id")} description={t(key="custom-fields-empty-description", lang="id")} icon="forms" variant="plain"/> }}{% endif %}

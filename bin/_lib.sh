@@ -101,7 +101,17 @@ ag_ensure_shared() {
   done
   if ! ag_compose_shared ps --status running --services 2>/dev/null | grep -qx db; then
     ag_compose_shared --progress quiet up -d --wait >&2 || ag_die "gagal menyalakan layanan bersama (db, s3, mailpit)"
+    ag_ensure_bucket
   fi
+}
+
+# Bucket S3 dev (lampiran tiket, logo) di SeaweedFS bersama, dipastikan setiap layanan bersama
+# dinyalakan. Idempoten: bucket yang sudah ada dibiarkan. Hanya menyentuh container layanan bersama agentgate-rs-shared.
+AG_S3_BUCKET="agentgate-dev"
+ag_ensure_bucket() {
+  ag_compose_shared exec -T s3 sh -c "echo s3.bucket.list | weed shell 2>/dev/null | grep -qw $AG_S3_BUCKET \
+    || echo 's3.bucket.create -name $AG_S3_BUCKET' | weed shell >/dev/null 2>&1" \
+    || ag_die "gagal membuat bucket S3 dev $AG_S3_BUCKET"
 }
 
 # Container app checkout ini. Port dipilih saat container dibuat; selama container hidup,

@@ -136,10 +136,15 @@ auth:
       # <% endif %>
     # <% endif %>
 
-# File upload (logo project): disk di folder storage/ (gitignored). DB menyimpan key, bukan path.
+# File upload (logo project, lampiran tiket): S3 SeaweedFS bersama (docker/compose.shared.yaml),
+# bucket dibuat bin/_lib.sh. Kredensial dev dari docker/seaweedfs/s3.json. DB menyimpan key.
 storage:
-  kind: Local
-  path: <%= get_env(name="STORAGE_DIR", default="storage") %>
+  kind: Aws
+  bucket: <%= get_env(name="S3_BUCKET", default="agentgate-dev") %>
+  region: <%= get_env(name="S3_REGION", default="us-east-1") %>
+  endpoint: <%= get_env(name="S3_ENDPOINT", default="http://s3:8333") %>
+  access_key_id: <%= get_env(name="S3_ACCESS_KEY_ID", default="agentgate") %>
+  secret_access_key: <%= get_env(name="S3_SECRET_ACCESS_KEY", default="agentgate-dev-secret") %>
 
 settings:
   app_name: Agent Gate

@@ -24,7 +24,7 @@
     <a class="app-lrow" href="{{ stat.href }}" data-ticket-stat="{{ stat.status.value }}">
       <span class="app-status" data-status="{{ stat.status.value }}">{{ icon(name=stat.status.icon) }}</span>
       <span class="app-lrow-main"><b>{{ t(key=stat.status.label_key, lang="id") }}</b></span>
-      <span class="app-meter" aria-hidden="true"><span style="--p:{{ stat.percent }}%"></span></span>
+      <span class="app-meter" data-status="{{ stat.status.value }}" aria-hidden="true"><span style="--p:{{ stat.percent }}%"></span></span>
       <span class="app-code app-num">{{ stat.count }}</span>
     </a>
     {%- endfor %}

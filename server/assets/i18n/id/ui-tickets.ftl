@@ -60,7 +60,7 @@ ticket-description-empty = Belum ada deskripsi.
 ticket-unassigned = Belum ada penerima
 ticket-due-none = Tanpa tenggat
 ticket-created = Dibuat
-custom-field-empty = Tipe ini belum punya field custom.
+custom-field-empty = Tidak diisi
 
 ## Tiket baru dan detail
 ticket-new = Tiket baru

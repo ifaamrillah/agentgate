@@ -1,0 +1,126 @@
+/* Tiket & board (M2): status, tipe, label, poin, tenggat, kartu board, kolom, detail tiket,
+   kotak masuk. Prototype: docs/reference/ui-prototype/style.css bagian Board dan screens-m2-m3.js.
+   Warna status: backlog abu, todo info, dikerjakan aksen, selesai sukses. */
+@layer components {
+  /* Status: ikon berwarna (kolom board, statistik) dan pil (daftar, detail). */
+  .app-status { display: inline-flex; align-items: center; color: var(--st, var(--ag-muted)); flex-shrink: 0; }
+  .app-status svg { width: 15px; height: 15px; }
+  :is(.app-status, .app-status-pill, .app-meter)[data-status='backlog'] { --st: var(--ag-muted); --st-bg: var(--ag-hover); }
+  :is(.app-status, .app-status-pill, .app-meter)[data-status='todo'] { --st: var(--ag-info); --st-bg: var(--ag-info-soft); }
+  :is(.app-status, .app-status-pill, .app-meter)[data-status='in_progress'] { --st: var(--ag-accent-fg); --st-bg: var(--ag-accent-soft); }
+  :is(.app-status, .app-status-pill, .app-meter)[data-status='done'] { --st: var(--ag-success); --st-bg: var(--ag-success-soft); }
+  .app-status-pill { height: 22px; padding: 0 8px; border-radius: 11px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; flex-shrink: 0; color: var(--st); background: var(--st-bg); }
+  .app-status-pill svg { width: 13px; height: 13px; }
+
+  /* Ikon tipe tiket: warna dari --c (warna tipe). */
+  .app-type { display: inline-flex; align-items: center; justify-content: center; color: var(--c); flex-shrink: 0; }
+  .app-type svg { width: 15px; height: 15px; }
+  .app-type[data-tile] { width: 36px; height: 36px; border-radius: 9px; background: color-mix(in srgb, var(--c) 14%, transparent); }
+  .app-type[data-tile] svg { width: 18px; height: 18px; }
+
+  .app-prio-wrap { display: inline-flex; align-items: center; gap: 6px; }
+  .app-label-pill { height: 20px; padding: 0 7px; border-radius: 5px; font-size: 11.5px; display: inline-flex; align-items: center; background: var(--ag-hover); color: var(--ag-fg2); white-space: nowrap; max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
+  .app-points { min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; justify-content: center; background: var(--ag-muted-bg); color: var(--ag-muted); border: 1px solid var(--ag-line); }
+  .app-due { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--ag-muted); white-space: nowrap; }
+  .app-due svg { width: 13px; height: 13px; }
+  .app-due[data-overdue] { color: var(--ag-danger); font-weight: 500; }
+  .app-av-empty { width: 22px; height: 22px; border-radius: 50%; border: 1.5px dashed var(--ag-input); flex-shrink: 0; display: inline-block; }
+  .app-tref { display: inline-flex; align-items: center; gap: 6px; color: var(--ag-fg2); white-space: nowrap; }
+  a.app-tref:hover { color: var(--ag-fg); }
+  .app-tcell { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .app-ttitle { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ag-fg); font-weight: 500; }
+  a.app-ttitle:hover { color: var(--ag-accent-fg); }
+  .app-meter { height: 6px; border-radius: 3px; background: var(--ag-hover); overflow: hidden; flex: 0 1 140px; min-width: 60px; }
+  .app-meter > span { display: block; height: 100%; width: var(--p, 0%); background: var(--st, var(--ag-accent)); border-radius: 3px; }
+
+  /* Chip filter cepat (board): putus-putus, aktif = aksen. */
+  .app-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .app-chip { height: 26px; padding: 0 9px; border: 1px dashed var(--ag-input); border-radius: 6px; color: var(--ag-muted); display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; white-space: nowrap; }
+  .app-chip svg { width: 13px; height: 13px; }
+  a.app-chip:hover { border-style: solid; color: var(--ag-fg); }
+  .app-chip[aria-pressed='true'] { border: 1px solid var(--ag-accent); color: var(--ag-accent-fg); background: var(--ag-accent-soft); }
+
+  /* Board: kolom bergulir horizontal; kartu tiket. */
+  .app-board-bar { margin-bottom: 4px; }
+  .app-board-hint { display: inline-flex; align-items: center; gap: 4px; }
+  .app-board-hint svg { width: 14px; height: 14px; }
+  @media (max-width: 899px) { .app-board-hint { display: none; } }
+  .app-board { display: flex; gap: 12px; overflow-x: auto; align-items: flex-start; padding-bottom: 8px; scroll-snap-type: x proximity; }
+  .app-bcol { width: 272px; flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; border-radius: 10px; padding: 4px; min-height: 120px; scroll-snap-align: start; }
+  .app-bcol[data-drop] { background: var(--ag-accent-soft); outline: 2px dashed var(--ag-accent); }
+  .app-bcol-h { height: 30px; padding: 0 6px; display: flex; align-items: center; gap: 8px; }
+  .app-bcol-h h2 { font-size: 13px; font-weight: 500; }
+  .app-bcol-n { color: var(--ag-faint); font-variant-numeric: tabular-nums; }
+  .app-bcol-add { margin-left: auto; width: 24px; height: 24px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; color: var(--ag-faint); }
+  .app-bcol-add:hover { background: var(--ag-hover); color: var(--ag-fg); }
+  .app-bcol-add svg { width: 15px; height: 15px; }
+  .app-bcol-cards { display: grid; gap: 8px; min-height: 40px; }
+  .app-bcol-empty { color: var(--ag-faint); font-size: 12px; text-align: center; padding: 14px 0; border: 1px dashed var(--ag-line2); border-radius: 8px; }
+  @media (max-width: 899px) { .app-bcol { width: 84vw; } }
+
+  .app-tcard { background: var(--ag-raised); border: 1px solid var(--ag-line2); border-radius: 8px; padding: 10px 12px; display: grid; gap: 8px; box-shadow: var(--ag-shadow-sm); position: relative; min-width: 0; }
+  .app-tcard:hover { border-color: var(--ag-input); }
+  .app-tcard[draggable='true'] { cursor: grab; }
+  .app-tcard[data-dragging] { opacity: 0.4; }
+  .app-tcard-top { display: flex; align-items: center; gap: 6px; min-height: 22px; }
+  .app-tcard-code { font-size: 11.5px; color: var(--ag-muted); flex: 1; min-width: 0; }
+  .app-tcard-top .popover > .btn { width: 22px; height: 22px; opacity: 0; }
+  .app-tcard:hover .app-tcard-top .popover > .btn, .app-tcard-top .popover > .btn[aria-expanded='true'], .app-tcard-top .popover > .btn:focus-visible { opacity: 1; }
+  @media (hover: none) { .app-tcard-top .popover > .btn { opacity: 1; } }
+  .app-tcard-title { line-height: 1.4; color: var(--ag-fg); overflow-wrap: anywhere; }
+  .app-tcard-title::after { content: ""; position: absolute; inset: 0; border-radius: 8px; }
+  .app-tcard-title:focus-visible { outline: none; }
+  .app-tcard-title:focus-visible::after { box-shadow: var(--ag-ring); }
+  .app-tcard-top > :is(.popover, .app-av) { position: relative; z-index: 1; }
+  .app-tcard-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .app-tcard-meta:empty { display: none; }
+
+  /* Form tiket baru: savebar di bawah grid. Field custom disembunyikan per tipe (ticket-form.js). */
+  .app-formbar { position: sticky; bottom: 0; z-index: 5; margin-top: 12px; border: 1px solid var(--ag-line); border-radius: 10px; background: var(--ag-raised); }
+  .app-formbar > * { padding: 12px 16px; }
+  .app-custom-field[hidden] { display: none; }
+
+  /* Detail tiket: dua kolom (isi | panel samping), satu kolom di layar sempit. */
+  .app-ticket { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
+  .app-ticket-main, .app-ticket-side { display: grid; gap: 16px; min-width: 0; }
+  @media (max-width: 1099px) { .app-ticket { grid-template-columns: minmax(0, 1fr); } .app-ticket-side { order: -1; } }
+  .app-prose { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.55; color: var(--ag-fg); }
+  .app-card-b > .app-prose { padding: 16px; }
+  .app-fe .app-prose { margin-top: 4px; }
+  .app-inline-form { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 12px 16px; border-top: 1px solid var(--ag-line); }
+  .app-blk > .app-inline-form, .app-inline-form:first-child { border-top: 0; padding: 0; }
+  .app-inline-form > .app-input { width: auto; flex: 1; min-width: 140px; }
+  .app-inline-form > select.app-input { flex: 0 1 180px; }
+  .app-inline-form > .app-field-error { width: 100%; margin: 0; }
+  .app-link-kind { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--ag-muted); white-space: nowrap; min-width: 92px; }
+  .app-link-kind svg { width: 13px; height: 13px; }
+  .app-link-kind[data-blocking] { color: var(--ag-danger); font-weight: 500; }
+  .app-drop { margin: 12px 16px 16px; border: 1px dashed var(--ag-input); border-radius: 10px; padding: 18px; display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; color: var(--ag-muted); text-align: center; }
+  .app-drop > svg { width: 18px; height: 18px; }
+  .app-drop input[type='file'] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+  .app-drop[data-over] { border-color: var(--ag-accent); background: var(--ag-accent-soft); color: var(--ag-accent-fg); }
+  .app-drop > .app-field-error { width: 100%; margin: 0; }
+  .app-form-acts { display: flex; justify-content: flex-end; gap: 8px; }
+  .app-comment-edit { margin-top: 6px; }
+  .app-comment-edit > summary { cursor: pointer; color: var(--ag-muted); font-size: 12px; width: fit-content; }
+  .app-comment-edit[open] { display: grid; gap: 8px; }
+  .app-comment-edit > form:last-child { justify-self: start; }
+  .app-changes { list-style: none; margin: 6px 0 0; padding: 0; }
+  .app-changes li { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12.5px; }
+  .app-changes li svg { width: 12px; height: 12px; color: var(--ag-faint); }
+
+  /* Kotak masuk: seluruh baris tombol (POST tandai dibaca lalu buka tiket). */
+  .app-inbox-item { display: contents; }
+  .app-inbox-item > button.app-lrow { width: 100%; text-align: left; background: none; font: inherit; color: inherit; cursor: pointer; }
+  .app-inbox-item:first-child > button.app-lrow { border-top: 0; }
+  .app-inbox-item > button.app-lrow:hover { background: var(--ag-muted-bg); }
+  .app-lrow[data-unread] .app-lrow-main > span b { font-weight: 600; }
+  .app-unread-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ag-accent); flex-shrink: 0; }
+  .app-pager { display: flex; align-items: center; justify-content: center; gap: 12px; }
+
+  /* Pengaturan tiket: daftar checkbox, pratinjau kode. */
+  .app-checks { display: grid; gap: 10px; }
+  .app-checks .app-check-row { align-items: center; }
+  .app-code-preview { color: var(--ag-muted); font-size: 12.5px; }
+  .app-code-preview .app-code { color: var(--ag-fg); font-weight: 500; }
+}

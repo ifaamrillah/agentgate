@@ -8,12 +8,12 @@
 <div class="app-field"><span class="app-label">{{ t(key="custom-field-kind", lang="id") }}</span><span class="app-input" data-readonly>{{ icon(name="lock") }}{{ t(key=kind_key, lang="id") }}</span></div>
 {%- endif %}
 {{ <textarea_field id="field-options" name="options" label={t(key="custom-field-options", lang="id")} value={form.options} error={form.errors.options.code} error_max={form.errors.options.max} rows={3} hint={t(key="custom-field-options-hint", lang="id")} optional={t(key="field-optional", lang="id")}/> }}
-<label class="app-check"><input type="checkbox" class="input" name="required"{% if form.required %} checked{% endif %}> {{ t(key="custom-field-required", lang="id") }}</label>
+<label class="app-check-row"><input type="checkbox" class="app-check" name="required"{% if form.required %} checked{% endif %}> {{ t(key="custom-field-required", lang="id") }}</label>
 <fieldset class="app-field">
   <legend class="app-label">{{ t(key="custom-field-types", lang="id") }}</legend>
   <div class="app-checks">
   {%- for ty in types %}
-    <label class="app-check"><input type="checkbox" class="input" name="type_ids" value="{{ ty.id }}"{% if ty.id ~ "" in form.type_ids %} checked{% endif %}> {{ ty.name }}</label>
+    <label class="app-check-row"><input type="checkbox" class="app-check" name="type_ids" value="{{ ty.id }}"{% if ty.id ~ "" in form.type_ids %} checked{% endif %}> {{ ty.name }}</label>
   {%- endfor %}
   </div>
 </fieldset>

@@ -56,7 +56,7 @@ async fn component_catalog_renders_shared_components() {
         );
         assert_css_exists(
             &html,
-            ".app-pbar [data-tabs] a[data-nav=\"board\"][aria-disabled=\"true\"]:not([href])",
+            ".app-pbar [data-tabs] a[data-nav=\"board\"][href]",
         );
         assert_css_exists(
             &html,

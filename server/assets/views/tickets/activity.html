@@ -20,9 +20,9 @@
           {%- for c in e.changes %}
           <li data-change="{{ c.field_key }}"><span class="app-hint">{{ t(key=c.field_key, lang="id") }}</span>
             {%- if c.from or c.to %}
-            <s>{% if c.from %}{% if c.translate %}{{ t(key=c.from, lang="id") }}{% else %}{{ c.from | truncate(length=80) }}{% endif %}{% else %}—{% endif %}</s>
+            <del>{% if c.from %}{% if c.translate %}{{ t(key=c.from, lang="id") }}{% else %}{{ c.from | truncate(length=80) }}{% endif %}{% else %}—{% endif %}</del>
             {{ icon(name="arrow-right") }}
-            <b>{% if c.to %}{% if c.translate %}{{ t(key=c.to, lang="id") }}{% else %}{{ c.to | truncate(length=80) }}{% endif %}{% else %}—{% endif %}</b>
+            <strong>{% if c.to %}{% if c.translate %}{{ t(key=c.to, lang="id") }}{% else %}{{ c.to | truncate(length=80) }}{% endif %}{% else %}—{% endif %}</strong>
             {%- else %} {{ t(key="ticket-change-edited", lang="id") }}{% endif %}</li>
           {%- endfor %}
         </ul>

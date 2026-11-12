@@ -77,7 +77,8 @@ fn app_layout_lists_workspaces_and_expands_active_project() {
         &html,
         "aside.app-side a.app-ni[data-nav=\"home\"][href=\"/w/acme\"]",
     );
-    // Project: semua terdaftar dengan titik warna; yang aktif terbuka dengan bagian "segera".
+    // Project: semua terdaftar dengan titik warna; yang aktif terbuka: Board dan Daftar aktif,
+    // Knowledge dan Code graph "segera".
     assert_count(&html, "[data-project-list] a.app-ni:not([data-sub])", 2);
     assert_css_exists(
         &html,
@@ -86,9 +87,17 @@ fn app_layout_lists_workspaces_and_expands_active_project() {
     assert_count(
         &html,
         "[data-project-list] a[data-sub][aria-disabled=\"true\"]:not([href])",
-        4,
+        2,
     );
-    for label in ["Board", "Backlog", "Knowledge", "Code graph"] {
+    assert_css_exists(
+        &html,
+        "[data-project-list] a[data-sub][data-nav=\"board\"][href=\"/w/acme/p/APP/board\"]",
+    );
+    assert_css_exists(
+        &html,
+        "[data-project-list] a[data-sub][data-nav=\"list\"][href=\"/w/acme/p/APP/list\"]",
+    );
+    for label in ["Board", "Daftar", "Knowledge", "Code graph"] {
         assert!(html.contains(label), "{label}");
     }
     // Breadcrumb: workspace / project.
