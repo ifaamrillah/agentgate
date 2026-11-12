@@ -28,6 +28,7 @@
 @import "./components/color-picker.css";
 @import "./components/uploader.css";
 @import "./components/md-editor.css";
+@import "./components/ticket.css";
 @import "./components/auth.css";
 
 @source "../views";

@@ -1,0 +1,29 @@
+{#- Tiket baru di project. Satu form: kiri judul + deskripsi (md_editor), kanan properti (tipe,
+    status, prioritas, penerima, label, story point, tenggat, induk) dan field custom tipe terpilih.
+    Variabel: project, views, views_action, return_to (layouts/project.html), form
+    (TicketFormView), types ([TypeView]), statuses, priorities, people ([ComboOption]), custom
+    ([CustomFieldInput]), paths (BoardPaths). -#}
+{% extends "layouts/project.html" %}
+{% block title %}{{ t(key="ticket-new", lang="id") }} · {{ project.name }}{% endblock title %}
+{% block crumb %}{{ <crumb label={t(key="project-view-board", lang="id")} href={paths.board}/> }}{{ <crumb label={t(key="ticket-new", lang="id")}/> }}{% endblock crumb %}
+{% block page_attrs %}data-ticket-new{% endblock page_attrs %}
+{% block description %}{{ t(key="ticket-new-description", lang="id") }}{% endblock description %}
+{% block main %}
+<form method="post" action="{{ paths.new_ticket }}" class="app-ticket-form" data-ticket-form>
+<div class="app-grid" data-cols="duo">
+  {% <card title={t(key="ticket-section-content", lang="id")}> %}
+    <div class="app-form">
+      {{ <field id="ticket-title" name="title" label={t(key="ticket-field-title", lang="id")} value={form.title} error={form.errors.title.code} error_max={form.errors.title.max} required={true} autofocus={true}/> }}
+      {{ <md_editor id="ticket-description" name="description" label={t(key="ticket-field-description", lang="id")} value={form.description} placeholder={t(key="ticket-description-placeholder", lang="id")} cancel_href={paths.board} save_label={t(key="ticket-create-submit", lang="id")} rows={10}/> }}
+      {%- if form.errors.description.code %}<p class="app-field-error" role="alert">{{ t(key=form.errors.description.code, lang="id", max=form.errors.description.max) }}</p>{% endif %}
+    </div>
+  {% </card> %}
+  {% <card title={t(key="ticket-section-details", lang="id")}> %}
+    <div class="app-form">
+      {%- set id_prefix = "ticket" %}{% include "tickets/_props_fields.html" %}
+    </div>
+  {% </card> %}
+</div>
+<div class="app-formbar">{{ <savebar label={t(key="ticket-create-submit", lang="id")} cancel_href={paths.board}/> }}</div>
+</form>
+{% endblock main %}

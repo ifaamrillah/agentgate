@@ -1,0 +1,21 @@
+{#- Kerangka halaman tiket (Ringkasan, Aktivitas): crumb Board / kode, ikon tipe, judul, kode +
+    status, aksi Ikuti dan menu (buang ke sampah). Variabel: ticket (TicketRow), paths
+    (TicketPaths), board (BoardPaths), watching, can_edit; halaman mengisi `main`. -#}
+{% extends "layouts/page.html" %}
+{% block title %}{{ ticket.code }} · {{ ticket.title }}{% endblock title %}
+{% block width %}wide{% endblock width %}
+{% block crumb %}{{ <crumb label={t(key="project-view-board", lang="id")} href={board.board}/> }}{{ <crumb label={ticket.code}/> }}{% endblock crumb %}
+{% block leading %}{{ <type_icon icon={ticket.ticket_type.icon} color={ticket.ticket_type.color} label={ticket.ticket_type.name} tile={true}/> }}{% endblock leading %}
+{% block heading %}{{ ticket.title }}{% endblock heading %}
+{% block description %}<span class="app-code" data-ticket-code>{{ ticket.code }}</span> · <span class="app-status-pill" data-status="{{ ticket.status.value }}">{{ icon(name=ticket.status.icon) }}{{ t(key=ticket.status.label_key, lang="id") }}</span>{% endblock description %}
+{% block head_actions %}
+  <form method="post" action="{{ paths.watch }}">
+    <input type="hidden" name="watch" value="{% if watching %}0{% else %}1{% endif %}">
+    {%- if watching %}{{ <button label={t(key="ticket-unwatch", lang="id")} icon="eye-off" variant="outline" size="sm" type="submit" attrs="data-watch"/> }}{% else %}{{ <button label={t(key="ticket-watch", lang="id")} icon="eye" variant="outline" size="sm" type="submit" attrs="data-watch"/> }}{% endif %}
+  </form>
+  {%- if can_edit %}
+  {% <action_menu id="ticket-menu" label={t(key="ticket-actions", lang="id", code=ticket.code)}> %}
+    <form method="post" action="{{ paths.delete }}"><button type="submit" class="app-menu-item" data-variant="destructive" data-trash>{{ icon(name="trash") }}{{ t(key="ticket-trash", lang="id") }}</button></form>
+  {% </action_menu> %}
+  {%- endif %}
+{% endblock head_actions %}

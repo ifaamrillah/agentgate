@@ -144,6 +144,23 @@
 {% </card> %}
 </div>
 
+<div id="tickets">
+{% <card title="Tiket (M2)" description="type_icon, prio, pil status, chip filter, label/poin/tenggat, dan ticket_card (board C)."> %}
+  {%- set sample_type = {"icon": "bookmark", "color": "#16a34a", "name": "Story"} %}
+  {%- set sample = {"id": "00000000-0000-0000-0000-000000000001", "code": "KSR-12", "title": "Cetak struk thermal 58 mm", "href": "/_dev/ui", "status_action": "/_dev/echo", "ticket_type": sample_type, "status": {"value": "todo", "label_key": "ticket-status-todo", "icon": "circle"}, "priority": {"rank": 2, "label_key": "ticket-priority-high"}, "labels": ["printer"], "points": 5, "due": "20 Nov", "overdue": true, "assignee": none} %}
+  <div class="app-stack-v" data-gap="sm">
+    <div class="app-bar" data-catalog-ticket-bits>
+      {{ <type_icon icon="bookmark" color="#16a34a" label="Story"/> }}{{ <type_icon icon="bug" color="#dc2626" label="Bug" tile={true}/> }}
+      {%- for r in [1, 2, 3, 4] %}{{ <prio rank={r} label={"P" ~ r}/> }}{% endfor %}{{ <prio rank={1} label="Mendesak" full={true}/> }}
+      {%- for st in [["backlog", "circle-dashed"], ["todo", "circle"], ["in_progress", "circle-half-2"], ["done", "circle-check"]] %}<span class="app-status-pill" data-status="{{ st[0] }}">{{ icon(name=st[1]) }}{{ st[0] }}</span>{% endfor %}
+      <a class="app-chip" href="/_dev/ui" aria-pressed="true">{{ icon(name="user") }}Saya</a><a class="app-chip" href="/_dev/ui">{{ icon(name="circle-dashed") }}Belum ada penerima</a>
+      <span class="app-label-pill">printer</span><span class="app-points">5</span><span class="app-due" data-overdue>{{ icon(name="calendar") }}20 Nov</span>
+    </div>
+    <div class="app-bcol" style="width: 272px" data-column="todo"><div class="app-bcol-cards" data-cards>{{ <ticket_card ticket={sample}/> }}</div></div>
+  </div>
+{% </card> %}
+</div>
+
 <div id="editor">
 {% <card title="md_editor" description="Editor markdown Milkdown Crepe (dimuat saat dipakai); tanpa JS menjadi textarea."> %}
   {{ <md_editor id="catalog-editor" name="body" label="Deskripsi" value="## Tujuan\n\nKasir bisa menerima **QRIS**." action="/_dev/echo" cancel_href="/_dev/ui"/> }}

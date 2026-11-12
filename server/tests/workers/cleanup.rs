@@ -45,6 +45,7 @@ const TENANT_TABLES: &[&str] = &[
     "projects",
     "project_grants",
     "repos",
+    "ticket_types",
 ];
 
 /// Tandai `workspace` terjadwal hapus `days` hari lalu.
@@ -418,6 +419,7 @@ async fn cleanup_is_idempotent() {
         CleanupStep::UserTokens,
         CleanupStep::Invitations,
         CleanupStep::Workspaces,
+        CleanupStep::Tickets,
     ] {
         assert_eq!(second.count(step), 0, "{step:?}");
     }
@@ -573,4 +575,104 @@ async fn cleanup_task_is_dry_run_without_confirm() {
         [false; 5]
     );
     assert_eq!(workspaces::Entity::find().count(&ctx.db).await.unwrap(), 0);
+}
+
+/// Tiket di sampah lebih dari 30 hari dihapus permanen beserta file lampirannya; yang lebih baru
+/// dan yang tidak di sampah tetap.
+#[tokio::test]
+async fn cleanup_purges_tickets_trashed_over_30_days() {
+    use agentgate_server::{
+        models::{ticket_attachments, tickets},
+        services::{
+            tickets::{attachments, create, trash},
+            workspaces::Acting,
+        },
+    };
+
+    let boot = boot_test::<App>().await.unwrap();
+    let ctx = &boot.app_context;
+    let owner = a_user().create(ctx).await;
+    let workspace = a_workspace(&owner).create(ctx).await;
+    let wid = workspace.workspace_id();
+    let project = a_project(ctx, &workspace, "KSR").await;
+    let role = builtin_role(ctx, &workspace, RoleKey::Owner).await;
+    let acting = Acting {
+        workspace: &workspace,
+        user: &owner,
+        role: &role,
+        request_id: None,
+    };
+    let mut ids = Vec::new();
+    for title in ["Lama", "Baru", "Aktif"] {
+        let form = create::TicketForm {
+            input: tickets::TicketInput {
+                title: title.into(),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        ids.push(
+            create::run(&ctx.db, &acting, project.id, &form)
+                .await
+                .unwrap()
+                .id,
+        );
+    }
+    let file = attachments::upload(
+        &ctx.db,
+        &ctx.storage,
+        &acting,
+        ids[0],
+        "a.txt",
+        Some("text/plain"),
+        axum::body::Bytes::from_static(b"isi"),
+    )
+    .await
+    .unwrap();
+    for (id, days) in [(ids[0], 31), (ids[1], 29)] {
+        trash::trash(&ctx.db, &acting, id).await.unwrap();
+        let mut active = tickets::Entity::find_by_id(id)
+            .one(&ctx.db)
+            .await
+            .unwrap()
+            .unwrap()
+            .into_active_model();
+        active.deleted_at = Set(Some((Utc::now() - Duration::days(days)).into()));
+        active.update(&ctx.db).await.unwrap();
+    }
+
+    let report = cleanup::run(ctx).await.unwrap();
+    assert_eq!(report.count(CleanupStep::Tickets), 1);
+    assert_eq!(report.failed(), 0);
+    assert!(
+        tickets::Model::find_in(&ctx.db, wid, ids[0])
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        tickets::Model::find_in(&ctx.db, wid, ids[1])
+            .await
+            .unwrap()
+            .is_some()
+    );
+    assert!(
+        tickets::Model::find_in(&ctx.db, wid, ids[2])
+            .await
+            .unwrap()
+            .is_some()
+    );
+    assert!(
+        ticket_attachments::Entity::find_by_id(file.id)
+            .one(&ctx.db)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        ctx.storage
+            .download::<Vec<u8>>(std::path::Path::new(&file.storage_key))
+            .await
+            .is_err()
+    );
 }

@@ -17,16 +17,24 @@ pub struct Model {
     pub created_by: Option<Uuid>,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
+    #[sea_orm(column_type = "Text")]
+    pub ticket_code_template: String,
+    #[sea_orm(column_type = "Text")]
+    pub ticket_counter_scope: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(has_many = "super::audit_events::Entity")]
     AuditEvents,
+    #[sea_orm(has_one = "super::custom_fields::Entity")]
+    CustomFields,
     #[sea_orm(has_many = "super::invitations::Entity")]
     Invitations,
     #[sea_orm(has_one = "super::job_titles::Entity")]
     JobTitles,
+    #[sea_orm(has_many = "super::notifications::Entity")]
+    Notifications,
     #[sea_orm(has_many = "super::project_grants::Entity")]
     ProjectGrants,
     #[sea_orm(has_one = "super::projects::Entity")]
@@ -39,6 +47,26 @@ pub enum Relation {
     TeamMembers,
     #[sea_orm(has_one = "super::teams::Entity")]
     Teams,
+    #[sea_orm(has_many = "super::ticket_attachments::Entity")]
+    TicketAttachments,
+    #[sea_orm(has_one = "super::ticket_codes::Entity")]
+    TicketCodes,
+    #[sea_orm(has_many = "super::ticket_comments::Entity")]
+    TicketComments,
+    #[sea_orm(has_many = "super::ticket_counters::Entity")]
+    TicketCounters,
+    #[sea_orm(has_many = "super::ticket_events::Entity")]
+    TicketEvents,
+    #[sea_orm(has_many = "super::ticket_links::Entity")]
+    TicketLinks,
+    #[sea_orm(has_many = "super::ticket_type_fields::Entity")]
+    TicketTypeFields,
+    #[sea_orm(has_one = "super::ticket_types::Entity")]
+    TicketTypes,
+    #[sea_orm(has_many = "super::ticket_watchers::Entity")]
+    TicketWatchers,
+    #[sea_orm(has_many = "super::tickets::Entity")]
+    Tickets,
     #[sea_orm(
         belongs_to = "super::users::Entity",
         from = "Column::CreatedBy",
@@ -57,6 +85,12 @@ impl Related<super::audit_events::Entity> for Entity {
     }
 }
 
+impl Related<super::custom_fields::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::CustomFields.def()
+    }
+}
+
 impl Related<super::invitations::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Invitations.def()
@@ -66,6 +100,12 @@ impl Related<super::invitations::Entity> for Entity {
 impl Related<super::job_titles::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::JobTitles.def()
+    }
+}
+
+impl Related<super::notifications::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Notifications.def()
     }
 }
 
@@ -102,6 +142,66 @@ impl Related<super::team_members::Entity> for Entity {
 impl Related<super::teams::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Teams.def()
+    }
+}
+
+impl Related<super::ticket_attachments::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::TicketAttachments.def()
+    }
+}
+
+impl Related<super::ticket_codes::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::TicketCodes.def()
+    }
+}
+
+impl Related<super::ticket_comments::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::TicketComments.def()
+    }
+}
+
+impl Related<super::ticket_counters::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::TicketCounters.def()
+    }
+}
+
+impl Related<super::ticket_events::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::TicketEvents.def()
+    }
+}
+
+impl Related<super::ticket_links::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::TicketLinks.def()
+    }
+}
+
+impl Related<super::ticket_type_fields::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::TicketTypeFields.def()
+    }
+}
+
+impl Related<super::ticket_types::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::TicketTypes.def()
+    }
+}
+
+impl Related<super::ticket_watchers::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::TicketWatchers.def()
+    }
+}
+
+impl Related<super::tickets::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Tickets.def()
     }
 }
 

@@ -1,0 +1,20 @@
+{#- Field custom form tiket. Variabel: custom ([CustomFieldInput]), prefix id (`id_prefix`).
+    Setiap field ditandai tipe yang memakainya (`data-types`); static/js/ticket-form.js
+    menyembunyikan field tipe lain (server tetap mengabaikan nilainya). -#}
+{%- for f in custom %}
+<div class="app-custom-field" data-custom-field data-types="{{ f.type_ids }}">
+  {%- set fid = id_prefix ~ "-" ~ f.name %}
+  {%- set opt = "" %}{% if not f.required %}{% set opt = t(key="field-optional", lang="id") %}{% endif %}
+  {%- if f.kind == "select" %}
+  {{ <select_field id={fid} name={f.name} label={f.label} options={f.options} value={f.value} empty_label={t(key="custom-field-empty", lang="id")} error={f.error}/> }}
+  {%- elif f.kind == "date" %}
+  {{ <field id={fid} name={f.name} label={f.label} type="date" value={f.value} error={f.error} optional={opt}/> }}
+  {%- elif f.kind == "number" %}
+  {{ <field id={fid} name={f.name} label={f.label} type="text" inputmode="decimal" value={f.value} error={f.error} optional={opt}/> }}
+  {%- elif f.kind == "url" %}
+  {{ <field id={fid} name={f.name} label={f.label} type="url" value={f.value} error={f.error} optional={opt} placeholder="https://"/> }}
+  {%- else %}
+  {{ <field id={fid} name={f.name} label={f.label} value={f.value} error={f.error} optional={opt}/> }}
+  {%- endif %}
+</div>
+{%- endfor %}

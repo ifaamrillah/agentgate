@@ -21,7 +21,7 @@ path = "src/bin/main.rs"
 # auth_session: sesi server-side (store database); auth_oauth: building block provider/state OAuth;
 # auth_session_encrypted: jar cookie terenkripsi (AES-256-GCM) untuk transaksi login OAuth;
 # multi-tenancy: trait TenantEntity untuk query per workspace.
-loco-rs = { workspace = true, features = ["cli", "with-db", "cache_inmem", "worker", "db-postgres", "compression", "generators", "mailer", "auth_session", "auth_session_encrypted", "auth_oauth", "multi-tenancy"] }
+loco-rs = { workspace = true, features = ["cli", "with-db", "cache_inmem", "worker", "db-postgres", "compression", "generators", "mailer", "auth_session", "auth_session_encrypted", "auth_oauth", "multi-tenancy", "storage_aws_s3"] }
 # Migrasi SeaORM milik server.
 migration = { path = "migration" }
 # Type dan versi bersama dengan CLI.

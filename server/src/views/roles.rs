@@ -62,6 +62,10 @@ pub fn permission_keys(permission: Permission) -> (&'static str, &'static str) {
         ),
         Permission::EditProject => ("permission-edit-project", "permission-edit-project-desc"),
         Permission::ViewProject => ("permission-view-project", "permission-view-project-desc"),
+        Permission::ManageTicketSettings => (
+            "permission-manage-ticket-settings",
+            "permission-manage-ticket-settings-desc",
+        ),
     }
 }
 

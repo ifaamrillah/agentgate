@@ -212,6 +212,8 @@ pub struct AppShell {
     /// Menu kiri halaman ini (Pengaturan workspace atau Akun), item `section` ditandai aktif;
     /// kosong = halaman tanpa menu kiri.
     pub subnav: Vec<NavItem>,
+    /// Notifikasi kotak masuk yang belum dibaca (badge sidebar).
+    pub inbox_unread: u64,
 }
 
 /// Tautan halaman Pengaturan workspace; `None` bila role tidak membuka halaman itu.
@@ -222,6 +224,8 @@ pub struct SettingsLinks {
     pub job_titles: Option<String>,
     pub teams: Option<String>,
     pub audit: Option<String>,
+    pub ticket_types: Option<String>,
+    pub ticket_code: Option<String>,
 }
 
 impl AppShell {
@@ -241,6 +245,7 @@ impl AppShell {
             section: "",
             area: "",
             subnav: Vec::new(),
+            inbox_unread: 0,
         }
     }
 
@@ -270,6 +275,12 @@ impl AppShell {
     #[must_use]
     pub fn with_current_project(mut self, project: ProjectLink) -> Self {
         self.current_project = Some(project);
+        self
+    }
+
+    #[must_use]
+    pub fn with_inbox_unread(mut self, unread: u64) -> Self {
+        self.inbox_unread = unread;
         self
     }
 

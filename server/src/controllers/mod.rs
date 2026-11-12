@@ -13,6 +13,7 @@ pub mod projects;
 pub mod public_routes;
 pub mod render;
 pub mod shell;
+pub mod tickets;
 pub mod workspaces;
 
 pub fn routes(ctx: &AppContext) -> AppRoutes {
@@ -21,7 +22,8 @@ pub fn routes(ctx: &AppContext) -> AppRoutes {
         .add_route(account::routes())
         .add_route(invitations::routes())
         .add_route(workspaces::routes())
-        .add_route(projects::routes());
+        .add_route(projects::routes())
+        .add_route(tickets::routes());
     add_dev_routes(routes, &ctx.environment)
 }
 

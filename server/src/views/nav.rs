@@ -96,12 +96,18 @@ pub const SETTINGS_SECTIONS: &[&str] = &[
     "job_titles",
     "roles",
     "audit",
+    "ticket_types",
+    "ticket_code",
 ];
 /// Bagian Akun.
 pub const ACCOUNT_SECTIONS: &[&str] = &["profile", "password", "two_factor"];
 /// Bagian Pengaturan project (sidebar menu Pengaturan, project aktif terbuka).
-pub const PROJECT_SETTINGS_SECTIONS: &[&str] =
-    &["project_general", "project_access", "project_repos"];
+pub const PROJECT_SETTINGS_SECTIONS: &[&str] = &[
+    "project_general",
+    "project_access",
+    "project_repos",
+    "project_ticket_code",
+];
 
 /// Menu kiri Pengaturan workspace: Umum selalu ada (indeks Pengaturan), sisanya menurut izin role.
 #[must_use]
@@ -127,6 +133,18 @@ pub fn settings_nav(settings_href: &str, links: &SettingsLinks) -> Vec<NavItem> 
             "settings-audit-title",
             "list-details",
             &links.audit,
+        ),
+        (
+            "ticket_types",
+            "settings-ticket-types-title",
+            "category-2",
+            &links.ticket_types,
+        ),
+        (
+            "ticket_code",
+            "settings-ticket-code-title",
+            "hash",
+            &links.ticket_code,
         ),
     ];
     items.extend(optional.into_iter().filter_map(|(key, label, icon, href)| {
@@ -168,6 +186,12 @@ pub fn project_settings_nav(paths: &ProjectPaths, current: &str) -> Vec<NavItem>
                 "git-branch",
                 &paths.repos,
             ),
+            NavItem::link(
+                "ticket_code",
+                "settings-ticket-code-title",
+                "hash",
+                &paths.ticket_code,
+            ),
         ],
         current,
     )
@@ -187,6 +211,8 @@ pub struct SideItem {
     pub current: bool,
     /// Sub-item (menjorok), mis. bagian di bawah project aktif.
     pub sub: bool,
+    /// Angka badge (mis. notifikasi belum dibaca); `None` = tanpa.
+    pub count: Option<u64>,
 }
 
 impl SideItem {
@@ -200,6 +226,7 @@ impl SideItem {
             href: item.href.clone(),
             current: item.current,
             sub,
+            count: item.count,
         }
     }
 }
@@ -246,10 +273,33 @@ fn app_side(shell: &AppShell) -> Vec<SideGroup> {
         .map_or("/", |w| w.href.as_str());
     let mut home = NavItem::link("home", "nav-home", "home", home_href);
     home.current = shell.area == "home";
-    let mut groups = vec![SideGroup::new(None, vec![SideItem::nav(&home, false)])];
-    if shell.current_workspace.is_none() {
-        return groups;
+    let Some(ws) = shell.current_workspace.as_ref() else {
+        return vec![SideGroup::new(None, vec![SideItem::nav(&home, false)])];
+    };
+    let mut inbox = NavItem::link("inbox", "nav-inbox", "inbox", &format!("{}/inbox", ws.href));
+    if shell.inbox_unread > 0 {
+        inbox = inbox.counted(shell.inbox_unread, false);
     }
+    let my = NavItem::link(
+        "my_tickets",
+        "nav-my-tickets",
+        "user",
+        &format!("{}/my", ws.href),
+    );
+    let search = NavItem::link(
+        "search",
+        "nav-search",
+        "search",
+        &format!("{}/search", ws.href),
+    );
+    let top = mark(vec![home, inbox, my, search], shell.section)
+        .into_iter()
+        .map(|mut i| {
+            i.current = i.current || (i.key == "home" && shell.area == "home");
+            SideItem::nav(&i, false)
+        })
+        .collect();
+    let mut groups = vec![SideGroup::new(None, top)];
     let current_key = shell.current_project.as_ref().map(|p| p.key.as_str());
     let mut items = Vec::new();
     for project in &shell.projects {
@@ -263,10 +313,11 @@ fn app_side(shell: &AppShell) -> Vec<SideGroup> {
             href: Some(project.href.clone()),
             current: open && shell.section == "project_overview",
             sub: false,
+            count: None,
         });
         if open {
             items.extend(
-                project_side_views()
+                project_side_views(&project.href, shell.section)
                     .iter()
                     .map(|item| SideItem::nav(item, true)),
             );
@@ -279,11 +330,21 @@ fn app_side(shell: &AppShell) -> Vec<SideGroup> {
     groups
 }
 
-/// Bagian project di sidebar (di bawah project aktif) yang menunggu milestone-nya.
-fn project_side_views() -> Vec<NavItem> {
+/// Bagian project di sidebar (di bawah project aktif): Board dan Daftar (M2), sisanya menunggu
+/// milestone-nya.
+fn project_side_views(home: &str, section: &str) -> Vec<NavItem> {
+    let mut board = NavItem::link(
+        "board",
+        "nav-board",
+        "layout-kanban",
+        &format!("{home}/board"),
+    );
+    board.current = matches!(section, "project_board" | "project_ticket");
+    let mut list = NavItem::link("list", "nav-list", "list", &format!("{home}/list"));
+    list.current = section == "project_list";
     vec![
-        NavItem::soon("board", "nav-board", "layout-kanban"),
-        NavItem::soon("backlog", "nav-backlog", "list"),
+        board,
+        list,
         NavItem::soon("knowledge", "nav-knowledge", "book"),
         NavItem::soon("code_graph", "nav-code-graph", "topology-star-3"),
     ]
@@ -308,6 +369,7 @@ fn settings_side(shell: &AppShell) -> Vec<SideGroup> {
         href: Some(back_href.to_string()),
         current: false,
         sub: false,
+        count: None,
     };
     let mut groups = vec![SideGroup::new(None, vec![back])];
     let account = mark(account_nav(), shell.section);
@@ -340,6 +402,7 @@ fn settings_side(shell: &AppShell) -> Vec<SideGroup> {
             href: Some(project.settings_href.clone()),
             current: false,
             sub: false,
+            count: None,
         });
         if open {
             let section = shell.section.trim_start_matches("project_");
@@ -357,7 +420,8 @@ fn settings_side(shell: &AppShell) -> Vec<SideGroup> {
     groups
 }
 
-/// Tampilan project di bar tab (aturan UX 9): urutan bawaan; hanya Ringkasan yang tersedia di M1.
+/// Tampilan project di bar tab (aturan UX 9): urutan bawaan; Ringkasan, Board, dan Daftar
+/// tersedia (M2), sisanya menunggu milestone-nya.
 pub const PROJECT_VIEWS: &[(&str, &str, &str)] = &[
     ("overview", "project-view-overview", "home"),
     ("board", "project-view-board", "layout-kanban"),
@@ -415,10 +479,10 @@ pub fn project_views(home_href: &str, pinned: &[String], current: &str) -> Proje
             .find(|(k, ..)| *k == key)
             .copied()
             .unwrap_or(PROJECT_VIEWS[0]);
-        let mut nav = if key == "overview" {
-            NavItem::link(key, label, icon, home_href)
-        } else {
-            NavItem::soon(key, label, icon)
+        let mut nav = match key {
+            "overview" => NavItem::link(key, label, icon, home_href),
+            "board" | "list" => NavItem::link(key, label, icon, &format!("{home_href}/{key}")),
+            _ => NavItem::soon(key, label, icon),
         };
         nav.current = key == current;
         nav

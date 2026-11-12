@@ -9,7 +9,7 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 | M0 Fondasi | selesai (2026-11-11) | `bin/ci` hijau, `/_health` jalan, 3 spike tertulis |
 | M1 Identitas & tenancy | selesai (2026-11-11) | Akun, 2FA, OAuth (fake di test), workspace/role/undangan/tim/project/repo, audit log, hapus workspace |
 | UI "Tenang" | selesai (2026-11-12) | Desain prototype diterapkan ke semua halaman M0–M1; pustaka komponen untuk M2–M12 (`docs/reference/design-system.md`) |
-| M2 Tiket & board | belum mulai | |
+| M2 Tiket & board | selesai (2026-11-12) | Tipe + field custom, template kode (alias), board/daftar, detail, komentar + @mention, kotak masuk, lampiran S3, relasi (blocks ditegakkan), riwayat, sampah 30 hari, pencarian; 396 tes |
 | M3 Workflow & gate | belum mulai | |
 | M4 MCP & persona | belum mulai | |
 | M5 CLI & runner | belum mulai | |
@@ -57,6 +57,17 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 | 2026-11-12 | Endpoint combobox `GET /w/{slug}/people?q=` membalas `<option>` (partial) | Pilihan orang yang bisa dicari tanpa memuat semua anggota |
 | 2026-11-12 | Sapaan UI "Anda" (bukan "kamu") di semua teks Fluent | Mengikuti prototype |
 | 2026-11-12 | `connect_timeout` pool DB tes 5 detik (sebelumnya 500ms) | Tes throttle burst 12 login gagal 500 karena acquire koneksi habis waktu |
+| 2026-11-12 | M2: `tickets.status` 4 kategori tetap (backlog/todo/in_progress/done) = kolom board; stage M3 akan memetakan ke kategori ini | Aturan blocks, filter, dan pencarian tidak berubah di M3 |
+| 2026-11-12 | Blocks: tiket yang diblokir tiket belum Selesai tidak bisa pindah ke Dikerjakan/Selesai lewat jalur mana pun (board, form, menu); 422 menyebut kode pemblokir | Spec "tidak bisa mulai" |
+| 2026-11-12 | Izin tiket: lihat `ViewProject`; ubah/komentar/lampiran/relasi/buang/pulihkan `EditProject`; hapus permanen `AdministerProject` atau pembuat; tipe/field/kode workspace = izin baru `ManageTicketSettings` (Owner, Admin); override kode per project `AdministerProject` | Spec tidak merinci |
+| 2026-11-12 | Kode tiket unik per workspace (tanpa beda huruf besar) via `ticket_codes`; mengganti template menghitung ulang semua kode, kode lama jadi alias (GET → 301) | Tautan lama tidak putus |
+| 2026-11-12 | Detail tiket = halaman sendiri `/w/{slug}/t/{code}` (tab Ringkasan/Aktivitas), bukan panel kanan board; judul dan properti diubah lewat dialog "Ubah detail", deskripsi langsung di `md_editor` | Bekerja tanpa JS, URL bisa dibagikan |
+| 2026-11-12 | Board: drag-drop HTML5 native (`board-dnd.js`) mengisi form tersembunyi lalu submit biasa; tanpa JS ada menu ⋯ pindah status. Board tanpa kepala halaman (prototype); maksimal 500 kartu | Tanpa library JS |
+| 2026-11-12 | Pencarian: Postgres full-text `simple` + cocok kode/ILIKE, hanya project yang bisa dibuka user; `Tiket saya` tab Ditugaskan/Dilaporkan/Diikuti | Spec "pencarian dasar" |
+| 2026-11-12 | Notifikasi in-app = baris `notifications` di transaksi yang sama: disebut (@nama-depan/@email, hanya orang dengan akses project), ditugaskan, komentar dan status untuk watcher | Tidak membocorkan tiket |
+| 2026-11-12 | Lampiran ≤ 10 MB, diunduh `attachment` + `nosniff` + `no-store`; key `tickets/<ticket>/<uuid>`. **Dev memakai S3 SeaweedFS** (`storage_aws_s3`, bucket `agentgate-dev` dibuat `bin/_lib.sh`); tes memakai storage memori | Brief M2 |
+| 2026-11-12 | Sampah: `deleted_at`, 404 di semua halaman kecuali Sampah, purge > 30 hari oleh langkah `tickets` di task `cleanup` (berkas lampiran dihapus setelah commit) | Spec |
+| 2026-11-12 | Seed dev menambah 10 tiket contoh KSR (epic, story, subtask, bug, relasi blocks, komentar @mention) lewat service produksi; dilewati bila KSR sudah punya tiket | Layar bisa dicek tanpa input manual |
 
 ## Temuan spike yang mengubah rencana
 
@@ -91,6 +102,13 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
   terpilih ada di halaman yang dibuka. Profil akun belum punya foto/sesi aktif/akun terhubung; workspace belum
   punya logo dan "Metode masuk" per workspace (tidak ada di backend M1). Tombol salin/unduh kode pemulihan
   belum ada. Editor `md_editor` (Crepe, ~2,8 MB, dimuat lazy) belum dipakai halaman mana pun sampai M2.
+- **M2 Tiket (2026-11-12)**: deskripsi dan komentar tampil sebagai teks pre-wrap (belum ada renderer
+  Markdown server-side yang disanitasi). Komentar belum punya balasan/reaksi/pin. Board memuat maksimal 500
+  kartu per board tanpa pagination kolom. Mengganti template kode menghitung ulang semua tiket workspace dalam
+  satu transaksi (lambat untuk ribuan tiket; pindahkan ke job bila perlu). Purge workspace (cleanup) belum
+  menghapus berkas lampiran tiket di storage. Logo project di dev kini ikut S3: logo lama yang tersimpan di
+  disk dev tidak muncul lagi (unggah ulang). Notifikasi belum dikirim lewat email/push. Field custom belum
+  bisa diurutkan dan belum ada jenis multi-pilih/orang. Label tiket teks bebas tanpa warna.
 - Role custom tidak pernah menjadi "admin di semua project": hanya Owner/Admin bawaan yang boleh menugaskan
   role Admin bawaan (termasuk di grant project) dan mengubah izin role yang dipakai grant project.
 
@@ -100,6 +118,9 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 - Logo project disimpan di disk server sampai abstraksi storage S3 dikerjakan (paling lambat M12).
 - Logo SVG ditolak sampai ada sanitasi SVG.
 - Tim, Jabatan, dan Role tetap daftar sederhana (tanpa bulk action) sampai datanya besar.
+- M2: detail tiket sebagai halaman sendiri (bukan panel samping board); header detail memakai ikon tipe +
+  judul + kode/status, belum stepper stage (M3) dan estimasi AI (M9).
+- M2: status/kolom board tetap 4 (Backlog, To do, Dikerjakan, Selesai) sampai workflow M3.
 
 ## Perlu dari user (dikumpulkan untuk akhir)
 

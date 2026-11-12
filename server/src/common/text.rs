@@ -178,6 +178,18 @@ pub fn is_hex_color(value: &str) -> bool {
     value.len() == 7 && value.starts_with('#') && value[1..].chars().all(|c| c.is_ascii_hexdigit())
 }
 
+/// Pola `LIKE` "mengandung" untuk pencarian teks: huruf kecil, di-trim, dengan `%`, `_`, dan `\`
+/// di-escape (dicocokkan dengan `lower(kolom) LIKE pola`).
+#[must_use]
+pub fn contains_pattern(q: &str) -> String {
+    let raw = q.trim().to_lowercase();
+    let escaped = raw
+        .replace('\\', "\\\\")
+        .replace('%', "\\%")
+        .replace('_', "\\_");
+    format!("%{escaped}%")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

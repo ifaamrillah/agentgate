@@ -6,6 +6,7 @@ mod m20261112_000001_create_users_and_auth;
 mod m20261112_000002_create_workspaces;
 mod m20261112_000003_create_teams_projects;
 mod m20261112_000004_ui_preferences_and_project_logo;
+mod m20261113_000001_create_tickets;
 
 pub struct Migrator;
 
@@ -18,6 +19,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20261112_000002_create_workspaces::Migration),
             Box::new(m20261112_000003_create_teams_projects::Migration),
             Box::new(m20261112_000004_ui_preferences_and_project_logo::Migration),
+            Box::new(m20261113_000001_create_tickets::Migration),
             // inject-above (do not remove this comment)
         ]
     }

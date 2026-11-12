@@ -7,4 +7,5 @@ mod health;
 mod home;
 mod projects;
 mod security_headers;
+mod tickets;
 mod workspaces;

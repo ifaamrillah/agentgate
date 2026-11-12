@@ -134,7 +134,7 @@ impl Model {
             .inner_join(users::Entity)
             .inner_join(roles::Entity);
         if let Some(q) = query.q.filter(|q| !q.trim().is_empty()) {
-            let pattern = format!("%{}%", escape_like(&q.trim().to_lowercase()));
+            let pattern = crate::common::text::contains_pattern(q);
             select = select.filter(
                 Condition::any()
                     .add(
@@ -375,11 +375,4 @@ pub struct MemberQuery<'a> {
     pub desc: bool,
     pub offset: u64,
     pub limit: u64,
-}
-
-/// Escape `%`, `_`, dan `\` untuk pola `LIKE`.
-fn escape_like(raw: &str) -> String {
-    raw.replace('\\', "\\\\")
-        .replace('%', "\\%")
-        .replace('_', "\\_")
 }

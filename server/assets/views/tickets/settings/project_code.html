@@ -1,0 +1,23 @@
+{#- Pengaturan project → Kode tiket (Admin project): pakai template workspace (bawaan) atau
+    template sendiri, plus kode tim untuk {TEAM}. Variabel: project, paths, subnav, form
+    (CodeFormView), scopes, tokens, inherited (template workspace), inherited_preview, action,
+    flash. -#}
+{% extends "layouts/settings.html" %}
+{% block title %}{{ t(key="settings-ticket-code-title", lang="id") }} · {{ project.name }}{% endblock title %}
+{% block crumb_label %}{{ t(key="settings-ticket-code-title", lang="id") }}{% endblock crumb_label %}
+{% block page_attrs %}data-project-ticket-code{% endblock page_attrs %}
+{% block settings %}
+<header class="app-page-head">
+  <div class="app-page-title"><h1>{{ t(key="settings-ticket-code-title", lang="id") }}</h1><p>{{ t(key="project-ticket-code-description", lang="id") }}</p></div>
+</header>
+{% <card title={t(key="ticket-code-template", lang="id")} description={t(key="ticket-code-recode-note", lang="id")} form={action} save_label={t(key="action-save-changes", lang="id")} cancel_href={action}> %}
+  <div class="app-stack-v" data-gap="sm">
+    <div class="app-checks" role="radiogroup" aria-label="{{ t(key="ticket-code-template", lang="id") }}">
+      <label class="app-check-row"><input type="radio" class="app-radio" name="custom" value=""{% if not form.custom %} checked{% endif %}> {{ t(key="project-ticket-code-inherit", lang="id") }} <span class="app-code">{{ inherited }}</span> <span class="app-hint">→ {{ inherited_preview }}</span></label>
+      <label class="app-check-row"><input type="radio" class="app-radio" name="custom" value="1"{% if form.custom %} checked{% endif %}> {{ t(key="project-ticket-code-custom", lang="id") }}</label>
+    </div>
+    {%- set id_prefix = "project-code" %}{% include "tickets/settings/_code_fields.html" %}
+    {{ <field id="project-code-team" name="team_code" label={t(key="ticket-code-team", lang="id")} value={form.team_code} error={form.errors.team_code.code} error_max={form.errors.team_code.max} mono={true} hint={t(key="ticket-code-team-hint", lang="id")} optional={t(key="field-optional", lang="id")}/> }}
+  </div>
+{% </card> %}
+{% endblock settings %}

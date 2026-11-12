@@ -50,6 +50,7 @@ permission_markers!(
     ManageTeams,
     CreateProjects,
     ViewAuditLog,
+    ManageTicketSettings,
 );
 
 /// Marker `Require<AnySettings>`: role membuka setidaknya satu halaman Pengaturan

@@ -1,0 +1,41 @@
+{#- Project → Sampah: tiket yang dibuang, dihapus permanen otomatis setelah retention_days hari
+    (CleanupWorker). Pulihkan: anggota dengan EditProject; hapus permanen: admin project atau
+    pembuang tiket. Variabel: project, views, views_action, return_to, rows ([{ticket, deleted_by,
+    deleted_at, purge_on, restore_action, purge_action, can_restore, can_purge}]), q, paths
+    (BoardPaths), retention_days, flash. -#}
+{% extends "layouts/project.html" %}
+{% block title %}{{ t(key="trash-title", lang="id") }} · {{ project.name }}{% endblock title %}
+{% block crumb %}{{ <crumb label={t(key="project-view-board", lang="id")} href={paths.board}/> }}{{ <crumb label={t(key="trash-title", lang="id")}/> }}{% endblock crumb %}
+{% block page_attrs %}data-ticket-trash{% endblock page_attrs %}
+{% block description %}{{ t(key="trash-description", lang="id", days=retention_days) }}{% endblock description %}
+{% block head_actions %}
+  {{ <button label={t(key="project-view-board", lang="id")} icon="layout-kanban" variant="outline" size="sm" href={paths.board}/> }}
+{% endblock head_actions %}
+{% block main %}
+<div class="alert" role="status">
+  {{ icon(name="info-circle") }}
+  <h2>{{ t(key="trash-retention-title", lang="id", days=retention_days) }}</h2>
+  <section><p>{{ t(key="trash-retention-body", lang="id") }}</p></section>
+</div>
+<form class="app-fr" method="get" action="{{ paths.trash }}" role="search">
+  <label class="app-fsearch">{{ icon(name="search") }}<input type="search" name="q" value="{{ q }}" placeholder="{{ t(key="trash-search-placeholder", lang="id") }}" aria-label="{{ t(key="trash-search-placeholder", lang="id") }}"></label>
+  {%- if q %}<a class="app-fclear" href="{{ paths.trash }}">{{ icon(name="x") }}{{ t(key="table-filter-clear", lang="id") }}</a>{% endif %}
+</form>
+{% <card title={t(key="trash-title", lang="id")} count={rows | length ~ ""} flush={true}> %}
+  {%- for row in rows %}
+  <div class="app-lrow" data-trashed="{{ row.ticket.code }}">
+    {{ <type_icon icon={row.ticket.ticket_type.icon} color={row.ticket.ticket_type.color} label={row.ticket.ticket_type.name}/> }}
+    <span class="app-code app-hint">{{ row.ticket.code }}</span>
+    <span class="app-lrow-main"><b>{{ row.ticket.title }}</b>
+      <small>{% if row.deleted_by %}{{ t(key="trash-deleted-by", lang="id", name=row.deleted_by.name, at=row.deleted_at) }}{% else %}{{ t(key="trash-deleted-at", lang="id", at=row.deleted_at) }}{% endif %} · {{ t(key="trash-purge-on", lang="id", date=row.purge_on) }}</small></span>
+    {%- if row.can_restore %}
+    <form method="post" action="{{ row.restore_action }}">{{ <button label={t(key="trash-restore", lang="id")} icon="restore" variant="outline" size="sm" type="submit" attrs="data-restore"/> }}</form>
+    {%- endif %}
+    {%- if row.can_purge %}
+    <form method="post" action="{{ row.purge_action }}" hx-confirm="{{ t(key="trash-purge-confirm", lang="id", code=row.ticket.code) }}">{{ <button icon="trash-x" variant="ghost" size="icon-sm" type="submit" aria_label={t(key="trash-purge", lang="id", code=row.ticket.code)} attrs="data-purge"/> }}</form>
+    {%- endif %}
+  </div>
+  {%- endfor %}
+  {%- if not rows %}{{ <empty_state title={t(key="trash-empty-title", lang="id")} description={t(key="trash-empty-description", lang="id")} icon="trash" variant="plain"/> }}{% endif %}
+{% </card> %}
+{% endblock main %}

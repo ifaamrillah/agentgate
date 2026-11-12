@@ -57,7 +57,7 @@
       {%- if item.current %} aria-current="page"{% endif %}{% if item.sub %} data-sub{% endif %}{% if item.key == "back" %} data-back{% endif %}>
       {%- if item.color %}{{ <dot color={item.color}/> }}{% elif item.icon %}{{ icon(name=item.icon) }}{% endif -%}
       <span class="app-ni-label">{% if item.label_key %}{{ t(key=item.label_key, lang="id") }}{% else %}{{ item.label }}{% endif %}</span>
-      {%- if not item.href %}<span data-tail>{{ t(key="nav-soon", lang="id") }}</span>{% endif -%}
+      {%- if not item.href %}<span data-tail>{{ t(key="nav-soon", lang="id") }}</span>{% elif item.count %}<span class="app-count" data-tail>{{ item.count }}</span>{% endif -%}
     </a>
     {%- endfor %}
     {%- if not group.items and group.empty_key %}<p class="app-side-empty">{{ t(key=group.empty_key, lang="id") }}</p>{% endif %}

@@ -1,0 +1,18 @@
+{#- Pengaturan → Kode tiket (workspace): template bawaan untuk semua project ({PROJECT}, {TEAM},
+    {TYPE}, {YYYY}/{YY}, {NUM}/{NUM:n}) dan skop penghitung. Mengganti template menghitung ulang
+    kode tiket yang ada; kode lama tetap bisa dibuka (alias). Variabel: form (CodeFormView),
+    scopes, tokens, action, flash. -#}
+{% extends "layouts/settings.html" %}
+{% block title %}{{ t(key="settings-ticket-code-title", lang="id") }}{% endblock title %}
+{% block crumb_label %}{{ t(key="settings-ticket-code-title", lang="id") }}{% endblock crumb_label %}
+{% block page_attrs %}data-ticket-code-settings{% endblock page_attrs %}
+{% block settings %}
+<header class="app-page-head">
+  <div class="app-page-title"><h1>{{ t(key="settings-ticket-code-title", lang="id") }}</h1><p>{{ t(key="settings-ticket-code-description", lang="id") }}</p></div>
+</header>
+{% <card title={t(key="ticket-code-template", lang="id")} description={t(key="ticket-code-recode-note", lang="id")} form={action} save_label={t(key="action-save-changes", lang="id")} cancel_href={action}> %}
+  <div class="app-stack-v" data-gap="sm">
+    {%- set id_prefix = "code" %}{% include "tickets/settings/_code_fields.html" %}
+  </div>
+{% </card> %}
+{% endblock settings %}

@@ -1,0 +1,7 @@
+{#- Isian template kode tiket. Variabel: form (CodeFormView), scopes, tokens, id_prefix. -#}
+{{ <field id={id_prefix ~ "-template"} name="template" label={t(key="ticket-code-template", lang="id")} value={form.template} error={form.errors.template.code} error_max={form.errors.template.max} mono={true} required={true} hint={t(key="ticket-code-template-hint", lang="id")}/> }}
+<div class="app-chips" data-code-tokens>
+  {%- for tk in tokens %}<span class="app-chip" title="{{ t(key=tk.label_key, lang="id") }}"><span class="app-code">{{ tk.token }}</span> {{ t(key=tk.label_key, lang="id") }}</span>{% endfor %}
+</div>
+{{ <select_field id={id_prefix ~ "-scope"} name="scope" label={t(key="ticket-code-scope", lang="id")} options={scopes} translate={true} value={form.scope} error={form.errors.scope.code} hint={t(key="ticket-code-scope-hint", lang="id")}/> }}
+<div class="app-code-preview" data-code-preview>{{ t(key="ticket-code-preview", lang="id") }} <span class="app-code">{{ form.preview }}</span></div>

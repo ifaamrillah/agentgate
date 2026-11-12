@@ -90,6 +90,13 @@ fn every_validation_error_code_has_a_message() {
         require_two_factor::ERROR_CODES,
         agentgate_server::services::workspaces::teams::ERROR_CODES,
         agentgate_server::services::projects::logo::ERROR_CODES,
+        agentgate_server::models::tickets::ERROR_CODES,
+        agentgate_server::models::ticket_types::ERROR_CODES,
+        agentgate_server::models::ticket_links::ERROR_CODES,
+        agentgate_server::models::ticket_attachments::ERROR_CODES,
+        agentgate_server::models::ticket_comments::ERROR_CODES,
+        agentgate_server::models::ticket_code::ERROR_CODES,
+        agentgate_server::models::custom_fields::ERROR_CODES,
     ]
     .concat();
     let missing: Vec<_> = codes.iter().filter(|c| !keys.contains(**c)).collect();
@@ -118,6 +125,7 @@ fn every_auth_message_key_has_a_translation() {
         views::members::MESSAGE_KEYS,
         views::teams::MESSAGE_KEYS,
         views::projects::MESSAGE_KEYS,
+        views::tickets::MESSAGE_KEYS,
         oauth::ERROR_CODES,
     ]
     .concat()
@@ -153,4 +161,45 @@ fn every_audit_action_subject_and_group_has_a_label() {
     missing.extend(views::audit::MESSAGE_KEYS.iter().map(|k| (*k).to_string()));
     missing.retain(|k| !keys.contains(k));
     assert!(missing.is_empty(), "kunci tanpa terjemahan: {missing:?}");
+}
+
+#[test]
+fn every_ticket_enum_and_view_key_has_a_translation() {
+    use agentgate_server::models::{notifications::NotificationKind, ticket_events::EventKind};
+    let keys = fluent_keys();
+    let mut used: Vec<String> = Vec::new();
+    for kind in EventKind::iter() {
+        let value = sea_orm::ActiveEnum::to_value(&kind);
+        used.push(format!("ticket-event-{}", value.replace('_', "-")));
+    }
+    for kind in NotificationKind::iter() {
+        used.push(format!(
+            "notification-{}",
+            sea_orm::ActiveEnum::to_value(&kind)
+        ));
+    }
+    for s in views::tickets::status_options() {
+        used.push(s.label_key.to_string());
+    }
+    for p in views::tickets::priority_options() {
+        used.push(p.label_key.to_string());
+    }
+    for o in views::tickets::field_kind_options()
+        .into_iter()
+        .chain(views::tickets::scope_options())
+    {
+        used.push(o.name);
+    }
+    for t in views::tickets::code_tokens() {
+        used.push(t.label_key.to_string());
+    }
+    for field in agentgate_server::views::tickets::TICKET_FIELDS {
+        used.push(format!(
+            "ticket-field-{}",
+            field.trim_end_matches("_id").replace('_', "-")
+        ));
+    }
+    used.push("ticket-field-custom-values".into());
+    used.retain(|k| !keys.contains(k));
+    assert!(used.is_empty(), "kunci tanpa terjemahan: {used:?}");
 }

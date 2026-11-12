@@ -6,6 +6,7 @@ pub mod project_access;
 pub mod request_id;
 pub mod require;
 pub mod tenant;
+pub mod ticket_access;
 pub mod valid_form;
 
 pub use client_ip::ClientIp;
@@ -15,4 +16,5 @@ pub use project_access::{ProjectAccess, ProjectAdmin};
 pub use request_id::RequestId;
 pub use require::{PermissionMarker, Require};
 pub use tenant::{MemberIgnoring2fa, Tenant};
+pub use ticket_access::TicketAccess;
 pub use valid_form::ValidForm;

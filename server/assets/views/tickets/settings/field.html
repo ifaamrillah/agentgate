@@ -1,0 +1,26 @@
+{#- Pengaturan → Tipe tiket → satu field custom: nama, opsi (select), wajib, tipe yang
+    memakainya; jenis terkunci. Hapus menghapus nilai di semua tiket.
+    Variabel: lihat controllers::tickets::settings::render_field. -#}
+{% extends "layouts/settings.html" %}
+{% block title %}{{ field.name }} · {{ t(key="settings-ticket-types-title", lang="id") }}{% endblock title %}
+{% block crumb_label %}{{ t(key="settings-ticket-types-title", lang="id") }}{% endblock crumb_label %}
+{% block page_attrs %}data-custom-field-page{% endblock page_attrs %}
+{% block settings %}
+<header class="app-page-head">
+  <span class="app-tile" data-size="lg">{{ icon(name="forms") }}</span>
+  <div class="app-page-title"><h1>{{ field.name }}</h1><p>{{ t(key=field.kind_key, lang="id") }}</p></div>
+  <div class="app-page-acts">{{ <button label={t(key="action-back", lang="id")} icon="arrow-left" variant="ghost" size="sm" href={back_href}/> }}</div>
+</header>
+{% <card title={t(key="custom-field-edit", lang="id")} form={action} save_label={t(key="action-save-changes", lang="id")} cancel_href={action}> %}
+  <div class="app-stack-v" data-gap="sm">
+    {%- set kind_key = field.kind_key %}{% include "tickets/settings/_field_fields.html" %}
+  </div>
+{% </card> %}
+{% <card title={t(key="custom-field-delete", lang="id")} variant="danger" flush={true}> %}
+  {% <setting_row title={t(key="custom-field-delete", lang="id")} description={t(key="custom-field-delete-description", lang="id")}> %}
+    <form method="post" action="{{ delete_action }}" hx-confirm="{{ t(key="custom-field-delete-confirm", lang="id", name=field.name) }}">
+      {{ <button label={t(key="action-delete", lang="id")} variant="danger" type="submit" icon="trash"/> }}
+    </form>
+  {% </setting_row> %}
+{% </card> %}
+{% endblock settings %}

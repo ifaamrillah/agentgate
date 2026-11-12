@@ -1,0 +1,22 @@
+{#- Project → Daftar: datatable tiket server-side (cari, filter status/prioritas/tipe/penerima,
+    sort, halaman). Variabel: project, views, views_action, return_to (layouts/project.html),
+    table (TableView LIST_TABLE), tickets ([TicketRow]), paths (BoardPaths), can_edit. -#}
+{% extends "layouts/project.html" %}
+{% block title %}{{ t(key="project-view-list", lang="id") }} · {{ project.name }}{% endblock title %}
+{% block width %}wide{% endblock width %}
+{% block crumb %}{{ <crumb label={t(key="project-view-list", lang="id")}/> }}{% endblock crumb %}
+{% block actions %}
+  {%- if can_edit %}{{ <button label={t(key="ticket-new", lang="id")} icon="plus" href={paths.new_ticket} size="sm" attrs="data-new-ticket"/> }}{% endif -%}
+{% endblock actions %}
+{% block page_attrs %}data-ticket-list{% endblock page_attrs %}
+{% block description %}{{ t(key="list-description", lang="id") }}{% endblock description %}
+{% block head_actions %}
+  {{ <button label={t(key="trash-title", lang="id")} icon="trash" variant="ghost" size="sm" href={paths.trash} attrs="data-trash-link"/> }}
+{% endblock head_actions %}
+{% block main %}
+{% <card title={t(key="list-title", lang="id")} count={table.total ~ ""} flush={true}> %}
+  {% <datatable table={table} empty_title={t(key="list-empty-title", lang="id")} empty_description={t(key="list-empty-description", lang="id")} empty_icon="ticket"> %}
+    {%- set show_project = false %}{% include "tickets/_rows.html" %}
+  {% </datatable> %}
+{% </card> %}
+{% endblock main %}

@@ -1,0 +1,8 @@
+{#- Label prioritas varian C (P1 merah solid, P2 oranye, P3 kuning, P4 abu).
+    Parameter:
+      rank: integer             1–4
+      label: string             nama prioritas untuk pembaca layar dan tooltip (sudah diterjemahkan)
+      full: bool                tampilkan nama di samping label (default false) -#}
+{% component prio(rank: integer, label: string, full: bool = false) %}
+<span class="app-prio-wrap"><span class="app-prio" data-p="{{ rank }}" title="{{ label }}" aria-label="{{ label }}">P{{ rank }}</span>{% if full %}<span>{{ label }}</span>{% endif %}</span>
+{%- endcomponent prio %}

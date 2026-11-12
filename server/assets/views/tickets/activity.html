@@ -1,0 +1,38 @@
+{#- Tiket → Aktivitas: riwayat perubahan (terbaru di atas). Tiap peristiwa: pelaku, kalimat
+    ringkas, waktu, lalu daftar perubahan field (dari → ke). Variabel: lihat
+    controllers::tickets::ticket::activity. -#}
+{% extends "tickets/_layout.html" %}
+{% block page_attrs %}data-ticket-activity{% endblock page_attrs %}
+{% block main %}
+{{ <tabs label={t(key="ticket-tabs", lang="id")} items={tabs}/> }}
+{% <card title={t(key="ticket-activity-title", lang="id")} count={events | length ~ ""}> %}
+  {%- if events %}
+  <div class="app-feed">
+  {%- for e in events %}
+    <div class="app-fe" data-event="{{ e.kind }}">
+      {%- if e.actor %}{{ <avatar initials={e.actor.initials} color={e.actor.color} label={e.actor.name} size="md"/> }}{% else %}<span class="app-av-empty"></span>{% endif %}
+      <span>
+        <b>{% if e.actor %}{{ e.actor.name }}{% else %}{{ t(key="person-removed", lang="id") }}{% endif %}</b>
+        {{ t(key=e.label_key, lang="id", detail=e.detail) }}
+        <time>{{ e.at }}</time>
+        {%- if e.changes %}
+        <ul class="app-changes">
+          {%- for c in e.changes %}
+          <li data-change="{{ c.field_key }}"><span class="app-hint">{{ t(key=c.field_key, lang="id") }}</span>
+            {%- if c.from or c.to %}
+            <del>{% if c.from %}{% if c.translate %}{{ t(key=c.from, lang="id") }}{% else %}{{ c.from | truncate(length=80) }}{% endif %}{% else %}—{% endif %}</del>
+            {{ icon(name="arrow-right") }}
+            <strong>{% if c.to %}{% if c.translate %}{{ t(key=c.to, lang="id") }}{% else %}{{ c.to | truncate(length=80) }}{% endif %}{% else %}—{% endif %}</strong>
+            {%- else %} {{ t(key="ticket-change-edited", lang="id") }}{% endif %}</li>
+          {%- endfor %}
+        </ul>
+        {%- endif %}
+      </span>
+    </div>
+  {%- endfor %}
+  </div>
+  {%- else %}
+  {{ <empty_state title={t(key="ticket-activity-empty", lang="id")} icon="history" variant="plain"/> }}
+  {%- endif %}
+{% </card> %}
+{% endblock main %}

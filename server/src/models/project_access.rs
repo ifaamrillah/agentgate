@@ -202,6 +202,61 @@ pub(super) fn grants_with_project_permission(who: &Accessor<'_>) -> SelectStatem
         .into_query()
 }
 
+/// Anggota workspace yang punya akses ke project `project_id` (aturan yang sama dengan
+/// [`effective_role`]), urut nama: pilihan penerima tugas dan sasaran @mention. `q` menyaring
+/// nama/email (`LIKE`), `limit` membatasi hasil.
+///
+/// # Errors
+///
+/// Error database.
+pub async fn users_with_access<C: ConnectionTrait>(
+    db: &C,
+    workspace_id: super::workspaces::WorkspaceId,
+    project_id: Uuid,
+    q: Option<&str>,
+    limit: u64,
+) -> Result<Vec<super::users::Model>, DbErr> {
+    let project_permissions: Vec<String> =
+        PROJECT_PERMISSIONS.iter().map(|p| p.to_value()).collect();
+    let pattern = q
+        .filter(|q| !q.trim().is_empty())
+        .map(crate::common::text::contains_pattern);
+    let ids: Vec<Uuid> = db
+        .query_all_raw(sea_orm::Statement::from_sql_and_values(
+            sea_orm::DbBackend::Postgres,
+            "SELECT u.id FROM workspace_members wm
+             JOIN roles r ON r.id = wm.role_id
+             JOIN users u ON u.id = wm.user_id
+             WHERE wm.workspace_id = $1
+               AND ($4::text IS NULL OR lower(u.name) LIKE $4 OR lower(u.email) LIKE $4)
+               AND (r.key IN ('owner', 'admin') OR EXISTS (
+                 SELECT 1 FROM project_grants g JOIN roles gr ON gr.id = g.role_id
+                 WHERE g.project_id = $2 AND gr.permissions && $3::text[]
+                   AND (g.user_id = wm.user_id OR g.team_id IN (
+                     SELECT tm.team_id FROM team_members tm
+                     WHERE tm.workspace_id = $1 AND tm.user_id = wm.user_id))))
+             ORDER BY u.name, u.id
+             LIMIT $5",
+            [
+                workspace_id.get().into(),
+                project_id.into(),
+                project_permissions.into(),
+                pattern.into(),
+                i64::try_from(limit).unwrap_or(i64::MAX).into(),
+            ],
+        ))
+        .await?
+        .iter()
+        .map(|row| row.try_get_by_index::<Uuid>(0))
+        .collect::<Result<_, _>>()?;
+    let mut users = super::users::Entity::find()
+        .filter(super::users::Column::Id.is_in(ids.clone()))
+        .all(db)
+        .await?;
+    users.sort_by_key(|u| ids.iter().position(|id| *id == u.id));
+    Ok(users)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1,5 +1,5 @@
 //! Pembersihan harian (job `workers::cleanup`, dijadwalkan scheduler 03:00 UTC; juga task
-//! `bin/loco task cleanup`). Lima langkah, masing-masing berdiri sendiri: langkah atau item
+//! `bin/loco task cleanup`). Enam langkah, masing-masing berdiri sendiri: langkah atau item
 //! yang gagal dicatat di log dan dihitung `failed`, lalu pembersihan berlanjut (rules §8).
 //! Idempoten: menjalankannya lagi hanya menemukan yang belum dibersihkan.
 //!
@@ -10,6 +10,8 @@
 //!    tetap di audit log).
 //! 5. Workspace yang terjadwal hapus lebih dari masa tenggang: satu transaksi per workspace;
 //!    seluruh datanya, termasuk audit log-nya, ikut terhapus (FK `ON DELETE CASCADE`).
+//! 6. Tiket yang di sampah lebih dari [`tickets::trash::RETENTION_DAYS`] hari, beserta file
+//!    lampirannya (`services::tickets::trash::purge_expired`).
 //!
 //! [`CleanupMode::DryRun`] hanya menghitung (task tanpa `confirm:yes`).
 
@@ -20,6 +22,7 @@ use sea_orm::{ConnectionTrait, DbBackend, DbErr, Statement, TransactionTrait};
 use crate::{
     common::settings::Settings,
     models::{invitations, login_throttles, user_tokens, workspaces},
+    services::tickets,
 };
 
 /// Token email yang sudah tidak berlaku disimpan seminggu untuk penelusuran (mis. user
@@ -43,6 +46,7 @@ pub enum CleanupStep {
     UserTokens,
     Invitations,
     Workspaces,
+    Tickets,
 }
 
 impl CleanupStep {
@@ -55,6 +59,7 @@ impl CleanupStep {
             Self::UserTokens => "user_tokens",
             Self::Invitations => "invitations",
             Self::Workspaces => "workspaces",
+            Self::Tickets => "tickets",
         }
     }
 }
@@ -109,7 +114,7 @@ impl CleanupReport {
     }
 }
 
-/// Jalankan kelima langkah. Tidak pernah gagal karena satu langkah: kegagalan ada di
+/// Jalankan keenam langkah. Tidak pernah gagal karena satu langkah: kegagalan ada di
 /// [`CleanupReport::failed`] dan di log.
 pub async fn run(ctx: &AppContext, mode: CleanupMode) -> CleanupReport {
     let now = Utc::now();
@@ -145,6 +150,9 @@ pub async fn run(ctx: &AppContext, mode: CleanupMode) -> CleanupReport {
     report.push(CleanupStep::Invitations, finished.map_err(Into::into));
 
     report.steps.push(purge_workspaces(ctx, now, apply).await);
+
+    let trashed = tickets::trash::purge_expired(&ctx.db, &ctx.storage, now, apply).await;
+    report.push(CleanupStep::Tickets, trashed.map_err(Into::into));
     report
 }
 

@@ -29,6 +29,8 @@ pub enum Relation {
         on_delete = "SetNull"
     )]
     JobTitles,
+    #[sea_orm(has_many = "super::notifications::Entity")]
+    Notifications,
     #[sea_orm(has_many = "super::project_grants::Entity")]
     ProjectGrants,
     #[sea_orm(
@@ -41,6 +43,8 @@ pub enum Relation {
     Roles,
     #[sea_orm(has_many = "super::team_members::Entity")]
     TeamMembers,
+    #[sea_orm(has_many = "super::ticket_watchers::Entity")]
+    TicketWatchers,
     #[sea_orm(
         belongs_to = "super::users::Entity",
         from = "Column::UserId",
@@ -65,6 +69,12 @@ impl Related<super::job_titles::Entity> for Entity {
     }
 }
 
+impl Related<super::notifications::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Notifications.def()
+    }
+}
+
 impl Related<super::project_grants::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::ProjectGrants.def()
@@ -80,6 +90,12 @@ impl Related<super::roles::Entity> for Entity {
 impl Related<super::team_members::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::TeamMembers.def()
+    }
+}
+
+impl Related<super::ticket_watchers::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::TicketWatchers.def()
     }
 }
 

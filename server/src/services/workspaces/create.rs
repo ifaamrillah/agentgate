@@ -1,4 +1,5 @@
-//! Membuat workspace baru: satu transaksi berisi workspace, empat role bawaan, pembuatnya
+//! Membuat workspace baru: satu transaksi berisi workspace, empat role bawaan, tipe tiket
+//! bawaan, pembuatnya
 //! sebagai Owner, dan audit `workspace.created`. Dipanggil `POST /w/new` dan seed dev. Siapa
 //! pun yang login boleh membuat workspace (spec: pendaftaran terbuka seperti Jira).
 
@@ -8,7 +9,7 @@ use sea_orm::{ConnectionTrait, TransactionTrait};
 use crate::{
     models::{
         roles::{self, RoleKey},
-        users, workspace_members,
+        ticket_types, users, workspace_members,
         workspaces::{self, CreateWorkspace, WorkspaceError},
     },
     services::audit::{self, AuditAction, AuditEntry, AuditSubject},
@@ -65,6 +66,7 @@ pub async fn run_in<C: ConnectionTrait>(
         .find(|r| r.role_key().ok().flatten() == Some(RoleKey::Owner))
         .ok_or_else(|| sea_orm::DbErr::RecordNotFound("owner role".to_string()))?;
     workspace_members::ActiveModel::add(txn, wid, owner.id, owner_role.id).await?;
+    ticket_types::ActiveModel::create_builtin_set(txn, wid).await?;
     audit::record(
         txn,
         AuditEntry {

@@ -1,0 +1,20 @@
+{#- Pencarian tiket dasar (judul, deskripsi, kode) di project yang boleh dibuka. Variabel: table
+    (TableView SEARCH_TABLE), tickets, searched (ada kata kunci), q. -#}
+{% extends "layouts/page.html" %}
+{% block title %}{{ t(key="search-title", lang="id") }}{% endblock title %}
+{% block crumb %}{{ <crumb label={t(key="search-title", lang="id")}/> }}{% endblock crumb %}
+{% block width %}wide{% endblock width %}
+{% block page_attrs %}data-search-page{% endblock page_attrs %}
+{% block heading %}{{ t(key="search-title", lang="id") }}{% endblock heading %}
+{% block description %}{{ t(key="search-description", lang="id") }}{% endblock description %}
+{% block main %}
+{% <card flush={true}> %}
+  {%- if searched %}
+  {% <datatable table={table} empty_title={t(key="search-empty-title", lang="id", q=q)} empty_description={t(key="search-empty-description", lang="id")} empty_icon="search"> %}
+    {%- set show_project = true %}{% include "tickets/_rows.html" %}
+  {% </datatable> %}
+  {%- else %}
+  {% <datatable table={table} empty_title={t(key="search-start-title", lang="id")} empty_description={t(key="search-start-description", lang="id")} empty_icon="search"> %}{% </datatable> %}
+  {%- endif %}
+{% </card> %}
+{% endblock main %}

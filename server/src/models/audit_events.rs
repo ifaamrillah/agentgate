@@ -86,6 +86,29 @@ pub enum AuditAction {
     RepoUpdated,
     #[sea_orm(string_value = "repo.removed")]
     RepoRemoved,
+    /// Tiket dipindah ke sampah.
+    #[sea_orm(string_value = "ticket.trashed")]
+    TicketTrashed,
+    #[sea_orm(string_value = "ticket.restored")]
+    TicketRestored,
+    /// Tiket dihapus permanen dari sampah (oleh orang; purge 30 hari tidak diaudit per tiket).
+    #[sea_orm(string_value = "ticket.purged")]
+    TicketPurged,
+    #[sea_orm(string_value = "ticket_type.created")]
+    TicketTypeCreated,
+    #[sea_orm(string_value = "ticket_type.updated")]
+    TicketTypeUpdated,
+    #[sea_orm(string_value = "ticket_type.deleted")]
+    TicketTypeDeleted,
+    #[sea_orm(string_value = "custom_field.created")]
+    CustomFieldCreated,
+    #[sea_orm(string_value = "custom_field.updated")]
+    CustomFieldUpdated,
+    #[sea_orm(string_value = "custom_field.deleted")]
+    CustomFieldDeleted,
+    /// Template kode tiket workspace atau project diubah.
+    #[sea_orm(string_value = "ticket_code.updated")]
+    TicketCodeUpdated,
 }
 
 /// Kelompok aksi untuk filter halaman audit: awalan `<subjek>` dari aksi, kecuali jabatan
@@ -98,6 +121,7 @@ pub enum AuditGroup {
     Team,
     Project,
     Repo,
+    Ticket,
 }
 
 impl AuditGroup {
@@ -111,6 +135,7 @@ impl AuditGroup {
             Self::Team => "team",
             Self::Project => "project",
             Self::Repo => "repo",
+            Self::Ticket => "ticket",
         }
     }
 
@@ -160,6 +185,16 @@ impl AuditAction {
             | Self::ProjectAccessChanged
             | Self::ProjectAccessRevoked => AuditGroup::Project,
             Self::RepoAdded | Self::RepoUpdated | Self::RepoRemoved => AuditGroup::Repo,
+            Self::TicketTrashed
+            | Self::TicketRestored
+            | Self::TicketPurged
+            | Self::TicketTypeCreated
+            | Self::TicketTypeUpdated
+            | Self::TicketTypeDeleted
+            | Self::CustomFieldCreated
+            | Self::CustomFieldUpdated
+            | Self::CustomFieldDeleted
+            | Self::TicketCodeUpdated => AuditGroup::Ticket,
         }
     }
 }
@@ -244,6 +279,12 @@ pub enum AuditSubject {
     Repo,
     #[sea_orm(string_value = "invitation")]
     Invitation,
+    #[sea_orm(string_value = "ticket")]
+    Ticket,
+    #[sea_orm(string_value = "ticket_type")]
+    TicketType,
+    #[sea_orm(string_value = "custom_field")]
+    CustomField,
 }
 
 /// Data satu baris audit untuk [`ActiveModel::append`].

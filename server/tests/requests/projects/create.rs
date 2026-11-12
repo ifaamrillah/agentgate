@@ -116,7 +116,7 @@ async fn project_key_unique_case_insensitive_and_normalized_upper() {
         assert_eq!(res.status_code(), 200);
         let html = res.text();
         assert_css_exists(&html, "[data-project-home]");
-        assert_css_exists(&html, "[data-board-empty]");
+        assert_css_exists(&html, "[data-ticket-stats]");
         // Sidebar: project aktif dengan menu "segera".
         assert_css_exists(
             &html,
