@@ -31,7 +31,7 @@ use crate::{
         nav,
         projects::PROJECT_VIEWS_ACTION,
         tickets::{
-            BoardFilter, BoardPaths, LIST_TABLE, TicketFormView, TypeView, board_columns,
+            BoardFilter, BoardPaths, LIST_TABLE, TicketFormView, TypeView, stage_columns,
             custom_inputs, priority_options, status_options, ticket_href,
         },
         ui::ComboOption,
@@ -193,6 +193,12 @@ async fn render_new(
             "custom": custom_for_form(ctx, access, form, errors).await?,
             "people_src": paths.people,
             "paths": paths,
+            "stage": form.stage,
+            "stage_error": errors
+                .and_then(|e| e.errors.get("stage"))
+                .and_then(|l| l.first())
+                .map(|e| e.code.to_string())
+                .unwrap_or_default(),
         }),
     )
 }
@@ -201,6 +207,8 @@ async fn render_new(
 pub struct NewQuery {
     #[serde(default)]
     status: String,
+    #[serde(default)]
+    stage: String,
     #[serde(default)]
     parent: String,
 }
@@ -218,6 +226,7 @@ pub(super) async fn new(
         .map(|s| views::tickets::status_view(s).value.to_string())
         .unwrap_or_default();
     form.parent = query.parent.trim().chars().take(64).collect();
+    form.stage = query.stage.trim().chars().take(64).collect();
     render_new(&ctx, &v, &access, &form, None, StatusCode::OK).await
 }
 
@@ -346,8 +355,7 @@ pub(super) async fn board(
             "views": nav::project_views(&home, &access.tenant.user.project_views, "board"),
             "views_action": PROJECT_VIEWS_ACTION,
             "return_to": paths.board,
-            "columns": board_columns(&lookup, &tickets),
-            "statuses": status_options(),
+            "columns": stage_columns(&lookup, &project_definitions(&ctx, &access, &tickets).await?, &tickets),
             "filter": filter,
             "who": who,
             "paths": paths,
@@ -559,4 +567,34 @@ async fn ensure_in_project(ctx: &AppContext, access: &ProjectAccess, id: Uuid) -
         .filter(|t| t.project_id == access.project.id)
         .map(|_| ())
         .ok_or(Error::NotFound)
+}
+
+/// Definisi workflow yang dipakai project: workflow efektif tiap tipe tiket, lalu workflow tiket
+/// yang tampil (tiket yang belum ikut pindah workflow).
+async fn project_definitions(
+    ctx: &AppContext,
+    access: &ProjectAccess,
+    shown: &[tickets::Model],
+) -> Result<Vec<agentgate_core::workflow::Definition>> {
+    use crate::models::{project_workflows, ticket_types, workflows};
+    let wid = access.tenant.workspace_id();
+    let mut ids: Vec<Uuid> = Vec::new();
+    for t in ticket_types::Model::all_in(&ctx.db, wid).await? {
+        let id = project_workflows::Model::effective(&ctx.db, wid, access.project.id, t.id).await?;
+        if !ids.contains(&id) {
+            ids.push(id);
+        }
+    }
+    for t in shown {
+        if !ids.contains(&t.workflow_id) {
+            ids.push(t.workflow_id);
+        }
+    }
+    let mut out = Vec::new();
+    for id in ids {
+        if let Some(w) = workflows::Model::find_in(&ctx.db, wid, id).await? {
+            out.push(w.definition(&ctx.db).await?);
+        }
+    }
+    Ok(out)
 }

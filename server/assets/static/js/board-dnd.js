@@ -1,5 +1,5 @@
 // Board drag-drop (`[data-board-dnd]`): kartu `[draggable][data-move-action]` diseret ke kolom
-// `[data-column]`; saat dilepas, form tersembunyi `[data-board-move-form]` diisi (status kolom,
+// `[data-column]`; saat dilepas, form tersembunyi `[data-board-move-form]` diisi (stage kolom,
 // `before` = id kartu di bawah titik lepas) lalu dikirim biasa. Server memvalidasi (blok, izin) dan
 // mengalihkan kembali ke board; tanpa JS, menu ⋯ di kartu tetap bisa memindahkan status.
 (() => {
@@ -43,7 +43,7 @@
     // Lepas di posisi semula: tidak ada perubahan.
     if (same && (below ? below === dragged.nextElementSibling : !dragged.nextElementSibling?.matches("[data-ticket-id]"))) { clear(); return; }
     form.action = dragged.dataset.moveAction;
-    form.elements.status.value = column.dataset.column;
+    form.elements.stage.value = column.dataset.column;
     form.elements.before.value = below ? below.dataset.ticketId : "";
     // Umpan balik langsung sebelum halaman dimuat ulang.
     const cards = column.querySelector("[data-cards]");

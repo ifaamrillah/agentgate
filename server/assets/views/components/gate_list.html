@@ -1,0 +1,14 @@
+{#- Daftar gate stage (M3): centang hijau = terpenuhi, silang = belum. Gate evidence (screenshot,
+    test, PR, CI) belum punya sumber di M3 sehingga selalu belum terpenuhi.
+    Parameter:
+      gates: array   [views::workflow::GateView] -#}
+{% component gate_list(gates: array) %}
+<ul class="app-gates" data-gates>
+  {%- for g in gates %}
+  <li data-gate="{{ g.key }}" data-ok="{{ g.ok }}">
+    {%- if g.ok %}{{ icon(name="circle-check") }}{% else %}{{ icon(name="circle-x") }}{% endif %}
+    <span><b>{{ t(key=g.label_key, lang="id") }}</b><small>{{ t(key=g.hint_key, lang="id") }}</small></span>
+  </li>
+  {%- endfor %}
+</ul>
+{%- endcomponent gate_list %}

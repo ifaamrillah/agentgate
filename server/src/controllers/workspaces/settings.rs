@@ -207,6 +207,9 @@ pub(crate) fn links(tenant: &Tenant) -> SettingsLinks {
         job_titles: job_titles::settings_link(tenant),
         teams: teams::settings_link(tenant),
         audit: audit::settings_link(tenant),
+        workflows: tenant
+            .can(crate::models::permission::Permission::ManageTicketSettings)
+            .then(|| format!("/w/{}/settings/workflows", tenant.workspace.slug)),
         ticket_types: tenant
             .can(crate::models::permission::Permission::ManageTicketSettings)
             .then(|| format!("/w/{}/settings/ticket-types", tenant.workspace.slug)),

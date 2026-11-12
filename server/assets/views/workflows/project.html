@@ -1,0 +1,31 @@
+{#- Pengaturan project → Workflow (Admin project): workflow per tipe tiket (ikut default
+    workspace atau pilihan sendiri) dan aturan transisi (paksa transisi). Tiket yang workflow-nya
+    berubah pindah ke stage padanan. Variabel: lihat controllers::tickets::workflow::render_project. -#}
+{% extends "layouts/settings.html" %}
+{% block title %}{{ t(key="settings-workflows-title", lang="id") }} · {{ project.name }}{% endblock title %}
+{% block crumb_label %}{{ t(key="settings-workflows-title", lang="id") }}{% endblock crumb_label %}
+{% block page_attrs %}data-project-workflow{% endblock page_attrs %}
+{% block settings %}
+<header class="app-page-head">
+  <div class="app-page-title"><h1>{{ t(key="settings-workflows-title", lang="id") }}</h1><p>{{ t(key="project-workflow-description", lang="id") }}</p></div>
+  {%- if manage_href %}<div class="app-page-acts">{{ <button label={t(key="project-workflow-manage", lang="id")} icon="settings" variant="outline" href={manage_href}/> }}</div>{% endif %}
+</header>
+{% <card title={t(key="project-workflow-types", lang="id")} description={t(key="project-workflow-types-description", lang="id")} form={action} cancel_href={action} flush={true} attrs="data-project-workflow-form"> %}
+  {%- for row in rows %}
+  {% <setting_row title={row.type.name} description={row.stages | join(sep=" → ")} wide={true} attrs="data-type-workflow"> %}
+    <select class="app-input" name="{{ row.field }}" aria-label="{{ t(key="workflow-for-type", lang="id", type=row.type.name) }}">
+      <option value="">{{ t(key="project-workflow-inherit", lang="id", name=row.default_name) }}</option>
+      {%- for o in options %}<option value="{{ o.id }}"{% if o.id == row.selected %} selected{% endif %}>{{ o.name }}</option>{% endfor %}
+    </select>
+    <p class="app-hint">{{ t(key="project-workflow-tickets", lang="id", count=row.tickets) }}</p>
+  {% </setting_row> %}
+  {%- endfor %}
+  <p class="app-blk app-section-label">{{ t(key="project-workflow-rules", lang="id") }}</p>
+  {% <setting_row title={t(key="project-workflow-jump", lang="id")} description={t(key="project-workflow-jump-description", lang="id")}> %}
+    {{ <badge label={t(key="project-workflow-admin-only", lang="id")} variant="neutral"/> }}
+  {% </setting_row> %}
+  {% <setting_row title={t(key="project-workflow-force", lang="id")} description={t(key="project-workflow-force-description", lang="id")}> %}
+    <input type="checkbox" class="app-switch" role="switch" name="allow_force_transition" value="1"{% if allow_force %} checked{% endif %} aria-label="{{ t(key="project-workflow-force", lang="id") }}" data-allow-force>
+  {% </setting_row> %}
+{% </card> %}
+{% endblock settings %}

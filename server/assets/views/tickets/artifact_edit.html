@@ -1,0 +1,37 @@
+{#- Editor artifact di halaman sendiri (aturan UX: dokumen panjang): md_editor penuh di kiri
+    (Simpan = versi baru), kanan "Versi" (status, penulis, bandingkan dengan versi sebelumnya).
+    Variabel: lihat controllers::tickets::artifact::render_edit. -#}
+{% extends "layouts/page.html" %}
+{% block title %}{{ artifact.name }} · {{ ticket.code }}{% endblock title %}
+{% block width %}wide{% endblock width %}
+{% block crumb %}{{ <crumb label={ticket.code} href={paths.show}/> }}{{ <crumb label={t(key="ticket-tab-artifacts", lang="id")} href={back}/> }}{{ <crumb label={artifact.name}/> }}{% endblock crumb %}
+{% block leading %}<span class="app-tile" data-size="lg">{{ icon(name="file-text") }}</span>{% endblock leading %}
+{% block heading %}<span class="app-code">{{ artifact.name }}</span>{% endblock heading %}
+{% block description %}{{ t(key="artifact-of-stage", lang="id", stage=artifact.stage) }}{% if latest %} · v{{ latest.number }}{% endif %}{% endblock description %}
+{% block page_attrs %}data-artifact-editor{% endblock page_attrs %}
+{% block main %}
+{%- if error %}{{ <flash kind="error" message={t(key=error, lang="id")}/> }}{% endif %}
+<div class="app-ticket">
+  <div class="app-ticket-main">
+  {% <card title={t(key="artifact-content", lang="id")} flush={true}> %}
+    {%- if can_edit %}
+    {{ <md_editor id="artifact-body" name="body" label={t(key="artifact-content", lang="id")} value={body} action={action} cancel_href={back} save_label={t(key="artifact-save-version", lang="id")} hide_label={true} rows={24}/> }}
+    {%- else %}
+    <div class="app-blk"><div class="app-prose">{{ body }}</div></div>
+    {%- endif %}
+  {% </card> %}
+  </div>
+  <aside class="app-ticket-side">
+  {% <card title={t(key="artifact-versions", lang="id")} count={versions | length ~ ""} flush={true}> %}
+    {%- for v in versions %}
+    <a class="app-lrow" href="{{ v.href }}" data-version-row="{{ v.number }}">
+      <span class="app-code">v{{ v.number }}</span>
+      <span class="app-lrow-main"><small>{% if v.author %}{{ v.author.name }} · {% endif %}{{ v.at }}</small>{% if v.note %}<small>{{ v.note }}</small>{% endif %}</span>
+      {{ <badge label={t(key=v.status_key, lang="id")} variant={v.variant}/> }}
+    </a>
+    {%- endfor %}
+    <p class="app-blk app-hint">{{ t(key="artifact-versions-hint", lang="id") }}</p>
+  {% </card> %}
+  </aside>
+</div>
+{% endblock main %}

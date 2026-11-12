@@ -4,6 +4,7 @@
 {% extends "tickets/_layout.html" %}
 {% block page_attrs %}data-ticket-activity{% endblock page_attrs %}
 {% block main %}
+{% include "tickets/_stage_head.html" %}
 {{ <tabs label={t(key="ticket-tabs", lang="id")} items={tabs}/> }}
 {% <card title={t(key="ticket-activity-title", lang="id")} count={events | length ~ ""}> %}
   {%- if events %}

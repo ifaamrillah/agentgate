@@ -224,6 +224,7 @@ pub struct SettingsLinks {
     pub job_titles: Option<String>,
     pub teams: Option<String>,
     pub audit: Option<String>,
+    pub workflows: Option<String>,
     pub ticket_types: Option<String>,
     pub ticket_code: Option<String>,
 }

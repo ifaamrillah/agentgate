@@ -96,6 +96,14 @@ pub struct TicketPaths {
     pub attachments: String,
     pub watch: String,
     pub delete: String,
+    /// Aksi stage (M3).
+    pub complete: String,
+    pub approve: String,
+    pub reject: String,
+    pub decide: String,
+    pub admin_move: String,
+    pub people: String,
+    pub artifacts: String,
 }
 
 impl TicketPaths {
@@ -110,6 +118,13 @@ impl TicketPaths {
             attachments: format!("{show}/attachments"),
             watch: format!("{show}/watch"),
             delete: format!("{show}/delete"),
+            complete: format!("{show}/stage/complete"),
+            approve: format!("{show}/stage/approve"),
+            reject: format!("{show}/stage/reject"),
+            decide: format!("{show}/stage/decide"),
+            admin_move: format!("{show}/stage/admin-move"),
+            people: format!("{show}/stage/people"),
+            artifacts: format!("{show}/artifacts"),
             show,
         }
     }
@@ -378,6 +393,8 @@ impl Lookup {
                 .get(&t.project_id)
                 .map(|(name, _)| name.clone())
                 .unwrap_or_default(),
+            stage_key: t.stage_key.clone(),
+            stage_state: t.stage_state.clone(),
         }
     }
 }
@@ -409,6 +426,9 @@ pub struct TicketRow {
     pub updated: String,
     /// Nama project (Tiket saya, pencarian); `""` di halaman project.
     pub project: String,
+    /// Kunci stage sekarang dan keadaannya (`active`/`review`/`decision`).
+    pub stage_key: String,
+    pub stage_state: String,
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -418,6 +438,60 @@ pub struct TicketRow {
 pub struct BoardColumn {
     pub status: StatusView,
     pub cards: Vec<TicketRow>,
+}
+
+/// Kolom board per stage (M3): kunci stage, nama, kategori (ikon/warna status), kartu.
+#[derive(Debug, Clone, Serialize)]
+pub struct StageColumn {
+    pub key: String,
+    pub name: String,
+    pub status: StatusView,
+    pub cards: Vec<TicketRow>,
+}
+
+/// Kolom board dari gabungan stage semua workflow yang dipakai project: kunci sama = satu kolom
+/// (nama dari workflow pertama), urut kategori lalu posisi di workflow-nya. Tiket masuk kolom
+/// kunci stage-nya; stage yang sudah dihapus (belum dimigrasi) masuk kolom pertama kategorinya.
+#[must_use]
+pub fn stage_columns(
+    lookup: &Lookup,
+    definitions: &[agentgate_core::workflow::Definition],
+    tickets: &[tickets::Model],
+) -> Vec<StageColumn> {
+    let mut seen: Vec<(String, String, agentgate_core::workflow::Category, usize)> = Vec::new();
+    for d in definitions {
+        for (i, s) in d.stages.iter().enumerate() {
+            if !seen.iter().any(|(k, ..)| *k == s.key) {
+                seen.push((s.key.clone(), s.name.clone(), s.category, i));
+            }
+        }
+    }
+    seen.sort_by_key(|(_, _, c, i)| (*c, *i));
+    let mut columns: Vec<StageColumn> = seen
+        .into_iter()
+        .map(|(key, name, category, _)| StageColumn {
+            key,
+            name,
+            status: status_view(TicketStatus::parse(category.as_str()).unwrap_or(TicketStatus::Todo)),
+            cards: Vec::new(),
+        })
+        .collect();
+    for t in tickets {
+        let i = columns
+            .iter()
+            .position(|c| c.key == t.stage_key)
+            .or_else(|| columns.iter().position(|c| c.status.value == t.status));
+        match i {
+            Some(i) => columns[i].cards.push(lookup.row(t)),
+            None => columns.push(StageColumn {
+                key: t.stage_key.clone(),
+                name: t.stage_key.clone(),
+                status: status_view(t.status().unwrap_or(TicketStatus::Todo)),
+                cards: vec![lookup.row(t)],
+            }),
+        }
+    }
+    columns
 }
 
 /// Kolom board dari tiket yang sudah urut posisi.

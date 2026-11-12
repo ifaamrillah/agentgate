@@ -290,8 +290,8 @@ async fn members_only<C: ConnectionTrait>(
     Ok(out)
 }
 
-/// Stage pertama untuk tiket baru: `stage` (kunci) bila diisi, selain itu stage pertama
-/// berkategori `status`, selain itu stage pertama. Membuat tiket langsung di stage yang
+/// Stage pertama untuk tiket baru: `stage` (kunci) bila ada di workflow ini, selain itu stage
+/// pertama berkategori `status`, selain itu stage pertama. Membuat tiket langsung di stage yang
 /// didahului stage yang menegakkan sesuatu sama dengan lompat stage → ditolak.
 ///
 /// # Errors
@@ -302,15 +302,15 @@ pub fn initial_stage<'a>(
     stage: &str,
     status: TicketStatus,
 ) -> Result<&'a Stage, TicketFailure> {
-    let chosen = match stage.trim() {
-        "" => definition
+    let by_status = || {
+        definition
             .first_in(category(&status).unwrap_or(Category::Todo))
-            .or(definition.first()),
-        key => Some(
-            definition
-                .stage(key)
-                .ok_or_else(|| invalid(STAGE_UNKNOWN))?,
-        ),
+            .or(definition.first())
+    };
+    // Kunci stage dari kolom board yang tidak ada di workflow tipe ini → menurut status.
+    let chosen = match stage.trim() {
+        "" => by_status(),
+        key => definition.stage(key).or_else(by_status),
     }
     .ok_or_else(|| invalid(STAGE_UNKNOWN))?;
     let i = definition.index_of(&chosen.key).unwrap_or(0);

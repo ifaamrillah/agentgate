@@ -3,15 +3,27 @@
     bila `move` diisi; menu ⋯ berisi form pindah status yang jalan tanpa JS.
     Parameter:
       ticket: map               views::tickets::TicketRow
-      statuses: array           [views::tickets::StatusView] tujuan pindah (default [] = tanpa menu)
+      statuses: array           [views::tickets::StatusView] tujuan pindah status (default [])
+      stages: array             [views::tickets::StageColumn] tujuan pindah stage (M3; mengalahkan
+                                `statuses`; default [] = tanpa menu)
       return_to: string         path kembali setelah pindah (default "")
       move: bool                kartu bisa diseret (default false) -#}
-{% component ticket_card(ticket: map, statuses: array = [], return_to: string = "", move: bool = false) %}
+{% component ticket_card(ticket: map, statuses: array = [], stages: array = [], return_to: string = "", move: bool = false) %}
 <article class="app-tcard" data-ticket="{{ ticket.code }}" data-ticket-id="{{ ticket.id }}"{% if move %} draggable="true" data-move-action="{{ ticket.status_action }}"{% endif %}>
   <div class="app-tcard-top">
     {{ <type_icon icon={ticket.ticket_type.icon} color={ticket.ticket_type.color} label={ticket.ticket_type.name}/> }}
     <span class="app-code app-tcard-code">{{ ticket.code }}</span>
-    {%- if statuses %}
+    {%- if stages %}
+    {% <action_menu id={"move-" ~ ticket.id} label={t(key="ticket-move-label", lang="id", code=ticket.code)}> %}
+      <div class="app-menu-label">{{ t(key="ticket-move-to", lang="id") }}</div>
+      {%- for s in stages %}{% if s.key != ticket.stage_key %}
+      <form method="post" action="{{ ticket.status_action }}">
+        <input type="hidden" name="stage" value="{{ s.key }}"><input type="hidden" name="return_to" value="{{ return_to }}">
+        <button type="submit" class="app-menu-item">{{ icon(name=s.status.icon) }}{{ s.name }}</button>
+      </form>
+      {%- endif %}{% endfor %}
+    {% </action_menu> %}
+    {%- elif statuses %}
     {% <action_menu id={"move-" ~ ticket.id} label={t(key="ticket-move-label", lang="id", code=ticket.code)}> %}
       <div class="app-menu-label">{{ t(key="ticket-move-to", lang="id") }}</div>
       {%- for s in statuses %}{% if s.value != ticket.status.value %}
@@ -25,6 +37,7 @@
     {%- if ticket.assignee %}{{ <avatar initials={ticket.assignee.initials} color={ticket.assignee.color} label={ticket.assignee.name} size="sm"/> }}{% else %}<span class="app-av-empty" title="{{ t(key="ticket-unassigned", lang="id") }}"></span>{% endif %}
   </div>
   <a class="app-tcard-title" href="{{ ticket.href }}">{{ ticket.title }}</a>
+  {%- if ticket.stage_state == "review" %}<span class="app-tcard-state">{{ <badge label={t(key="stage-state-review", lang="id")} variant="gate"/> }}</span>{% elif ticket.stage_state == "decision" %}<span class="app-tcard-state">{{ <badge label={t(key="stage-state-decision", lang="id")} variant="destructive"/> }}</span>{% endif %}
   <div class="app-tcard-meta">
     {{ <prio rank={ticket.priority.rank} label={t(key=ticket.priority.label_key, lang="id")}/> }}
     {%- for l in ticket.labels %}<span class="app-label-pill">{{ l }}</span>{% endfor %}

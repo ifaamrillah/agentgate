@@ -9,7 +9,9 @@
 {% block page_attrs %}data-ticket-new{% endblock page_attrs %}
 {% block description %}{{ t(key="ticket-new-description", lang="id") }}{% endblock description %}
 {% block main %}
+{%- if stage_error %}{{ <flash kind="error" message={t(key=stage_error, lang="id")}/> }}{% endif %}
 <form method="post" action="{{ paths.new_ticket }}" class="app-ticket-form" data-ticket-form>
+  {%- if stage %}<input type="hidden" name="stage" value="{{ stage }}">{% endif %}
 <div class="app-grid" data-cols="duo">
   {% <card title={t(key="ticket-section-content", lang="id")}> %}
     <div class="app-form">

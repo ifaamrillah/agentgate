@@ -1,0 +1,22 @@
+{#- Bandingkan dua versi artifact: diff baris (tambah hijau, hapus merah). Pilih versi lewat form
+    GET. Variabel: lihat controllers::tickets::artifact::compare. -#}
+{% extends "layouts/page.html" %}
+{% block title %}{{ artifact.name }} · v{{ from.number }} → v{{ to.number }}{% endblock title %}
+{% block width %}wide{% endblock width %}
+{% block crumb %}{{ <crumb label={ticket.code} href={paths.show}/> }}{{ <crumb label={artifact.name} href={back}/> }}{{ <crumb label={t(key="artifact-compare", lang="id")}/> }}{% endblock crumb %}
+{% block heading %}{{ t(key="artifact-compare-title", lang="id", name=artifact.name) }}{% endblock heading %}
+{% block description %}{{ t(key="artifact-compare-summary", lang="id", added=added, removed=removed) }}{% endblock description %}
+{% block page_attrs %}data-artifact-compare{% endblock page_attrs %}
+{% block main %}
+{% <card flush={true}> %}
+  <form method="get" action="{{ action }}" class="app-blk app-inline-form">
+    <label class="app-hint" for="compare-from">{{ t(key="artifact-compare-from", lang="id") }}</label>
+    <select class="app-input" id="compare-from" name="from">{% for n in versions %}<option value="{{ n }}"{% if n == from.number %} selected{% endif %}>v{{ n }}</option>{% endfor %}</select>
+    <label class="app-hint" for="compare-to">{{ t(key="artifact-compare-to", lang="id") }}</label>
+    <select class="app-input" id="compare-to" name="to">{% for n in versions %}<option value="{{ n }}"{% if n == to.number %} selected{% endif %}>v{{ n }}</option>{% endfor %}</select>
+    {{ <button label={t(key="artifact-compare", lang="id")} variant="outline" size="sm" type="submit"/> }}
+  </form>
+  <pre class="app-diff" data-diff>{% for l in lines %}<span data-line="{{ l.kind }}">{% if l.kind == "add" %}+ {% elif l.kind == "del" %}- {% else %}  {% endif %}{{ l.text }}</span>
+{% endfor %}</pre>
+{% </card> %}
+{% endblock main %}

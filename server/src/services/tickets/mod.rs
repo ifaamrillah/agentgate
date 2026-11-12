@@ -10,6 +10,7 @@
 //! dengan perubahannya: keduanya baris database, bukan efek samping keluar proses. Satu-satunya
 //! efek samping keluar proses adalah file lampiran di storage (lihat [`attachments`]).
 
+pub mod artifacts;
 pub mod attachments;
 pub mod comments;
 pub mod create;
