@@ -1,45 +1,42 @@
 {#- Halaman login. Variabel (views::auth::LoginPage): email (string), return_to (string atau
     null, sudah aman), error (kunci Fluent atau ""), oauth_google, oauth_github (form POST ke
     /auth/{provider}), registration_open (bool), flash (dirender layout). Password tidak pernah dirender ulang. -#}
-{% extends "auth/_layout_card.html" %}
+{% extends "layouts/auth.html" %}
 {% block title %}{{ t(key="login-title", lang="id") }}{% endblock title %}
 {% block heading %}{{ t(key="login-title", lang="id") }}{% endblock heading %}
-{% block description %}{{ t(key="login-description", lang="id") }}{% endblock description %}
+{% block description %}
+{%- if registration_open %}{{ t(key="login-no-account", lang="id") }} <a href="/register" class="app-link">{{ t(key="login-register", lang="id") }}</a>
+{%- else %}{{ t(key="login-description", lang="id") }}{% endif -%}
+{% endblock description %}
 {% block card %}
-{% if error %}
-  <div class="mb-6">{{ <flash kind="error" message={t(key=error, lang="id")}/> }}</div>
-{% endif %}
-<form method="post" action="/login" class="form grid gap-6">
+{%- if error %}{{ <flash kind="error" message={t(key=error, lang="id")}/> }}{% endif %}
+<form method="post" action="/login">
   {% if return_to %}<input type="hidden" name="return_to" value="{{ return_to }}">{% endif %}
-  {{ <field id="login-email" name="email" type="email" label={t(key="login-email", lang="id")} value={email} autocomplete="email" required={true} autofocus={true}/> }}
-  {{ <field id="login-password" name="password" type="password" label={t(key="login-password", lang="id")} autocomplete="current-password" required={true}/> }}
-  <div class="flex items-center justify-end text-sm">
-    <a href="/password/forgot" class="underline underline-offset-4">{{ t(key="login-forgot-password", lang="id") }}</a>
+  {{ <field id="login-email" name="email" type="email" label={t(key="login-email", lang="id")} value={email} placeholder={t(key="auth-email-placeholder", lang="id")} autocomplete="email" required={true} autofocus={true}/> }}
+  <div class="app-auth-pw">
+    {{ <field id="login-password" name="password" type="password" label={t(key="login-password", lang="id")} autocomplete="current-password" required={true}/> }}
+    <a href="/password/forgot" class="app-link">{{ t(key="login-forgot-password", lang="id") }}</a>
   </div>
-  {{ <button label={t(key="login-submit", lang="id")} type="submit" class="w-full"/> }}
+  {{ <button label={t(key="login-submit", lang="id")} type="submit" full={true}/> }}
 </form>
-{% if oauth_google or oauth_github %}
-<div class="mt-6 grid gap-3">
-  <p class="text-center text-sm text-muted-foreground">{{ t(key="login-or", lang="id") }}</p>
+{%- if oauth_google or oauth_github %}
+<div class="app-or">{{ t(key="login-or", lang="id") }}</div>
+<div class="app-auth-oauth">
   {#- POST (bukan link): GET tidak memulai login OAuth. Jawabannya redirect ke domain provider,
       jadi navigasi browser penuh, bukan request HTMX (rules §6). -#}
-  {% if oauth_google %}
+  {%- if oauth_google %}
   <form method="post" action="/auth/google" hx-boost="false">
     {% if return_to %}<input type="hidden" name="return_to" value="{{ return_to }}">{% endif %}
-    {{ <button label={t(key="login-with-google", lang="id")} type="submit" variant="outline" class="w-full"/> }}
+    {{ <button label={t(key="login-with-google", lang="id")} type="submit" variant="outline" icon="brand-google" full={true}/> }}
   </form>
-  {% endif %}
-  {% if oauth_github %}
+  {%- endif %}
+  {%- if oauth_github %}
   <form method="post" action="/auth/github" hx-boost="false">
     {% if return_to %}<input type="hidden" name="return_to" value="{{ return_to }}">{% endif %}
-    {{ <button label={t(key="login-with-github", lang="id")} type="submit" variant="outline" class="w-full"/> }}
+    {{ <button label={t(key="login-with-github", lang="id")} type="submit" variant="outline" icon="brand-github" full={true}/> }}
   </form>
-  {% endif %}
+  {%- endif %}
 </div>
-{% endif %}
-{% endblock card %}
-{% block below %}
-{%- if registration_open %}
-{{ t(key="login-no-account", lang="id") }} <a href="/register" class="underline underline-offset-4">{{ t(key="login-register", lang="id") }}</a>
 {%- endif %}
-{% endblock below %}
+<p class="app-auth-fine">{{ t(key="auth-terms", lang="id") }}</p>
+{% endblock card %}

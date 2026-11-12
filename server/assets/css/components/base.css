@@ -55,3 +55,15 @@
 @layer base {
   svg:where([focusable='false']) { width: 16px; height: 16px; flex-shrink: 0; stroke-width: 1.75; }
 }
+@layer components {
+  /* Deret tombol (aksi konfirmasi di dalam kartu) dan form sebaris (tombol Keluar di teks). */
+  .app-btnrow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .app-inline-form { display: inline; }
+  button.app-link { font: inherit; cursor: pointer; }
+}
+@layer components {
+  /* Katalog /_dev/ui: contoh token warna. */
+  .app-catalog-swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .app-catalog-swatches > span { display: grid; gap: 4px; font-size: 12px; }
+  .app-catalog-swatches i { display: block; height: 32px; border-radius: 6px; border: 1px solid var(--ag-line); }
+}

@@ -1,12 +1,12 @@
 {#- Konfirmasi verifikasi email: GET hanya menampilkan tombol, token dikonsumsi POST.
     Variabel: token (string, token mentah dari link). -#}
-{% extends "auth/_layout_card.html" %}
+{% extends "layouts/auth.html" %}
 {% block title %}{{ t(key="verify-email-title", lang="id") }}{% endblock title %}
 {% block heading %}{{ t(key="verify-email-title", lang="id") }}{% endblock heading %}
 {% block description %}{{ t(key="verify-email-description", lang="id") }}{% endblock description %}
 {% block card %}
 <form method="post" action="/verify-email">
   <input type="hidden" name="token" value="{{ token }}">
-  {{ <button label={t(key="verify-email-submit", lang="id")} type="submit" class="w-full"/> }}
+  {{ <button label={t(key="verify-email-submit", lang="id")} type="submit" full={true}/> }}
 </form>
 {% endblock card %}

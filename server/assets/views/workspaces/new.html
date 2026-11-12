@@ -1,14 +1,20 @@
-{#- Buat workspace. Variabel: form (views::workspaces::WorkspaceFormView). -#}
-{% extends "layouts/page.html" %}
+{#- Buat workspace: halaman solo (prototype "Buat workspace"). Variabel: form
+    (views::workspaces::WorkspaceFormView), shell (user, workspaces). -#}
+{% extends "layouts/public.html" %}
 {% block title %}{{ t(key="workspace-new-title", lang="id") }}{% endblock title %}
-{% block width %}narrow{% endblock width %}
-{% block heading %}{{ t(key="workspace-new-title", lang="id") }}{% endblock heading %}
-{% block description %}{{ t(key="workspace-new-description", lang="id") }}{% endblock description %}
-{% block main %}
-  {% <panel> %}
-    <form method="post" action="/w/new" class="app-form">
-      {% include "workspaces/_form.html" %}
-      <div class="app-form-actions">{{ <button label={t(key="workspace-create-submit", lang="id")} type="submit"/> }}</div>
-    </form>
-  {% </panel> %}
-{% endblock main %}
+{% block content %}
+<header class="app-solo-head">
+  <h1>{{ t(key="workspace-new-title", lang="id") }}</h1>
+  <p>{{ t(key="workspace-new-description", lang="id") }}</p>
+</header>
+<form method="post" action="/w/new" class="app-card">
+  <div class="app-form">
+    {% include "workspaces/_form.html" %}
+    {{ <button label={t(key="workspace-create-submit", lang="id")} type="submit" full={true}/> }}
+  </div>
+</form>
+{%- if shell.workspaces %}
+<a href="/" class="app-link app-auth-back" data-align="center">{{ icon(name="arrow-left") }}{{ t(key="workspace-back-to-list", lang="id") }}</a>
+{%- endif %}
+{% endblock content %}
+{% block foot %}{% include "workspaces/_signed_in_as.html" %}{% endblock foot %}

@@ -29,3 +29,6 @@
   .app-solo-head p { color: var(--ag-muted); }
   .app-solo-foot { color: var(--ag-muted); text-align: center; }
 }
+@layer components {
+  .app-stack-v[data-gap='sm'] { gap: 12px; }
+}

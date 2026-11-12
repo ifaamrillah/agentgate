@@ -16,8 +16,16 @@ use agentgate_server::{
 };
 use sea_orm::Iterable;
 
+/// Kunci dari semua file `.ftl` locale `id` (loader memuat seluruh isi folder).
 fn fluent_keys() -> HashSet<String> {
-    let src = std::fs::read_to_string("assets/i18n/id/main.ftl").unwrap();
+    let mut src = String::new();
+    for entry in std::fs::read_dir("assets/i18n/id").unwrap() {
+        let path = entry.unwrap().path();
+        if path.extension().is_some_and(|e| e == "ftl") {
+            src.push_str(&std::fs::read_to_string(&path).unwrap());
+            src.push('\n');
+        }
+    }
     src.lines()
         .filter_map(|l| l.split_once(" = ").map(|(k, _)| k.trim().to_string()))
         .filter(|k| !k.starts_with('#') && !k.starts_with(' '))

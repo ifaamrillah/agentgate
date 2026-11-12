@@ -34,3 +34,17 @@
   .app-auth-title p:empty, .app-auth-below:empty { display: none; }
   .app-auth-below { color: var(--ag-muted); text-align: center; }
 }
+@layer components {
+  /* Isi kolom form: tumpukan, tautan kembali, password + "Lupa password?", tombol OAuth. */
+  .app-auth-stack, .app-auth-oauth { display: grid; gap: 12px; }
+  .app-auth-oauth form { display: block; }
+  .app-auth-pw { display: grid; gap: 6px; }
+  .app-auth-pw > .app-link { justify-self: end; font-size: 12px; }
+  .app-auth-back { display: inline-flex; align-items: center; gap: 4px; justify-self: start; }
+  .app-auth-back svg { width: 14px; height: 14px; }
+  .app-input[data-readonly] { display: flex; align-items: center; gap: 8px; color: var(--ag-muted); background: var(--ag-muted-bg); }
+  .app-input[data-readonly] svg { width: 14px; height: 14px; color: var(--ag-faint); flex-shrink: 0; }
+}
+@layer components {
+  .app-auth-back[data-align='center'] { justify-self: center; }
+}

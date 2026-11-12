@@ -1,0 +1,3 @@
+{#- Baris kaki halaman solo: "Masuk sebagai <email> · Keluar" (keluar = form POST). Variabel: shell. -#}
+{{ t(key="workspace-signed-in-as", lang="id", email=shell.user.email) }} ·
+<form method="post" action="/logout" class="app-inline-form"><button type="submit" class="app-link">{{ t(key="nav-logout", lang="id") }}</button></form>

@@ -1,17 +1,15 @@
 {#- Form password baru untuk token reset yang masih berlaku. Variabel: token (string),
     errors (field password → {code, min, max}), error (kunci Fluent pesan form, mis. rate
     limit, atau ""). Password tidak pernah dirender ulang. -#}
-{% extends "auth/_layout_card.html" %}
+{% extends "layouts/auth.html" %}
 {% block title %}{{ t(key="reset-title", lang="id") }}{% endblock title %}
 {% block heading %}{{ t(key="reset-title", lang="id") }}{% endblock heading %}
 {% block description %}{{ t(key="reset-description", lang="id") }}{% endblock description %}
 {% block card %}
-{% if error %}
-  <div class="mb-6">{{ <flash kind="error" message={t(key=error, lang="id")}/> }}</div>
-{% endif %}
-<form method="post" action="/password/reset" class="form grid gap-6">
+{%- if error %}{{ <flash kind="error" message={t(key=error, lang="id")}/> }}{% endif %}
+<form method="post" action="/password/reset">
   <input type="hidden" name="token" value="{{ token }}">
-  {{ <field id="reset-password" name="password" type="password" label={t(key="reset-password", lang="id")} error={errors.password.code} error_min={errors.password.min} error_max={errors.password.max} autocomplete="new-password" required={true} autofocus={true}/> }}
-  {{ <button label={t(key="reset-submit", lang="id")} type="submit" class="w-full"/> }}
+  {{ <field id="reset-password" name="password" type="password" label={t(key="reset-password", lang="id")} hint={t(key="auth-password-hint", lang="id")} error={errors.password.code} error_min={errors.password.min} error_max={errors.password.max} autocomplete="new-password" required={true} autofocus={true}/> }}
+  {{ <button label={t(key="reset-submit", lang="id")} type="submit" full={true}/> }}
 </form>
 {% endblock card %}
