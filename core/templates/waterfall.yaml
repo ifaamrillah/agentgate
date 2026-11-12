@@ -1,0 +1,55 @@
+workflow: waterfall
+nama: Waterfall
+deskripsi: Requirement, desain, implementasi, testing, dan deploy berurutan dengan persetujuan tiap tahap.
+stages:
+  - id: backlog
+    nama: Backlog
+    kategori: backlog
+  - id: requirement
+    nama: Requirement
+    kategori: in_progress
+    persona: pm
+    output: prd.md
+    template_output: |
+      # Requirement
+
+      ## Tujuan
+
+      ## Acceptance criteria
+      - [ ] 
+    gate: [artifact_exists, acceptance_criteria]
+    transisi: tunggu_approve
+  - id: design
+    nama: Desain
+    kategori: in_progress
+    persona: architect
+    input: [prd.md]
+    output: desain.md
+    gate: [artifact_exists]
+    transisi: tunggu_approve
+  - id: implementation
+    nama: Implementasi
+    kategori: in_progress
+    persona: dev
+    input: [prd.md, desain.md]
+    gate: [pr_open]
+    transisi: tunggu_approve
+  - id: testing
+    nama: Testing
+    kategori: in_progress
+    persona: qa
+    input: [prd.md]
+    output: laporan-test.md
+    gate: [tests_passed, screenshot_exists]
+    tooling: [Playwright CLI]
+    transisi: tunggu_approve
+    gagal_ke: implementation
+  - id: deploy
+    nama: Deploy
+    kategori: in_progress
+    persona: devops
+    gate: [prs_merged, ci_green]
+    transisi: tunggu_approve
+  - id: done
+    nama: Selesai
+    kategori: done

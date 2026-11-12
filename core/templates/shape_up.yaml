@@ -1,0 +1,55 @@
+workflow: shape_up
+nama: Shape Up
+deskripsi: Shaping, betting table, lalu building dalam satu siklus dan ship.
+stages:
+  - id: ideas
+    nama: Ide
+    kategori: backlog
+  - id: shaping
+    nama: Shaping
+    kategori: todo
+    persona: pm
+    mode: interaktif
+    output: pitch.md
+    template_output: |
+      # Pitch
+
+      ## Masalah
+
+      ## Appetite
+
+      ## Solusi
+
+      ## Rabbit holes
+
+      ## No-gos
+    gate: [artifact_exists]
+    transisi: tunggu_approve
+  - id: betting
+    nama: Betting table
+    kategori: todo
+    transisi: tunggu_approve
+  - id: building
+    nama: Building
+    kategori: in_progress
+    persona: dev
+    input: [pitch.md]
+    gate: [pr_open]
+    transisi: tunggu_approve
+  - id: review
+    nama: Review
+    kategori: in_progress
+    persona: reviewer
+    output: review-ai.md
+    gate: [artifact_exists, ci_green]
+    transisi: tunggu_approve
+    gagal_ke: building
+  - id: ship
+    nama: Ship
+    kategori: in_progress
+    persona: devops
+    gate: [prs_merged]
+    transisi: tunggu_approve
+  - id: done
+    nama: Selesai
+    kategori: done

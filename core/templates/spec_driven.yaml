@@ -1,0 +1,55 @@
+workflow: spec_driven
+nama: Spec-driven
+deskripsi: Spesifikasi, desain teknis, dan rencana tugas disetujui dulu sebelum implementasi.
+stages:
+  - id: backlog
+    nama: Backlog
+    kategori: backlog
+  - id: spec
+    nama: Spesifikasi
+    kategori: in_progress
+    persona: pm
+    output: spesifikasi.md
+    template_output: |
+      # Spesifikasi
+
+      ## Kebutuhan
+      - [ ] 
+
+      ## Skenario
+    gate: [artifact_exists, acceptance_criteria]
+    transisi: tunggu_approve
+  - id: design
+    nama: Desain teknis
+    kategori: in_progress
+    persona: architect
+    input: [spesifikasi.md]
+    output: desain-teknis.md
+    gate: [artifact_exists]
+    transisi: tunggu_approve
+  - id: tasks
+    nama: Rencana tugas
+    kategori: in_progress
+    persona: dev
+    input: [spesifikasi.md, desain-teknis.md]
+    output: tugas.md
+    gate: [artifact_exists]
+    transisi: tunggu_approve
+  - id: build
+    nama: Implementasi
+    kategori: in_progress
+    persona: dev
+    input: [tugas.md]
+    gate: [pr_open, tests_passed]
+    transisi: tunggu_approve
+  - id: review
+    nama: Review
+    kategori: in_progress
+    persona: reviewer
+    output: review-ai.md
+    gate: [artifact_exists, ci_green]
+    transisi: tunggu_approve
+    gagal_ke: build
+  - id: done
+    nama: Selesai
+    kategori: done

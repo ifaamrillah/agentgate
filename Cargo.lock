@@ -54,6 +54,12 @@ dependencies = [
 [[package]]
 name = "agentgate-core"
 version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "serde_yaml_ng",
+ "uuid",
+]
 
 [[package]]
 name = "agentgate-graph"

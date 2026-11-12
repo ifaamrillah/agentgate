@@ -1,0 +1,58 @@
+workflow: superpowers
+nama: Superpowers-style
+deskripsi: Brainstorm, rencana, eksekusi bertahap dengan TDD, lalu review.
+stages:
+  - id: backlog
+    nama: Backlog
+    kategori: backlog
+  - id: brainstorm
+    nama: Brainstorming
+    kategori: in_progress
+    persona: analyst
+    mode: interaktif
+    skill: superpowers:brainstorming
+    output: brainstorm.md
+    template_output: |
+      # Brainstorm
+
+      ## Masalah
+
+      ## Alternatif
+
+      ## Keputusan
+    gate: [artifact_exists]
+    transisi: tunggu_approve
+  - id: plan
+    nama: Rencana
+    kategori: in_progress
+    persona: architect
+    skill: superpowers:writing-plans
+    input: [brainstorm.md]
+    output: rencana-implementasi.md
+    template_output: |
+      # Rencana implementasi
+
+      ## Tugas
+      - [ ] 
+    gate: [artifact_exists]
+    transisi: tunggu_approve
+  - id: execute
+    nama: Eksekusi + TDD
+    kategori: in_progress
+    persona: dev
+    skill: superpowers:test-driven-development
+    input: [rencana-implementasi.md]
+    gate: [tests_passed, pr_open]
+    transisi: tunggu_approve
+  - id: review
+    nama: Review
+    kategori: in_progress
+    persona: reviewer
+    skill: superpowers:requesting-code-review
+    output: review-ai.md
+    gate: [artifact_exists, ci_green]
+    transisi: tunggu_approve
+    gagal_ke: execute
+  - id: done
+    nama: Selesai
+    kategori: done
