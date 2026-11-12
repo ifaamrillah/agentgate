@@ -50,8 +50,8 @@ pub async fn create(
     } else {
         name.to_string()
     };
-    let name =
-        ticket_artifacts::parse_name(&raw).ok_or_else(|| TicketFailure::field("name", NAME_INVALID))?;
+    let name = ticket_artifacts::parse_name(&raw)
+        .ok_or_else(|| TicketFailure::field("name", NAME_INVALID))?;
     if ticket_artifacts::Model::find_named(&work.txn, work.wid, ticket_id, &name)
         .await?
         .is_some()
@@ -151,8 +151,14 @@ pub fn diff(old: &str, new: &str) -> Vec<DiffLine> {
     if a.len() > 2_000 || b.len() > 2_000 {
         return a
             .iter()
-            .map(|l| DiffLine { kind: "del", text: (*l).to_string() })
-            .chain(b.iter().map(|l| DiffLine { kind: "add", text: (*l).to_string() }))
+            .map(|l| DiffLine {
+                kind: "del",
+                text: (*l).to_string(),
+            })
+            .chain(b.iter().map(|l| DiffLine {
+                kind: "add",
+                text: (*l).to_string(),
+            }))
             .collect();
     }
     let (n, m) = (a.len(), b.len());
@@ -170,19 +176,34 @@ pub fn diff(old: &str, new: &str) -> Vec<DiffLine> {
     let mut out = Vec::new();
     while i < n && j < m {
         if a[i] == b[j] {
-            out.push(DiffLine { kind: "same", text: a[i].to_string() });
+            out.push(DiffLine {
+                kind: "same",
+                text: a[i].to_string(),
+            });
             i += 1;
             j += 1;
         } else if lcs[i + 1][j] >= lcs[i][j + 1] {
-            out.push(DiffLine { kind: "del", text: a[i].to_string() });
+            out.push(DiffLine {
+                kind: "del",
+                text: a[i].to_string(),
+            });
             i += 1;
         } else {
-            out.push(DiffLine { kind: "add", text: b[j].to_string() });
+            out.push(DiffLine {
+                kind: "add",
+                text: b[j].to_string(),
+            });
             j += 1;
         }
     }
-    out.extend(a[i..].iter().map(|l| DiffLine { kind: "del", text: (*l).to_string() }));
-    out.extend(b[j..].iter().map(|l| DiffLine { kind: "add", text: (*l).to_string() }));
+    out.extend(a[i..].iter().map(|l| DiffLine {
+        kind: "del",
+        text: (*l).to_string(),
+    }));
+    out.extend(b[j..].iter().map(|l| DiffLine {
+        kind: "add",
+        text: (*l).to_string(),
+    }));
     out
 }
 

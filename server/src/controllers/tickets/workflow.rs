@@ -36,8 +36,7 @@ use crate::{
         tickets::{SelectOption, TypeView},
         ui::{ComboOption, Stat},
         workflow::{
-            StageView, category_options, exit_options, gate_options, mode_options,
-            persona_options,
+            StageView, category_options, exit_options, gate_options, mode_options, persona_options,
         },
     },
 };
@@ -54,10 +53,7 @@ pub const FLASH_IMPORTED: &str = "flash-workflow-imported";
 
 pub fn add(routes: Routes) -> Routes {
     routes
-        .add(
-            "/w/{slug}/settings/workflows",
-            get(list).post(create),
-        )
+        .add("/w/{slug}/settings/workflows", get(list).post(create))
         .add("/w/{slug}/settings/workflows/import", post(import))
         .add("/w/{slug}/settings/workflows/defaults", post(defaults))
         .add("/w/{slug}/settings/workflows/{id}", get(builder))
@@ -124,9 +120,33 @@ fn csv(raw: &str) -> Vec<String> {
 /// Semua field yang bisa membawa error di halaman workflow (template membaca kunci yang selalu
 /// ada).
 const ERROR_FIELDS: &[&str] = &[
-    "name", "description", "source", "yaml", "workflow", "stages", "stage", "people", "mapping",
-    "draft", "workflow_name", "workflow_description", "key", "category", "persona", "mode", "skill", "prompt", "inputs", "output",
-    "output_template", "gates", "tools", "exit", "fail_limit", "fail_to", "parallel",
+    "name",
+    "description",
+    "source",
+    "yaml",
+    "workflow",
+    "stages",
+    "stage",
+    "people",
+    "mapping",
+    "draft",
+    "workflow_name",
+    "workflow_description",
+    "key",
+    "category",
+    "persona",
+    "mode",
+    "skill",
+    "prompt",
+    "inputs",
+    "output",
+    "output_template",
+    "gates",
+    "tools",
+    "exit",
+    "fail_limit",
+    "fail_to",
+    "parallel",
 ];
 
 fn error_map(
@@ -252,7 +272,12 @@ async fn render_list(
                 key: t.key,
                 name: doc.name.clone(),
                 description: doc.description.clone(),
-                stages: doc.definition.stages.iter().map(|s| s.name.clone()).collect(),
+                stages: doc
+                    .definition
+                    .stages
+                    .iter()
+                    .map(|s| s.name.clone())
+                    .collect(),
                 gates: doc.definition.stages.iter().map(|s| s.gates.len()).sum(),
                 approvals: doc
                     .definition
@@ -404,7 +429,11 @@ pub(super) async fn create(
                 &ctx,
                 &v,
                 tenant,
-                if source.starts_with("template:") { "templates" } else { "workspace" },
+                if source.starts_with("template:") {
+                    "templates"
+                } else {
+                    "workspace"
+                },
                 serde_json::json!({ "name": name, "description": description, "source": source }),
                 true,
                 "",
@@ -476,8 +505,7 @@ pub(super) async fn defaults(
         else {
             continue;
         };
-        let workflow_id =
-            crate::controllers::extractors::form_id(value)?;
+        let workflow_id = crate::controllers::extractors::form_id(value)?;
         service::set_type_default(&ctx.db, &acting, type_id, workflow_id).await?;
     }
     let session = flash::set(session, &Flash::success(FLASH_DEFAULTS_SAVED))?;
@@ -525,7 +553,10 @@ impl StageForm {
             key: s.key.clone(),
             name: s.name.clone(),
             category: s.category.as_str(),
-            persona: s.persona.map(|p| p.as_str().to_string()).unwrap_or_default(),
+            persona: s
+                .persona
+                .map(|p| p.as_str().to_string())
+                .unwrap_or_default(),
             mode: s.mode.as_str(),
             skill: s.skill.clone(),
             prompt: s.prompt.clone(),
@@ -557,11 +588,17 @@ fn stage_from(pairs: &[(String, String)]) -> Stage {
     s.persona = Persona::parse(get_one(pairs, "persona"));
     s.mode = Mode::parse(get_one(pairs, "mode")).unwrap_or_default();
     s.skill = get_one(pairs, "skill").trim().to_string();
-    s.prompt = get_one(pairs, "prompt").replace("\r\n", "\n").trim().to_string();
+    s.prompt = get_one(pairs, "prompt")
+        .replace("\r\n", "\n")
+        .trim()
+        .to_string();
     s.inputs = csv(get_one(pairs, "inputs"));
     s.output = get_one(pairs, "output").trim().to_string();
     s.output_template = get_one(pairs, "output_template").replace("\r\n", "\n");
-    s.gates = all(pairs, "gates").into_iter().filter_map(Gate::parse).collect();
+    s.gates = all(pairs, "gates")
+        .into_iter()
+        .filter_map(Gate::parse)
+        .collect();
     s.tools = csv(get_one(pairs, "tools"));
     s.exit = Exit::parse(get_one(pairs, "exit")).unwrap_or_default();
     s.fail_limit = get_one(pairs, "fail_limit").trim().parse().unwrap_or(0);
@@ -615,7 +652,11 @@ async fn render_builder(
         .iter()
         .map(|s| {
             let mut v = StageView::of(s, &draft);
-            v.state = if s.key == selected_key { "current" } else { "todo" };
+            v.state = if s.key == selected_key {
+                "current"
+            } else {
+                "todo"
+            };
             v.href = format!("{href}?stage={}", s.key);
             v
         })
@@ -778,7 +819,15 @@ async fn after_edit(
                 errors: Some(&errors),
                 ..on_error
             };
-            render_builder(ctx, v, tenant, &workflow, st, StatusCode::UNPROCESSABLE_ENTITY).await
+            render_builder(
+                ctx,
+                v,
+                tenant,
+                &workflow,
+                st,
+                StatusCode::UNPROCESSABLE_ENTITY,
+            )
+            .await
         }
         Err(e) => Err(e.into()),
     }
@@ -948,7 +997,10 @@ pub(super) async fn rename(
             Ok((session, format::redirect(&to)?).into_response())
         }
         Err(TicketFailure::Invalid(mut errors)) => {
-            for (from, to) in [("name", "workflow_name"), ("description", "workflow_description")] {
+            for (from, to) in [
+                ("name", "workflow_name"),
+                ("description", "workflow_description"),
+            ] {
                 if let Some(list) = errors.errors.remove(from) {
                     errors.errors.insert(to.into(), list);
                 }
@@ -958,8 +1010,15 @@ pub(super) async fn rename(
                 errors: Some(&errors),
                 ..state(None)
             };
-            render_builder(&ctx, &v, tenant, &workflow, st, StatusCode::UNPROCESSABLE_ENTITY)
-                .await
+            render_builder(
+                &ctx,
+                &v,
+                tenant,
+                &workflow,
+                st,
+                StatusCode::UNPROCESSABLE_ENTITY,
+            )
+            .await
         }
         Err(e) => Err(e.into()),
     }
@@ -1010,7 +1069,16 @@ pub(super) async fn publish(
     {
         return Ok(format::redirect(&format!("{href}/migrate"))?.into_response());
     }
-    finish_publish(&ctx, &v, tenant, session, request_id, &workflow, &BTreeMap::new()).await
+    finish_publish(
+        &ctx,
+        &v,
+        tenant,
+        session,
+        request_id,
+        &workflow,
+        &BTreeMap::new(),
+    )
+    .await
 }
 
 async fn finish_publish(
@@ -1036,7 +1104,15 @@ async fn finish_publish(
                 errors: Some(&errors),
                 ..state(None)
             };
-            render_builder(ctx, v, tenant, workflow, st, StatusCode::UNPROCESSABLE_ENTITY).await
+            render_builder(
+                ctx,
+                v,
+                tenant,
+                workflow,
+                st,
+                StatusCode::UNPROCESSABLE_ENTITY,
+            )
+            .await
         }
         Err(e) => Err(e.into()),
     }
@@ -1050,7 +1126,9 @@ async fn render_migrate(
     mapping: &BTreeMap<String, String>,
     errors: Option<&ModelValidationErrors>,
 ) -> Result<Response> {
-    let plan = service::plan(&ctx.db, workflow).await.map_err(Error::from)?;
+    let plan = service::plan(&ctx.db, workflow)
+        .await
+        .map_err(Error::from)?;
     let href = format!("{}/{}", base(&tenant.workspace.slug), workflow.id);
     let added: Vec<String> = plan
         .draft
@@ -1107,7 +1185,10 @@ async fn render_migrate(
         .draft
         .stages
         .iter()
-        .map(|s| SelectOption { id: s.key.clone(), name: s.name.clone() })
+        .map(|s| SelectOption {
+            id: s.key.clone(),
+            name: s.name.clone(),
+        })
         .collect();
     let next_version = workflow.version + 1;
     let action = format!("{href}/migrate");
@@ -1171,7 +1252,16 @@ pub(super) async fn apply_migration(
                 .map(|k| (k.to_string(), v.trim().to_string()))
         })
         .collect();
-    finish_publish(&ctx, &v, &access.tenant, session, request_id, &workflow, &mapping).await
+    finish_publish(
+        &ctx,
+        &v,
+        &access.tenant,
+        session,
+        request_id,
+        &workflow,
+        &mapping,
+    )
+    .await
 }
 
 #[debug_handler]
@@ -1210,8 +1300,15 @@ pub(super) async fn delete(
                 errors: Some(&errors),
                 ..state(None)
             };
-            render_builder(&ctx, &v, tenant, &workflow, st, StatusCode::UNPROCESSABLE_ENTITY)
-                .await
+            render_builder(
+                &ctx,
+                &v,
+                tenant,
+                &workflow,
+                st,
+                StatusCode::UNPROCESSABLE_ENTITY,
+            )
+            .await
         }
         Err(e) => Err(e.into()),
     }
@@ -1243,7 +1340,12 @@ async fn render_project(
             .find(|w| w.id == effective)
             .map(|w| w.definition(&ctx.db));
         let stages = match def {
-            Some(f) => f.await?.stages.iter().map(|s| s.name.clone()).collect::<Vec<_>>(),
+            Some(f) => f
+                .await?
+                .stages
+                .iter()
+                .map(|s| s.name.clone())
+                .collect::<Vec<_>>(),
             None => Vec::new(),
         };
         let count = tickets::Entity::find()

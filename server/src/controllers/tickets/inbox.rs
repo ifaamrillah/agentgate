@@ -268,7 +268,11 @@ pub(super) async fn inbox(
     let tabs: Vec<NavItem> = [
         ("", "inbox-tab-all", None),
         ("unread", "inbox-tab-unread", Some(unread)),
-        ("decisions", "inbox-tab-decisions", Some(waiting.len() as u64)),
+        (
+            "decisions",
+            "inbox-tab-decisions",
+            Some(waiting.len() as u64),
+        ),
         ("mentions", "inbox-tab-mentions", None),
     ]
     .iter()

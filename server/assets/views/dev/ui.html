@@ -161,6 +161,35 @@
 {% </card> %}
 </div>
 
+<div class="app-grid" data-cols="two" id="workflow">
+{% <card title="Workflow (M3)" description="stage_stepper, gate_list, ticket_card dengan keadaan stage."> %}
+  {%- set steps = [
+    {"key": "prd", "name": "PRD", "state": "done", "icon": "file-text", "category": "in_progress"},
+    {"key": "design", "name": "Desain UI", "state": "current", "icon": "layout", "category": "in_progress"},
+    {"key": "dev", "name": "Dev", "state": "todo", "icon": "code", "category": "in_progress"},
+    {"key": "done", "name": "Selesai", "state": "todo", "icon": "user", "category": "done"}
+  ] %}
+  {%- set gates = [
+    {"key": "artifact_exists", "label_key": "workflow-gate-artifact-exists", "hint_key": "workflow-gate-artifact-exists-hint", "ok": true},
+    {"key": "tests_passed", "label_key": "workflow-gate-tests-passed", "hint_key": "workflow-gate-tests-passed-hint", "ok": false}
+  ] %}
+  {%- set sample_type = {"icon": "bookmark", "color": "#16a34a", "name": "Story"} %}
+  {%- set review = {"id": "00000000-0000-0000-0000-000000000002", "code": "KSR-13", "title": "PRD checkout QRIS", "href": "/_dev/ui", "status_action": "/_dev/echo", "ticket_type": sample_type, "status": {"value": "in_progress", "label_key": "ticket-status-in-progress", "icon": "circle-half-2"}, "priority": {"rank": 3, "label_key": "ticket-priority-medium"}, "labels": [], "points": none, "due": "", "overdue": false, "assignee": none, "stage_key": "prd", "stage_state": "review"} %}
+  {%- set decision = {"id": "00000000-0000-0000-0000-000000000003", "code": "KSR-14", "title": "Refund parsial", "href": "/_dev/ui", "status_action": "/_dev/echo", "ticket_type": sample_type, "status": {"value": "in_progress", "label_key": "ticket-status-in-progress", "icon": "circle-half-2"}, "priority": {"rank": 2, "label_key": "ticket-priority-high"}, "labels": [], "points": none, "due": "", "overdue": false, "assignee": none, "stage_key": "dev", "stage_state": "decision"} %}
+  <div class="app-stack-v" data-catalog-workflow>
+    {{ <stage_stepper steps={steps} label="Stage workflow"/> }}
+    {{ <gate_list gates={gates}/> }}
+    <div class="app-bcol" style="width: 272px" data-column="prd"><div class="app-bcol-cards">{{ <ticket_card ticket={review}/> }}{{ <ticket_card ticket={decision}/> }}</div></div>
+  </div>
+{% </card> %}
+{% <card title="Diff artifact" description="app-diff: baris tambah hijau, hapus merah dicoret." flush={true}> %}
+  <pre class="app-diff"><span data-line="same">  # PRD</span>
+<span data-line="del">- Bayar tunai saja.</span>
+<span data-line="add">+ Bayar tunai dan QRIS.</span>
+</pre>
+{% </card> %}
+</div>
+
 <div id="editor">
 {% <card title="md_editor" description="Editor markdown Milkdown Crepe (dimuat saat dipakai); tanpa JS menjadi textarea."> %}
   {{ <md_editor id="catalog-editor" name="body" label="Deskripsi" value="## Tujuan\n\nKasir bisa menerima **QRIS**." action="/_dev/echo" cancel_href="/_dev/ui"/> }}

@@ -472,7 +472,9 @@ pub fn stage_columns(
         .map(|(key, name, category, _)| StageColumn {
             key,
             name,
-            status: status_view(TicketStatus::parse(category.as_str()).unwrap_or(TicketStatus::Todo)),
+            status: status_view(
+                TicketStatus::parse(category.as_str()).unwrap_or(TicketStatus::Todo),
+            ),
             cards: Vec::new(),
         })
         .collect();

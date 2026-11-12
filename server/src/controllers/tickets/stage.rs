@@ -20,8 +20,7 @@ use crate::{
         tickets::{self, StageState},
     },
     services::tickets::{
-        TicketFailure,
-        gates,
+        TicketFailure, gates,
         stages::{self, AdminMove, Decision, Flow},
     },
     views::{
@@ -102,20 +101,20 @@ fn strings(ids: &[Uuid]) -> Vec<String> {
 /// # Errors
 ///
 /// Error database.
-pub(super) async fn panel(
-    ctx: &AppContext,
-    access: &TicketAccess,
-) -> Result<StagePanel> {
+pub(super) async fn panel(ctx: &AppContext, access: &TicketAccess) -> Result<StagePanel> {
     let db: &DatabaseConnection = &ctx.db;
     let tenant = &access.access.tenant;
     let wid = tenant.workspace_id();
     let t = &access.ticket;
     let flow = Flow::load(db, wid, t).await?;
     let position = flow.position(&t.stage_key);
-    let rule = flow
-        .rule(&t.stage_key)
-        .cloned()
-        .unwrap_or_else(|| Stage::new(&t.stage_key, &t.stage_key, agentgate_core::workflow::Category::Todo));
+    let rule = flow.rule(&t.stage_key).cloned().unwrap_or_else(|| {
+        Stage::new(
+            &t.stage_key,
+            &t.stage_key,
+            agentgate_core::workflow::Category::Todo,
+        )
+    });
     let checks = gates::check(db, wid, t, &rule).await?;
     let people = ticket_stage_people::Model::of_stage(db, wid, t.id, &t.stage_key).await?;
     let events = ticket_events::Model::of_ticket(db, wid, t.id).await?;
@@ -135,7 +134,9 @@ pub(super) async fn panel(
     let users = super::users_by_id(db, ids).await?;
     let lookup = Lookup::new(&tenant.workspace.slug, &[], &users);
     let persons = |list: &[Uuid]| -> Vec<PersonView> {
-        list.iter().filter_map(|id| lookup.person(Some(*id))).collect()
+        list.iter()
+            .filter_map(|id| lookup.person(Some(*id)))
+            .collect()
     };
     let state = t.stage_state().unwrap_or(StageState::Active);
     let can_decide = stages::can_decide(db, wid, t, tenant.user.id, &access.access.role).await?;
@@ -327,7 +328,16 @@ pub(super) async fn reject(
         &form.note,
     )
     .await;
-    done(&ctx, &access, session, r, "reject-dialog", &v, FLASH_REJECTED).await
+    done(
+        &ctx,
+        &access,
+        session,
+        r,
+        "reject-dialog",
+        &v,
+        FLASH_REJECTED,
+    )
+    .await
 }
 
 #[derive(Debug, Deserialize)]
@@ -435,7 +445,16 @@ pub(super) async fn people(
     )
     .await
     .map(|()| access.ticket.clone());
-    done(&ctx, &access, session, r, "people-dialog", &v, FLASH_PEOPLE_SAVED).await
+    done(
+        &ctx,
+        &access,
+        session,
+        r,
+        "people-dialog",
+        &v,
+        FLASH_PEOPLE_SAVED,
+    )
+    .await
 }
 
 pub const FLASH_STAGE_MOVED: &str = "flash-stage-moved";
@@ -447,9 +466,7 @@ pub const FLASH_PEOPLE_SAVED: &str = "flash-stage-people-saved";
 /// Error aksi stage untuk template: kode umum (`stage`) dan per dialog.
 #[must_use]
 pub(super) fn errors_view(code: &str, dialog: &str) -> serde_json::Value {
-    let pick = |names: &[&str]| -> &str {
-        if names.contains(&dialog) { code } else { "" }
-    };
+    let pick = |names: &[&str]| -> &str { if names.contains(&dialog) { code } else { "" } };
     serde_json::json!({
         "stage": code,
         "in_dialog": !dialog.is_empty(),

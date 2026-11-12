@@ -31,8 +31,8 @@ use crate::{
         nav,
         projects::PROJECT_VIEWS_ACTION,
         tickets::{
-            BoardFilter, BoardPaths, LIST_TABLE, TicketFormView, TypeView, stage_columns,
-            custom_inputs, priority_options, status_options, ticket_href,
+            BoardFilter, BoardPaths, LIST_TABLE, TicketFormView, TypeView, custom_inputs,
+            priority_options, stage_columns, status_options, ticket_href,
         },
         ui::ComboOption,
     },

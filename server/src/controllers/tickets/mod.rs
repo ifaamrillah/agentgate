@@ -259,14 +259,20 @@ pub fn routes() -> Routes {
         .add("/w/{slug}/t/{code}/stage/approve", post(stage::approve))
         .add("/w/{slug}/t/{code}/stage/reject", post(stage::reject))
         .add("/w/{slug}/t/{code}/stage/decide", post(stage::decide))
-        .add("/w/{slug}/t/{code}/stage/admin-move", post(stage::admin_move))
+        .add(
+            "/w/{slug}/t/{code}/stage/admin-move",
+            post(stage::admin_move),
+        )
         .add("/w/{slug}/t/{code}/stage/people", post(stage::people))
         .add(
             "/w/{slug}/t/{code}/artifacts",
             get(artifact::index).post(artifact::create),
         )
         .add("/w/{slug}/t/{code}/artifacts/{id}", post(artifact::save))
-        .add("/w/{slug}/t/{code}/artifacts/{id}/edit", get(artifact::edit))
+        .add(
+            "/w/{slug}/t/{code}/artifacts/{id}/edit",
+            get(artifact::edit),
+        )
         .add(
             "/w/{slug}/t/{code}/artifacts/{id}/compare",
             get(artifact::compare),
@@ -304,8 +310,7 @@ pub fn routes() -> Routes {
         .add(
             "/w/{slug}/settings/ticket-code",
             get(settings::code).post(settings::save_code),
-        )
-        ;
+        );
     workflow::add(routes)
 }
 

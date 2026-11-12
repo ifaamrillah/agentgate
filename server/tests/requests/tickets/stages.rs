@@ -85,7 +85,11 @@ async fn post(
     path: &str,
     form: &[(&str, &str)],
 ) -> axum_test::TestResponse {
-    request.post(path).add_cookie(cookie.clone()).form(form).await
+    request
+        .post(path)
+        .add_cookie(cookie.clone())
+        .form(form)
+        .await
 }
 
 async fn ksr(ctx: &AppContext, f: &Fixture) -> projects::Model {
@@ -96,11 +100,23 @@ async fn ksr(ctx: &AppContext, f: &Fixture) -> projects::Model {
 }
 
 /// Anggota dengan role Member di project KSR.
-async fn member(request: &TestServer, ctx: &AppContext, f: &Fixture, name: &str) -> (uuid::Uuid, Cookie<'static>) {
+async fn member(
+    request: &TestServer,
+    ctx: &AppContext,
+    f: &Fixture,
+    name: &str,
+) -> (uuid::Uuid, Cookie<'static>) {
     let user = a_user().name(name).create(ctx).await;
     add_member(ctx, &f.workspace, &user, RoleKey::Member).await;
     let role = builtin_role(ctx, &f.workspace, RoleKey::Member).await;
-    grant(ctx, &f.workspace, &ksr(ctx, f).await, GrantSubject::User(user.id), &role).await;
+    grant(
+        ctx,
+        &f.workspace,
+        &ksr(ctx, f).await,
+        GrantSubject::User(user.id),
+        &role,
+    )
+    .await;
     let cookie = sign_in_as(request, &user).await;
     (user.id, cookie)
 }
@@ -119,11 +135,17 @@ async fn ticket_moves_through_gates_review_and_approval() {
         assert_eq!(t.stage_key, "todo");
 
         // Detail menampilkan stepper dan kartu stage.
-        let page = request.get("/w/acme/t/KSR-1").add_cookie(f.cookie.clone()).await;
+        let page = request
+            .get("/w/acme/t/KSR-1")
+            .add_cookie(f.cookie.clone())
+            .await;
         assert_eq!(page.status_code(), 200);
         let html = page.text();
         assert_css_exists(&html, "[data-stepper] [data-stage='prd']");
-        assert_css_exists(&html, "[data-stepper] [data-stage='todo'][aria-current='step']");
+        assert_css_exists(
+            &html,
+            "[data-stepper] [data-stage='todo'][aria-current='step']",
+        );
         assert_css_exists(&html, "[data-stage-card]");
 
         // To do (manual) → PRD.
@@ -136,11 +158,23 @@ async fn ticket_moves_through_gates_review_and_approval() {
         assert_eq!(res.status_code(), 422);
         stage_error(&res.text(), "ticket-gates-unmet");
         // Langsung pindah ke Dev lewat board juga ditolak (stage butuh approval).
-        let res = post(&request, &f.cookie, "/w/acme/t/KSR-1/status", &[("stage", "dev")]).await;
+        let res = post(
+            &request,
+            &f.cookie,
+            "/w/acme/t/KSR-1/status",
+            &[("stage", "dev")],
+        )
+        .await;
         assert_eq!(res.status_code(), 422);
 
         // Artifact: nama kosong = output stage, isi = template.
-        let res = post(&request, &f.cookie, "/w/acme/t/KSR-1/artifacts", &[("name", "")]).await;
+        let res = post(
+            &request,
+            &f.cookie,
+            "/w/acme/t/KSR-1/artifacts",
+            &[("name", "")],
+        )
+        .await;
         assert_eq!(res.status_code(), 303, "{}", res.text());
         let t = ticket(&ctx, &f.workspace, &code).await;
         let wid = f.workspace.workspace_id();
@@ -154,24 +188,45 @@ async fn ticket_moves_through_gates_review_and_approval() {
             .unwrap();
         assert_eq!(v1.body.trim(), "# PRD");
         assert_eq!(v1.status, "draft");
-        let res = post(&request, &f.cookie, "/w/acme/t/KSR-1/artifacts", &[("name", "prd.md")]).await;
+        let res = post(
+            &request,
+            &f.cookie,
+            "/w/acme/t/KSR-1/artifacts",
+            &[("name", "prd.md")],
+        )
+        .await;
         assert_eq!(res.status_code(), 422);
 
         // Minta review → menunggu review.
         let res = post(&request, &f.cookie, "/w/acme/t/KSR-1/stage/complete", &[]).await;
         assert_eq!(res.status_code(), 303, "{}", res.text());
-        assert_eq!(ticket(&ctx, &f.workspace, &code).await.stage_state, "review");
+        assert_eq!(
+            ticket(&ctx, &f.workspace, &code).await.stage_state,
+            "review"
+        );
 
         // Simpan versi saat review → pending; isi sama ditolak.
         let save = format!("/w/acme/t/KSR-1/artifacts/{}", artifact.id);
-        let res = post(&request, &f.cookie, &save, &[("body", "# PRD\n\nBayar QRIS.")]).await;
+        let res = post(
+            &request,
+            &f.cookie,
+            &save,
+            &[("body", "# PRD\n\nBayar QRIS.")],
+        )
+        .await;
         assert_eq!(res.status_code(), 303, "{}", res.text());
         let v2 = artifact_versions::Model::latest(&ctx.db, wid, artifact.id)
             .await
             .unwrap()
             .unwrap();
         assert_eq!((v2.number, v2.status.as_str()), (2, "pending"));
-        let res = post(&request, &f.cookie, &save, &[("body", "# PRD\n\nBayar QRIS.")]).await;
+        let res = post(
+            &request,
+            &f.cookie,
+            &save,
+            &[("body", "# PRD\n\nBayar QRIS.")],
+        )
+        .await;
         assert_eq!(res.status_code(), 422);
 
         // Halaman artifact, editor, dan bandingkan.
@@ -184,7 +239,10 @@ async fn ticket_moves_through_gates_review_and_approval() {
         assert_css_exists(&html, "[data-artifact='prd.md']");
         assert_css_exists(&html, "[data-artifact-preview] [data-version='2']");
         assert_css_exists(&html, "[data-stage-alert='review-mine']");
-        let page = request.get(&format!("{save}/edit")).add_cookie(f.cookie.clone()).await;
+        let page = request
+            .get(&format!("{save}/edit"))
+            .add_cookie(f.cookie.clone())
+            .await;
         assert_eq!(page.status_code(), 200);
         let page = request
             .get(&format!("{save}/compare?from=1&to=2"))
@@ -219,7 +277,10 @@ async fn ticket_moves_through_gates_review_and_approval() {
         let res = post(&request, &rina_cookie, "/w/acme/t/KSR-1/stage/approve", &[]).await;
         assert_eq!(res.status_code(), 303, "{}", res.text());
         let t = ticket(&ctx, &f.workspace, &code).await;
-        assert_eq!((t.stage_key.as_str(), t.stage_state.as_str()), ("dev", "active"));
+        assert_eq!(
+            (t.stage_key.as_str(), t.stage_state.as_str()),
+            ("dev", "active")
+        );
         let v2 = artifact_versions::Model::latest(&ctx.db, wid, artifact.id)
             .await
             .unwrap()
@@ -267,7 +328,11 @@ async fn ticket_moves_through_gates_review_and_approval() {
             &request,
             &f.cookie,
             "/w/acme/t/KSR-1/stage/admin-move",
-            &[("stage", "done"), ("kind", "force"), ("reason", "Sudah diuji manual")],
+            &[
+                ("stage", "done"),
+                ("kind", "force"),
+                ("reason", "Sudah diuji manual"),
+            ],
         )
         .await;
         assert_eq!(res.status_code(), 303, "{}", res.text());
@@ -294,11 +359,23 @@ async fn jumping_over_an_approval_stage_needs_admin_and_reason() {
         let (_, rina) = member(&request, &ctx, &f, "Rina").await;
 
         // Member memindah lewat board ke Dev = melewati PRD (approval) → ditolak.
-        let res = post(&request, &rina, "/w/acme/t/KSR-1/status", &[("stage", "dev")]).await;
+        let res = post(
+            &request,
+            &rina,
+            "/w/acme/t/KSR-1/status",
+            &[("stage", "dev")],
+        )
+        .await;
         assert_eq!(res.status_code(), 422);
         assert_css_exists(&res.text(), "[data-status-error]");
         // Stage tak dikenal.
-        let res = post(&request, &rina, "/w/acme/t/KSR-1/status", &[("stage", "nope")]).await;
+        let res = post(
+            &request,
+            &rina,
+            "/w/acme/t/KSR-1/status",
+            &[("stage", "nope")],
+        )
+        .await;
         assert_eq!(res.status_code(), 422);
 
         // Admin melompat dengan alasan.
@@ -306,13 +383,23 @@ async fn jumping_over_an_approval_stage_needs_admin_and_reason() {
             &request,
             &f.cookie,
             "/w/acme/t/KSR-1/stage/admin-move",
-            &[("stage", "dev"), ("kind", "jump"), ("reason", "PRD sudah ada di Notion")],
+            &[
+                ("stage", "dev"),
+                ("kind", "jump"),
+                ("reason", "PRD sudah ada di Notion"),
+            ],
         )
         .await;
         assert_eq!(res.status_code(), 303, "{}", res.text());
         assert_eq!(ticket(&ctx, &f.workspace, &code).await.stage_key, "dev");
         // Mundur bebas untuk Member.
-        let res = post(&request, &rina, "/w/acme/t/KSR-1/status", &[("stage", "todo")]).await;
+        let res = post(
+            &request,
+            &rina,
+            "/w/acme/t/KSR-1/status",
+            &[("stage", "todo")],
+        )
+        .await;
         assert_eq!(res.status_code(), 303, "{}", res.text());
         assert_eq!(ticket(&ctx, &f.workspace, &code).await.stage_key, "todo");
     })
@@ -340,7 +427,13 @@ async fn rejects_count_rounds_and_the_limit_asks_for_a_decision() {
         to_review(&request, &f.cookie).await;
 
         // Reject tanpa catatan ditolak (dialog terbuka dengan error).
-        let res = post(&request, &f.cookie, "/w/acme/t/KSR-1/stage/reject", &[("note", " ")]).await;
+        let res = post(
+            &request,
+            &f.cookie,
+            "/w/acme/t/KSR-1/stage/reject",
+            &[("note", " ")],
+        )
+        .await;
         assert_eq!(res.status_code(), 422);
         assert_css_exists(&res.text(), "#reject-note-error");
 
@@ -353,7 +446,10 @@ async fn rejects_count_rounds_and_the_limit_asks_for_a_decision() {
         .await;
         assert_eq!(res.status_code(), 303, "{}", res.text());
         let t = ticket(&ctx, &f.workspace, &code).await;
-        assert_eq!((t.stage_key.as_str(), t.stage_state.as_str(), t.fail_count), ("prd", "active", 1));
+        assert_eq!(
+            (t.stage_key.as_str(), t.stage_state.as_str(), t.fail_count),
+            ("prd", "active", 1)
+        );
 
         // Putaran kedua mencapai batas (2) → Butuh keputusan.
         let res = post(&request, &f.cookie, "/w/acme/t/KSR-1/stage/complete", &[]).await;
@@ -369,7 +465,10 @@ async fn rejects_count_rounds_and_the_limit_asks_for_a_decision() {
         let t = ticket(&ctx, &f.workspace, &code).await;
         assert_eq!((t.stage_state.as_str(), t.fail_count), ("decision", 2));
 
-        let page = request.get("/w/acme/t/KSR-1").add_cookie(f.cookie.clone()).await;
+        let page = request
+            .get("/w/acme/t/KSR-1")
+            .add_cookie(f.cookie.clone())
+            .await;
         let html = page.text();
         assert_css_exists(&html, "[data-stage-alert='decision']");
         assert_css_exists(&html, "#decision [data-round]");
@@ -379,13 +478,31 @@ async fn rejects_count_rounds_and_the_limit_asks_for_a_decision() {
             .await;
         assert_css_exists(&inbox.text(), "[data-decision-ticket='KSR-1']");
         // Board menandai kartu.
-        let board = request.get("/w/acme/p/KSR/board").add_cookie(f.cookie.clone()).await;
-        assert_css_exists(&board.text(), "[data-column='prd'] [data-ticket='KSR-1'] .app-tcard-state");
+        let board = request
+            .get("/w/acme/p/KSR/board")
+            .add_cookie(f.cookie.clone())
+            .await;
+        assert_css_exists(
+            &board.text(),
+            "[data-column='prd'] [data-ticket='KSR-1'] .app-tcard-state",
+        );
 
         // Petunjuk wajib catatan; pilihan tak dikenal ditolak.
-        let res = post(&request, &f.cookie, "/w/acme/t/KSR-1/stage/decide", &[("choice", "hint"), ("note", "")]).await;
+        let res = post(
+            &request,
+            &f.cookie,
+            "/w/acme/t/KSR-1/stage/decide",
+            &[("choice", "hint"), ("note", "")],
+        )
+        .await;
         assert_eq!(res.status_code(), 422);
-        let res = post(&request, &f.cookie, "/w/acme/t/KSR-1/stage/decide", &[("choice", "magic")]).await;
+        let res = post(
+            &request,
+            &f.cookie,
+            "/w/acme/t/KSR-1/stage/decide",
+            &[("choice", "magic")],
+        )
+        .await;
         assert_eq!(res.status_code(), 422);
 
         // Terima dengan catatan: lanjut ke Dev, tiket Bug baru berelasi.
@@ -398,9 +515,16 @@ async fn rejects_count_rounds_and_the_limit_asks_for_a_decision() {
         .await;
         assert_eq!(res.status_code(), 303, "{}", res.text());
         let t = ticket(&ctx, &f.workspace, &code).await;
-        assert_eq!((t.stage_key.as_str(), t.stage_state.as_str(), t.fail_count), ("dev", "active", 0));
+        assert_eq!(
+            (t.stage_key.as_str(), t.stage_state.as_str(), t.fail_count),
+            ("dev", "active", 0)
+        );
         let bug = ticket(&ctx, &f.workspace, "KSR-2").await;
-        assert!(bug.title.contains("Tambah AC refund nanti"), "{}", bug.title);
+        assert!(
+            bug.title.contains("Tambah AC refund nanti"),
+            "{}",
+            bug.title
+        );
         let bug_type = ticket_types::Entity::find_by_id(bug.type_id)
             .one(&ctx.db)
             .await
@@ -422,33 +546,73 @@ async fn decisions_hint_self_requirement_and_cancel() {
             for _ in 0..2 {
                 let t = ticket(&ctx, &f.workspace, &code).await;
                 if t.stage_state == "active" {
-                    let res = post(&request, &f.cookie, "/w/acme/t/KSR-1/stage/complete", &[]).await;
+                    let res =
+                        post(&request, &f.cookie, "/w/acme/t/KSR-1/stage/complete", &[]).await;
                     assert_eq!(res.status_code(), 303, "{}", res.text());
                 }
-                let res = post(&request, &f.cookie, "/w/acme/t/KSR-1/stage/reject", &[("note", "x")]).await;
+                let res = post(
+                    &request,
+                    &f.cookie,
+                    "/w/acme/t/KSR-1/stage/reject",
+                    &[("note", "x")],
+                )
+                .await;
                 assert_eq!(res.status_code(), 303, "{}", res.text());
             }
-            assert_eq!(ticket(&ctx, &f.workspace, &code).await.stage_state, "decision");
+            assert_eq!(
+                ticket(&ctx, &f.workspace, &code).await.stage_state,
+                "decision"
+            );
         };
         to_decision().await;
 
         // Keputusan hanya saat Butuh keputusan; petunjuk mereset hitungan.
-        let res = post(&request, &f.cookie, "/w/acme/t/KSR-1/stage/decide", &[("choice", "hint"), ("note", "Lihat PRD lama")]).await;
+        let res = post(
+            &request,
+            &f.cookie,
+            "/w/acme/t/KSR-1/stage/decide",
+            &[("choice", "hint"), ("note", "Lihat PRD lama")],
+        )
+        .await;
         assert_eq!(res.status_code(), 303, "{}", res.text());
         let t = ticket(&ctx, &f.workspace, &code).await;
-        assert_eq!((t.stage_key.as_str(), t.stage_state.as_str(), t.fail_count), ("prd", "active", 0));
-        let res = post(&request, &f.cookie, "/w/acme/t/KSR-1/stage/decide", &[("choice", "self")]).await;
+        assert_eq!(
+            (t.stage_key.as_str(), t.stage_state.as_str(), t.fail_count),
+            ("prd", "active", 0)
+        );
+        let res = post(
+            &request,
+            &f.cookie,
+            "/w/acme/t/KSR-1/stage/decide",
+            &[("choice", "self")],
+        )
+        .await;
         assert_eq!(res.status_code(), 422);
 
         // Perbaiki sendiri: penerima tugas = pengambil keputusan.
         to_decision().await;
-        let res = post(&request, &f.cookie, "/w/acme/t/KSR-1/stage/decide", &[("choice", "self")]).await;
+        let res = post(
+            &request,
+            &f.cookie,
+            "/w/acme/t/KSR-1/stage/decide",
+            &[("choice", "self")],
+        )
+        .await;
         assert_eq!(res.status_code(), 303, "{}", res.text());
-        assert_eq!(ticket(&ctx, &f.workspace, &code).await.assignee_id, Some(f.owner.id));
+        assert_eq!(
+            ticket(&ctx, &f.workspace, &code).await.assignee_id,
+            Some(f.owner.id)
+        );
 
         // Ubah requirement: kembali ke stage sebelumnya.
         to_decision().await;
-        let res = post(&request, &f.cookie, "/w/acme/t/KSR-1/stage/decide", &[("choice", "requirement"), ("target", "todo")]).await;
+        let res = post(
+            &request,
+            &f.cookie,
+            "/w/acme/t/KSR-1/stage/decide",
+            &[("choice", "requirement"), ("target", "todo")],
+        )
+        .await;
         assert_eq!(res.status_code(), 303, "{}", res.text());
         assert_eq!(ticket(&ctx, &f.workspace, &code).await.stage_key, "todo");
 
@@ -458,18 +622,31 @@ async fn decisions_hint_self_requirement_and_cancel() {
         let res = post(&request, &f.cookie, "/w/acme/t/KSR-1/stage/complete", &[]).await;
         assert_eq!(res.status_code(), 303, "{}", res.text());
         to_decision().await;
-        let res = post(&request, &f.cookie, "/w/acme/t/KSR-1/stage/decide", &[("choice", "cancel")]).await;
+        let res = post(
+            &request,
+            &f.cookie,
+            "/w/acme/t/KSR-1/stage/decide",
+            &[("choice", "cancel")],
+        )
+        .await;
         assert_eq!(res.status_code(), 303, "{}", res.text());
         let t = ticket(&ctx, &f.workspace, &code).await;
         assert_eq!(t.stage_key, "done");
         assert!(t.cancelled_at.is_some());
-        let page = request.get("/w/acme/t/KSR-1").add_cookie(f.cookie.clone()).await;
+        let page = request
+            .get("/w/acme/t/KSR-1")
+            .add_cookie(f.cookie.clone())
+            .await;
         assert!(page.text().contains("Tiket dibatalkan"));
 
         let events = ticket_events::Model::of_ticket(&ctx.db, f.workspace.workspace_id(), t.id)
             .await
             .unwrap();
-        assert!(events.iter().any(|e| e.kind == "decided"), "{:?}", events.iter().map(|e| &e.kind).collect::<Vec<_>>());
+        assert!(
+            events.iter().any(|e| e.kind == "decided"),
+            "{:?}",
+            events.iter().map(|e| &e.kind).collect::<Vec<_>>()
+        );
     })
     .await;
 }
@@ -480,7 +657,10 @@ async fn board_has_a_column_per_stage_and_drag_uses_stage_keys() {
         let f = fixture(&request, &ctx).await;
         use_workflow(&request, &ctx, &f, FLOW_YAML).await;
         create_ticket(&request, &f.cookie, &[("title", "Kartu")]).await;
-        let board = request.get("/w/acme/p/KSR/board").add_cookie(f.cookie.clone()).await;
+        let board = request
+            .get("/w/acme/p/KSR/board")
+            .add_cookie(f.cookie.clone())
+            .await;
         assert_eq!(board.status_code(), 200);
         let html = board.text();
         for key in ["todo", "prd", "dev", "done"] {
@@ -494,7 +674,12 @@ async fn board_has_a_column_per_stage_and_drag_uses_stage_keys() {
             .add_cookie(f.cookie.clone())
             .await;
         assert_eq!(page.status_code(), 200);
-        let code = create_ticket(&request, &f.cookie, &[("title", "Di PRD"), ("stage", "prd")]).await;
+        let code = create_ticket(
+            &request,
+            &f.cookie,
+            &[("title", "Di PRD"), ("stage", "prd")],
+        )
+        .await;
         assert_eq!(ticket(&ctx, &f.workspace, &code).await.stage_key, "prd");
         // Stage setelah stage approval tidak bisa jadi stage awal.
         let res = request
@@ -515,16 +700,25 @@ async fn artifact_routes_respect_ticket_access() {
         create_ticket(&request, &f.cookie, &[("title", "Rahasia")]).await;
         to_review(&request, &f.cookie).await;
         let t = ticket(&ctx, &f.workspace, "KSR-1").await;
-        let artifact = ticket_artifacts::Model::find_named(&ctx.db, f.workspace.workspace_id(), t.id, "prd.md")
-            .await
-            .unwrap()
-            .unwrap();
+        let artifact = ticket_artifacts::Model::find_named(
+            &ctx.db,
+            f.workspace.workspace_id(),
+            t.id,
+            "prd.md",
+        )
+        .await
+        .unwrap()
+        .unwrap();
 
         let stranger = a_user().create(&ctx).await;
         add_member(&ctx, &f.workspace, &stranger, RoleKey::Member).await;
         let cookie = sign_in_as(&request, &stranger).await;
         let base = format!("/w/acme/t/KSR-1/artifacts/{}", artifact.id);
-        for path in ["/w/acme/t/KSR-1/artifacts".to_string(), format!("{base}/edit"), format!("{base}/compare")] {
+        for path in [
+            "/w/acme/t/KSR-1/artifacts".to_string(),
+            format!("{base}/edit"),
+            format!("{base}/compare"),
+        ] {
             let res = request.get(&path).add_cookie(cookie.clone()).await;
             assert_eq!(res.status_code(), 404, "{path}");
         }
@@ -541,7 +735,10 @@ async fn artifact_routes_respect_ticket_access() {
         assert_eq!(res.status_code(), 404);
         // Artifact tiket lain/id acak → 404.
         let res = request
-            .get(&format!("/w/acme/t/KSR-1/artifacts/{}/edit", uuid::Uuid::now_v7()))
+            .get(&format!(
+                "/w/acme/t/KSR-1/artifacts/{}/edit",
+                uuid::Uuid::now_v7()
+            ))
             .add_cookie(f.cookie.clone())
             .await;
         assert_eq!(res.status_code(), 404);

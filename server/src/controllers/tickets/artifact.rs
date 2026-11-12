@@ -91,7 +91,6 @@ fn status_key(raw: &str) -> String {
     format!("artifact-status-{raw}")
 }
 
-
 struct Loaded {
     artifacts: Vec<ticket_artifacts::Model>,
     versions: Vec<artifact_versions::Model>,
@@ -106,7 +105,13 @@ async fn load(ctx: &AppContext, access: &TicketAccess) -> Result<Loaded> {
     let ids: Vec<Uuid> = artifacts.iter().map(|a| a.id).collect();
     let versions = artifact_versions::Model::of_artifacts(&ctx.db, wid, &ids).await?;
     let people: Vec<Uuid> = versions.iter().filter_map(|v| v.author_id).collect();
-    let lookup = lookup(&ctx.db, tenant, std::slice::from_ref(&access.ticket), &people).await?;
+    let lookup = lookup(
+        &ctx.db,
+        tenant,
+        std::slice::from_ref(&access.ticket),
+        &people,
+    )
+    .await?;
     let flow = Flow::load(&ctx.db, wid, &access.ticket).await?;
     Ok(Loaded {
         artifacts,
@@ -176,12 +181,7 @@ async fn render_index(
     let selected = query
         .a
         .and_then(|id| loaded.artifacts.iter().find(|a| a.id == id))
-        .or_else(|| {
-            loaded
-                .artifacts
-                .iter()
-                .find(|a| a.stage_key == t.stage_key)
-        })
+        .or_else(|| loaded.artifacts.iter().find(|a| a.stage_key == t.stage_key))
         .or(loaded.artifacts.first());
     let base_of = |a: &ticket_artifacts::Model| format!("{}?a={}", paths.artifacts, a.id);
     let mut groups: BTreeMap<usize, (String, Vec<ArtifactView>)> = BTreeMap::new();
@@ -356,7 +356,17 @@ pub(super) async fn edit(
 ) -> Result<Response> {
     let artifact = find(&ctx, &access, id.id).await?;
     let (session, flash) = flash::take(session);
-    let res = render_edit(&ctx, &v, &access, &artifact, None, "", flash, StatusCode::OK).await?;
+    let res = render_edit(
+        &ctx,
+        &v,
+        &access,
+        &artifact,
+        None,
+        "",
+        flash,
+        StatusCode::OK,
+    )
+    .await?;
     Ok((session, res).into_response())
 }
 

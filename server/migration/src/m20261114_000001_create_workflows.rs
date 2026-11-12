@@ -28,7 +28,8 @@ pub const SUBTASK_JSON: &str = r#"{"stages":[{"key":"todo","name":"To do","categ
 pub const SUBTASK_DESCRIPTION: &str =
     "Workflow ringkas untuk subtask, Dev lalu Review lalu Selesai.";
 
-const AUDIT_ACTIONS_M2: &str = "'workspace.created', 'workspace.updated', 'workspace.require_2fa_changed',
+const AUDIT_ACTIONS_M2: &str =
+    "'workspace.created', 'workspace.updated', 'workspace.require_2fa_changed',
         'workspace.deletion_scheduled', 'workspace.deletion_cancelled',
         'member.invited', 'member.joined', 'member.role_changed', 'member.removed',
         'member.left', 'member.job_title_changed', 'member.invitation_revoked',

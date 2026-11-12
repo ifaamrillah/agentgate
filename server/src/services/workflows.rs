@@ -94,7 +94,11 @@ fn errors_of(field: &'static str, code: &'static str, detail: Option<&str>) -> W
 /// Error validasi definisi → error form. Issue stage `focus` memakai nama field-nya; issue lain
 /// dikumpulkan di field `stages` dengan nama stage sebagai `detail`.
 #[must_use]
-pub fn issues_failure(definition: &Definition, issues: &[Issue], focus: Option<usize>) -> WorkflowFailure {
+pub fn issues_failure(
+    definition: &Definition,
+    issues: &[Issue],
+    focus: Option<usize>,
+) -> WorkflowFailure {
     let mut errors = ValidationErrors::new();
     for issue in issues {
         let mut e = ValidationError::new(issue.code);
@@ -113,7 +117,10 @@ pub fn issues_failure(definition: &Definition, issues: &[Issue], focus: Option<u
     TicketFailure::errors(errors)
 }
 
-fn checked(mut definition: Definition, focus: Option<usize>) -> Result<Definition, WorkflowFailure> {
+fn checked(
+    mut definition: Definition,
+    focus: Option<usize>,
+) -> Result<Definition, WorkflowFailure> {
     definition.normalize();
     definition
         .validate()
@@ -132,10 +139,9 @@ async fn name_free<C: ConnectionTrait>(
     name: &str,
     except: Option<Uuid>,
 ) -> Result<(), WorkflowFailure> {
-    let taken = workflows::Model::all_in(db, wid)
-        .await?
-        .iter()
-        .any(|w| Some(w.id) != except && w.name.trim().to_lowercase() == name.trim().to_lowercase());
+    let taken = workflows::Model::all_in(db, wid).await?.iter().any(|w| {
+        Some(w.id) != except && w.name.trim().to_lowercase() == name.trim().to_lowercase()
+    });
     if taken {
         Err(errors_of("name", workflows::NAME_TAKEN, None))
     } else {
@@ -360,7 +366,10 @@ pub async fn export<C: ConnectionTrait>(
 ) -> Result<String, DbErr> {
     let (definition, version) = match workflow.draft().filter(|_| draft) {
         Some(d) => (d, None),
-        None => (workflow.definition(db).await?, Some(i64::from(workflow.version))),
+        None => (
+            workflow.definition(db).await?,
+            Some(i64::from(workflow.version)),
+        ),
     };
     let emails = member_emails(db, wid).await?;
     Ok(yaml::emit(
@@ -371,7 +380,12 @@ pub async fn export<C: ConnectionTrait>(
             definition,
         },
         version,
-        |id| emails.iter().find(|(_, u)| *u == id).map(|(e, _)| e.clone()),
+        |id| {
+            emails
+                .iter()
+                .find(|(_, u)| *u == id)
+                .map(|(e, _)| e.clone())
+        },
     ))
 }
 
@@ -518,15 +532,22 @@ pub async fn edit_draft(
                     s.fail_to = None;
                 }
             }
-            let next = draft.stages.get(i.min(draft.stages.len() - 1)).map(|s| s.key.clone());
+            let next = draft
+                .stages
+                .get(i.min(draft.stages.len() - 1))
+                .map(|s| s.key.clone());
             (checked(draft, None)?, next)
         }
         DraftEdit::Move { key, by } => {
             let i = draft
                 .index_of(&key)
                 .ok_or_else(|| errors_of("stage", STAGE_MISSING, None))?;
-            let j = if by < 0 { i.checked_sub(1) } else { Some(i + 1) }
-                .filter(|j| *j < draft.stages.len());
+            let j = if by < 0 {
+                i.checked_sub(1)
+            } else {
+                Some(i + 1)
+            }
+            .filter(|j| *j < draft.stages.len());
             if let Some(j) = j {
                 draft.stages.swap(i, j);
             }
@@ -559,9 +580,10 @@ pub async fn edit_draft(
         }
     };
     let mut model = workflow.into_active_model();
-    model.draft = Set(Some(serde_json::to_value(&draft).map_err(|e| {
-        DbErr::Custom(format!("draf workflow: {e}"))
-    })?));
+    model.draft =
+        Set(Some(serde_json::to_value(&draft).map_err(|e| {
+            DbErr::Custom(format!("draf workflow: {e}"))
+        })?));
     model.update(&txn).await?;
     txn.commit().await?;
     Ok((draft, selected))
@@ -767,7 +789,10 @@ pub async fn publish(
 /// # Errors
 ///
 /// Error database.
-pub async fn in_use<C: ConnectionTrait>(db: &C, workflow: &workflows::Model) -> Result<bool, DbErr> {
+pub async fn in_use<C: ConnectionTrait>(
+    db: &C,
+    workflow: &workflows::Model,
+) -> Result<bool, DbErr> {
     let types = ticket_types::Entity::find()
         .filter(ticket_types::Column::WorkflowId.eq(workflow.id))
         .count(db)
@@ -802,7 +827,9 @@ pub async fn delete(
         .filter(workflow_versions::Column::WorkflowId.eq(workflow.id))
         .exec(&txn)
         .await?;
-    workflows::Entity::delete_by_id(workflow.id).exec(&txn).await?;
+    workflows::Entity::delete_by_id(workflow.id)
+        .exec(&txn)
+        .await?;
     audit::record(
         &txn,
         acting.actor().audit(
@@ -941,7 +968,10 @@ pub async fn set_project_workflows(
         {
             return Err(TicketFailure::NotFound);
         }
-        let old = before.iter().find(|o| o.type_id == t.id).map(|o| o.workflow_id);
+        let old = before
+            .iter()
+            .find(|o| o.type_id == t.id)
+            .map(|o| o.workflow_id);
         let choice = choice.filter(|w| *w != t.workflow_id);
         if old == choice {
             continue;
