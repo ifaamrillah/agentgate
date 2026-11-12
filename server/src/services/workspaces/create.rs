@@ -1,5 +1,5 @@
 //! Membuat workspace baru: satu transaksi berisi workspace, empat role bawaan, workflow bawaan
-//! (Kanban, Subtask ringkas), tipe tiket bawaan, pembuatnya
+//! (Kanban, Subtask ringkas), tipe tiket bawaan, 9 persona agent bawaan, pembuatnya
 //! sebagai Owner, dan audit `workspace.created`. Dipanggil `POST /w/new` dan seed dev. Siapa
 //! pun yang login boleh membuat workspace (spec: pendaftaran terbuka seperti Jira).
 
@@ -10,6 +10,7 @@ use agentgate_core::workflow::templates::{self, Template};
 
 use crate::{
     models::{
+        personas,
         roles::{self, RoleKey},
         ticket_types, users, workflows, workspace_members,
         workspaces::{self, CreateWorkspace, WorkspaceError},
@@ -71,6 +72,7 @@ pub async fn run_in<C: ConnectionTrait>(
     let kanban = create_builtin_workflow(txn, wid, templates::kanban(), owner.id).await?;
     let subtask = create_builtin_workflow(txn, wid, templates::SUBTASK, owner.id).await?;
     ticket_types::ActiveModel::create_builtin_set(txn, wid, kanban.id, subtask.id).await?;
+    personas::ActiveModel::seed_builtins(txn, wid).await?;
     audit::record(
         txn,
         AuditEntry {

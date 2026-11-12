@@ -2874,6 +2874,7 @@ dependencies = [
 name = "migration"
 version = "0.1.0"
 dependencies = [
+ "agentgate-core",
  "async-trait",
  "loco-rs",
  "sea-orm-migration",

@@ -6,10 +6,10 @@
   <div class="app-stage-head">
     <span class="app-tile" data-tone="accent">{{ icon(name=stage.current.icon) }}</span>
     <div class="app-stage-title"><b data-current-stage>{{ stage.current.name }}</b><small>{{ t(key="stage-current", lang="id") }} · {{ stage.workflow }}</small></div>
-    {%- if stage.current.persona_key %}{{ <badge label={t(key=stage.current.mode_key, lang="id")} variant="ai"/> }}{% endif %}
+    {%- if stage.current.persona %}{{ <badge label={t(key=stage.current.mode_key, lang="id")} variant="ai"/> }}{% endif %}
   </div>
-  {%- if stage.current.persona_key %}
-  <div class="app-blk app-stage-persona">{{ icon(name="robot") }}<span><b>{{ t(key="stage-agent", lang="id", persona=t(key=stage.current.persona_key, lang="id")) }}</b><small>{{ t(key="stage-agent-soon", lang="id") }}</small></span></div>
+  {%- if stage.current.persona %}
+  <div class="app-blk app-stage-persona">{{ icon(name=stage.current.icon) }}<span><b>{{ t(key="stage-agent", lang="id", persona=stage.current.persona_name) }}</b><small>{{ t(key="stage-agent-soon", lang="id") }}</small></span></div>
   {%- endif %}
   {%- if stage.gates %}
   <div class="app-blk">

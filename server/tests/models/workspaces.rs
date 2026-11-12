@@ -4,6 +4,7 @@ use agentgate_server::{
     app::App,
     models::{
         permission::{BUILTIN_ROLES, Permission},
+        personas,
         roles::{self, RoleKey},
         workspace_members,
         workspaces::{self, CreateWorkspace, WorkspaceError},
@@ -74,6 +75,27 @@ async fn builtin_roles_created_with_workspace() {
         .unwrap();
     assert_eq!(membership.workspace_id, workspace.id);
     assert_eq!(role.role_key().unwrap(), Some(RoleKey::Owner));
+}
+
+#[tokio::test]
+async fn builtin_personas_created_with_workspace() {
+    let boot = boot_test::<App>().await.unwrap();
+    let ctx = &boot.app_context;
+    let owner = a_user().create(ctx).await;
+    let workspace = a_workspace(&owner).create(ctx).await;
+
+    let personas = personas::Model::active_in(&ctx.db, workspace.workspace_id())
+        .await
+        .unwrap();
+    let keys: Vec<_> = personas.iter().map(|p| p.key.as_str()).collect();
+    let want: Vec<_> = agentgate_core::persona::BUILTINS
+        .iter()
+        .map(|b| b.key)
+        .collect();
+    assert_eq!(keys, want);
+    assert!(personas.iter().all(|p| p.builtin && p.deleted_at.is_none()));
+    let analyst = &personas[0];
+    assert!(analyst.mcp_tools.contains(&"ag_draft_tickets".to_string()));
 }
 
 #[tokio::test]

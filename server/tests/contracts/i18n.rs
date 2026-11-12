@@ -98,6 +98,7 @@ fn every_validation_error_code_has_a_message() {
         agentgate_server::models::ticket_code::ERROR_CODES,
         agentgate_server::models::custom_fields::ERROR_CODES,
         agentgate_server::models::workflows::ERROR_CODES,
+        agentgate_server::models::personas::ERROR_CODES,
         agentgate_server::models::ticket_artifacts::ERROR_CODES,
         agentgate_server::services::tickets::stages::ERROR_CODES,
         agentgate_server::services::workflows::ERROR_CODES,

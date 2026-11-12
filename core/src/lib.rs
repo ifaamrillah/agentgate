@@ -4,6 +4,7 @@
 /// Versi Agent Gate. Server dan CLI melaporkan versi yang sama.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+pub mod persona;
 pub mod workflow;
 
 #[cfg(test)]

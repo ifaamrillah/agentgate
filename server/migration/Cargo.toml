@@ -17,6 +17,8 @@ doctest = false
 loco-rs = { workspace = true, features = ["with-db", "db-postgres"] }
 # Async trait untuk MigratorTrait.
 async-trait = "0.1"
+# Data bawaan (persona) untuk backfill, satu sumber dengan seed workspace di server.
+agentgate-core = { path = "../../core" }
 
 [dependencies.sea-orm-migration]
 # DSL migrasi SeaORM.

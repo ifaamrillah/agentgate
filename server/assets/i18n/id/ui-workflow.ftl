@@ -90,17 +90,9 @@ workflow-draft-missing = Belum ada draf untuk diterbitkan.
 workflow-stage-missing = Stage tidak ada di draf.
 workflow-last-stage = Workflow butuh minimal satu stage.
 workflow-people-invalid = Orang yang dipilih bukan anggota workspace.
+workflow-persona-invalid = Persona tidak dikenal di workspace ini.
 
 ## Label workflow
-persona-analyst = Analyst
-persona-pm = Product Manager
-persona-uiux = UI/UX Designer
-persona-architect = Architect
-persona-dev = Developer
-persona-reviewer = Code Reviewer
-persona-qa = QA
-persona-devops = DevOps
-persona-writer = Tech Writer
 workflow-mode-manual = Manual
 workflow-mode-auto = Otomatis
 workflow-mode-interactive = Interaktif
@@ -190,7 +182,7 @@ workflow-stage-name = Nama stage
 workflow-stage-category = Kategori
 workflow-stage-category-hint = Kolom status tiket. Urutan kategori: Backlog, To do, Dikerjakan, Selesai.
 workflow-persona = Persona agent
-workflow-persona-hint = Persona bisa diubah dan ditambah di M4.
+workflow-persona-hint = Kelola persona di Pengaturan → Persona agent.
 workflow-mode = Mode
 workflow-parallel = Paralel dengan stage sebelumnya
 workflow-skill = Skill

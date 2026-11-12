@@ -128,6 +128,32 @@ pub enum AuditAction {
     /// Admin memaksa transisi walau gate belum terpenuhi (alasan di `changes`).
     #[sea_orm(string_value = "ticket.transition_forced")]
     TicketTransitionForced,
+    #[sea_orm(string_value = "persona.created")]
+    PersonaCreated,
+    #[sea_orm(string_value = "persona.updated")]
+    PersonaUpdated,
+    /// Persona dihapus; pengganti di `changes`.
+    #[sea_orm(string_value = "persona.deleted")]
+    PersonaDeleted,
+    #[sea_orm(string_value = "skill_pack.created")]
+    SkillPackCreated,
+    #[sea_orm(string_value = "skill_pack.updated")]
+    SkillPackUpdated,
+    /// Skill pack dikirim ke review (hasil pindai di `changes`).
+    #[sea_orm(string_value = "skill_pack.submitted")]
+    SkillPackSubmitted,
+    #[sea_orm(string_value = "skill_pack.approved")]
+    SkillPackApproved,
+    #[sea_orm(string_value = "skill_pack.rejected")]
+    SkillPackRejected,
+    #[sea_orm(string_value = "skill_pack.deleted")]
+    SkillPackDeleted,
+    /// Client AI disetujui mengakses workspace lewat MCP (consent OAuth).
+    #[sea_orm(string_value = "mcp.connected")]
+    McpConnected,
+    /// Akses client AI dicabut.
+    #[sea_orm(string_value = "mcp.revoked")]
+    McpRevoked,
 }
 
 /// Kelompok aksi untuk filter halaman audit: awalan `<subjek>` dari aksi, kecuali jabatan
@@ -141,6 +167,8 @@ pub enum AuditGroup {
     Project,
     Repo,
     Ticket,
+    /// Persona, skill pack, dan client MCP.
+    Agent,
 }
 
 impl AuditGroup {
@@ -155,6 +183,7 @@ impl AuditGroup {
             Self::Project => "project",
             Self::Repo => "repo",
             Self::Ticket => "ticket",
+            Self::Agent => "agent",
         }
     }
 
@@ -221,6 +250,17 @@ impl AuditAction {
             | Self::WorkflowMigrated
             | Self::TicketStageJumped
             | Self::TicketTransitionForced => AuditGroup::Ticket,
+            Self::PersonaCreated
+            | Self::PersonaUpdated
+            | Self::PersonaDeleted
+            | Self::SkillPackCreated
+            | Self::SkillPackUpdated
+            | Self::SkillPackSubmitted
+            | Self::SkillPackApproved
+            | Self::SkillPackRejected
+            | Self::SkillPackDeleted
+            | Self::McpConnected
+            | Self::McpRevoked => AuditGroup::Agent,
         }
     }
 }
@@ -313,6 +353,13 @@ pub enum AuditSubject {
     CustomField,
     #[sea_orm(string_value = "workflow")]
     Workflow,
+    #[sea_orm(string_value = "persona")]
+    Persona,
+    #[sea_orm(string_value = "skill_pack")]
+    SkillPack,
+    /// Grant OAuth client MCP (`oauth_grants`).
+    #[sea_orm(string_value = "mcp_client")]
+    McpClient,
 }
 
 /// Data satu baris audit untuk [`ActiveModel::append`].

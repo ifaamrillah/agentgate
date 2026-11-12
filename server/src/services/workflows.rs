@@ -128,6 +128,29 @@ fn checked(
     Ok(definition)
 }
 
+/// Setiap persona stage harus kunci persona workspace ini (aktif, atau terhapus dengan
+/// pengganti). Kunci yang tidak dikenal → `workflow-persona-invalid` di `field`.
+async fn personas_known<C: ConnectionTrait>(
+    db: &C,
+    wid: crate::models::workspaces::WorkspaceId,
+    definition: &Definition,
+    field: &'static str,
+) -> Result<(), WorkflowFailure> {
+    let known = crate::models::personas::Model::known_keys(db, wid).await?;
+    match definition
+        .stages
+        .iter()
+        .find(|s| s.persona.as_ref().is_some_and(|p| !known.contains(p)))
+    {
+        Some(stage) => Err(errors_of(
+            field,
+            agentgate_core::workflow::definition::PERSONA_INVALID,
+            Some(&stage.name),
+        )),
+        None => Ok(()),
+    }
+}
+
 fn identity(name: &str, description: &str) -> Result<(), WorkflowFailure> {
     workflows::validate_identity(name, description)
         .map_err(|(field, code)| errors_of(field, code, None))
@@ -229,6 +252,7 @@ async fn insert(
     let wid = acting.workspace_id();
     name_free(txn, wid, name, None).await?;
     let definition = checked(members_only(txn, wid, definition).await?, None)?;
+    personas_known(txn, wid, &definition, "stages").await?;
     let created = workflows::ActiveModel::create(
         txn,
         wid,
@@ -330,8 +354,10 @@ pub async fn import(
                 if let Some(list) = e.errors.remove("name") {
                     e.errors.insert("yaml".into(), list);
                 }
-                if let Some(list) = e.errors.remove("description") {
-                    e.errors.insert("yaml".into(), list);
+                for field in ["description", "stages"] {
+                    if let Some(list) = e.errors.remove(field) {
+                        e.errors.insert("yaml".into(), list);
+                    }
                 }
                 TicketFailure::Invalid(e)
             }
@@ -579,6 +605,7 @@ pub async fn edit_draft(
             (normalized, first)
         }
     };
+    personas_known(&txn, wid, &draft, "persona").await?;
     let mut model = workflow.into_active_model();
     model.draft =
         Set(Some(serde_json::to_value(&draft).map_err(|e| {

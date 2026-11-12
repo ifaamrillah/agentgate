@@ -1,30 +1,24 @@
 //! Tampilan workflow (M3): label stage, persona, mode, transisi, gate; stepper tiket; data
 //! builder. Semua label berupa kunci Fluent (`ui-workflow.ftl`).
 
-use agentgate_core::workflow::{Category, Definition, Exit, Gate, Mode, Persona, Stage};
+use agentgate_core::workflow::{Category, Definition, Exit, Gate, Mode, Stage};
 use serde::Serialize;
 
 use super::tickets::PersonView;
+pub use crate::models::personas::{PersonaLabel, PersonaLabels};
 
+/// Label persona `key`: dari workspace, lalu persona bawaan, lalu kuncinya sendiri.
 #[must_use]
-pub fn persona_key(p: Persona) -> String {
-    format!("persona-{}", p.as_str().replace('_', "-"))
-}
-
-#[must_use]
-pub fn persona_icon(p: Option<Persona>) -> &'static str {
-    match p {
-        None => "user",
-        Some(Persona::Analyst) => "bulb",
-        Some(Persona::Pm) => "file-text",
-        Some(Persona::Uiux) => "layout",
-        Some(Persona::Architect) => "sitemap",
-        Some(Persona::Dev) => "code",
-        Some(Persona::Reviewer) => "git-pull-request",
-        Some(Persona::Qa) => "flask",
-        Some(Persona::Devops) => "server",
-        Some(Persona::Writer) => "writing",
-    }
+pub fn persona_label(key: &str, labels: &PersonaLabels) -> PersonaLabel {
+    labels.get(key).cloned().unwrap_or_else(|| {
+        let builtin = agentgate_core::persona::builtin(key);
+        PersonaLabel {
+            key: key.to_string(),
+            name: builtin.map_or_else(|| key.to_string(), |b| b.name.to_string()),
+            icon: builtin.map_or("robot", |b| b.icon).to_string(),
+            color: builtin.map_or("#64748b", |b| b.color).to_string(),
+        }
+    })
 }
 
 #[must_use]
@@ -47,12 +41,12 @@ pub fn category_key(c: Category) -> String {
     format!("ticket-status-{}", c.as_str().replace('_', "-"))
 }
 
-/// Semua persona bawaan untuk pilihan form.
+/// Pilihan persona untuk form stage: persona aktif workspace (nilai = kunci, label = nama).
 #[must_use]
-pub fn persona_options() -> Vec<Choice> {
-    Persona::ALL
+pub fn persona_options(labels: &[PersonaLabel]) -> Vec<Choice> {
+    labels
         .iter()
-        .map(|p| Choice::new(p.as_str(), persona_key(*p)))
+        .map(|p| Choice::new(&p.key, p.name.clone()))
         .collect()
 }
 
@@ -124,8 +118,11 @@ pub struct StageView {
     pub name: String,
     pub category: &'static str,
     pub category_key: String,
-    pub persona_key: String,
-    pub icon: &'static str,
+    /// Kunci persona (kosong = manusia).
+    pub persona: String,
+    /// Nama persona (kosong = manusia).
+    pub persona_name: String,
+    pub icon: String,
     pub mode_key: String,
     pub exit: &'static str,
     pub exit_key: String,
@@ -140,14 +137,16 @@ pub struct StageView {
 
 impl StageView {
     #[must_use]
-    pub fn of(s: &Stage, definition: &Definition) -> Self {
+    pub fn of(s: &Stage, definition: &Definition, labels: &PersonaLabels) -> Self {
+        let label = s.persona.as_deref().map(|p| persona_label(p, labels));
         Self {
             key: s.key.clone(),
             name: s.name.clone(),
             category: s.category.as_str(),
             category_key: category_key(s.category),
-            persona_key: s.persona.map(persona_key).unwrap_or_default(),
-            icon: persona_icon(s.persona),
+            persona: s.persona.clone().unwrap_or_default(),
+            persona_name: label.as_ref().map(|l| l.name.clone()).unwrap_or_default(),
+            icon: label.map_or_else(|| "user".to_string(), |l| l.icon),
             mode_key: mode_key(s.mode),
             exit: s.exit.as_str(),
             exit_key: exit_key(s.exit),
@@ -168,13 +167,18 @@ impl StageView {
 
 /// Stepper tiket: semua stage versi aktif; yang sebelum stage sekarang `done`.
 #[must_use]
-pub fn stepper(definition: &Definition, current: &str, position: usize) -> Vec<StageView> {
+pub fn stepper(
+    definition: &Definition,
+    current: &str,
+    position: usize,
+    labels: &PersonaLabels,
+) -> Vec<StageView> {
     definition
         .stages
         .iter()
         .enumerate()
         .map(|(i, s)| {
-            let mut v = StageView::of(s, definition);
+            let mut v = StageView::of(s, definition, labels);
             v.state = if s.key == current {
                 "current"
             } else if i < position {
@@ -220,9 +224,6 @@ pub struct PeopleView {
 #[must_use]
 pub fn label_keys() -> Vec<String> {
     let mut keys = Vec::new();
-    for p in Persona::ALL {
-        keys.push(persona_key(p));
-    }
     for m in [Mode::Manual, Mode::Auto, Mode::Interactive] {
         keys.push(mode_key(m));
     }
