@@ -123,6 +123,7 @@
   .app-consent-dots i { width: 4px; height: 4px; border-radius: 50%; background: currentColor; }
   .app-consent-body { display: grid; gap: 14px; padding: 8px 24px 18px; }
   .app-consent-user { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--ag-line); border-radius: 10px; background: var(--ag-muted-bg); min-width: 0; }
+  .app-consent-user > .app-lrow-main { flex: 1; min-width: 0; display: grid; gap: 2px; }
   .app-consent-scopes { display: grid; gap: 6px; }
   .app-consent-scopes ul { display: grid; margin: 0; padding: 0; list-style: none; border: 1px solid var(--ag-line); border-radius: 10px; }
   .app-consent-scopes li { display: flex; gap: 12px; align-items: flex-start; padding: 10px 14px; border-top: 1px solid var(--ag-line); }

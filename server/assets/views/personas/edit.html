@@ -3,7 +3,7 @@
     Variabel: lihat controllers::agents::personas::render_edit. -#}
 {% extends "layouts/settings.html" %}
 {% block title %}{{ persona.name }} · {{ t(key="settings-personas-title", lang="id") }}{% endblock title %}
-{% block crumb_label %}<a href="{{ back }}">{{ t(key="settings-personas-title", lang="id") }}</a><span data-sep aria-hidden="true">/</span>{{ persona.name }}{% endblock crumb_label %}
+{% block crumb %}{{ <crumb label={t(key="nav-settings", lang="id")}/> }}{{ <crumb label={t(key="settings-personas-title", lang="id")} href={back}/> }}{{ <crumb label={persona.name}/> }}{% endblock crumb %}
 {% block page_attrs %}data-persona-edit="{{ persona.key }}"{% endblock page_attrs %}
 {% block settings %}
 {%- if stages %}{% set used = t(key="persona-used-in", lang="id", stages=stages | join(sep=", ")) %}{% else %}{% set used = t(key="persona-unused", lang="id") %}{% endif %}

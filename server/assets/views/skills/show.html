@@ -3,7 +3,7 @@
     approve/tolak (pending). Variabel: lihat controllers::agents::skills::render_show. -#}
 {% extends "layouts/settings.html" %}
 {% block title %}{{ pack.name }} · {{ t(key="settings-skills-title", lang="id") }}{% endblock title %}
-{% block crumb_label %}<a href="{{ back }}">{{ t(key="settings-skills-title", lang="id") }}</a><span data-sep aria-hidden="true">/</span>{{ pack.name }}{% endblock crumb_label %}
+{% block crumb %}{{ <crumb label={t(key="nav-settings", lang="id")}/> }}{{ <crumb label={t(key="settings-skills-title", lang="id")} href={back}/> }}{{ <crumb label={pack.name}/> }}{% endblock crumb %}
 {% block page_attrs %}data-skill-page="{{ pack.status }}"{% endblock page_attrs %}
 {% block settings %}
 <header class="app-page-head">
