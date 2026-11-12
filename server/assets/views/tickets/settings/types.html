@@ -1,0 +1,62 @@
+{#- Pengaturan → Tipe tiket & field (Admin workspace, ManageTicketSettings): daftar tipe (5 bawaan
+    + buatan sendiri) dan pustaka field custom yang dipasang ke tipe. Tambah tipe/field lewat
+    dialog. Variabel: lihat controllers::tickets::settings::render_types. -#}
+{% extends "layouts/settings.html" %}
+{% block title %}{{ t(key="settings-ticket-types-title", lang="id") }}{% endblock title %}
+{% block crumb_label %}{{ t(key="settings-ticket-types-title", lang="id") }}{% endblock crumb_label %}
+{% block page_attrs %}data-ticket-types{% endblock page_attrs %}
+{% block settings %}
+<header class="app-page-head">
+  <div class="app-page-title"><h1>{{ t(key="settings-ticket-types-title", lang="id") }}</h1><p>{{ t(key="settings-ticket-types-description", lang="id") }}</p></div>
+  <div class="app-page-acts">
+    {{ <button label={t(key="custom-field-add", lang="id")} icon="forms" variant="outline" dialog="field-dialog"/> }}
+    {{ <button label={t(key="ticket-type-add", lang="id")} icon="plus" dialog="type-dialog"/> }}
+  </div>
+</header>
+{%- if error %}{{ <flash kind="error" message={t(key=error, lang="id")}/> }}{% endif %}
+{% <card title={t(key="ticket-types-title", lang="id")} count={types | length ~ ""} flush={true}> %}
+  {%- for row in types %}
+  <a class="app-lrow" href="{{ row.href }}" data-ticket-type="{{ row.type.key }}">
+    {{ <type_icon icon={row.type.icon} color={row.type.color} label={row.type.name} tile={true}/> }}
+    <span class="app-lrow-main"><b>{{ row.type.name }}</b><small>{% if row.type.description %}{{ row.type.description }}{% else %}<span class="app-code">{{ row.type.key }}</span>{% endif %}</small></span>
+    {%- if row.type.builtin %}{{ <badge label={t(key="ticket-type-builtin-badge", lang="id")} variant="neutral"/> }}{% endif %}
+    <span class="app-hint">{{ t(key="ticket-type-field-count", lang="id", count=row.fields) }}</span>
+    {{ icon(name="chevron-right") }}
+  </a>
+  {%- endfor %}
+{% </card> %}
+{% <card title={t(key="custom-fields-title", lang="id")} description={t(key="custom-fields-description", lang="id")} count={fields | length ~ ""} flush={true}> %}
+  {%- for f in fields %}
+  <a class="app-lrow" href="{{ f.href }}" data-custom-field-row="{{ f.id }}">
+    <span class="app-tile">{{ icon(name="forms") }}</span>
+    <span class="app-lrow-main"><b>{{ f.name }}{% if f.required %} <span class="app-hint">*</span>{% endif %}</b><small>{{ t(key=f.kind_key, lang="id") }}{% if f.types %} · {{ f.types }}{% else %} · {{ t(key="custom-field-unused", lang="id") }}{% endif %}</small></span>
+    {{ icon(name="chevron-right") }}
+  </a>
+  {%- endfor %}
+  {%- if not fields %}{{ <empty_state title={t(key="custom-fields-empty-title", lang="id")} description={t(key="custom-fields-empty-description", lang="id")} icon="forms" variant="plain"/> }}{% endif %}
+{% </card> %}
+
+{% <dialog id="type-dialog" title={t(key="ticket-type-add", lang="id")} icon="category-2" tone="accent" open={type_open}> %}
+<form method="post" action="{{ create_type_action }}">
+  <section><div class="app-stack-v" data-gap="sm">
+    {%- set form = new_type %}{% set key_locked = false %}{% include "tickets/settings/_type_fields.html" %}
+  </div></section>
+  <footer>
+    <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+    {{ <button label={t(key="ticket-type-add", lang="id")} type="submit" icon="plus"/> }}
+  </footer>
+</form>
+{% </dialog> %}
+
+{% <dialog id="field-dialog" title={t(key="custom-field-add", lang="id")} icon="forms" tone="accent" open={field_open}> %}
+<form method="post" action="{{ create_field_action }}">
+  <section><div class="app-stack-v" data-gap="sm">
+    {%- set form = new_field %}{% set types = type_options %}{% include "tickets/settings/_field_fields.html" %}
+  </div></section>
+  <footer>
+    <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+    {{ <button label={t(key="custom-field-add", lang="id")} type="submit" icon="plus"/> }}
+  </footer>
+</form>
+{% </dialog> %}
+{% endblock settings %}

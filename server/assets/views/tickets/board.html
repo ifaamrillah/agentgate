@@ -1,0 +1,55 @@
+{#- Project → Board (board C): kolom per status (kategori stage M3) dengan jumlah, kartu tiket,
+    filter cepat (cari, Saya, Belum ada penerima), drag-drop antar kolom (static/js/board-dnd.js:
+    drop mengisi form tersembunyi lalu submit biasa) dan menu ⋯ per kartu tanpa JS.
+    Variabel: project, views, views_action, return_to (layouts/project.html), columns
+    ([BoardColumn {status, cards}]), filter (BoardFilter), who, paths (BoardPaths), can_edit,
+    flash. -#}
+{% extends "layouts/project.html" %}
+{% block title %}{{ t(key="project-view-board", lang="id") }} · {{ project.name }}{% endblock title %}
+{% block width %}wide{% endblock width %}
+{% block crumb %}{{ <crumb label={t(key="project-view-board", lang="id")}/> }}{% endblock crumb %}
+{% block actions %}
+  {%- if can_edit %}{{ <button label={t(key="ticket-new", lang="id")} icon="plus" href={paths.new_ticket} size="sm" attrs="data-new-ticket"/> }}{% endif -%}
+{% endblock actions %}
+{% block page_attrs %}data-board-page{% endblock page_attrs %}
+{% block description %}{{ t(key="board-description", lang="id") }}{% endblock description %}
+{% block head_actions %}
+  {{ <button label={t(key="project-view-list", lang="id")} icon="list" variant="outline" size="sm" href={paths.list}/> }}
+  {{ <button label={t(key="trash-title", lang="id")} icon="trash" variant="ghost" size="sm" href={paths.trash} attrs="data-trash-link"/> }}
+{% endblock head_actions %}
+{% block main %}
+<form class="app-fr app-board-bar" method="get" action="{{ paths.board }}" role="search" data-board-filter>
+  <label class="app-fsearch">{{ icon(name="search") }}<input type="search" name="q" value="{{ filter.q }}" placeholder="{{ t(key="board-search-placeholder", lang="id") }}" aria-label="{{ t(key="board-search-placeholder", lang="id") }}"></label>
+  {%- if who %}<input type="hidden" name="who" value="{{ who }}">{% endif %}
+  <a class="app-chip" href="{{ filter.mine_href }}"{% if filter.mine %} aria-pressed="true"{% endif %} data-filter-mine>{{ icon(name="user") }}{{ t(key="ticket-filter-me", lang="id") }}</a>
+  <a class="app-chip" href="{{ filter.unassigned_href }}"{% if filter.unassigned %} aria-pressed="true"{% endif %}>{{ icon(name="circle-dashed") }}{{ t(key="ticket-unassigned", lang="id") }}</a>
+  {%- if filter.q or who %}<a class="app-fclear" href="{{ filter.clear_href }}">{{ icon(name="x") }}{{ t(key="table-filter-clear", lang="id") }}</a>{% endif %}
+  <span data-grow></span>
+  <span class="app-hint" data-board-count>{{ t(key="board-count", lang="id", count=filter.total) }}</span>
+  {%- if can_edit %}<span class="app-hint app-board-hint">{{ icon(name="grip-vertical") }}{{ t(key="board-drag-hint", lang="id") }}</span>{% endif %}
+</form>
+
+<div class="app-board" data-board{% if can_edit %} data-board-dnd{% endif %}>
+  {%- for col in columns %}
+  <section class="app-bcol" data-column="{{ col.status.value }}" aria-labelledby="col-{{ col.status.value }}">
+    <header class="app-bcol-h">
+      <span class="app-status" data-status="{{ col.status.value }}">{{ icon(name=col.status.icon) }}</span>
+      <h2 id="col-{{ col.status.value }}">{{ t(key=col.status.label_key, lang="id") }}</h2>
+      <span class="app-bcol-n">{{ col.cards | length }}</span>
+      {%- if can_edit %}<a class="app-bcol-add" href="{{ paths.new_ticket }}?status={{ col.status.value }}" aria-label="{{ t(key="board-add-in", lang="id", column=t(key=col.status.label_key, lang="id")) }}">{{ icon(name="plus") }}</a>{% endif %}
+    </header>
+    <div class="app-bcol-cards" data-cards>
+      {%- for card in col.cards %}
+      {%- if can_edit %}{{ <ticket_card ticket={card} statuses={statuses} return_to={return_to} move={true}/> }}{% else %}{{ <ticket_card ticket={card}/> }}{% endif %}
+      {%- endfor %}
+      {%- if not col.cards %}<p class="app-bcol-empty">{{ t(key="board-column-empty", lang="id") }}</p>{% endif %}
+    </div>
+  </section>
+  {%- endfor %}
+</div>
+{%- if can_edit %}
+<form method="post" hidden data-board-move-form>
+  <input type="hidden" name="status"><input type="hidden" name="before"><input type="hidden" name="return_to" value="{{ return_to }}">
+</form>
+{%- endif %}
+{% endblock main %}

@@ -1,0 +1,9 @@
+{#- Ikon tipe tiket berwarna (Epic, Story, Task, Bug, Subtask, atau tipe custom).
+    Parameter:
+      icon: nama ikon Tabler    (views::tickets::TypeView.icon)
+      color: string             warna tipe (hex)
+      label: string             nama tipe untuk pembaca layar dan tooltip
+      tile: bool                ikon di atas kotak berwarna lembut (default false) -#}
+{% component type_icon(icon: string, color: string, label: string, tile: bool = false) %}
+<span class="app-type"{% if tile %} data-tile{% endif %} style="--c:{{ color }}" title="{{ label }}" role="img" aria-label="{{ label }}">{{ icon(name=icon) }}</span>
+{%- endcomponent type_icon %}

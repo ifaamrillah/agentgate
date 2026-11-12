@@ -1,0 +1,17 @@
+{#- Tiket saya (lintas project yang boleh dibuka): tab Ditugaskan ke saya / Saya laporkan / Saya
+    ikuti, lalu datatable. Variabel: tabs ([NavItem]), table (TableView MY_TABLE), tickets. -#}
+{% extends "layouts/page.html" %}
+{% block title %}{{ t(key="my-title", lang="id") }}{% endblock title %}
+{% block crumb %}{{ <crumb label={t(key="my-title", lang="id")}/> }}{% endblock crumb %}
+{% block width %}wide{% endblock width %}
+{% block page_attrs %}data-my-tickets{% endblock page_attrs %}
+{% block heading %}{{ t(key="my-title", lang="id") }}{% endblock heading %}
+{% block description %}{{ t(key="my-description", lang="id") }}{% endblock description %}
+{% block main %}
+{{ <tabs label={t(key="my-title", lang="id")} items={tabs}/> }}
+{% <card flush={true}> %}
+  {% <datatable table={table} empty_title={t(key="my-empty-title", lang="id")} empty_description={t(key="my-empty-description", lang="id")} empty_icon="ticket"> %}
+    {%- set show_project = true %}{% include "tickets/_rows.html" %}
+  {% </datatable> %}
+{% </card> %}
+{% endblock main %}

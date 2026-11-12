@@ -1,0 +1,15 @@
+{#- Properti tiket (form baru dan panel Detail). Variabel: form (TicketFormView), types,
+    statuses, priorities, people, custom, id_prefix, paths.people (opsi orang). -#}
+{{ <select_field id={id_prefix ~ "-type"} name="type_id" label={t(key="ticket-field-type", lang="id")} options={types} value={form.type_id} error={form.errors.type_id.code}/> }}
+<div class="app-form-row">
+  {{ <select_field id={id_prefix ~ "-status"} name="status" label={t(key="ticket-field-status", lang="id")} options={statuses} option_value="value" option_label="label_key" translate={true} value={form.status} error={form.errors.status.code}/> }}
+  {{ <select_field id={id_prefix ~ "-priority"} name="priority" label={t(key="ticket-field-priority", lang="id")} options={priorities} option_value="value" option_label="label_key" translate={true} value={form.priority} error={form.errors.priority.code}/> }}
+</div>
+{{ <combo id={id_prefix ~ "-assignee"} name="assignee" label={t(key="ticket-field-assignee", lang="id")} options={people} value={form.assignee} src={people_src} placeholder={t(key="ticket-unassigned", lang="id")} error={form.errors.assignee.code}/> }}
+{{ <field id={id_prefix ~ "-labels"} name="labels" label={t(key="ticket-field-labels", lang="id")} value={form.labels} error={form.errors.labels.code} error_max={form.errors.labels.max} hint={t(key="ticket-labels-hint", lang="id")} optional={t(key="field-optional", lang="id")}/> }}
+<div class="app-form-row">
+  {{ <field id={id_prefix ~ "-story-points"} name="story_points" label={t(key="ticket-field-story-points", lang="id")} type="text" inputmode="numeric" value={form.story_points} error={form.errors.story_points.code} error_max={form.errors.story_points.max} optional={t(key="field-optional", lang="id")}/> }}
+  {{ <field id={id_prefix ~ "-due-on"} name="due_on" label={t(key="ticket-field-due-on", lang="id")} type="date" value={form.due_on} error={form.errors.due_on.code} optional={t(key="field-optional", lang="id")}/> }}
+</div>
+{{ <field id={id_prefix ~ "-parent"} name="parent" label={t(key="ticket-field-parent", lang="id")} value={form.parent} error={form.errors.parent.code} mono={true} placeholder={t(key="ticket-parent-placeholder", lang="id")} optional={t(key="field-optional", lang="id")}/> }}
+{% include "tickets/_custom_fields.html" %}

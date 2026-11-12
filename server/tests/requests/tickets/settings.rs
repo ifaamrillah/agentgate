@@ -21,7 +21,7 @@ async fn ticket_types_and_custom_fields() {
             .get("/w/acme/settings/ticket-types")
             .add_cookie(f.cookie.clone())
             .await;
-        assert_eq!(res.status_code(), 200);
+        assert_eq!(res.status_code(), 200, "{}", res.text());
         for key in ["epic", "story", "task", "bug", "subtask"] {
             assert_css_exists(&res.text(), &format!("[data-ticket-type='{key}']"));
         }
@@ -116,7 +116,7 @@ async fn ticket_types_and_custom_fields() {
             ))
             .add_cookie(f.cookie.clone())
             .await;
-        assert_eq!(res.status_code(), 422);
+        assert_eq!(res.status_code(), 422, "{}", res.text());
         let task = ticket_types::Model::all_in(&ctx.db, wid)
             .await
             .unwrap()

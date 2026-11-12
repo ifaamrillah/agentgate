@@ -40,7 +40,7 @@ async fn trash_restore_and_purge() {
             .get("/w/acme/p/KSR/trash")
             .add_cookie(f.cookie.clone())
             .await;
-        assert_eq!(page.status_code(), 200);
+        assert_eq!(page.status_code(), 200, "{}", page.text());
         assert_css_exists(&page.text(), &format!("[data-trashed='{code}']"));
 
         let res = request

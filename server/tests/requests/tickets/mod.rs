@@ -6,6 +6,7 @@ mod attachments;
 mod blocks;
 mod comments;
 mod flow;
+mod pages;
 mod search;
 mod settings;
 mod trash;

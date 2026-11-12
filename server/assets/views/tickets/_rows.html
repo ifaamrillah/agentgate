@@ -1,0 +1,14 @@
+{#- Baris tabel tiket (daftar, Tiket saya, pencarian). Variabel: tickets ([TicketRow]),
+    show_project (kolom project lintas project) dan cols ("list" = kolom daftar project). -#}
+{%- for ticket in tickets %}
+<tr data-ticket-row="{{ ticket.code }}">
+  <td><a class="app-tref" href="{{ ticket.href }}">{{ <type_icon icon={ticket.ticket_type.icon} color={ticket.ticket_type.color} label={ticket.ticket_type.name}/> }}<span class="app-code">{{ ticket.code }}</span></a></td>
+  <td><span class="app-tcell"><a class="app-ttitle" href="{{ ticket.href }}" title="{{ ticket.title }}">{{ ticket.title }}</a>{% for l in ticket.labels %}{% if loop.index <= 2 %}<span class="app-label-pill" data-hide="md">{{ l }}</span>{% endif %}{% endfor %}</span></td>
+  {%- if show_project %}<td data-hide="md"><span class="app-hint">{{ ticket.project }}</span></td>{% endif %}
+  <td><span class="app-status-pill" data-status="{{ ticket.status.value }}">{{ icon(name=ticket.status.icon) }}{{ t(key=ticket.status.label_key, lang="id") }}</span></td>
+  {%- if not show_project %}<td data-hide="md">{% if ticket.assignee %}{{ <person name={ticket.assignee.name} initials={ticket.assignee.initials} color={ticket.assignee.color} size="default"/> }}{% else %}<span class="app-hint">{{ t(key="ticket-unassigned", lang="id") }}</span>{% endif %}</td>{% endif %}
+  <td>{{ <prio rank={ticket.priority.rank} label={t(key=ticket.priority.label_key, lang="id")} full={true}/> }}</td>
+  {%- if not show_project %}<td data-hide="md" data-align="right"><span class="app-code">{% if ticket.points is not none %}{{ ticket.points }}{% else %}–{% endif %}</span></td>{% endif %}
+  <td data-hide="lg"><span class="app-hint">{{ ticket.updated }}</span></td>
+</tr>
+{%- endfor %}

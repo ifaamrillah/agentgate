@@ -190,6 +190,7 @@ async fn render_new(
             "priorities": priority_options(),
             "people": people_options(ctx, access, None, selected).await?,
             "custom": custom_for_form(ctx, access, form, errors).await?,
+            "people_src": paths.people,
             "paths": paths,
         }),
     )
@@ -345,6 +346,7 @@ pub(super) async fn board(
             "views_action": PROJECT_VIEWS_ACTION,
             "return_to": paths.board,
             "columns": board_columns(&lookup, &tickets),
+            "statuses": status_options(),
             "filter": filter,
             "who": who,
             "paths": paths,

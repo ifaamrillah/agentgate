@@ -1,0 +1,205 @@
+{#- Tiket → Ringkasan (prototype "Detail tiket"): kiri Deskripsi (judul + md_editor), Subtask,
+    Relasi, Lampiran, Komentar; kanan Status (pindah, pesan diblokir) dan Detail (properti, field
+    custom, watcher; ubah lewat dialog). Pengguna tanpa EditProject hanya membaca.
+    Variabel: lihat controllers::tickets::ticket::render_show. -#}
+{% extends "tickets/_layout.html" %}
+{% block page_attrs %}data-ticket-page{% endblock page_attrs %}
+{% block main %}
+{{ <tabs label={t(key="ticket-tabs", lang="id")} items={tabs}/> }}
+{%- if blockers %}
+<div class="alert" data-variant="destructive" role="status" data-blocked>
+  {{ icon(name="lock") }}
+  <h2>{{ t(key="ticket-blocked-title", lang="id", codes=blockers) }}</h2>
+  <section><p>{{ t(key="ticket-blocked-body", lang="id") }}</p></section>
+</div>
+{%- endif %}
+<div class="app-ticket">
+  <div class="app-ticket-main">
+    <div id="description">
+    {%- if can_edit %}
+    {% <card title={t(key="ticket-field-description", lang="id")}> %}
+      <form method="post" action="{{ paths.show }}" class="app-form" data-ticket-edit>
+        {{ <field id="ticket-title" name="title" label={t(key="ticket-field-title", lang="id")} value={form.title} error={form.errors.title.code} error_max={form.errors.title.max} required={true}/> }}
+        {{ <md_editor id="ticket-description" name="description" label={t(key="ticket-field-description", lang="id")} value={form.description} placeholder={t(key="ticket-description-placeholder", lang="id")} cancel_href={paths.show} hide_label={true} rows={8}/> }}
+        {%- if form.errors.description.code %}<p class="app-field-error" role="alert">{{ t(key=form.errors.description.code, lang="id", max=form.errors.description.max) }}</p>{% endif %}
+      </form>
+    {% </card> %}
+    {%- else %}
+    {% <card title={t(key="ticket-field-description", lang="id")}> %}
+      {%- if description %}<div class="app-prose" data-ticket-description>{{ description }}</div>{% else %}<p class="app-hint">{{ t(key="ticket-description-empty", lang="id") }}</p>{% endif %}
+    {% </card> %}
+    {%- endif %}
+    </div>
+
+    <div id="subtasks">
+    {% <card title={t(key="ticket-subtasks", lang="id")} count={children_done ~ "/" ~ (children | length)} flush={true}> %}
+      {%- for c in children %}
+      <a class="app-lrow" href="{{ c.href }}" data-subtask="{{ c.code }}">
+        {{ <type_icon icon={c.ticket_type.icon} color={c.ticket_type.color} label={c.ticket_type.name}/> }}
+        <span class="app-code app-tcard-code">{{ c.code }}</span>
+        <span class="app-lrow-main"><b>{{ c.title }}</b></span>
+        <span class="app-status-pill" data-status="{{ c.status.value }}">{{ icon(name=c.status.icon) }}{{ t(key=c.status.label_key, lang="id") }}</span>
+      </a>
+      {%- endfor %}
+      {%- if can_edit %}
+      <a class="app-lrow app-lrow-more" href="{{ board.new_ticket }}?parent={{ ticket.code }}" data-add-subtask>{{ icon(name="plus") }}{{ t(key="ticket-add-subtask", lang="id") }}</a>
+      {%- elif not children %}{{ <empty_state title={t(key="ticket-subtasks-empty", lang="id")} icon="subtask" variant="plain"/> }}{% endif %}
+    {% </card> %}
+    </div>
+
+    <div id="links">
+    {% <card title={t(key="ticket-links", lang="id")} count={links | length ~ ""} flush={true}> %}
+      {%- for l in links %}
+      <div class="app-lrow" data-link="{{ l.other.code }}">
+        <span class="app-link-kind"{% if l.blocking %} data-blocking{% endif %}>{% if l.blocking %}{{ icon(name="lock") }}{% endif %}{{ t(key=l.label_key, lang="id") }}</span>
+        <a class="app-tref" href="{{ l.other.href }}">{{ <type_icon icon={l.other.ticket_type.icon} color={l.other.ticket_type.color} label={l.other.ticket_type.name}/> }}<span class="app-code">{{ l.other.code }}</span></a>
+        <span class="app-lrow-main"><b>{{ l.other.title }}</b></span>
+        <span class="app-status-pill" data-status="{{ l.other.status.value }}">{{ icon(name=l.other.status.icon) }}{{ t(key=l.other.status.label_key, lang="id") }}</span>
+        {%- if can_edit %}
+        <form method="post" action="{{ l.delete_action }}">{{ <button variant="ghost" size="icon-sm" icon="x" type="submit" aria_label={t(key="ticket-link-remove", lang="id", code=l.other.code)}/> }}</form>
+        {%- endif %}
+      </div>
+      {%- endfor %}
+      {%- if can_edit %}
+      <form method="post" action="{{ paths.links }}" class="app-inline-form" data-link-form>
+        <select class="app-input" name="kind" aria-label="{{ t(key="ticket-link-kind", lang="id") }}">
+          <option value="blocked_by">{{ t(key="ticket-link-blocked-by", lang="id") }}</option>
+          <option value="blocks">{{ t(key="ticket-link-blocks", lang="id") }}</option>
+          <option value="relates">{{ t(key="ticket-link-relates", lang="id") }}</option>
+          <option value="duplicates">{{ t(key="ticket-link-duplicates", lang="id") }}</option>
+        </select>
+        <input class="app-input app-code" name="target" placeholder="{{ t(key="ticket-link-target-placeholder", lang="id") }}" aria-label="{{ t(key="ticket-link-target", lang="id") }}" required{% if errors.link %} aria-invalid="true"{% endif %}>
+        {{ <button label={t(key="action-add", lang="id")} icon="plus" variant="outline" size="sm" type="submit"/> }}
+        {%- if errors.link %}<p class="app-field-error" role="alert" data-link-error>{{ t(key=errors.link, lang="id") }}</p>{% endif %}
+      </form>
+      {%- elif not links %}{{ <empty_state title={t(key="ticket-links-empty", lang="id")} icon="link" variant="plain"/> }}{% endif %}
+    {% </card> %}
+    </div>
+
+    <div id="attachments">
+    {% <card title={t(key="ticket-attachments", lang="id")} count={attachments | length ~ ""} flush={true}> %}
+      {%- for a in attachments %}
+      <div class="app-lrow" data-attachment>
+        <span class="app-tile">{{ icon(name="paperclip") }}</span>
+        <span class="app-lrow-main"><a class="app-link" href="{{ a.href }}" download><b>{{ a.filename }}</b></a><small>{{ a.size }}{% if a.uploader %} · {{ a.uploader.name }}{% endif %} · {{ a.at }}</small></span>
+        {{ <button variant="ghost" size="icon-sm" icon="download" href={a.href} aria_label={t(key="ticket-attachment-download", lang="id", name=a.filename)}/> }}
+        {%- if can_edit %}
+        <form method="post" action="{{ a.delete_action }}">{{ <button variant="ghost" size="icon-sm" icon="trash" type="submit" aria_label={t(key="ticket-attachment-remove", lang="id", name=a.filename)}/> }}</form>
+        {%- endif %}
+      </div>
+      {%- endfor %}
+      {%- if can_edit %}
+      <form method="post" action="{{ paths.attachments }}" enctype="multipart/form-data" class="app-drop app-up" data-uploader data-attachment-form>
+        {{ icon(name="cloud-upload") }}
+        <span>{{ t(key="ticket-attachment-drop", lang="id", max=attachment_max) }}</span>
+        <input type="file" name="file" aria-label="{{ t(key="ticket-attachment-pick", lang="id") }}" tabindex="-1">
+        <button type="submit" class="btn" data-variant="outline" data-size="sm" data-uploader-pick>{{ icon(name="upload") }}{{ t(key="ticket-attachment-pick", lang="id") }}</button>
+        {%- if errors.attachment %}<p class="app-field-error" role="alert" data-attachment-error>{{ t(key=errors.attachment, lang="id") }}</p>{% endif %}
+      </form>
+      {%- elif not attachments %}{{ <empty_state title={t(key="ticket-attachments-empty", lang="id")} icon="paperclip" variant="plain"/> }}{% endif %}
+    {% </card> %}
+    </div>
+
+    <div id="comments">
+    {% <card title={t(key="ticket-comments", lang="id")} count={comments | length ~ ""} flush={true}> %}
+      {%- if can_edit %}
+      <form method="post" action="{{ paths.comments }}" class="app-form" data-comment-form>
+        {{ <textarea_field id="comment-body" name="body" label={t(key="ticket-comment-new", lang="id")} value={comment_body} rows={3} error={errors.comment} hide_label={true} hint={t(key="ticket-comment-hint", lang="id")}/> }}
+        <div class="app-form-acts">{{ <button label={t(key="ticket-comment-submit", lang="id")} icon="send" size="sm" type="submit"/> }}</div>
+      </form>
+      {%- endif %}
+      <div class="app-feed">
+      {%- for c in comments %}
+      <div class="app-fe" data-comment="{{ c.id }}">
+        {%- if c.author %}{{ <avatar initials={c.author.initials} color={c.author.color} label={c.author.name} size="md"/> }}{% else %}<span class="app-av-empty"></span>{% endif %}
+        <span>
+          <b>{% if c.author %}{{ c.author.name }}{% else %}{{ t(key="person-removed", lang="id") }}{% endif %}</b> <time>{{ c.at }}{% if c.edited %} · {{ t(key="ticket-comment-edited", lang="id") }}{% endif %}</time>
+          <div class="app-prose">{{ c.body }}</div>
+          {%- if c.mine %}
+          <details class="app-comment-edit">
+            <summary>{{ t(key="action-edit", lang="id") }}</summary>
+            <form method="post" action="{{ c.edit_action }}" class="app-stack-v" data-gap="sm">
+              {{ <textarea_field id={"comment-" ~ c.id} name="body" label={t(key="action-edit", lang="id")} value={c.body} rows={3} hide_label={true}/> }}
+              <div class="app-form-acts">{{ <button label={t(key="action-save", lang="id")} size="sm" type="submit"/> }}</div>
+            </form>
+            <form method="post" action="{{ c.delete_action }}">{{ <button label={t(key="action-delete", lang="id")} variant="destructive" size="sm" type="submit" icon="trash"/> }}</form>
+          </details>
+          {%- endif %}
+        </span>
+      </div>
+      {%- endfor %}
+      {%- if not comments %}{{ <empty_state title={t(key="ticket-comments-empty", lang="id")} icon="message-circle" variant="plain"/> }}{% endif %}
+      </div>
+    {% </card> %}
+    </div>
+  </div>
+
+  <aside class="app-ticket-side">
+    <div id="status">
+    {% <card title={t(key="ticket-field-status", lang="id")}> %}
+      <div class="app-blk">
+        <span class="app-status-pill" data-status="{{ ticket.status.value }}" data-current-status>{{ icon(name=ticket.status.icon) }}{{ t(key=ticket.status.label_key, lang="id") }}</span>
+        {%- if can_edit %}
+        <form method="post" action="{{ paths.status }}" class="app-inline-form" data-status-form>
+          <select class="app-input" name="status" aria-label="{{ t(key="ticket-move-to", lang="id") }}">
+            {%- for s in statuses %}<option value="{{ s.value }}"{% if s.value == ticket.status.value %} selected{% endif %}>{{ t(key=s.label_key, lang="id") }}</option>{% endfor %}
+          </select>
+          {{ <button label={t(key="ticket-move-submit", lang="id")} variant="outline" size="sm" type="submit"/> }}
+        </form>
+        {%- endif %}
+        {%- if errors.status %}
+        <p class="app-field-error" role="alert" data-status-error>{{ icon(name="lock") }}{% if errors.status == "ticket-blocked" %}{{ t(key="ticket-blocked", lang="id", codes=errors.status_codes) }}{% else %}{{ t(key=errors.status, lang="id") }}{% endif %}</p>
+        {%- endif %}
+        <p class="app-hint">{{ t(key="ticket-stage-soon", lang="id") }}</p>
+      </div>
+    {% </card> %}
+    </div>
+
+    {% <card title={t(key="ticket-section-details", lang="id")} attrs="data-ticket-details"> %}
+      <dl class="app-props">
+        <dt>{{ t(key="ticket-field-assignee", lang="id") }}</dt>
+        <dd>{% if ticket.assignee %}{{ <person name={ticket.assignee.name} initials={ticket.assignee.initials} color={ticket.assignee.color} size="default"/> }}{% else %}<span class="app-hint">{{ t(key="ticket-unassigned", lang="id") }}</span>{% endif %}</dd>
+        <dt>{{ t(key="ticket-field-reporter", lang="id") }}</dt>
+        <dd>{% if reporter %}{{ <person name={reporter.name} initials={reporter.initials} color={reporter.color} size="default"/> }}{% else %}<span class="app-hint">—</span>{% endif %}</dd>
+        <dt>{{ t(key="ticket-field-type", lang="id") }}</dt>
+        <dd>{{ <type_icon icon={ticket.ticket_type.icon} color={ticket.ticket_type.color} label={ticket.ticket_type.name}/> }}{{ ticket.ticket_type.name }}</dd>
+        <dt>{{ t(key="ticket-field-priority", lang="id") }}</dt>
+        <dd>{{ <prio rank={ticket.priority.rank} label={t(key=ticket.priority.label_key, lang="id")} full={true}/> }}</dd>
+        <dt>{{ t(key="ticket-field-labels", lang="id") }}</dt>
+        <dd>{% for l in ticket.labels %}<span class="app-label-pill">{{ l }}</span>{% else %}<span class="app-hint">—</span>{% endfor %}</dd>
+        <dt>{{ t(key="ticket-field-story-points", lang="id") }}</dt>
+        <dd>{% if ticket.points is not none %}<span class="app-points">{{ ticket.points }}</span>{% else %}<span class="app-hint">—</span>{% endif %}</dd>
+        <dt>{{ t(key="ticket-field-due-on", lang="id") }}</dt>
+        <dd>{% if ticket.due %}<span class="app-due"{% if ticket.overdue %} data-overdue{% endif %}>{{ icon(name="calendar") }}{{ ticket.due }}</span>{% else %}<span class="app-hint">{{ t(key="ticket-due-none", lang="id") }}</span>{% endif %}</dd>
+        <dt>{{ t(key="ticket-field-parent", lang="id") }}</dt>
+        <dd>{% if parent %}<a class="app-tref" href="{{ parent.href }}">{{ <type_icon icon={parent.ticket_type.icon} color={parent.ticket_type.color} label={parent.ticket_type.name}/> }}<span class="app-code">{{ parent.code }}</span></a>{% else %}<span class="app-hint">—</span>{% endif %}</dd>
+        {%- for cv in custom_values %}
+        <dt>{{ cv.label }}</dt>
+        <dd>{% if cv.value %}{% if cv.is_url %}<a class="app-link" href="{{ cv.value }}" rel="noopener noreferrer nofollow" target="_blank">{{ cv.value }}</a>{% else %}{{ cv.value }}{% endif %}{% else %}<span class="app-hint">—</span>{% endif %}</dd>
+        {%- endfor %}
+        <dt>{{ t(key="ticket-watchers", lang="id") }}</dt>
+        <dd>{% for w in watchers %}{{ <avatar initials={w.initials} color={w.color} label={w.name} size="sm"/> }}{% else %}<span class="app-hint">—</span>{% endfor %}</dd>
+        <dt>{{ t(key="ticket-created", lang="id") }}</dt>
+        <dd><span class="app-hint">{{ created }}</span></dd>
+      </dl>
+      {%- if can_edit %}
+      <div class="app-blk">{{ <button label={t(key="ticket-edit-details", lang="id")} icon="pencil" variant="outline" size="sm" dialog="ticket-edit" full={true}/> }}</div>
+      {%- endif %}
+    {% </card> %}
+  </aside>
+</div>
+
+{%- if can_edit %}
+{% <dialog id="ticket-edit" title={t(key="ticket-edit-details", lang="id")} icon="pencil" tone="accent" open={details_open}> %}
+<form method="post" action="{{ paths.show }}" data-ticket-edit data-ticket-form>
+  <section><div class="app-stack-v" data-gap="sm">
+    {%- set id_prefix = "ticket" %}{% include "tickets/_props_fields.html" %}
+  </div></section>
+  <footer>
+    <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+    {{ <button label={t(key="action-save", lang="id")} type="submit"/> }}
+  </footer>
+</form>
+{% </dialog> %}
+{%- endif %}
+{% endblock main %}

@@ -3,7 +3,7 @@
       id: string                id input (dasar id pesan error `<id>-error`)
       name: string              nama field form
       label: string             teks label (sudah diterjemahkan pemanggil)
-      type: text|email|password|url|number|search (default text). Password tidak pernah merender value.
+      type: text|email|password|url|number|search|date (default text). Password tidak pernah merender value.
       value: string             nilai terisi (default "")
       placeholder: string       (default "")
       prefix: string            awalan di dalam kotak, mis. "agentgate.id/w/" (default "")
@@ -17,7 +17,7 @@
       hint: string              teks bantuan di bawah kontrol (default "")
       class: hanya untuk layout -#}
 {% component field(id: string, name: string, label: string, type: string = "text", value: string = "", placeholder: string = "", prefix: string = "", error: string = "", error_min: integer = 0, error_max: integer = 0, autocomplete: string = "", inputmode: string = "", maxlength: string = "", required: bool = false, autofocus: bool = false, readonly: bool = false, mono: bool = false, optional: string = "", hide_label: bool = false, hint: string = "", class: string = "") %}
-{%- if type not in ["text", "email", "password", "url", "number", "search"] %}{{ throw(message="field: type tidak dikenal: " ~ type) }}{% endif -%}
+{%- if type not in ["text", "email", "password", "url", "number", "search", "date"] %}{{ throw(message="field: type tidak dikenal: " ~ type) }}{% endif -%}
 <div class="app-field {{ class }}"{% if error %} data-invalid="true"{% endif %}>
   <label for="{{ id }}"{% if hide_label %} class="sr-only"{% endif %}>{{ label }}{% if optional %} <span class="app-opt">{{ optional }}</span>{% endif %}</label>
   {%- if prefix %}

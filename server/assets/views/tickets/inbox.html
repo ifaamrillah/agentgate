@@ -1,0 +1,43 @@
+{#- Kotak masuk: notifikasi tiket (disebut, ditugaskan, komentar, status berubah) untuk user di
+    workspace ini, terbaru di atas. Tab Semua / Belum dibaca / Disebut. Membuka item menandainya
+    dibaca lalu menuju tiketnya. Variabel: items ([NotificationView]), tabs, total, unread,
+    read_all_action, prev_href, next_href, page, pages. -#}
+{% extends "layouts/page.html" %}
+{% block title %}{{ t(key="inbox-title", lang="id") }}{% endblock title %}
+{% block crumb %}{{ <crumb label={t(key="inbox-title", lang="id")}/> }}{% endblock crumb %}
+{% block page_attrs %}data-inbox{% endblock page_attrs %}
+{% block heading %}{{ t(key="inbox-title", lang="id") }}{% endblock heading %}
+{% block description %}{{ t(key="inbox-description", lang="id") }}{% endblock description %}
+{% block head_actions %}
+  {%- if unread > 0 %}
+  <form method="post" action="{{ read_all_action }}">{{ <button label={t(key="inbox-read-all", lang="id")} icon="checks" variant="outline" size="sm" type="submit" attrs="data-read-all"/> }}</form>
+  {%- endif %}
+{% endblock head_actions %}
+{% block main %}
+{{ <tabs label={t(key="inbox-title", lang="id")} items={tabs}/> }}
+{% <card flush={true}> %}
+  {%- for n in items %}
+  <form method="post" action="{{ n.read_action }}" class="app-inbox-item">
+    <button type="submit" class="app-lrow" data-notification="{{ n.kind }}"{% if n.unread %} data-unread{% endif %}>
+      {%- if n.actor %}{{ <avatar initials={n.actor.initials} color={n.actor.color} label={n.actor.name} size="md"/> }}{% else %}<span class="app-av-empty"></span>{% endif %}
+      <span class="app-lrow-main">
+        <span><b>{% if n.actor %}{{ n.actor.name }}{% else %}{{ t(key="person-removed", lang="id") }}{% endif %}</b> {{ t(key=n.label_key, lang="id") }}</span>
+        {%- if n.ticket %}
+        <small><span class="app-code">{{ n.ticket.code }}</span> {{ n.ticket.title }}{% if n.ticket.project %} · {{ n.ticket.project }}{% endif %}</small>
+        {%- else %}<small>{{ t(key="inbox-ticket-gone", lang="id") }}</small>{% endif %}
+      </span>
+      <time class="app-hint">{{ n.at }}</time>
+      {%- if n.unread %}<span class="app-unread-dot" aria-label="{{ t(key="inbox-unread", lang="id") }}"></span>{% endif %}
+    </button>
+  </form>
+  {%- endfor %}
+  {%- if not items %}{{ <empty_state title={t(key="inbox-empty-title", lang="id")} description={t(key="inbox-empty-description", lang="id")} icon="inbox" variant="plain"/> }}{% endif %}
+{% </card> %}
+{%- if pages > 1 %}
+<nav class="app-pager" aria-label="{{ t(key="table-pages", lang="id") }}">
+  {%- if prev_href %}{{ <button label={t(key="table-prev", lang="id")} icon="chevron-left" variant="outline" size="sm" href={prev_href}/> }}{% endif %}
+  <span class="app-hint">{{ t(key="inbox-page-of", lang="id", page=page, pages=pages) }}</span>
+  {%- if next_href %}{{ <button label={t(key="table-next", lang="id")} icon="chevron-right" variant="outline" size="sm" href={next_href}/> }}{% endif %}
+</nav>
+{%- endif %}
+{% endblock main %}

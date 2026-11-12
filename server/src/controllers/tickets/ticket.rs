@@ -56,6 +56,8 @@ struct PageErrors {
     comment_body: String,
     link: String,
     attachment: String,
+    /// Flash dari redirect sebelumnya (hanya GET Ringkasan).
+    flash: Option<Flash>,
 }
 
 fn first_code(errors: &ModelValidationErrors, field: &str) -> String {
@@ -246,6 +248,12 @@ async fn render_show(
     let base_form = current_form(t, parent.as_ref().map(|p| p.code.as_str()));
     let form = form.cloned().unwrap_or(base_form);
     let form_errors = errors.form.as_ref();
+    // Dialog Detail langsung terbuka bila error ada di luar judul/deskripsi.
+    let details_open = form_errors.is_some_and(|e| {
+        e.errors
+            .keys()
+            .any(|k| k.as_str() != "title" && k.as_str() != "description")
+    });
     let custom = custom_for_form(ctx, &access.access, &form, form_errors).await?;
     let types: Vec<TypeView> = ticket_types::Model::all_in(&ctx.db, wid)
         .await?
@@ -285,11 +293,13 @@ async fn render_show(
             "custom_values": custom_values,
             "form": form_view(&form, form_errors),
             "custom": custom,
+            "details_open": details_open,
             "types": types,
             "statuses": status_options(),
             "priorities": priority_options(),
             "people": people_options(ctx, &access.access, None, t.assignee_id).await?,
             "paths": paths,
+            "people_src": board.people,
             "board": board,
             "tabs": tabs(&paths, "summary", events.len() as u64),
             "can_edit": can_edit,
@@ -301,6 +311,7 @@ async fn render_show(
                 "attachment": errors.attachment,
             },
             "comment_body": errors.comment_body,
+            "flash": errors.flash,
         }),
     )?;
     Ok(res)
@@ -314,13 +325,15 @@ pub(super) async fn show(
     session: Session,
 ) -> Result<Response> {
     let (session, flash) = flash::take(session);
-    let _ = flash;
     let res = render_show(
         &ctx,
         &v,
         &access,
         None,
-        PageErrors::default(),
+        PageErrors {
+            flash,
+            ..PageErrors::default()
+        },
         StatusCode::OK,
     )
     .await?;
@@ -328,9 +341,14 @@ pub(super) async fn show(
 }
 
 /// Teks tampil nilai riwayat (status/prioritas jadi kunci Fluent di template; lainnya apa adanya).
-fn change_text(field: &str, value: &serde_json::Value, lookup: &Lookup) -> String {
+fn change_text(
+    field: &str,
+    value: &serde_json::Value,
+    lookup: &Lookup,
+    parent_codes: &std::collections::HashMap<Uuid, String>,
+) -> String {
     let raw = match value {
-        serde_json::Value::Null => return String::new(),
+        serde_json::Value::Null | serde_json::Value::Object(_) => return String::new(),
         serde_json::Value::String(s) => s.clone(),
         serde_json::Value::Array(items) => items
             .iter()
@@ -340,11 +358,15 @@ fn change_text(field: &str, value: &serde_json::Value, lookup: &Lookup) -> Strin
         other => other.to_string(),
     };
     match field {
-        "assignee" => Uuid::parse_str(&raw)
+        "parent_id" => Uuid::parse_str(&raw)
+            .ok()
+            .and_then(|id| parent_codes.get(&id).cloned())
+            .unwrap_or(raw),
+        "assignee_id" => Uuid::parse_str(&raw)
             .ok()
             .and_then(|id| lookup.person(Some(id)))
             .map_or(raw, |p| p.name),
-        "type" => Uuid::parse_str(&raw)
+        "type_id" => Uuid::parse_str(&raw)
             .ok()
             .map_or(raw.clone(), |id| lookup.ticket_type(id).name)
             .clone(),
@@ -363,21 +385,32 @@ pub(super) async fn activity(
     let t = &access.ticket;
     let events = ticket_events::Model::of_ticket(&ctx.db, wid, t.id).await?;
     let mut people: Vec<Uuid> = events.iter().filter_map(|e| e.actor_id).collect();
+    let mut parents: Vec<Uuid> = Vec::new();
     for e in &events {
-        if let Some(id) = e.changes["assignee"]["to"]
-            .as_str()
-            .and_then(|s| Uuid::parse_str(s).ok())
-        {
-            people.push(id);
-        }
-        if let Some(id) = e.changes["assignee"]["from"]
-            .as_str()
-            .and_then(|s| Uuid::parse_str(s).ok())
-        {
-            people.push(id);
+        for side in ["from", "to"] {
+            if let Some(id) = e.changes["assignee_id"][side]
+                .as_str()
+                .and_then(|s| Uuid::parse_str(s).ok())
+            {
+                people.push(id);
+            }
+            if let Some(id) = e.changes["parent_id"][side]
+                .as_str()
+                .and_then(|s| Uuid::parse_str(s).ok())
+            {
+                parents.push(id);
+            }
         }
     }
     let lookup = lookup(&ctx.db, tenant, std::slice::from_ref(t), &people).await?;
+    let parent_codes: std::collections::HashMap<Uuid, String> = tickets::Entity::find()
+        .filter(tickets::Column::WorkspaceId.eq(wid.get()))
+        .filter(tickets::Column::Id.is_in(parents))
+        .all(&ctx.db)
+        .await?
+        .into_iter()
+        .map(|p| (p.id, p.code))
+        .collect();
     let event_views: Vec<EventView> = events
         .iter()
         .rev()
@@ -389,8 +422,9 @@ pub(super) async fn activity(
                 && let Some(map) = e.changes.as_object()
             {
                 for (field, change) in map {
-                    let mut from = change_text(field, &change["from"], &lookup);
-                    let mut to = change_text(field, &change["to"], &lookup);
+                    let mut from = change_text(field, &change["from"], &lookup, &parent_codes);
+                    let mut to = change_text(field, &change["to"], &lookup, &parent_codes);
+                    let translate = field == "status" || field == "priority";
                     if field == "status" {
                         from = status_key(&from);
                         to = status_key(&to);
@@ -399,9 +433,13 @@ pub(super) async fn activity(
                         to = priority_key(&to);
                     }
                     changes.push(ChangeView {
-                        field_key: format!("ticket-field-{}", field.replace('_', "-")),
+                        field_key: format!(
+                            "ticket-field-{}",
+                            field.trim_end_matches("_id").replace('_', "-")
+                        ),
                         from,
                         to,
+                        translate,
                     });
                 }
             }
@@ -437,7 +475,9 @@ pub(super) async fn activity(
             "board": BoardPaths::new(&super::project_paths(&access.access).home),
             "tabs": tabs(&paths, "activity", events.len() as u64),
             "can_edit": access.can(Permission::EditProject),
-            "watching": false,
+            "watching": ticket_watchers::Model::user_ids(&ctx.db, wid, t.id)
+                .await?
+                .contains(&tenant.user.id),
         }),
     )
 }

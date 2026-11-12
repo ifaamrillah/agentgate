@@ -745,6 +745,8 @@ pub struct ChangeView {
     pub field_key: String,
     pub from: String,
     pub to: String,
+    /// `from`/`to` berupa kunci Fluent (status, prioritas).
+    pub translate: bool,
 }
 
 // ---------------------------------------------------------------------------------------------
