@@ -21,9 +21,9 @@ pub struct Model {
     pub totp_secret_encrypted: Option<Vec<u8>>,
     pub totp_enabled_at: Option<DateTimeWithTimeZone>,
     pub totp_last_step: Option<i64>,
-    pub project_views: Vec<String>,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
+    pub project_views: Vec<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -34,10 +34,20 @@ pub enum Relation {
     Identities,
     #[sea_orm(has_many = "super::invitations::Entity")]
     Invitations,
+    #[sea_orm(has_many = "super::notifications::Entity")]
+    Notifications,
     #[sea_orm(has_many = "super::projects::Entity")]
     Projects,
     #[sea_orm(has_many = "super::recovery_codes::Entity")]
     RecoveryCodes,
+    #[sea_orm(has_many = "super::ticket_attachments::Entity")]
+    TicketAttachments,
+    #[sea_orm(has_many = "super::ticket_comments::Entity")]
+    TicketComments,
+    #[sea_orm(has_many = "super::ticket_events::Entity")]
+    TicketEvents,
+    #[sea_orm(has_many = "super::ticket_links::Entity")]
+    TicketLinks,
     #[sea_orm(has_many = "super::user_tokens::Entity")]
     UserTokens,
     #[sea_orm(has_many = "super::workspace_members::Entity")]
@@ -64,6 +74,12 @@ impl Related<super::invitations::Entity> for Entity {
     }
 }
 
+impl Related<super::notifications::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Notifications.def()
+    }
+}
+
 impl Related<super::projects::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Projects.def()
@@ -73,6 +89,30 @@ impl Related<super::projects::Entity> for Entity {
 impl Related<super::recovery_codes::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::RecoveryCodes.def()
+    }
+}
+
+impl Related<super::ticket_attachments::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::TicketAttachments.def()
+    }
+}
+
+impl Related<super::ticket_comments::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::TicketComments.def()
+    }
+}
+
+impl Related<super::ticket_events::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::TicketEvents.def()
+    }
+}
+
+impl Related<super::ticket_links::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::TicketLinks.def()
     }
 }
 

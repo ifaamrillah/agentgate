@@ -22,6 +22,8 @@ pub struct Model {
     pub description: String,
     pub created_by: Option<Uuid>,
     pub archived_at: Option<DateTimeWithTimeZone>,
+    pub created_at: DateTimeWithTimeZone,
+    pub updated_at: DateTimeWithTimeZone,
     #[sea_orm(column_type = "Text", nullable)]
     pub color: Option<String>,
     #[sea_orm(column_type = "Text", nullable)]
@@ -29,8 +31,12 @@ pub struct Model {
     #[sea_orm(column_type = "Text", nullable)]
     pub logo_content_type: Option<String>,
     pub logo_size: Option<i32>,
-    pub created_at: DateTimeWithTimeZone,
-    pub updated_at: DateTimeWithTimeZone,
+    #[sea_orm(column_type = "Text", nullable)]
+    pub ticket_code_template: Option<String>,
+    #[sea_orm(column_type = "Text", nullable)]
+    pub ticket_counter_scope: Option<String>,
+    #[sea_orm(column_type = "Text", nullable)]
+    pub team_code: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -39,6 +45,10 @@ pub enum Relation {
     ProjectGrants,
     #[sea_orm(has_many = "super::repos::Entity")]
     Repos,
+    #[sea_orm(has_many = "super::ticket_counters::Entity")]
+    TicketCounters,
+    #[sea_orm(has_many = "super::tickets::Entity")]
+    Tickets,
     #[sea_orm(
         belongs_to = "super::users::Entity",
         from = "Column::CreatedBy",
@@ -66,6 +76,18 @@ impl Related<super::project_grants::Entity> for Entity {
 impl Related<super::repos::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Repos.def()
+    }
+}
+
+impl Related<super::ticket_counters::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::TicketCounters.def()
+    }
+}
+
+impl Related<super::tickets::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Tickets.def()
     }
 }
 

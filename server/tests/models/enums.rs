@@ -227,3 +227,167 @@ async fn repo_provider_check_matches_enum() {
     }
     assert!(!insert("bogus".to_string()).await);
 }
+
+/// `UPDATE <table> SET <column> = value WHERE id = row` berhasil (CHECK menerima nilai).
+async fn update_ok(
+    db: &sea_orm::DatabaseConnection,
+    table: &str,
+    column: &str,
+    id: Uuid,
+    value: &str,
+) -> bool {
+    db.execute_raw(Statement::from_sql_and_values(
+        DbBackend::Postgres,
+        format!("UPDATE {table} SET {column} = $1 WHERE id = $2"),
+        [Value::from(value), Value::from(id)],
+    ))
+    .await
+    .is_ok()
+}
+
+/// Kolom enum tabel M2 (tiket, relasi, riwayat, notifikasi, field custom, skop penghitung):
+/// setiap varian diterima CHECK, literal lain ditolak.
+#[tokio::test]
+async fn ticket_enum_checks_match_enums() {
+    use agentgate_server::{
+        models::{
+            custom_fields::{self, FieldInput, FieldKind},
+            notifications::{self, NewNotification, NotificationKind},
+            ticket_code::CounterScope,
+            ticket_events::{self, EventKind},
+            ticket_links::{self, LinkKind},
+            tickets::{TicketInput, TicketPriority, TicketStatus},
+        },
+        services::{tickets::create, workspaces::Acting},
+    };
+
+    use crate::support::{a_project, a_user, a_workspace, builtin_role};
+
+    let boot = boot_test::<App>().await.unwrap();
+    let ctx = &boot.app_context;
+    let db = &ctx.db;
+    let owner = a_user().create(ctx).await;
+    let workspace = a_workspace(&owner).create(ctx).await;
+    let wid = workspace.workspace_id();
+    let project = a_project(ctx, &workspace, "ENM").await;
+    let role = builtin_role(ctx, &workspace, RoleKey::Owner).await;
+    let acting = Acting {
+        workspace: &workspace,
+        user: &owner,
+        role: &role,
+        request_id: None,
+    };
+    let mut ids = Vec::new();
+    for title in ["Satu", "Dua"] {
+        let form = create::TicketForm {
+            input: TicketInput {
+                title: title.into(),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        ids.push(
+            create::run(db, &acting, project.id, &form)
+                .await
+                .unwrap()
+                .id,
+        );
+    }
+    let link =
+        ticket_links::ActiveModel::link(db, wid, ids[0], ids[1], LinkKind::Relates, owner.id)
+            .await
+            .unwrap()
+            .unwrap();
+    let event = ticket_events::Model::of_ticket(db, wid, ids[0])
+        .await
+        .unwrap()
+        .remove(0);
+    let notification = notifications::ActiveModel::notify(
+        db,
+        wid,
+        NewNotification {
+            user_id: owner.id,
+            actor_id: None,
+            kind: NotificationKind::Assigned,
+            ticket_id: Some(ids[0]),
+            comment_id: None,
+        },
+    )
+    .await
+    .unwrap();
+    let field = custom_fields::ActiveModel::create(
+        db,
+        wid,
+        &FieldInput {
+            name: "Nilai".into(),
+            kind: FieldKind::Text,
+            options: Vec::new(),
+            required: false,
+        },
+    )
+    .await
+    .unwrap();
+
+    let cases: Vec<(&str, &str, Uuid, Vec<String>)> = vec![
+        (
+            "tickets",
+            "status",
+            ids[0],
+            TicketStatus::iter().map(|v| v.to_value()).collect(),
+        ),
+        (
+            "tickets",
+            "priority",
+            ids[0],
+            TicketPriority::iter().map(|v| v.to_value()).collect(),
+        ),
+        (
+            "ticket_links",
+            "kind",
+            link.id,
+            LinkKind::iter().map(|v| v.to_value()).collect(),
+        ),
+        (
+            "ticket_events",
+            "kind",
+            event.id,
+            EventKind::iter().map(|v| v.to_value()).collect(),
+        ),
+        (
+            "notifications",
+            "kind",
+            notification.id,
+            NotificationKind::iter().map(|v| v.to_value()).collect(),
+        ),
+        (
+            "custom_fields",
+            "kind",
+            field.id,
+            FieldKind::iter().map(|v| v.to_value()).collect(),
+        ),
+        (
+            "workspaces",
+            "ticket_counter_scope",
+            workspace.id,
+            CounterScope::iter().map(|v| v.to_value()).collect(),
+        ),
+        (
+            "projects",
+            "ticket_counter_scope",
+            project.id,
+            CounterScope::iter().map(|v| v.to_value()).collect(),
+        ),
+    ];
+    for (table, column, id, values) in cases {
+        for value in &values {
+            assert!(
+                update_ok(db, table, column, id, value).await,
+                "{table}.{column} = {value}"
+            );
+        }
+        assert!(
+            !update_ok(db, table, column, id, "bogus").await,
+            "{table}.{column}"
+        );
+    }
+}

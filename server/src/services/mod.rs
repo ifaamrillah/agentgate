@@ -3,4 +3,5 @@ pub mod audit;
 pub mod auth;
 pub mod cleanup;
 pub mod projects;
+pub mod tickets;
 pub mod workspaces;

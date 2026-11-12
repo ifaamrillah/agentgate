@@ -16,6 +16,7 @@ pub mod palette;
 pub mod projects;
 pub mod roles;
 pub mod teams;
+pub mod tickets;
 pub mod time;
 pub mod ui;
 pub mod workspaces;
