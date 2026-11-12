@@ -360,6 +360,13 @@ pub(super) async fn board(
             "who": who,
             "paths": paths,
             "can_edit": access.role.has(Permission::EditProject),
+            "drafts": crate::models::ticket_drafts::Model::count_in_project(
+                &ctx.db,
+                access.tenant.workspace_id(),
+                access.project.id,
+            )
+            .await?,
+            "drafts_href": format!("{home}/drafts"),
             "flash": flash,
         }),
     )?;

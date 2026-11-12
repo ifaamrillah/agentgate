@@ -18,6 +18,7 @@ use uuid::Uuid;
 
 mod artifact;
 mod board;
+mod drafts;
 mod inbox;
 mod settings;
 mod stage;
@@ -224,6 +225,10 @@ pub fn routes() -> Routes {
         )
         .add("/w/{slug}/p/{key}/people", get(board::people))
         .add("/w/{slug}/p/{key}/trash", get(board::trash))
+        .add("/w/{slug}/p/{key}/drafts", get(drafts::index))
+        .add("/w/{slug}/p/{key}/drafts/create", post(drafts::create))
+        .add("/w/{slug}/p/{key}/drafts/{id}", post(drafts::update))
+        .add("/w/{slug}/p/{key}/drafts/{id}/delete", post(drafts::delete))
         .add("/w/{slug}/p/{key}/trash/{id}/restore", post(board::restore))
         .add("/w/{slug}/p/{key}/trash/{id}/purge", post(board::purge))
         .add(

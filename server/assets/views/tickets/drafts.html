@@ -1,0 +1,58 @@
+{#- Project → Draft tiket: draft hasil brainstorming agent (ag_draft_tickets) dalam pohon
+    induk-anak. Centang draft lalu "Buat tiket" (form di kepala; checkbox memakai atribut
+    form=), ubah lewat dialog per draft, hapus (turunannya ikut terhapus). Variabel: project,
+    views, views_action, return_to, stats, approved, rows ([views::drafts::DraftRow]), types,
+    create_action, board, can_edit, failed_id + errors (dialog ubah yang gagal), flash. -#}
+{% extends "layouts/project.html" %}
+{% block title %}{{ t(key="draft-title", lang="id") }} · {{ project.name }}{% endblock title %}
+{% block crumb %}{{ <crumb label={t(key="project-view-board", lang="id")} href={board}/> }}{{ <crumb label={t(key="draft-title", lang="id")}/> }}{% endblock crumb %}
+{% block page_attrs %}data-drafts{% endblock page_attrs %}
+{% block description %}{{ t(key="draft-description", lang="id") }}{% endblock description %}
+{% block head_actions %}
+  {%- if can_edit and rows %}
+  <form id="drafts-create" method="post" action="{{ create_action }}">
+    {{ <button label={t(key="draft-create", lang="id")} icon="plus" type="submit" attrs="data-drafts-create"/> }}
+  </form>
+  {%- endif %}
+{% endblock head_actions %}
+{% block main %}
+{{ <stats items={stats}/> }}
+{% <card title={t(key="draft-title", lang="id")} description={t(key="draft-card-description", lang="id")} count={approved ~ "/" ~ rows | length} flush={true} attrs="data-draft-list"> %}
+  {%- for r in rows %}
+  <div class="app-lrow app-draft" data-draft="{{ r.title }}"{% if r.depth %} style="padding-left: {{ 16 + r.indent }}px"{% endif %}>
+    {%- if can_edit %}
+    <input type="checkbox" class="app-check" name="draft" value="{{ r.id }}" form="drafts-create"{% if r.approved %} checked{% endif %} aria-label="{{ t(key="draft-select", lang="id", title=r.title) }}">
+    {%- endif %}
+    {%- if r.ticket_type %}{{ <type_icon icon={r.ticket_type.icon} color={r.ticket_type.color} label={r.ticket_type.name}/> }}{% endif %}
+    <span class="app-lrow-main"><b>{{ r.title }}</b>
+      {%- if r.description %}<small>{{ r.description | truncate(length=140) }}</small>{% endif %}</span>
+    {%- if r.story_points %}{{ <badge label={t(key="draft-points", lang="id", points=r.story_points)} variant="secondary" class="app-hide-sm"/> }}{% endif %}
+    {%- if can_edit %}
+    {{ <button icon="pencil" variant="ghost" size="icon-sm" dialog={"draft-edit-" ~ r.id} aria_label={t(key="draft-edit", lang="id")} attrs="data-draft-edit"/> }}
+    <form method="post" action="{{ r.delete_action }}" hx-confirm="{{ t(key="draft-delete-confirm", lang="id", title=r.title) }}">{{ <button icon="trash" variant="ghost" size="icon-sm" type="submit" aria_label={t(key="draft-delete", lang="id")} attrs="data-draft-delete"/> }}</form>
+    {%- endif %}
+  </div>
+  {%- else %}
+  <div class="app-pad">{{ <empty_state title={t(key="draft-empty", lang="id")} description={t(key="draft-empty-description", lang="id")} icon="ticket" variant="plain"/> }}</div>
+  {%- endfor %}
+{% </card> %}
+{%- if can_edit %}
+{%- for r in rows %}
+{%- if failed_id == r.id ~ "" %}{% set e = errors %}{% set open = true %}{% else %}{% set e = blank %}{% set open = false %}{% endif %}
+{% <dialog id={"draft-edit-" ~ r.id} title={t(key="draft-edit", lang="id")} icon="pencil" tone="accent" open={open}> %}
+<form method="post" action="{{ r.edit_action }}">
+  <section><div class="app-stack-v" data-gap="sm">
+    {{ <field id={"draft-title-" ~ r.id} name="title" label={t(key="draft-field-title", lang="id")} value={r.title} error={e.title.code} required={true}/> }}
+    {{ <select_field id={"draft-type-" ~ r.id} name="type" label={t(key="draft-field-type", lang="id")} options={types} option_value="key" option_label="name" value={r.type_key} error={e.type.code}/> }}
+    {{ <field id={"draft-points-" ~ r.id} name="story_points" type="number" label={t(key="draft-field-points", lang="id")} value={r.story_points} error={e.story_points.code}/> }}
+    {{ <textarea_field id={"draft-description-" ~ r.id} name="description" label={t(key="draft-field-description", lang="id")} value={r.description} rows={5} error={e.description.code}/> }}
+  </div></section>
+  <footer>
+    <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+    {{ <button label={t(key="draft-save", lang="id")} type="submit"/> }}
+  </footer>
+</form>
+{% </dialog> %}
+{%- endfor %}
+{%- endif %}
+{% endblock main %}

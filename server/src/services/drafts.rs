@@ -27,6 +27,7 @@ pub const TOO_MANY: &str = "draft-too-many";
 pub const TYPE_INVALID: &str = "draft-type-invalid";
 pub const PARENT_INVALID: &str = "draft-parent-invalid";
 pub const NONE_SELECTED: &str = "draft-none-selected";
+pub const ERROR_CODES: &[&str] = &[TOO_MANY, TYPE_INVALID, PARENT_INVALID, NONE_SELECTED];
 
 /// Satu draft dari agent. `reference` = id sementara agar draft lain bisa menunjuknya sebagai
 /// induk (`parent`).
@@ -173,32 +174,6 @@ pub async fn update(
     model.story_points = Set(valid.story_points);
     model.type_key = Set(edit.type_key.clone());
     Ok(model.update(db).await?)
-}
-
-/// Centang/hapus centang draft untuk dibuat.
-///
-/// # Errors
-///
-/// `NotFound`, error database.
-pub async fn set_approved(
-    db: &DatabaseConnection,
-    acting: &Acting<'_>,
-    project_id: Uuid,
-    ids: &[Uuid],
-) -> Result<(), TicketFailure> {
-    let wid = acting.workspace_id();
-    access_in(db, acting, project_id, Permission::EditProject).await?;
-    let txn = db.begin().await?;
-    for d in ticket_drafts::Model::of_project(&txn, wid, project_id).await? {
-        let on = ids.contains(&d.id);
-        if d.approved != on {
-            let mut m = d.into_active_model();
-            m.approved = Set(on);
-            m.update(&txn).await?;
-        }
-    }
-    txn.commit().await?;
-    Ok(())
 }
 
 /// Hapus draft (beserta turunannya, FK cascade).

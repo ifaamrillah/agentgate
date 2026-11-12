@@ -4,6 +4,7 @@ pub mod audit;
 pub mod auth;
 pub mod datatable;
 pub mod dev;
+pub mod drafts;
 pub mod errors;
 pub mod flash;
 pub mod form;
