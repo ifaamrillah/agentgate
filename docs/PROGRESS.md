@@ -94,6 +94,13 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 - Role custom tidak pernah menjadi "admin di semua project": hanya Owner/Admin bawaan yang boleh menugaskan
   role Admin bawaan (termasuk di grant project) dan mengubah izin role yang dipakai grant project.
 
+## Keputusan sementara (dipakai sampai review akhir pemilik produk)
+
+- Sapaan UI memakai "Anda" (mengikuti prototype).
+- Logo project disimpan di disk server sampai abstraksi storage S3 dikerjakan (paling lambat M12).
+- Logo SVG ditolak sampai ada sanitasi SVG.
+- Tim, Jabatan, dan Role tetap daftar sederhana (tanpa bulk action) sampai datanya besar.
+
 ## Perlu dari user (dikumpulkan untuk akhir)
 
 - Remote GitHub untuk repo ini (CI GitHub Actions baru jalan setelah di-push).
