@@ -56,7 +56,13 @@ pub struct ProjectPaths {
 impl ProjectPaths {
     #[must_use]
     pub fn new(workspace_slug: &str, key: &str) -> Self {
-        let home = format!("/w/{workspace_slug}/p/{key}");
+        Self::from_home(&format!("/w/{workspace_slug}/p/{key}"))
+    }
+
+    /// Path dari URL beranda project (`/w/{slug}/p/{key}`).
+    #[must_use]
+    pub fn from_home(home: &str) -> Self {
+        let home = home.to_string();
         Self {
             settings: format!("{home}/settings"),
             archive: format!("{home}/settings/archive"),

@@ -1,0 +1,5 @@
+{#- Titik warna kecil (project di sidebar, breadcrumb, label).
+    Parameter:
+      color: string             warna CSS (palet project)
+      class: hanya untuk layout -#}
+{% component dot(color: string, class: string = "") %}<span class="app-dot {{ class }}" style="--c:{{ color }}" aria-hidden="true"></span>{%- endcomponent dot %}

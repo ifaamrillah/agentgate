@@ -1,0 +1,10 @@
+/* Editor Markdown lengkap (Milkdown Crepe, static/js/md-editor.js): bingkai `app-editor` dengan
+   toolbar, area tulis, dan footer Batal/Simpan. Tanpa JS, textarea Markdown tetap tampil. */
+@layer components {
+  .app-editor { border: 1px solid var(--ag-input); border-radius: 8px; background: var(--ag-raised); display: flex; flex-direction: column; min-width: 0; }
+  .app-editor:focus-within { border-color: var(--ag-accent); box-shadow: var(--ag-ring); }
+  .app-editor > textarea { border: 0; border-radius: 8px 8px 0 0; font-family: var(--ag-mono); font-size: 12.5px; min-height: var(--h, 180px); padding: 14px 16px; resize: vertical; background: var(--ag-raised); color: var(--ag-fg); outline: none; line-height: 1.6; width: 100%; }
+  .app-editor-foot { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-top: 1px solid var(--ag-line); color: var(--ag-muted); font-size: 12px; }
+  .app-editor-foot svg { width: 14px; height: 14px; }
+  .app-editor-foot > [data-grow] { flex: 1; }
+}

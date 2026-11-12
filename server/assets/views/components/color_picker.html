@@ -1,0 +1,28 @@
+{#- Pemilih warna (aturan UX 14): 18 warna palet (fungsi `palette()`) + warna custom. Semua
+    pilihan adalah radio `name`; warna custom mengirim hex dari isian teks (static/js/color-picker.js
+    menyamakan isian warna dan teks). Logo `project_logo preview={true}` di form yang sama ikut berubah.
+    Parameter:
+      id, name, label: string   (label = legend, sudah diterjemahkan)
+      value: string             warna terpilih `#rrggbb` (default "" = warna pertama)
+      error: string             kode error (default "")
+      hint: string              (default "") -#}
+{% component color_picker(id: string, name: string, label: string, value: string = "", error: string = "", hint: string = "") %}
+{%- set colors = palette() -%}
+{%- if value %}{% set current = value %}{% else %}{% set current = colors[0] %}{% endif -%}
+{%- set custom = current not in colors -%}
+<fieldset class="app-field" id="{{ id }}"{% if error %} data-invalid="true"{% endif %}>
+  <legend class="app-label">{{ label }}</legend>
+  <div class="app-cpick" data-color-picker role="radiogroup" aria-label="{{ label }}" style="margin-top:6px">
+    {%- for c in colors %}
+    <label style="--c:{{ c }}" title="{{ c }}"><input type="radio" name="{{ name }}" value="{{ c }}"{% if c == current %} checked{% endif %} aria-label="{{ t(key="color-option", lang="id", color=c) }}"></label>
+    {%- endfor %}
+    <label class="app-cpick-custom" title="{{ t(key="color-custom", lang="id") }}">
+      <input type="radio" name="{{ name }}" value="{% if custom %}{{ current }}{% else %}#5b5bd6{% endif %}" data-color-custom{% if custom %} checked{% endif %} aria-label="{{ t(key="color-custom", lang="id") }}">
+      <input type="color" value="{% if custom %}{{ current }}{% else %}#5b5bd6{% endif %}" aria-label="{{ t(key="color-custom-pick", lang="id") }}">
+      <input type="text" value="{% if custom %}{{ current }}{% else %}{{ t(key="color-custom", lang="id") }}{% endif %}" maxlength="7" aria-label="{{ t(key="color-custom-hex", lang="id") }}" spellcheck="false">
+    </label>
+  </div>
+  {%- if hint %}<p class="app-hint">{{ hint }}</p>{% endif %}
+  {%- if error %}<p class="app-field-error" role="alert">{{ t(key=error, lang="id") }}</p>{% endif %}
+</fieldset>
+{%- endcomponent color_picker %}

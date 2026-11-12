@@ -1,0 +1,39 @@
+/* Override `dialog.dialog` Basecoat menjadi dialog prototype: 480px, header dengan tile ikon,
+   footer abu berisi Batal/aksi. Di layar kecil menjadi sheet dari bawah.
+   Struktur: <dialog class="dialog"><div><header>…</header><section>…</section><footer>…</footer></div></dialog>
+   data-size: (default 480) | lg (640). */
+@layer components {
+  .dialog {
+    width: calc(100% - 32px); max-width: 480px; padding: 0; border: 0; border-radius: 12px; background: var(--ag-raised); color: var(--ag-fg);
+    box-shadow: var(--ag-shadow-lg); margin: 10vh auto auto; overflow: hidden;
+  }
+  .dialog[data-size='lg'] { max-width: 640px; }
+  .dialog::backdrop { background: var(--ag-scrim); }
+  .dialog[open] { animation: app-pop 0.16s ease; }
+  .dialog > * { display: grid; gap: 0; padding: 0; max-width: none; width: 100%; background: none; border: 0; box-shadow: none; }
+  .dialog > * > header { padding: 18px 20px 0; display: flex; gap: 12px; align-items: flex-start; text-align: left; }
+  .dialog > * > header > div { flex: 1; min-width: 0; }
+  .dialog > * > header h2 { font-size: 16px; font-weight: 600; }
+  .dialog > * > header p { color: var(--ag-muted); margin-top: 3px; font-size: 13px; }
+  .dialog > * > section { padding: 14px 20px 20px; display: grid; gap: 14px; }
+  .dialog > * > footer {
+    display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--ag-line);
+    background: var(--ag-muted-bg); flex-wrap: wrap; flex-direction: row;
+  }
+  .dialog > * > footer form { display: contents; }
+  @media (max-width: 899px) {
+    .dialog { max-width: none !important; width: 100%; margin: auto 0 0; border-radius: 14px 14px 0 0; max-height: 92dvh; overflow-y: auto; }
+  }
+  @keyframes app-pop { from { opacity: 0; transform: translateY(6px) scale(0.98); } }
+}
+@layer components {
+  /* Form pembungkus <section> + <footer> di dalam dialog tidak boleh memutus tata letaknya. */
+  .dialog > div > form { display: contents; }
+  /* Daftar "Atur tab tampilan" (komponen project_tabs). */
+  .app-viewlist { display: grid; }
+  .app-viewlist > li { display: flex; align-items: center; gap: 8px; min-height: 40px; border-top: 1px solid var(--ag-line); }
+  .app-viewlist > li:first-child { border-top: 0; }
+  .app-viewlist > li > svg { color: var(--ag-faint); }
+  .app-viewlist-name { flex: 1; min-width: 0; }
+  .app-viewlist > li:first-child [data-view-move='up'], .app-viewlist > li:last-child [data-view-move='down'] { visibility: hidden; }
+}

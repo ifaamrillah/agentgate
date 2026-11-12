@@ -1,187 +1,145 @@
-{#- Layout aplikasi (setelah login): sidebar kiri Basecoat, topbar (breadcrumb) dan konten.
-    Halaman aplikasi tidak memakai layout ini langsung: pakai layouts/page.html (atau turunannya)
-    supaya anatominya sama. Block: title, content.
-    Variabel:
-      shell (wajib, views::layout::AppShell dari controllers::shell::app_shell): user {name,
-        email, initials}, workspaces [{name, slug, href}], current_workspace ({name, slug, href,
-        settings_href, leave_href, deletion ({purge_at, cancel_action} atau null)} atau null), projects [{name, key, href}], current_project ({name, key,
-        href} atau null), can_manage_workspace (bool), area ("settings" | "account" | "":
-        breadcrumb), subnav ([views::nav::NavItem]: menu kiri Pengaturan/Akun).
-      flash (opsional, {kind, key}: pesan sekali tampil dari controllers::flash).
-    Mobile (< md): sidebar tersembunyi dan dibuka tombol menu (static/js/sidebar-toggle.js).
-    Dropdown di sidebar diberi data-keep-mobile-sidebar-open: tanpa itu Basecoat menutup
-    sidebar mobile pada klik tombol apa pun di dalamnya, termasuk pemicu dropdown. -#}
+{#- Shell aplikasi setelah login (shell A, prototype `AG.shell`): sidebar kiri, topbar breadcrumb,
+    bar tab/aksi (pbar), konten. Halaman tidak extends file ini langsung: pakai layouts/page.html
+    (kepala halaman + isi), layouts/project.html (bar tab tampilan project) atau
+    layouts/settings.html (menu Pengaturan + subpage).
+    Block:
+      title     judul tab browser (wajib)
+      crumb     bagian breadcrumb setelah workspace/project (pakai komponen `crumb`)
+      tabs      tab di pbar (komponen project_tabs); kosong = tanpa tab
+      actions   aksi di kanan pbar; pbar disembunyikan bila tabs dan actions kosong
+      width     narrow (760px) | mid (1040px, default) | wide (penuh)
+      content   isi halaman
+    Variabel: shell (views::layout::AppShell), side ([views::nav::SideGroup], dari app_page),
+      flash (opsional {kind, key}: success → toast, lainnya → alert di atas konten).
+    Mobile (< 900px): sidebar menjadi laci yang dibuka [data-nav-toggle] (static/js/nav-toggle.js). -#}
 {% extends "layouts/base.html" %}
 {% block body %}
-<aside class="sidebar" id="app-sidebar" aria-label="{{ t(key="app-name", lang="id") }}">
-  <nav hx-preload:inherited="mouseover">
-    <header>
-      <div class="dropdown-menu w-full" data-keep-mobile-sidebar-open>
-        <button type="button" id="workspace-switcher-trigger" class="btn h-12 w-full justify-start gap-2" data-variant="ghost"
-          aria-haspopup="menu" aria-controls="workspace-switcher-menu" aria-expanded="false">
-          <span class="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground" aria-hidden="true">
-            {{- icon(name="building-skyscraper", class="size-4") -}}
-          </span>
-          <span class="grid min-w-0 flex-1 text-left leading-tight">
-            {%- if shell.current_workspace %}
-            <span class="truncate font-semibold" data-workspace-name>{{ shell.current_workspace.name }}</span>
-            <span class="truncate text-xs text-muted-foreground">{{ t(key="nav-workspaces", lang="id") }}</span>
-            {%- else %}
-            <span class="truncate font-semibold">{{ t(key="app-name", lang="id") }}</span>
-            <span class="truncate text-xs text-muted-foreground">{{ t(key="nav-choose-workspace", lang="id") }}</span>
-            {%- endif %}
-          </span>
-          {{- icon(name="chevron-down", class="size-4 text-muted-foreground") -}}
-        </button>
-        <div id="workspace-switcher-popover" data-popover aria-hidden="true" class="w-full">
-          <div role="menu" id="workspace-switcher-menu" aria-labelledby="workspace-switcher-trigger">
-            {%- if shell.workspaces %}
-            <div role="group" aria-labelledby="workspace-switcher-heading">
-              <div role="heading" id="workspace-switcher-heading">{{ t(key="nav-workspaces", lang="id") }}</div>
-              {%- for workspace in shell.workspaces %}
-              {%- if shell.current_workspace and shell.current_workspace.slug == workspace.slug %}
-              <a role="menuitem" href="{{ workspace.href }}" data-workspace-item aria-current="true">
-                <span class="truncate">{{ workspace.name }}</span>{{ icon(name="check", class="ms-auto size-4") }}
-              </a>
-              {%- else %}
-              <a role="menuitem" href="{{ workspace.href }}" data-workspace-item>
-                <span class="truncate">{{ workspace.name }}</span>
-              </a>
-              {%- endif %}
-              {%- endfor %}
-            </div>
-            <hr role="separator">
-            {%- endif %}
-            <a role="menuitem" href="/w/new">
-              {{- icon(name="plus", class="size-4") }}{{ t(key="nav-create-workspace", lang="id") -}}
-            </a>
-          </div>
-        </div>
-      </div>
-    </header>
-
-    <section>
-      <div role="group">
-        <ul>
-          {%- if shell.current_workspace %}
-          {{ <sidebar_nav label={t(key="nav-home", lang="id")} href={shell.current_workspace.href} icon="home"/> }}
-          {%- else %}
-          {{ <sidebar_nav label={t(key="nav-home", lang="id")} href="/" icon="home"/> }}
-          {%- endif %}
-        </ul>
-      </div>
-
+<div class="app-shell" data-shell>
+<aside class="app-side" id="app-side" aria-label="{{ t(key="nav-main", lang="id") }}" hx-preload:inherited="mouseover">
+  <div class="dropdown-menu" id="ws-menu">
+    <button type="button" class="app-side-ws" id="ws-menu-trigger" aria-haspopup="menu" aria-controls="ws-menu-menu" aria-expanded="false">
       {%- if shell.current_workspace %}
-      <div role="group" aria-labelledby="sidebar-projects-heading">
-        <h3 id="sidebar-projects-heading" class="uppercase tracking-wide">{{ t(key="nav-projects", lang="id") }}</h3>
-        {%- if shell.projects %}
-        <ul data-project-list>
-          {%- for project in shell.projects %}
-          {%- if shell.current_project and shell.current_project.key == project.key %}
-          {% <sidebar_nav label={project.name} href={project.href} icon="folder" state="active"> %}
-            {{ <sidebar_nav label={t(key="nav-board", lang="id")} icon="layout-dashboard" state="disabled" soon={true}/> }}
-            {{ <sidebar_nav label={t(key="nav-backlog", lang="id")} icon="ticket" state="disabled" soon={true}/> }}
-            {{ <sidebar_nav label={t(key="nav-knowledge", lang="id")} icon="book" state="disabled" soon={true}/> }}
-            {{ <sidebar_nav label={t(key="nav-ai-office", lang="id")} icon="robot" state="disabled" soon={true}/> }}
-          {% </sidebar_nav> %}
-          {%- else %}
-          {{ <sidebar_nav label={project.name} href={project.href} icon="folder"/> }}
-          {%- endif %}
+      {{ <project_logo initials={shell.current_workspace.initials} color={shell.current_workspace.color} size="sm"/> }}
+      <span class="app-ni-label" data-workspace-name>{{ shell.current_workspace.name }}</span>
+      {%- else %}
+      <span class="app-brandmark"><span>{{ icon(name="robot") }}</span></span>
+      <span class="app-ni-label">{{ t(key="app-name", lang="id") }}</span>
+      {%- endif %}
+      {{- icon(name="chevron-down") -}}
+    </button>
+    <div id="ws-menu-popover" data-popover aria-hidden="true">
+      <div role="menu" id="ws-menu-menu" aria-labelledby="ws-menu-trigger">
+        {%- if shell.workspaces %}
+        <div role="group" aria-labelledby="ws-menu-heading">
+          <div role="heading" id="ws-menu-heading" class="app-menu-label">{{ t(key="nav-workspaces", lang="id") }}</div>
+          {%- for workspace in shell.workspaces %}
+          <a role="menuitem" href="{{ workspace.href }}" data-workspace-item{% if shell.current_workspace and shell.current_workspace.slug == workspace.slug %} aria-current="true"{% endif %}>
+            {{ <project_logo initials={workspace.initials} color={workspace.color} size="xs"/> }}<span class="app-ni-label">{{ workspace.name }}</span>
+            {%- if shell.current_workspace and shell.current_workspace.slug == workspace.slug %}{{ icon(name="check") }}{% endif %}
+          </a>
           {%- endfor %}
-        </ul>
-        {%- else %}
-        <p class="px-2 text-sm text-muted-foreground">{{ t(key="nav-no-projects", lang="id") }}</p>
+        </div>
+        <hr role="separator">
         {%- endif %}
+        <a role="menuitem" href="/w/new">{{ icon(name="plus") }}{{ t(key="nav-create-workspace", lang="id") }}</a>
       </div>
-      {%- endif %}
+    </div>
+  </div>
 
-      {%- if shell.can_manage_workspace and shell.current_workspace %}
-      <div role="group" class="mt-auto">
-        <ul>
-          {{ <sidebar_nav label={t(key="nav-settings", lang="id")} href={shell.current_workspace.settings_href} icon="settings"/> }}
-        </ul>
-      </div>
-      {%- endif %}
-    </section>
+  {%- for group in side %}
+  <div class="app-side-group"{% if group.title_key == "nav-projects" %} data-project-list{% endif %}>
+    {%- if group.title_key %}
+    <div class="app-side-sec"><span>{{ t(key=group.title_key, lang="id", name=group.title_arg) }}</span>
+      {%- if group.add_href %}<a href="{{ group.add_href }}" aria-label="{{ t(key="nav-new-project", lang="id") }}" data-create-project>{{ icon(name="plus") }}</a>{% endif %}</div>
+    {%- endif %}
+    {%- for item in group.items %}
+    <a class="app-ni"{% if item.href %} href="{{ item.href }}"{% else %} aria-disabled="true"{% endif %} data-nav="{{ item.key }}"
+      {%- if item.current %} aria-current="page"{% endif %}{% if item.sub %} data-sub{% endif %}{% if item.key == "back" %} data-back{% endif %}>
+      {%- if item.color %}{{ <dot color={item.color}/> }}{% elif item.icon %}{{ icon(name=item.icon) }}{% endif -%}
+      <span class="app-ni-label">{% if item.label_key %}{{ t(key=item.label_key, lang="id") }}{% else %}{{ item.label }}{% endif %}</span>
+      {%- if not item.href %}<span data-tail>{{ t(key="nav-soon", lang="id") }}</span>{% endif -%}
+    </a>
+    {%- endfor %}
+    {%- if not group.items and group.empty_key %}<p class="app-side-empty">{{ t(key=group.empty_key, lang="id") }}</p>{% endif %}
+  </div>
+  {%- endfor %}
 
-    <footer>
-      <div class="dropdown-menu w-full" data-keep-mobile-sidebar-open>
-        <button type="button" id="profile-menu-trigger" class="btn h-12 w-full justify-start gap-2" data-variant="ghost"
-          aria-haspopup="menu" aria-controls="profile-menu" aria-expanded="false">
-          {{ <avatar initials={shell.user.initials}/> }}
-          <span class="grid min-w-0 flex-1 text-left leading-tight">
-            <span class="truncate font-medium">{{ shell.user.name }}</span>
-            <span class="truncate text-xs text-muted-foreground">{{ shell.user.email }}</span>
-          </span>
-          {{- icon(name="chevron-down", class="size-4 text-muted-foreground") -}}
-        </button>
-        <div id="profile-menu-popover" data-popover data-side="top" aria-hidden="true" class="w-full">
-          <div role="menu" id="profile-menu" aria-labelledby="profile-menu-trigger">
-            <a role="menuitem" href="/account">
-              {{- icon(name="user", class="size-4") }}{{ t(key="nav-account", lang="id") -}}
-            </a>
-            {%- if shell.current_workspace %}
-            {#- Semua anggota bisa keluar (Viewer tidak punya Pengaturan); konfirmasi di halaman itu. -#}
-            <a role="menuitem" href="{{ shell.current_workspace.leave_href }}" data-leave-workspace>
-              {{- icon(name="logout", class="size-4") }}{{ t(key="nav-leave-workspace", lang="id") -}}
-            </a>
-            {%- endif %}
-            <hr role="separator">
-            {#- Keluar adalah form POST, bukan link: GET tidak pernah mengubah data (rules §6). -#}
-            <form method="post" action="/logout">
-              <button type="submit" role="menuitem">
-                {{- icon(name="logout", class="size-4") }}{{ t(key="nav-logout", lang="id") -}}
-              </button>
-            </form>
-          </div>
+  <div class="app-side-foot">
+    <div class="dropdown-menu" id="me-menu">
+      <button type="button" class="app-side-me" id="me-menu-trigger" aria-haspopup="menu" aria-controls="me-menu-menu" aria-expanded="false">
+        {{ <avatar initials={shell.user.initials} color={shell.user.color} size="sm"/> }}
+        <span>{{ shell.user.name }}</span>{{ icon(name="dots") }}
+      </button>
+      <div id="me-menu-popover" data-popover data-side="top" aria-hidden="true">
+        <div role="menu" id="me-menu-menu" aria-labelledby="me-menu-trigger">
+          <div class="app-menu-label">{{ shell.user.email }}</div>
+          <a role="menuitem" href="/account">{{ icon(name="user") }}{{ t(key="nav-account", lang="id") }}</a>
+          {%- if shell.current_workspace and shell.can_manage_workspace %}
+          <a role="menuitem" href="{{ shell.current_workspace.settings_href }}" data-nav="settings">{{ icon(name="settings") }}{{ t(key="nav-settings", lang="id") }}</a>
+          {%- endif %}
+          <button type="button" role="menuitem" data-theme-toggle>{{ icon(name="moon") }}{{ t(key="nav-toggle-theme", lang="id") }}</button>
+          {%- if shell.current_workspace %}
+          <a role="menuitem" href="{{ shell.current_workspace.leave_href }}" data-leave-workspace>{{ icon(name="door-exit") }}{{ t(key="nav-leave-workspace", lang="id") }}</a>
+          {%- endif %}
+          <hr role="separator">
+          {#- Keluar adalah form POST: GET tidak pernah mengubah data (rules §6). -#}
+          <form method="post" action="/logout">
+            <button type="submit" role="menuitem">{{ icon(name="logout") }}{{ t(key="nav-logout", lang="id") }}</button>
+          </form>
         </div>
       </div>
-    </footer>
-  </nav>
+    </div>
+  </div>
 </aside>
-<main class="app-main">
+<div class="app-main">
   <header class="app-topbar">
-    <button type="button" class="btn md:hidden" data-variant="ghost" data-size="icon"
-      data-sidebar-toggle="app-sidebar" aria-controls="app-sidebar" aria-label="{{ t(key="nav-open-menu", lang="id") }}">
-      {{- icon(name="menu-2", class="size-5") -}}
-    </button>
-    {#- Breadcrumb: Workspace › Project › Bagian (Pengaturan/Akun), dari shell. -#}
+    <button type="button" class="btn" data-variant="ghost" data-size="icon" data-nav-toggle aria-controls="app-side" aria-expanded="false" aria-label="{{ t(key="nav-open-menu", lang="id") }}">{{ icon(name="menu-2") }}</button>
     <nav class="app-crumbs" aria-label="{{ t(key="nav-breadcrumb", lang="id") }}" data-crumbs>
-      {%- if shell.area == "account" %}
-      <span>{{ t(key="account-title", lang="id") }}</span>
-      {%- elif shell.current_workspace %}
+      {%- if shell.current_workspace %}
       <a href="{{ shell.current_workspace.href }}">{{ shell.current_workspace.name }}</a>
-      {%- if shell.current_project %}
-      <span class="app-crumb-sep" aria-hidden="true">/</span>
-      <a href="{{ shell.current_project.href }}">{{ shell.current_project.name }}</a>
+      {%- if shell.current_project %}<span data-sep aria-hidden="true">/</span>
+      <a href="{{ shell.current_project.href }}">{{ <dot color={shell.current_project.color}/> }}{{ shell.current_project.name }}</a>
       {%- endif %}
-      {%- if shell.area == "settings" %}
-      <span class="app-crumb-sep" aria-hidden="true">/</span>
-      <a href="{{ shell.current_workspace.settings_href }}">{{ t(key="nav-settings", lang="id") }}</a>
-      {%- endif %}
-      {%- else %}
+      {%- elif shell.area != "account" %}
       <span>{{ t(key="app-name", lang="id") }}</span>
       {%- endif %}
+      {%- block crumb %}{% endblock crumb -%}
     </nav>
   </header>
-  <div class="app-content">
-    {%- if shell.current_workspace and shell.current_workspace.deletion %}
-    {#- Workspace terjadwal hapus (hanya Owner yang bisa membukanya): di setiap halamannya. -#}
-    <div class="alert" data-variant="destructive" role="alert" data-deletion-banner>
-      {{ icon(name="alert-triangle", class="size-4") }}
-      <h2>{{ t(key="workspace-deletion-banner-title", lang="id") }}</h2>
-      <section>
-        <p>{{ t(key="workspace-deletion-banner-body", lang="id", datetime=shell.current_workspace.deletion.purge_at) }}</p>
-        <form method="post" action="{{ shell.current_workspace.deletion.cancel_action }}" class="mt-2">
-          {{ <button label={t(key="workspace-deletion-cancel", lang="id")} type="submit" variant="outline" size="sm"/> }}
-        </form>
-      </section>
-    </div>
-    {%- endif %}
-    {%- if flash is defined and flash %}
-    {{ <flash kind={flash.kind} message={t(key=flash.key, lang="id")}/> }}
-    {%- endif %}
-    {% block content %}{% endblock content %}
+  <div class="app-pbar" data-pbar>
+    {%- block tabs %}{% endblock tabs -%}
+    <div class="app-pbar-acts">{%- block actions %}{% endblock actions -%}</div>
   </div>
-</main>
+  {%- block mtabs %}{% endblock mtabs %}
+  <main class="app-content" id="content">
+    <div data-width="{% block width %}mid{% endblock width %}">
+      {%- if shell.current_workspace and shell.current_workspace.deletion %}
+      {#- Workspace terjadwal hapus (hanya Owner yang bisa membukanya): di setiap halamannya. -#}
+      <div class="alert" data-variant="destructive" role="alert" data-deletion-banner>
+        {{ icon(name="alert-triangle") }}
+        <h2>{{ t(key="workspace-deletion-banner-title", lang="id") }}</h2>
+        <section>
+          <p>{{ t(key="workspace-deletion-banner-body", lang="id", datetime=shell.current_workspace.deletion.purge_at) }}</p>
+          <form method="post" action="{{ shell.current_workspace.deletion.cancel_action }}">
+            {{ <button label={t(key="workspace-deletion-cancel", lang="id")} type="submit" variant="outline" size="sm" icon="arrow-back-up"/> }}
+          </form>
+        </section>
+      </div>
+      {%- endif %}
+      {%- if flash is defined and flash and flash.kind != "success" %}
+      {{ <flash kind={flash.kind} message={t(key=flash.key, lang="id")}/> }}
+      {%- endif %}
+      {% block content %}{% endblock content %}
+    </div>
+  </main>
+</div>
+</div>
+{#- Toaster Basecoat: pesan sukses sekali tampil (aturan UX 7: konfirmasi ringan = toast). -#}
+<div id="toaster" class="toaster" data-align="center">
+  {%- if flash is defined and flash and flash.kind == "success" %}
+  <div class="toast" role="status" aria-atomic="true" aria-hidden="false" data-category="success" data-flash="success">
+    <div class="toast-content">{{ icon(name="circle-check") }}<section><h2>{{ t(key=flash.key, lang="id") }}</h2></section></div>
+  </div>
+  {%- endif %}
+</div>
 {% endblock body %}

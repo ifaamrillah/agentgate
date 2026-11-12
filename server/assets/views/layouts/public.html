@@ -1,14 +1,16 @@
-{#- Layout halaman tanpa login (login, daftar, halaman error). Block: title, content.
-    Variabel opsional: flash ({kind, key}: pesan sekali tampil dari controllers::flash). -#}
+{#- Halaman tanpa shell aplikasi, satu kolom di tengah (prototype `solo`): pilih/buat workspace,
+    undangan tidak valid, halaman error. Block: title, content, foot (teks kecil di bawah).
+    Variabel opsional: flash ({kind, key}). -#}
 {% extends "layouts/base.html" %}
 {% block body %}
-<main class="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4 py-12">
-  <a href="/" class="mb-8 flex items-center justify-center gap-2 text-lg font-semibold">
-    {{ icon(name="robot", class="size-6") }}<span>{{ t(key="app-name", lang="id") }}</span>
-  </a>
-  {%- if flash is defined and flash %}
-  <div class="mb-6">{{ <flash kind={flash.kind} message={t(key=flash.key, lang="id")}/> }}</div>
-  {%- endif %}
-  {% block content %}{% endblock content %}
+<main class="app-solo">
+  <a href="/" class="app-brandmark"><span>{{ icon(name="robot") }}</span>{{ t(key="app-name", lang="id") }}</a>
+  <div class="app-solo-inner">
+    {%- if flash is defined and flash %}
+    {{ <flash kind={flash.kind} message={t(key=flash.key, lang="id")}/> }}
+    {%- endif %}
+    {% block content %}{% endblock content %}
+    <p class="app-solo-foot">{% block foot %}{% endblock foot %}</p>
+  </div>
 </main>
 {% endblock body %}

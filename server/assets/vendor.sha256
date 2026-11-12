@@ -1,4 +1,3 @@
-# SHA-256 semua file vendor (JS dan CSS). Sumber: npm htmx.org@4.0.1, basecoat-css@1.1.0, @fontsource/ibm-plex-sans@5.2.8, @fontsource/ibm-plex-mono@5.2.7 (woff2 latin + OFL). Cek: cd server/assets && sha256sum -c vendor.sha256
 2267ba216269a3e36b9bdd34c3e52441543ae01e429a915913cbf3452c495fe4  css/vendor/basecoat-1.1.0/base/base.css
 f23b392bff2a4cdae7ed8ca1a9c59b84ff1a87ee9c9925585d237a0487fcbce2  css/vendor/basecoat-1.1.0/basecoat-base.css
 d6d0a5d5e639a8ac3ca8dabdcae3e1f0f647585a32e2ba79b8239a2a9f202fd1  css/vendor/basecoat-1.1.0/basecoat-components.css
@@ -61,11 +60,9 @@ f879c6f27dc6373603d8ecd2f0bb04f6815ffd3bd9554a480c020b1a7317aae7  css/vendor/bas
 8482e44072e45ac497d2b9e9821cbf4be197e1cc605013a35c1e2c5c893a24bd  static/vendor/basecoat-1.1.0/all.min.js
 a0abb04f2f45a1f89d1d4844023245537e5e6014c87b144553e0607b4cc32130  static/vendor/htmx-4.0.1.min.js
 6526defdf2cafd6a6b9f09fe39136e7af7611d103f05cc7068489ef83993f244  static/vendor/hx-preload-4.0.1.min.js
-08949f728dc52d528e69b1667d15c89a5686a4ee9a296ff90983985f99c380f7  static/vendor/fonts/ibm-plex-mono-latin-400-normal.woff2
-01d285447409c8a588692162439a038b8cbd7871309ee20267b0d2d91c6e8e22  static/vendor/fonts/ibm-plex-mono-latin-500-normal.woff2
-0d1f0b8d0722224e32e9f28261bdc86c79115be73444ae5eceb73976a1bcdf83  static/vendor/fonts/ibm-plex-mono-latin-600-normal.woff2
-3b646991d30055a93a4ecc499713d4347953a74a947ecab435ab72070cbdab0e  static/vendor/fonts/ibm-plex-sans-latin-400-normal.woff2
-0717336fb31fcdcde4b8deb3675bb4a0f7f6d484864afcd6751ac29975962203  static/vendor/fonts/ibm-plex-sans-latin-500-normal.woff2
-8960851d691c054ed38e259bdcf1a6190d157b4203ed5bb32c632a863fb8ec2f  static/vendor/fonts/ibm-plex-sans-latin-600-normal.woff2
-42e7b0c143c19df9d99fd896e76b48f846edf0902d200bc29796b34d12c33aa7  static/vendor/fonts/ibm-plex-sans-latin-700-normal.woff2
-d0283623ef57e722fd0eb688a8041589670c608ab780cd3612d06ba6f153d3fd  static/vendor/fonts/OFL.txt
+934b987e215a2bc463d7b1a99456c1d83e9505f5ef6d8b0dd439181fb2414b1b  static/vendor/fonts/OFL.txt
+616e37ca59a2afebe306751773a538b93f5a2d9a90fd3fc97ce73321cb93af51  static/vendor/fonts/geist-mono-latin-400-normal.woff2
+9a494764f87c2e11d24001b910600bd2192230554c090a0ddc66e8221b32f3ce  static/vendor/fonts/geist-mono-latin-500-normal.woff2
+e6ef6abb39c762ed2259cc814e6f16888c540cd84835962227b56ab2354f27f1  static/vendor/fonts/geist-sans-latin-400-normal.woff2
+40073e90816315c92e4f4381bd50b6fdc950b22b0dd010a4179046cf588d4f12  static/vendor/fonts/geist-sans-latin-500-normal.woff2
+9d99fbd791968493fa507ac846de561cee47b00f8100c23cad333b3cb78392d6  static/vendor/fonts/geist-sans-latin-600-normal.woff2

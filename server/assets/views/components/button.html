@@ -1,16 +1,30 @@
-{#- Komponen tombol.
+{#- Komponen tombol (atau tautan berbentuk tombol bila `href` diisi).
     Parameter:
-      label: string             teks tombol (sudah diterjemahkan pemanggil)
-      variant: primary|secondary|outline|ghost|destructive|link   (default primary)
-      size: sm|default|lg       (default "default")
+      label: string             teks tombol (sudah diterjemahkan; "" = tombol ikon, wajib aria_label)
+      variant: primary|outline|secondary|ghost|destructive|danger|link   (default primary)
+               destructive = teks merah di permukaan netral; danger = merah penuh (konfirmasi hapus)
+      size: default|sm|lg|icon|icon-sm   (default "default")
       type: button|submit       (default button)
       icon: nama ikon Tabler    (default "" = tanpa ikon)
-      disabled: bool            (default false) tombol nonaktif, mis. fitur yang belum tersedia
+      href: string              render sebagai <a> (default "")
+      dialog: string            id <dialog> yang dibuka tombol ini (default "")
+      full: bool                selebar wadah, 36px (form masuk) (default false)
+      disabled: bool            (default false)
+      aria_label: string        wajib untuk tombol ikon (default "")
+      name, value: string       untuk tombol submit bernama (default "")
+      form: string              id form di luar tombol (default "")
+      attrs: string             penanda tes tanpa tanda kutip, mis. "data-save" (default "")
       class: hanya untuk layout (margin, lebar), bukan warna/ukuran -#}
-{% component button(label: string, variant: string = "primary", size: string = "default", type: string = "button", icon: string = "", disabled: bool = false, class: string = "") %}
-{%- if variant not in ["primary", "secondary", "outline", "ghost", "destructive", "link"] %}{{ throw(message="button: variant tidak dikenal: " ~ variant) }}{% endif -%}
-{%- if size not in ["sm", "default", "lg"] %}{{ throw(message="button: size tidak dikenal: " ~ size) }}{% endif -%}
-<button type="{{ type }}" class="btn {{ class }}" data-variant="{{ variant }}" data-size="{{ size }}"{% if disabled %} disabled{% endif %}>
-  {%- if icon %}{{ icon(name=icon, class="size-4") }}{% endif %}{{ label -}}
+{% component button(label: string = "", variant: string = "primary", size: string = "default", type: string = "button", icon: string = "", href: string = "", dialog: string = "", full: bool = false, disabled: bool = false, aria_label: string = "", name: string = "", value: string = "", form: string = "", attrs: string = "", class: string = "") %}
+{%- if variant not in ["primary", "outline", "secondary", "ghost", "destructive", "danger", "link"] %}{{ throw(message="button: variant tidak dikenal: " ~ variant) }}{% endif -%}
+{%- if size not in ["default", "sm", "lg", "icon", "icon-sm"] %}{{ throw(message="button: size tidak dikenal: " ~ size) }}{% endif -%}
+{%- if href -%}
+<a href="{{ href }}" class="btn {{ class }}" data-variant="{{ variant }}" data-size="{{ size }}"{% if full %} data-full{% endif %}{% if aria_label %} aria-label="{{ aria_label }}"{% endif %}{% if disabled %} aria-disabled="true"{% endif %} {{ attrs }}>
+  {%- if icon %}{{ icon(name=icon) }}{% endif %}{{ label -}}
+</a>
+{%- else -%}
+<button type="{{ type }}" class="btn {{ class }}" data-variant="{{ variant }}" data-size="{{ size }}"{% if full %} data-full{% endif %}{% if dialog %} data-dialog-open="{{ dialog }}" aria-haspopup="dialog"{% endif %}{% if aria_label %} aria-label="{{ aria_label }}"{% endif %}{% if name %} name="{{ name }}" value="{{ value }}"{% endif %}{% if form %} form="{{ form }}"{% endif %}{% if disabled %} disabled{% endif %} {{ attrs }}>
+  {%- if icon %}{{ icon(name=icon) }}{% endif %}{{ label -}}
 </button>
+{%- endif -%}
 {%- endcomponent button %}

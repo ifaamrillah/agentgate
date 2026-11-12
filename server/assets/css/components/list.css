@@ -1,0 +1,63 @@
+/* Isi kartu: baris daftar (`app-lrow`), baris pengaturan (`app-srow`: judul+deskripsi kiri,
+   kontrol kanan), blok isian (`app-form`), identitas orang (`app-who`), properti (`app-props`),
+   umpan aktivitas (`app-feed`), empty state (`app-empty`). */
+@layer components {
+  .app-lrow { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-top: 1px solid var(--ag-line); min-height: 52px; min-width: 0; }
+  .app-lrow:first-child { border-top: 0; }
+  a.app-lrow:hover, .app-lrow[data-hover]:hover { background: var(--ag-muted-bg); }
+  .app-lrow[aria-current] { background: var(--ag-accent-soft); }
+  .app-lrow[data-align='top'] { align-items: flex-start; }
+  .app-lrow > .app-lrow-main { flex: 1; min-width: 0; display: grid; gap: 2px; }
+  .app-lrow-main > b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .app-lrow-main > small { color: var(--ag-muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .app-lrow-acts { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+  .app-lrow > svg:last-child { width: 16px; height: 16px; color: var(--ag-faint); flex-shrink: 0; }
+  .app-lrow-more { color: var(--ag-muted); font-size: 12px; min-height: 40px; }
+  @media (max-width: 899px) { .app-lrow[data-wrap] { flex-wrap: wrap; } .app-lrow[data-wrap] .app-lrow-acts { width: 100%; padding-left: 40px; } }
+
+  .app-srow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 300px); gap: 24px; align-items: center; padding: 14px 16px; border-top: 1px solid var(--ag-line); }
+  .app-srow:first-child { border-top: 0; }
+  .app-srow[data-align='top'] { align-items: start; }
+  .app-srow[data-wide] { grid-template-columns: minmax(0, 1fr) minmax(0, 420px); }
+  .app-srow-t { font-weight: 500; display: flex; align-items: center; gap: 8px; }
+  .app-srow-d { color: var(--ag-muted); margin-top: 2px; }
+  .app-srow-c { display: flex; justify-content: flex-end; gap: 8px; align-items: center; min-width: 0; flex-wrap: wrap; }
+  .app-srow-c > :is(.app-input, .app-field, .app-combo, form) { width: 100%; }
+  @container (max-width: 560px) { .app-srow, .app-srow[data-wide] { grid-template-columns: 1fr; gap: 10px; } .app-srow-c { justify-content: flex-start; } }
+
+  /* Blok isian di dalam kartu: field bertumpuk. */
+  .app-form { display: grid; gap: 14px; padding: 16px; min-width: 0; }
+  .app-form + .app-form, .app-blk + .app-blk { border-top: 1px solid var(--ag-line); }
+  .app-form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+  .app-blk { display: grid; gap: 10px; padding: 16px; min-width: 0; }
+  .app-blk-t { font-weight: 600; font-size: 13px; }
+
+  .app-who { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .app-who > span:last-child { display: grid; min-width: 0; }
+  .app-who b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .app-who small { color: var(--ag-muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .app-props { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 10px 12px; align-items: center; margin: 0; padding: 16px; }
+  .app-props dt { color: var(--ag-muted); }
+  .app-props dd { margin: 0; min-width: 0; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+  .app-feed { display: grid; padding: 2px 16px; }
+  .app-fe { display: flex; gap: 10px; padding: 10px 0; border-top: 1px solid var(--ag-line); align-items: flex-start; min-width: 0; }
+  .app-fe:first-child { border-top: 0; }
+  .app-fe > span:nth-child(2) { flex: 1; min-width: 0; }
+  .app-fe b { font-weight: 500; }
+  .app-fe time { color: var(--ag-faint); font-size: 12px; white-space: nowrap; }
+
+  .app-empty { border: 1px dashed var(--ag-input); border-radius: 10px; padding: 32px; display: grid; justify-items: center; gap: 8px; text-align: center; color: var(--ag-muted); }
+  .app-empty b { color: var(--ag-fg); font-weight: 500; }
+  .app-empty > span:not(.app-tile) { max-width: 52ch; }
+  .app-empty[data-variant='plain'] { border: 0; }
+  .app-card-b > .app-empty[data-variant='plain'] { padding: 28px 16px; }
+
+  /* Garis putus berlabel ("atau") di form masuk. */
+  .app-or { display: flex; align-items: center; gap: 10px; color: var(--ag-muted); font-size: 12px; }
+  .app-or::before, .app-or::after { content: ""; flex: 1; height: 1px; background: var(--ag-line); }
+
+  .app-bar { height: 6px; border-radius: 3px; background: var(--ag-hover); overflow: hidden; }
+  .app-bar > i { display: block; height: 100%; background: var(--c, var(--ag-accent)); border-radius: 3px; }
+}

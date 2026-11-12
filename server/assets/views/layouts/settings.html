@@ -1,6 +1,12 @@
-{#- Halaman Pengaturan workspace: layouts/page.html dengan menu kiri dari shell.subnav
-    (views::nav::settings_nav, bagian sesuai izin role). Lebar default narrow; halaman tabel
-    (Anggota, Log audit) mengisi block width dengan wide. Block: seperti layouts/page.html. -#}
-{% extends "layouts/page.html" %}
-{% block width %}narrow{% endblock width %}
-{% block aside %}{{ <subnav title={t(key="workspace-settings-title", lang="id")} subtitle={shell.current_workspace.name} items={shell.subnav}/> }}{% endblock aside %}
+{#- Semua halaman Pengaturan (akun, workspace, project): sidebar berganti menjadi menu Pengaturan
+    (views::nav::side_nav), breadcrumb workspace / [project] / Pengaturan / bagian, lebar mid.
+    Halaman merangkai isinya dengan komponen `subpage` (varian E) bila punya sub-halaman, atau
+    langsung `card`. Block: title, crumb_label (nama bagian di breadcrumb), width, settings.
+    page_attrs: penanda tes pembungkus (mis. data-settings-index). -#}
+{% extends "layouts/app.html" %}
+{% block crumb %}<span data-sep aria-hidden="true">/</span><span>{{ t(key="nav-settings", lang="id") }}</span><span data-sep aria-hidden="true">/</span><span aria-current="page">{% block crumb_label %}{% endblock crumb_label %}</span>{% endblock crumb %}
+{% block content %}
+<div class="app-stack-v" {% block page_attrs %}{% endblock page_attrs %}>
+{% block settings %}{% endblock settings %}
+</div>
+{% endblock content %}

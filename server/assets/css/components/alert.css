@@ -1,0 +1,19 @@
+/* Override `.alert` Basecoat: kotak berwarna lembut tanpa border, ikon di kiri, judul/isi/aksi di
+   kanan. Ditaruh di atas konten terkait (aturan UX 7).
+   data-variant: (default) info aksen | warn | destructive | success | neutral. */
+@layer components {
+  .alert {
+    display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 10px; row-gap: 2px; align-items: start;
+    padding: 10px 12px; border-radius: 8px; border: 0; background: var(--ag-accent-soft); color: var(--ag-accent-fg); font-size: 13px;
+  }
+  .alert > svg { width: 16px; height: 16px; margin-top: 1px; grid-row: span 3; }
+  .alert > :not(svg) { grid-column: 2; }
+  .alert > h2 { font-size: 13px; font-weight: 600; color: inherit; }
+  .alert > section { color: inherit; display: grid; gap: 6px; }
+  .alert > section p { color: inherit; }
+  .alert[data-variant='warn'] { background: var(--ag-warn-soft); color: var(--ag-warn); }
+  .alert[data-variant='destructive'] { background: var(--ag-danger-soft); color: var(--ag-danger); }
+  .alert[data-variant='success'] { background: var(--ag-success-soft); color: var(--ag-success); }
+  .alert[data-variant='neutral'] { background: var(--ag-hover); color: var(--ag-fg2); }
+  .alert :is(b, strong) { font-weight: 600; }
+}

@@ -1,21 +1,15 @@
-{#- Komponen tab tautan (tampilan dalam project). Daftar dibangun di Rust (views::nav).
+{#- Tab halaman bergaris bawah (aturan UX 10) dengan angka berbentuk badge (aturan UX 8). Item
+    adalah tautan (rute server).
     Parameter:
       label: string             aria-label navigasi (sudah diterjemahkan)
-      items: array              [views::nav::NavItem {key, label_key, icon, href (null = segera),
-                                current, soon}] -#}
+      items: array              [views::nav::NavItem {key, label_key, icon, href, current, soon, count}] -#}
 {% component tabs(label: string, items: array) %}
 <nav class="app-tabs" aria-label="{{ label }}" data-tabs>
   {%- for item in items %}
-  {%- if item.href %}
-  <a href="{{ item.href }}" data-nav="{{ item.key }}"{% if item.current %} aria-current="page"{% endif %}>
-    {{- icon(name=item.icon, class="size-4") }}{{ t(key=item.label_key, lang="id") -}}
+  <a{% if item.href %} href="{{ item.href }}"{% else %} aria-disabled="true"{% endif %} data-nav="{{ item.key }}"{% if item.current %} aria-current="page"{% endif %}>
+    {{- t(key=item.label_key, lang="id") -}}
+    {%- if item.count is not none %} <span class="app-count">{{ item.count }}</span>{% endif -%}
   </a>
-  {%- else %}
-  <a aria-disabled="true" data-nav="{{ item.key }}">
-    {{- icon(name=item.icon, class="size-4") }}{{ t(key=item.label_key, lang="id") -}}
-    {%- if item.soon %}<span class="app-soon">{{ t(key="nav-soon", lang="id") }}</span>{% endif -%}
-  </a>
-  {%- endif %}
   {%- endfor %}
 </nav>
 {%- endcomponent tabs %}

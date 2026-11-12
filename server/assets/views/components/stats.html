@@ -1,0 +1,15 @@
+{#- Kartu angka varian A (ringkas). Kartu bertautan menampilkan panah saat hover.
+    Parameter:
+      items: array              [views::ui::Stat {label_key, value, total, icon, tone, hint_key,
+                                hint_arg, href}] -#}
+{% component stats(items: array) %}
+<div class="app-st" style="--n:{{ items | length }}" data-stats>
+  {%- for s in items %}
+  {%- if s.href %}<a class="app-st-i" href="{{ s.href }}"{% else %}<div class="app-st-i"{% endif %}{% if s.tone %} data-tone="{{ s.tone }}"{% endif %} data-stat="{{ s.label_key }}">
+    <div class="app-st-h"><span class="app-st-ic">{{ icon(name=s.icon) }}</span><span class="app-st-l">{{ t(key=s.label_key, lang="id") }}</span>{% if s.href %}{{ icon(name="arrow-up-right", class="app-st-go") }}{% endif %}</div>
+    <div class="app-st-v">{{ s.value }}{% if s.total %}<small>/{{ s.total }}</small>{% endif %}</div>
+    {%- if s.hint_key %}<div class="app-st-hint">{{ t(key=s.hint_key, lang="id", value=s.hint_arg) }}</div>{% endif %}
+  {%- if s.href %}</a>{% else %}</div>{% endif %}
+  {%- endfor %}
+</div>
+{%- endcomponent stats %}

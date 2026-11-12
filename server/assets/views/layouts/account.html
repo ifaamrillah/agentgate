@@ -1,6 +1,0 @@
-{#- Halaman Akun: layouts/page.html (narrow) dengan menu kiri Profil, Password, Autentikasi dua
-    langkah (shell.subnav dari views::nav::account_nav). Block: seperti layouts/page.html. -#}
-{% extends "layouts/page.html" %}
-{% block width %}narrow{% endblock width %}
-{% block page_attrs %}data-account-page{% endblock page_attrs %}
-{% block aside %}{{ <subnav title={t(key="account-title", lang="id")} subtitle={shell.user.name} items={shell.subnav}/> }}{% endblock aside %}

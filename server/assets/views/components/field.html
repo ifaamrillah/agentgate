@@ -1,33 +1,31 @@
-{#- Komponen field form: label, input, dan pesan error yang diterjemahkan dari kode error.
+{#- Komponen field form: label, input, petunjuk, dan pesan error yang diterjemahkan dari kode error.
     Parameter:
       id: string                id input (dasar id pesan error `<id>-error`)
       name: string              nama field form
       label: string             teks label (sudah diterjemahkan pemanggil)
-      type: text|email|password (default text). Field password tidak pernah merender value.
+      type: text|email|password|url|number|search (default text). Password tidak pernah merender value.
       value: string             nilai terisi (default "")
+      placeholder: string       (default "")
+      prefix: string            awalan di dalam kotak, mis. "agentgate.id/w/" (default "")
       error: string             kode error validasi = kunci Fluent (default "" = tanpa error)
       error_min, error_max: integer  argumen pesan error `$min`/`$max` (default 0)
       autocomplete: string      (default "" = tanpa atribut)
-      required, autofocus: bool (default false)
-      hide_label: bool          label hanya untuk pembaca layar (default false; mis. di baris
-                                pengaturan yang judulnya sudah tampil di kiri)
+      inputmode, maxlength: string  (default "")
+      required, autofocus, readonly, mono: bool (default false)
+      optional: string          penanda "(opsional)" di label, sudah diterjemahkan (default "")
+      hide_label: bool          label hanya untuk pembaca layar (default false)
       hint: string              teks bantuan di bawah kontrol (default "")
-      class: hanya untuk layout (margin, lebar), bukan warna/ukuran -#}
-{% component field(id: string, name: string, label: string, type: string = "text", value: string = "", error: string = "", error_min: integer = 0, error_max: integer = 0, autocomplete: string = "", required: bool = false, autofocus: bool = false, hide_label: bool = false, hint: string = "", class: string = "") %}
-{%- if type not in ["text", "email", "password"] %}{{ throw(message="field: type tidak dikenal: " ~ type) }}{% endif -%}
-<div class="field {{ class }}"{% if error %} data-invalid="true"{% endif %}>
-  <label for="{{ id }}"{% if hide_label %} class="sr-only"{% endif %}>{{ label }}</label>
-  <input class="input" type="{{ type }}" id="{{ id }}" name="{{ name }}"
-    {%- if type != "password" %} value="{{ value }}"{% endif %}
-    {%- if autocomplete %} autocomplete="{{ autocomplete }}"{% endif %}
-    {%- if required %} required{% endif %}
-    {%- if autofocus %} autofocus{% endif %}
-    {%- if error %} aria-invalid="true" aria-describedby="{{ id }}-error"{% endif %}>
-  {%- if hint %}
-  <p class="app-hint" id="{{ id }}-hint">{{ hint }}</p>
+      class: hanya untuk layout -#}
+{% component field(id: string, name: string, label: string, type: string = "text", value: string = "", placeholder: string = "", prefix: string = "", error: string = "", error_min: integer = 0, error_max: integer = 0, autocomplete: string = "", inputmode: string = "", maxlength: string = "", required: bool = false, autofocus: bool = false, readonly: bool = false, mono: bool = false, optional: string = "", hide_label: bool = false, hint: string = "", class: string = "") %}
+{%- if type not in ["text", "email", "password", "url", "number", "search"] %}{{ throw(message="field: type tidak dikenal: " ~ type) }}{% endif -%}
+<div class="app-field {{ class }}"{% if error %} data-invalid="true"{% endif %}>
+  <label for="{{ id }}"{% if hide_label %} class="sr-only"{% endif %}>{{ label }}{% if optional %} <span class="app-opt">{{ optional }}</span>{% endif %}</label>
+  {%- if prefix %}
+  <label class="app-input{% if mono %} app-code{% endif %}" data-group{% if readonly %} data-readonly{% endif %}><span class="app-input-pre">{{ prefix }}</span><input type="{{ type }}" id="{{ id }}" name="{{ name }}"{% if type != "password" %} value="{{ value }}"{% endif %}{% if placeholder %} placeholder="{{ placeholder }}"{% endif %}{% if autocomplete %} autocomplete="{{ autocomplete }}"{% endif %}{% if inputmode %} inputmode="{{ inputmode }}"{% endif %}{% if maxlength %} maxlength="{{ maxlength }}"{% endif %}{% if required %} required{% endif %}{% if autofocus %} autofocus{% endif %}{% if readonly %} readonly{% endif %}{% if error %} aria-invalid="true" aria-describedby="{{ id }}-error"{% elif hint %} aria-describedby="{{ id }}-hint"{% endif %}></label>
+  {%- else %}
+  <input class="app-input{% if mono %} app-code{% endif %}" type="{{ type }}" id="{{ id }}" name="{{ name }}"{% if type != "password" %} value="{{ value }}"{% endif %}{% if placeholder %} placeholder="{{ placeholder }}"{% endif %}{% if autocomplete %} autocomplete="{{ autocomplete }}"{% endif %}{% if inputmode %} inputmode="{{ inputmode }}"{% endif %}{% if maxlength %} maxlength="{{ maxlength }}"{% endif %}{% if required %} required{% endif %}{% if autofocus %} autofocus{% endif %}{% if readonly %} readonly{% endif %}{% if error %} aria-invalid="true" aria-describedby="{{ id }}-error"{% elif hint %} aria-describedby="{{ id }}-hint"{% endif %}>
   {%- endif %}
-  {%- if error %}
-  <p role="alert" id="{{ id }}-error">{{ t(key=error, lang="id", min=error_min, max=error_max) }}</p>
-  {%- endif %}
+  {%- if hint %}<p class="app-hint" id="{{ id }}-hint">{{ hint }}</p>{% endif %}
+  {%- if error %}<p class="app-field-error" role="alert" id="{{ id }}-error">{{ t(key=error, lang="id", min=error_min, max=error_max) }}</p>{% endif %}
 </div>
 {%- endcomponent field %}

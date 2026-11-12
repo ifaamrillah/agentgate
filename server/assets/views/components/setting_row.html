@@ -1,15 +1,14 @@
-{#- Komponen baris pengaturan: judul + penjelasan di kiri, kontrol (form) di kanan; menumpuk di
-    layar kecil. Dipakai di dalam `panel`. Dipanggil sebagai blok; body = kontrol.
-      {% <setting_row title="Nama" description="..."> %}<form>…</form>{% </setting_row> %}
+{#- Baris pengaturan: judul + penjelasan di kiri, kontrol di kanan; menumpuk di kartu sempit.
+    Dipakai di `card` dengan flush={true}. Dipanggil sebagai blok; body = kontrol.
     Parameter:
-      title: string             judul pengaturan (sudah diterjemahkan pemanggil)
-      description: string       penjelasan (default "") -#}
-{% component setting_row(title: string, description: string = "") %}
-<div class="app-setting-row">
-  <header>
-    <h3>{{ title }}</h3>
-    {%- if description %}<p>{{ description }}</p>{% endif %}
-  </header>
-  <div>{% if body is defined %}{{ body }}{% endif %}</div>
+      title: string             (sudah diterjemahkan)
+      description: string       (default "")
+      top: bool                 rata atas (kontrol tinggi) (default false)
+      wide: bool                kolom kontrol 420px (default false)
+      attrs: string             penanda tes tanpa kutip (default "") -#}
+{% component setting_row(title: string, description: string = "", top: bool = false, wide: bool = false, attrs: string = "") %}
+<div class="app-srow"{% if top %} data-align="top"{% endif %}{% if wide %} data-wide{% endif %} {{ attrs }}>
+  <div><div class="app-srow-t">{{ title }}</div>{% if description %}<div class="app-srow-d">{{ description }}</div>{% endif %}</div>
+  <div class="app-srow-c">{% if body is defined %}{{ body }}{% endif %}</div>
 </div>
 {%- endcomponent setting_row %}

@@ -1,15 +1,14 @@
-{#- Komponen menu aksi per baris: tombol ⋯ dan popover Basecoat berisi form biasa (bukan JS).
-    Dipanggil sebagai blok; body = isi popover (form, tautan).
-      {% <action_menu id="member-7" label="Aksi untuk Budi"> %}<form>…</form>{% </action_menu> %}
+{#- Menu aksi per baris: tombol ⋯ dan popover Basecoat berisi tautan/form (item:
+    `class="app-menu-item"`, berbahaya: `data-variant="destructive"`). Dipanggil sebagai blok.
     Parameter:
-      id: string                id unik di halaman (dasar id popover)
-      label: string             aria-label tombol (sudah diterjemahkan; sebut objeknya) -#}
+      id: string                id unik di halaman
+      label: string             aria-label tombol (sebut objeknya) -#}
 {% component action_menu(id: string, label: string) %}
 <div class="popover" id="{{ id }}">
-  <button type="button" class="btn" data-variant="ghost" data-size="icon" aria-expanded="false" aria-controls="{{ id }}-popover" aria-label="{{ label }}">
-    {{- icon(name="dots", class="size-4") -}}
+  <button type="button" class="btn" data-variant="ghost" data-size="icon-sm" aria-expanded="false" aria-controls="{{ id }}-popover" aria-label="{{ label }}">
+    {{- icon(name="dots") -}}
   </button>
-  <div id="{{ id }}-popover" data-popover aria-hidden="true" data-align="end" class="app-action-menu">
+  <div id="{{ id }}-popover" data-popover aria-hidden="true" data-align="end">
     {%- if body is defined %}{{ body }}{% endif %}
   </div>
 </div>

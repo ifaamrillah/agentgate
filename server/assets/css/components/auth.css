@@ -1,19 +1,36 @@
-/* Halaman autentikasi (auth/_layout_card.html): panel merek indigo gelap di kiri. */
+/* Halaman masuk/daftar/undangan: layar terbelah. Panel kiri varian B "alur 4 langkah" (latar gelap:
+   tiket → agent → gate → approve); form 360px di kanan. Panel kiri disembunyikan di bawah 900px. */
 @layer components {
+  .app-auth { display: flex; min-height: 100vh; min-height: 100dvh; background: var(--ag-bg); }
   .app-auth-brand {
-    background: var(--ag-indigo-900);
-    color: #ffffff;
+    width: 46%; max-width: 560px; flex-shrink: 0; background: var(--ag-brand-bg); color: var(--ag-brand-fg); padding: 40px 48px;
+    display: flex; flex-direction: column; justify-content: space-between; gap: 28px; position: relative; overflow: hidden;
   }
-
-  .app-auth-brand p {
-    color: rgb(255 255 255 / 0.82);
+  .app-auth-brand .app-brandmark > span { background: #fff; color: var(--ag-brand-bg); }
+  .app-auth-flow { display: grid; }
+  .app-auth-step { display: grid; grid-template-columns: 44px 1fr; gap: 16px; position: relative; padding-bottom: 26px; }
+  .app-auth-step b { font-size: 15px; font-weight: 600; color: #fff; }
+  .app-auth-step p { color: var(--ag-brand-muted); margin-top: 2px; }
+  .app-auth-dot { width: 44px; height: 44px; border-radius: 12px; background: var(--ag-brand-dot); color: var(--ag-brand-dot-fg); display: inline-flex; align-items: center; justify-content: center; position: relative; z-index: 1; }
+  .app-auth-dot svg { width: 18px; height: 18px; }
+  .app-auth-step:not(:last-child)::after { content: ""; position: absolute; left: 21px; top: 46px; bottom: 2px; width: 2px; background: linear-gradient(#5b5bd6, var(--ag-brand-dot)); }
+  .app-auth-note { color: var(--ag-brand-muted); }
+  .app-auth-side { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px 24px; min-width: 0; }
+  .app-auth-col { width: 100%; max-width: 360px; display: grid; gap: 20px; }
+  .app-auth-col > .app-brandmark { display: none; }
+  .app-auth-title { display: grid; gap: 4px; }
+  .app-auth-title h1 { font-size: 22px; letter-spacing: -0.015em; }
+  .app-auth-title p { color: var(--ag-muted); }
+  .app-auth-col form { display: grid; gap: 20px; }
+  .app-auth-fine { color: var(--ag-muted); font-size: 11.5px; }
+  @media (max-width: 1199px) { .app-auth-brand { padding: 36px 32px; } }
+  @media (max-width: 899px) {
+    .app-auth-brand { display: none; }
+    .app-auth-side { align-items: flex-start; padding: 32px 20px; }
+    .app-auth-col > .app-brandmark { display: inline-flex; }
   }
-
-  .app-auth-mark {
-    display: flex;
-    flex-shrink: 0;
-    align-items: center;
-    justify-content: center;
-    background: rgb(255 255 255 / 0.14);
-  }
+}
+@layer components {
+  .app-auth-title p:empty, .app-auth-below:empty { display: none; }
+  .app-auth-below { color: var(--ag-muted); text-align: center; }
 }

@@ -1,24 +1,22 @@
-{#- Komponen field teks panjang (pasangan `field`): label, textarea, pesan error.
+{#- Komponen field teks panjang biasa (pasangan `field`). Untuk dokumen/deskripsi panjang yang
+    dibaca agent, pakai `md_editor`.
     Parameter:
       id, name, label: string   seperti `field`
-      value: string             (default "")
+      value, placeholder: string (default "")
       rows: integer             (default 3)
       error: string             kode error = kunci Fluent (default "")
       error_max: integer        argumen `$max` pesan error (default 0)
       required, hide_label: bool  (default false)
-      hint: string              teks bantuan di bawah kontrol (default "")
+      hint, optional: string    (default "")
       class: hanya untuk layout -#}
-{% component textarea_field(id: string, name: string, label: string, value: string = "", rows: integer = 3, error: string = "", error_max: integer = 0, required: bool = false, hide_label: bool = false, hint: string = "", class: string = "") %}
-<div class="field {{ class }}"{% if error %} data-invalid="true"{% endif %}>
-  <label for="{{ id }}"{% if hide_label %} class="sr-only"{% endif %}>{{ label }}</label>
-  <textarea class="textarea" id="{{ id }}" name="{{ name }}" rows="{{ rows }}"
+{% component textarea_field(id: string, name: string, label: string, value: string = "", placeholder: string = "", rows: integer = 3, error: string = "", error_max: integer = 0, required: bool = false, hide_label: bool = false, hint: string = "", optional: string = "", class: string = "") %}
+<div class="app-field {{ class }}"{% if error %} data-invalid="true"{% endif %}>
+  <label for="{{ id }}"{% if hide_label %} class="sr-only"{% endif %}>{{ label }}{% if optional %} <span class="app-opt">{{ optional }}</span>{% endif %}</label>
+  <textarea class="app-input" id="{{ id }}" name="{{ name }}" rows="{{ rows }}"
+    {%- if placeholder %} placeholder="{{ placeholder }}"{% endif %}
     {%- if required %} required{% endif %}
     {%- if error %} aria-invalid="true" aria-describedby="{{ id }}-error"{% endif %}>{{ value }}</textarea>
-  {%- if hint %}
-  <p class="app-hint" id="{{ id }}-hint">{{ hint }}</p>
-  {%- endif %}
-  {%- if error %}
-  <p role="alert" id="{{ id }}-error">{{ t(key=error, lang="id", max=error_max) }}</p>
-  {%- endif %}
+  {%- if hint %}<p class="app-hint" id="{{ id }}-hint">{{ hint }}</p>{% endif %}
+  {%- if error %}<p class="app-field-error" role="alert" id="{{ id }}-error">{{ t(key=error, lang="id", max=error_max) }}</p>{% endif %}
 </div>
 {%- endcomponent textarea_field %}

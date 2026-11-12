@@ -40,6 +40,20 @@ impl tera::Function<TeraResult<Value>> for IconFn {
     }
 }
 
+/// Fungsi Tera `palette()`: 18 warna pemilih warna (`views::palette::COLORS`).
+pub struct PaletteFn;
+
+impl tera::Function<TeraResult<Value>> for PaletteFn {
+    fn call(&self, _kwargs: Kwargs, _state: &State) -> TeraResult<Value> {
+        Ok(Value::from(
+            crate::views::palette::COLORS
+                .iter()
+                .map(|c| Value::from(*c))
+                .collect::<Vec<_>>(),
+        ))
+    }
+}
+
 /// Bangun view engine aplikasi. Dipakai initializer dan tes (satu implementasi).
 pub fn build_view_engine() -> Result<TeraView> {
     let locales = i18n::loader()?;
@@ -50,6 +64,7 @@ pub fn build_view_engine() -> Result<TeraView> {
     TeraView::build_with_post_process(move |tera| {
         tera.register_function("t", FluentLoader::new(locales.clone()));
         tera.register_function("icon", IconFn(icons.clone()));
+        tera.register_function("palette", PaletteFn);
         Ok(())
     })
 }

@@ -1,0 +1,33 @@
+{#- Unggah gambar (logo project): pratinjau + keterangan + tombol Unggah/Ganti dan Hapus. Merender
+    form multipart sendiri (jangan ditaruh di dalam form lain); memilih atau menyeret berkas
+    langsung mengirim form (static/js/uploader.js). Validasi tipe (dari isi berkas) dan ukuran di server.
+    Parameter:
+      action: string            POST multipart unggah (field berkas `file`)
+      remove_action: string     POST hapus gambar (default "" = tanpa tombol Hapus)
+      image: string             URL gambar saat ini (default "")
+      initials, color: string   pratinjau tanpa gambar
+      title: string             judul kecil, sudah diterjemahkan (mis. "Logo terpasang")
+      hint: string              keterangan (mis. tipe dan ukuran maksimal)
+      upload_label: string      teks tombol (mis. "Unggah logo")
+      error: string             kode error unggah (default "") -#}
+{% component uploader(action: string, title: string, hint: string, upload_label: string, initials: string, color: string = "", image: string = "", remove_action: string = "", error: string = "") %}
+<div class="app-up" data-uploader>
+  {{ <project_logo initials={initials} color={color} image={image} size="xl"/> }}
+  <div class="app-up-body">
+    <b>{{ title }}</b>
+    <span>{{ hint }}</span>
+    {%- if error %}<p class="app-field-error" role="alert">{{ t(key=error, lang="id") }}</p>{% endif %}
+    <div class="app-up-acts">
+      <form method="post" action="{{ action }}" enctype="multipart/form-data">
+        <input type="file" name="file" accept="image/png,image/jpeg,image/webp" aria-label="{{ upload_label }}" tabindex="-1">
+        <button type="submit" class="btn" data-variant="outline" data-size="sm" data-uploader-pick>{{ icon(name="upload") }}{{ upload_label }}</button>
+      </form>
+      {%- if image and remove_action %}
+      <form method="post" action="{{ remove_action }}">
+        {{ <button label={t(key="action-remove", lang="id")} type="submit" variant="ghost" size="sm" icon="trash"/> }}
+      </form>
+      {%- elif not image %}<span class="app-hint">{{ t(key="uploader-drop", lang="id") }}</span>{% endif %}
+    </div>
+  </div>
+</div>
+{%- endcomponent uploader %}

@@ -1,0 +1,39 @@
+{#- Combobox yang bisa dicari (aturan UX 12). <select> asli tetap menjadi sumber nilai (berfungsi
+    tanpa JS); static/js/combobox.js menggantinya dengan tombol + panel cari.
+    Parameter:
+      id, name, label: string   seperti `field`
+      options: array            [views::ui::ComboOption {value, label, sub, initials, color, group}]
+      value: string             nilai terpilih (default ""); untuk `multiple` pakai `values`
+      values: array             nilai terpilih bila multiple (default [])
+      placeholder: string       teks saat kosong, sudah diterjemahkan (default "" = "Pilih…")
+      multiple: bool            pilih banyak (checkbox) (default false)
+      src: string               URL pencarian opsi di server (GET ?q=, balas <option>; default "")
+      submit: bool              kirim form setelah memilih (default false)
+      required, hide_label: bool (default false)
+      error, hint: string       (default "")
+      class: hanya untuk layout -#}
+{% component combo(id: string, name: string, label: string, options: array, value: string = "", values: array = [], placeholder: string = "", multiple: bool = false, src: string = "", submit: bool = false, required: bool = false, hide_label: bool = false, error: string = "", hint: string = "", class: string = "") %}
+{%- if placeholder %}{% set ph = placeholder %}{% else %}{% set ph = t(key="combo-placeholder", lang="id") %}{% endif -%}
+<div class="app-field {{ class }}"{% if error %} data-invalid="true"{% endif %}>
+  <label for="{{ id }}"{% if hide_label %} class="sr-only"{% endif %}>{{ label }}</label>
+  <div class="app-combo" data-combo data-placeholder="{{ ph }}" data-none-text="{{ t(key="combo-none", lang="id") }}" data-count-text="{{ t(key="combo-count", lang="id") }}"
+    {%- if src %} data-combo-src="{{ src }}"{% endif %}{% if submit %} data-combo-submit{% endif %}>
+    <select class="app-input" id="{{ id }}" name="{{ name }}"{% if multiple %} multiple{% endif %}{% if required %} required{% endif %}{% if error %} aria-invalid="true" aria-describedby="{{ id }}-error"{% endif %}>
+      {%- if not multiple %}<option value="">{{ ph }}</option>{% endif %}
+      {%- for o in options %}
+      <option value="{{ o.value }}"{% if (multiple and o.value in values) or (not multiple and o.value == value) %} selected{% endif %}
+        {%- if o.sub %} data-sub="{{ o.sub }}"{% endif %}{% if o.initials %} data-initials="{{ o.initials }}"{% endif %}{% if o.color %} data-color="{{ o.color }}"{% endif %}{% if o.group %} data-group="{{ o.group }}"{% endif %}>{{ o.label }}</option>
+      {%- endfor %}
+    </select>
+    <button type="button" class="app-input app-combo-btn" hidden aria-haspopup="listbox" aria-expanded="false" aria-controls="{{ id }}-pop" aria-label="{{ label }}"><span class="app-combo-val"></span>{{ icon(name="selector") }}</button>
+    <div class="app-combo-pop" id="{{ id }}-pop">
+      <div class="app-combo-search">{{ icon(name="search") }}<input type="search" placeholder="{{ t(key="combo-search", lang="id") }}" aria-label="{{ t(key="combo-search", lang="id") }}"></div>
+      <div class="app-combo-list" role="listbox" aria-label="{{ label }}"{% if multiple %} aria-multiselectable="true"{% endif %}></div>
+      <div class="app-combo-foot"></div>
+      <template data-check>{{ icon(name="check") }}</template>
+    </div>
+  </div>
+  {%- if hint %}<p class="app-hint">{{ hint }}</p>{% endif %}
+  {%- if error %}<p class="app-field-error" role="alert" id="{{ id }}-error">{{ t(key=error, lang="id") }}</p>{% endif %}
+</div>
+{%- endcomponent combo %}

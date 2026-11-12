@@ -11,7 +11,7 @@ use loco_rs::{Result, app::AppContext};
 
 use super::extractors::{ProjectAccess, Tenant};
 use crate::{
-    models::{projects, users, workspace_members},
+    models::{permission::Permission, projects, users, workspace_members},
     views::layout::{AppShell, ProjectLink, WorkspaceLink, WorkspaceView},
 };
 
@@ -49,6 +49,13 @@ pub async fn app_shell(
                 .scheduled_for_deletion(tenant.workspace.purge_starts_at().as_ref()),
         )
         .can_manage_workspace(tenant.role.has_settings_access())
+        .admin_all_projects(tenant.role.is_admin_everywhere())
+        .with_new_project_href(
+            tenant
+                .role
+                .has(Permission::CreateProjects)
+                .then(|| format!("/w/{slug}/projects/new")),
+        )
         .with_settings(
             tenant
                 .role

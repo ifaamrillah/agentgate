@@ -1,15 +1,11 @@
-{#- Halaman di dalam project: kepala project (kotak kunci, nama, deskripsi, akses Anda) dan tab
-    (views::nav::project_tabs). Halaman mengisi actions dan main.
-    Variabel: project (views::projects::ProjectSummary: key, name, description, archived,
-    role_label), tabs ([views::nav::NavItem]). -#}
+{#- Halaman di dalam project: bar tab tampilan project (komponen project_tabs) di pbar dan
+    breadcrumb workspace / project / tampilan. Halaman mengisi crumb, heading, main, dll.
+    Variabel: project (views::projects::ProjectSummary), views (views::nav::ProjectViews),
+      views_action (POST simpan preferensi tab), return_to (path halaman ini). -#}
 {% extends "layouts/page.html" %}
-{% block page_attrs %}data-project-header{% endblock page_attrs %}
-{% block leading %}{{ <key_tile key={project.key} size="lg"/> }}{% endblock leading %}
+{% block tabs %}{{ <project_tabs views={views} action={views_action} return_to={return_to}/> }}{% endblock tabs %}
+{% block mtabs %}{{ <project_tabs views={views} action={views_action} return_to={return_to} mobile={true}/> }}{% endblock mtabs %}
+{% block leading %}{{ <project_logo initials={project.initials} color={project.color} image={project.logo_href} size="lg"/> }}{% endblock leading %}
 {% block heading %}{{ project.name }}
   {%- if project.archived %} <span data-project-archived>{{ <badge label={t(key="project-archived", lang="id")} variant="neutral"/> }}</span>{% endif %}
 {%- endblock heading %}
-{% block description %}
-  {%- if project.description %}{{ project.description }} · {% endif -%}
-  <span data-project-role>{{ t(key="project-your-access", lang="id", role=project.role_label) }}</span>
-{%- endblock description %}
-{% block tabs %}{{ <tabs label={t(key="project-sections", lang="id")} items={tabs}/> }}{% endblock tabs %}
