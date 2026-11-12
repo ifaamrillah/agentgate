@@ -12,7 +12,7 @@ use crate::{
         flash,
         shell::app_shell,
     },
-    models::{permission::Permission, projects, repos},
+    models::{permission::Permission, projects, repos, tickets},
     services::{
         projects::{self as service, ProjectFailure, ProjectInput},
         workspaces::Acting,
@@ -21,7 +21,7 @@ use crate::{
         self,
         flash::Flash,
         nav,
-        projects::{MemberRow, ProjectFormView, ProjectPaths, RepoView, ShowPage},
+        projects::{MemberRow, ProjectFormView, ProjectPaths, RepoView, ShowPage, TicketStat},
     },
 };
 
@@ -135,6 +135,27 @@ pub(super) async fn show(
     )
     .await?
     .at("project_overview");
+    let counts =
+        tickets::Model::count_by_status(&ctx.db, access.tenant.workspace_id(), access.project.id)
+            .await?;
+    let total: i64 = counts.iter().map(|(_, n)| n).sum();
+    let home = paths(&access).home;
+    let ticket_stats = views::tickets::STATUSES
+        .iter()
+        .map(|status| {
+            let view = views::tickets::status_view(*status);
+            let count = counts
+                .iter()
+                .find(|(s, _)| s == view.value)
+                .map_or(0, |(_, n)| *n);
+            TicketStat {
+                status: view,
+                count,
+                percent: if total > 0 { count * 100 / total } else { 0 },
+                href: format!("{home}/list?status={}", view.value),
+            }
+        })
+        .collect();
     let project = summary(&access);
     let views = nav::project_views(
         &paths(&access).home,
@@ -150,6 +171,7 @@ pub(super) async fn show(
             members,
             paths: admin_paths.as_ref(),
             views,
+            ticket_stats,
         },
     )
 }

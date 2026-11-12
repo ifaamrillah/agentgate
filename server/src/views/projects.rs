@@ -64,6 +64,8 @@ pub struct ProjectPaths {
     /// POST unggah logo (multipart) dan POST hapus logo.
     pub logo_upload: String,
     pub logo_delete: String,
+    /// Pengaturan project → Kode tiket.
+    pub ticket_code: String,
 }
 
 impl ProjectPaths {
@@ -84,6 +86,7 @@ impl ProjectPaths {
             logo: format!("{home}/logo"),
             logo_upload: format!("{home}/settings/logo"),
             logo_delete: format!("{home}/settings/logo/delete"),
+            ticket_code: format!("{home}/settings/ticket-code"),
             home,
         }
     }
@@ -287,6 +290,18 @@ pub struct ShowPage<'a> {
     /// Tautan pengaturan, hanya untuk Admin project.
     pub paths: Option<&'a ProjectPaths>,
     pub views: ProjectViews,
+    /// Jumlah tiket per status (kolom board), dengan tautan ke daftar terfilter.
+    pub ticket_stats: Vec<TicketStat>,
+}
+
+/// Satu baris kartu Progres di ringkasan project.
+#[derive(Debug, Serialize)]
+pub struct TicketStat {
+    pub status: super::tickets::StatusView,
+    pub count: i64,
+    /// Persentase dari total (0–100) untuk bar.
+    pub percent: i64,
+    pub href: String,
 }
 
 /// Ringkasan project. `pinned` = tampilan yang disematkan user (`users.project_views`).
@@ -305,6 +320,10 @@ pub fn show(v: &impl ViewRenderer, shell: &AppShell, page: &ShowPage<'_>) -> Res
                 "views": page.views,
                 "views_action": PROJECT_VIEWS_ACTION,
                 "return_to": home,
+                "ticket_stats": page.ticket_stats,
+                "ticket_total": page.ticket_stats.iter().map(|s| s.count).sum::<i64>(),
+                "board_href": format!("{home}/board"),
+                "new_ticket_href": format!("{home}/tickets/new"),
             }),
         ),
     )

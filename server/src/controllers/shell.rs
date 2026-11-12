@@ -11,7 +11,7 @@ use loco_rs::{Result, app::AppContext};
 
 use super::extractors::{ProjectAccess, Tenant};
 use crate::{
-    models::{permission::Permission, projects, users, workspace_members},
+    models::{notifications, permission::Permission, projects, users, workspace_members},
     views::{
         self,
         layout::{AppShell, ProjectLink, WorkspaceLink, WorkspaceView},
@@ -71,7 +71,10 @@ pub async fn app_shell(
                 .has_settings_access()
                 .then(|| super::workspaces::settings_links(tenant)),
         )
-        .with_projects(projects);
+        .with_projects(projects)
+        .with_inbox_unread(
+            notifications::Model::unread_count(&ctx.db, tenant.workspace_id(), user.id).await?,
+        );
     Ok(match project {
         Some(access) => shell.with_current_project(project_link(slug, &access.project)),
         None => shell,

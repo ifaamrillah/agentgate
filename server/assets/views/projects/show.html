@@ -1,8 +1,9 @@
-{#- Project → Ringkasan (prototype "Ringkasan project"). Board dan statistik tiket datang di M2:
-    kartu progres tampil sebagai empty state jujur.
+{#- Project → Ringkasan (prototype "Ringkasan project"). Kartu Progres: jumlah tiket per status
+    (kolom board) dengan tautan ke Daftar terfilter; stage workflow menyusul di M3.
     Variabel: project (views::projects::ProjectSummary), repos ([RepoView]), members
     ([MemberRow]: tim/orang dengan akses), paths (ProjectPaths atau null bila bukan Admin
-    project), views/views_action/return_to (layouts/project.html). -#}
+    project), ticket_stats ([TicketStat]), ticket_total, board_href, new_ticket_href,
+    views/views_action/return_to (layouts/project.html). -#}
 {% extends "layouts/project.html" %}
 {% block title %}{{ project.name }}{% endblock title %}
 {% block crumb %}{{ <crumb label={t(key="project-view-overview", lang="id")}/> }}{% endblock crumb %}
@@ -16,9 +17,22 @@
 {% endblock head_actions %}
 {% block main %}
 <div class="app-grid" data-cols="duo">
-  <div data-board-empty>
-  {% <card title={t(key="project-progress-title", lang="id")} description={t(key="project-progress-description", lang="id")}> %}
-    {{ <empty_state title={t(key="project-board-soon-title", lang="id")} description={t(key="project-board-soon-description", lang="id")} icon="layout-kanban" variant="plain"/> }}
+  <div data-ticket-stats>
+  {% <card title={t(key="project-progress-title", lang="id")} description={t(key="project-progress-description", lang="id")} count={ticket_total ~ ""} link_label={t(key="project-open-board", lang="id")} link_href={board_href} flush={ticket_total > 0}> %}
+    {%- if ticket_total > 0 %}
+    {%- for stat in ticket_stats %}
+    <a class="app-lrow" href="{{ stat.href }}" data-ticket-stat="{{ stat.status.value }}">
+      <span class="app-status" data-status="{{ stat.status.value }}">{{ icon(name=stat.status.icon) }}</span>
+      <span class="app-lrow-main"><b>{{ t(key=stat.status.label_key, lang="id") }}</b></span>
+      <span class="app-meter" aria-hidden="true"><span style="--p:{{ stat.percent }}%"></span></span>
+      <span class="app-code app-num">{{ stat.count }}</span>
+    </a>
+    {%- endfor %}
+    {%- else %}
+    {% <empty_state title={t(key="project-tickets-empty-title", lang="id")} description={t(key="project-tickets-empty-description", lang="id")} icon="layout-kanban" variant="plain"> %}
+      {{ <button label={t(key="ticket-new", lang="id")} icon="plus" href={new_ticket_href} size="sm"/> }}
+    {% </empty_state> %}
+    {%- endif %}
   {% </card> %}
   </div>
   {% <card title={t(key="project-about-title", lang="id")} description={t(key="project-about-description", lang="id")} link_label={paths and t(key="action-edit", lang="id") or ""} link_href={paths and paths.settings or ""}> %}
