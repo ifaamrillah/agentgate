@@ -55,3 +55,47 @@ async fn error_page_keeps_every_cookie_and_drops_body_headers() {
         "text/html; charset=utf-8"
     );
 }
+
+async fn plain_unauthorized() -> Response {
+    let mut res = StatusCode::UNAUTHORIZED.into_response();
+    res.headers_mut().insert(
+        header::WWW_AUTHENTICATE,
+        HeaderValue::from_static("Bearer resource_metadata=\"x\""),
+    );
+    res
+}
+
+async fn json_unauthorized() -> Response {
+    (
+        StatusCode::UNAUTHORIZED,
+        [(header::CONTENT_TYPE, "application/json")],
+        r#"{"error":"invalid_token"}"#,
+    )
+        .into_response()
+}
+
+#[tokio::test]
+async fn api_path_errors_become_json_and_keep_headers() {
+    let app = Router::new()
+        .route("/mcp", get(plain_unauthorized))
+        .route("/oauth/token", get(json_unauthorized))
+        .layer(from_fn_with_state(view(), html_errors::layer));
+    let res = app
+        .clone()
+        .oneshot(Request::get("/mcp").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(res.headers()[header::CONTENT_TYPE], "application/json");
+    assert!(res.headers().get(header::WWW_AUTHENTICATE).is_some());
+    let body = axum::body::to_bytes(res.into_body(), 1024).await.unwrap();
+    assert_eq!(&body[..], br#"{"error":"unauthorized"}"#);
+
+    // JSON yang sudah ada dibiarkan apa adanya.
+    let res = app
+        .oneshot(Request::get("/oauth/token").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    let body = axum::body::to_bytes(res.into_body(), 1024).await.unwrap();
+    assert_eq!(&body[..], br#"{"error":"invalid_token"}"#);
+}

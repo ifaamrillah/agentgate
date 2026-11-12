@@ -2,6 +2,7 @@
 use loco_rs::{app::AppContext, controller::AppRoutes, environment::Environment};
 
 pub mod account;
+pub mod api_routes;
 pub mod auth;
 #[cfg(debug_assertions)]
 pub mod dev;

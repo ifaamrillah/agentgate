@@ -40,3 +40,25 @@ async fn missing_static_file_is_a_404_not_a_200_fallback() {
     })
     .await;
 }
+
+/// Endpoint API (MCP, OAuth, API publik) dipanggil klien non-browser: error-nya JSON, bukan
+/// halaman HTML (utang M0 `html_errors`).
+#[tokio::test]
+async fn api_paths_get_json_errors_not_html_pages() {
+    request::<App, _, _>(|request, _ctx| async move {
+        for path in ["/api/tidak-ada", "/.well-known/tidak-ada", "/oauth/token/x"] {
+            let res = request.get(path).await;
+            assert_eq!(res.status_code(), 404, "{path}");
+            assert!(
+                res.header("content-type")
+                    .to_str()
+                    .unwrap()
+                    .starts_with("application/json"),
+                "{path}"
+            );
+            let body: serde_json::Value = res.json();
+            assert_eq!(body["error"], "not_found", "{path}");
+        }
+    })
+    .await;
+}
