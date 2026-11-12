@@ -16,6 +16,27 @@ pub struct Settings {
     /// Pengirim (`From`) semua email aplikasi, mis. `Agent Gate <noreply@example.com>`.
     pub mail_from: String,
     pub auth: AuthSettings,
+    /// Impor skill pack (opsional di config; tes mengarahkan ke server palsu).
+    #[serde(default)]
+    pub skills: SkillSettings,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SkillSettings {
+    /// Basis URL tarball repo GitHub: `{base}/{owner}/{repo}/tar.gz/{ref}`.
+    pub fetch_base: String,
+    /// Batas waktu unduh (detik).
+    pub fetch_timeout_seconds: u64,
+}
+
+impl Default for SkillSettings {
+    fn default() -> Self {
+        Self {
+            fetch_base: "https://codeload.github.com".to_string(),
+            fetch_timeout_seconds: 20,
+        }
+    }
 }
 
 /// Setting autentikasi milik aplikasi. Setting sesi milik Loco ada di `auth.session`.

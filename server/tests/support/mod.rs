@@ -4,6 +4,7 @@
 
 mod audit;
 mod builders;
+pub mod fake_codeload;
 pub mod fake_oauth;
 mod mail;
 mod session;

@@ -7,6 +7,7 @@
 
 use loco_rs::model::{TenantEntity, TenantQueryExt};
 use sea_orm::{QueryOrder, QuerySelect, entity::prelude::*};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 pub use super::_entities::skill_packs::{ActiveModel, Column, Entity, Model};
@@ -39,7 +40,14 @@ pub const ERROR_CODES: &[&str] = &[
     NOTE_REQUIRED,
     CONFIRM_MISMATCH,
     NOT_PENDING,
+    TOOL_UNKNOWN,
 ];
+
+/// Tools yang bisa diminta skill pack buatan sendiri (nama tools Claude Code).
+pub const SKILL_TOOLS: &[&str] = &[
+    "Read", "Grep", "Glob", "Edit", "Write", "Bash", "WebFetch", "Task",
+];
+pub const TOOL_UNKNOWN: &str = "skill-tool-unknown";
 
 pub const DESCRIPTION_MAX_LEN: usize = 500;
 /// Batas file per skill pack dan ukuran satu file (byte).
@@ -80,6 +88,33 @@ pub enum SkillRisk {
     Attention,
     #[sea_orm(string_value = "danger")]
     Danger,
+}
+
+// Laporan pindai statis (`report`, JSON array), ditulis `services::skills::scan`.
+
+/// Satu temuan: berkas, nomor baris (1-based), potongan baris.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ScanFinding {
+    pub file: String,
+    pub line: usize,
+    pub excerpt: String,
+    /// Kunci Fluent alasan (`skill-scan-…`).
+    pub reason: String,
+    /// `attention` atau `danger`.
+    pub level: String,
+}
+
+/// Hasil satu pemeriksaan.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ScanCheck {
+    /// `commands` | `injection` | `secrets` | `tools`.
+    pub key: String,
+    /// `safe` | `attention` | `danger`.
+    pub level: String,
+    pub findings: Vec<ScanFinding>,
+    /// Tools yang diminta (hanya pemeriksaan `tools`).
+    #[serde(default)]
+    pub tools: Vec<String>,
 }
 
 impl TenantEntity for Entity {

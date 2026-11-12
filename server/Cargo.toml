@@ -77,6 +77,11 @@ serde_urlencoded = "0.7"
 # Timestamp (timestamptz) dan perhitungan umur token/sesi.
 chrono = "0.4"
 
+# Unduh tarball repo skill pack (GitHub codeload) lalu buka isinya (tar.gz) di memori.
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+flate2 = "1"
+tar = "0.4"
+
 # Prompt password tanpa echo untuk task user:set_password.
 rpassword = "7"
 

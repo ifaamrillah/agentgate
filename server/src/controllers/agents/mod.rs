@@ -3,6 +3,7 @@ use axum::routing::{get, post};
 use loco_rs::prelude::Routes;
 
 mod personas;
+mod skills;
 
 pub fn routes() -> Routes {
     Routes::new()
@@ -35,6 +36,43 @@ pub fn routes() -> Routes {
             "/w/{slug}/settings/personas/{id}/delete",
             post(personas::delete),
         )
+        .add(
+            "/w/{slug}/settings/skills",
+            get(skills::index).post(skills::create),
+        )
+        .add("/w/{slug}/settings/skills/import", post(skills::import))
+        .add(
+            "/w/{slug}/settings/skills/{id}",
+            get(skills::show).post(skills::update),
+        )
+        .add(
+            "/w/{slug}/settings/skills/{id}/files",
+            post(skills::save_file),
+        )
+        .add(
+            "/w/{slug}/settings/skills/{id}/files/new",
+            post(skills::add_file),
+        )
+        .add(
+            "/w/{slug}/settings/skills/{id}/files/delete",
+            post(skills::delete_file),
+        )
+        .add(
+            "/w/{slug}/settings/skills/{id}/submit",
+            post(skills::submit),
+        )
+        .add(
+            "/w/{slug}/settings/skills/{id}/approve",
+            post(skills::approve),
+        )
+        .add(
+            "/w/{slug}/settings/skills/{id}/reject",
+            post(skills::reject),
+        )
+        .add(
+            "/w/{slug}/settings/skills/{id}/delete",
+            post(skills::delete),
+        )
 }
 
 /// Tautan menu Pengaturan (persona, skill pack) bila role memegang `ManageTicketSettings`.
@@ -45,6 +83,6 @@ pub(crate) fn settings_links(
     let slug = &tenant.workspace.slug;
     (
         allowed.then(|| personas::base(slug)),
-        allowed.then(|| format!("/w/{slug}/settings/skills")),
+        allowed.then(|| skills::base(slug)),
     )
 }

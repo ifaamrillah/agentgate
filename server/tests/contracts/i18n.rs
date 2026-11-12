@@ -99,6 +99,7 @@ fn every_validation_error_code_has_a_message() {
         agentgate_server::models::custom_fields::ERROR_CODES,
         agentgate_server::models::workflows::ERROR_CODES,
         agentgate_server::models::personas::ERROR_CODES,
+        agentgate_server::models::skill_packs::ERROR_CODES,
         agentgate_server::models::ticket_artifacts::ERROR_CODES,
         agentgate_server::services::tickets::stages::ERROR_CODES,
         agentgate_server::services::workflows::ERROR_CODES,
@@ -182,6 +183,7 @@ fn every_ticket_enum_and_view_key_has_a_translation() {
     }
     used.extend(views::workflow::label_keys());
     used.extend(views::personas::label_keys());
+    used.extend(views::skills::label_keys());
     for kind in NotificationKind::iter() {
         used.push(format!(
             "notification-{}",

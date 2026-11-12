@@ -1,0 +1,140 @@
+{#- Satu skill pack (ManageTicketSettings). Draf/ditolak buatan sendiri: form informasi, editor
+    berkas, kirim ke review. Sudah dikirim: laporan pindai, isi berkas (baca saja), keputusan
+    approve/tolak (pending). Variabel: lihat controllers::agents::skills::render_show. -#}
+{% extends "layouts/settings.html" %}
+{% block title %}{{ pack.name }} · {{ t(key="settings-skills-title", lang="id") }}{% endblock title %}
+{% block crumb_label %}<a href="{{ back }}">{{ t(key="settings-skills-title", lang="id") }}</a><span data-sep aria-hidden="true">/</span>{{ pack.name }}{% endblock crumb_label %}
+{% block page_attrs %}data-skill-page="{{ pack.status }}"{% endblock page_attrs %}
+{% block settings %}
+<header class="app-page-head">
+  <span class="app-tile" data-size="lg"{% if pack.risk == "danger" %} data-tone="danger"{% elif pack.risk == "attention" %} data-tone="warn"{% elif pack.risk == "safe" %} data-tone="success"{% endif %}>{{ icon(name=pack.icon) }}</span>
+  <div class="app-page-title"><h1>{{ pack.name }} <span class="app-hint app-mono">v{{ pack.version }}</span></h1>
+    <p>{% if pack.repo %}<span class="app-mono">{{ pack.repo }}</span>{% else %}{{ t(key="skill-source-custom", lang="id") }}{% endif %}{% if creator %} · {{ t(key="skill-by", lang="id", name=creator) }}{% endif %} · {{ t(key="skill-count", lang="id", count=skills) }}</p></div>
+  <div class="app-page-acts">{{ <badge label={t(key=pack.status_key, lang="id")} variant={pack.status_variant}/> }}</div>
+</header>
+{%- if pack.status == "rejected" and raw.review_note %}
+<div class="alert" data-variant="destructive" role="status">{{ icon(name="shield-x") }}<span>{{ t(key="skill-rejected-note", lang="id", name=reviewer | default(value="-"), note=raw.review_note) }}</span></div>
+{%- elif pending %}
+<div class="alert" role="status">{{ icon(name="info-circle") }}<span>{{ t(key="skill-pending-note", lang="id") }}</span></div>
+{%- endif %}
+{%- for code in [errors.pack.code, errors.decision.code] %}{% if code %}{{ <flash kind="error" message={t(key=code, lang="id")}/> }}{% endif %}{% endfor %}
+
+<div class="app-grid" data-cols="duo">
+<div class="app-stack-v" data-gap="lg">
+  {%- if checks %}
+  {% <card title={t(key="skill-report", lang="id")} description={t(key="skill-report-description", lang="id")} flush={true} attrs="data-skill-report"> %}
+    {%- for c in checks %}
+    <div class="app-check-item" data-check="{{ c.key }}" data-level="{{ c.level }}">
+      <span class="app-tile"{% if c.level == "danger" %} data-tone="danger"{% elif c.level == "attention" %} data-tone="warn"{% else %} data-tone="success"{% endif %}>{{ icon(name=c.icon) }}</span>
+      <div>
+        <div class="app-fhead"><b>{{ t(key=c.label_key, lang="id") }}</b>{{ <badge label={t(key=c.level_key, lang="id")} variant={c.variant}/> }}</div>
+        {%- if c.tools %}<p class="app-hint">{{ c.tools | join(sep=", ") }}</p>{% elif c.key == "tools" %}<p class="app-hint">{{ t(key="skill-no-tools", lang="id") }}</p>{% endif %}
+        {%- for f in c.findings %}
+        <div class="app-finding"><span>{{ t(key=f.reason_key, lang="id") }} · <span class="app-mono">{{ f.file }}:{{ f.line }}</span></span><code>{{ f.excerpt }}</code></div>
+        {%- endfor %}
+      </div>
+    </div>
+    {%- endfor %}
+  {% </card> %}
+  {%- endif %}
+
+  {%- if editable %}
+  {% <card title={t(key="skill-info", lang="id")} description={t(key="skill-info-description", lang="id")} form={href} cancel_href={href} attrs="data-skill-info"> %}
+    <div class="app-stack-v" data-gap="sm">
+      {{ <field id="skill-name" name="name" label={t(key="skill-name", lang="id")} value={info.name} error={errors.name.code} error_max={errors.name.max} required={true}/> }}
+      {{ <textarea_field id="skill-description" name="description" label={t(key="skill-description", lang="id")} value={info.description} rows={3} error={errors.description.code} hint={t(key="skill-description-hint", lang="id")}/> }}
+      <fieldset class="app-toolset">
+        <legend>{{ t(key="skill-tools", lang="id") }}<small>{{ t(key="skill-tools-hint", lang="id") }}</small></legend>
+        {%- if errors.tools.code %}<p class="app-field-error" role="alert">{{ t(key=errors.tools.code, lang="id") }}</p>{% endif %}
+        <div class="app-checks">
+          {%- for tool in tools %}
+          <label><input type="checkbox" class="app-check" name="tools" value="{{ tool.value }}"{% if tool.on %} checked{% endif %}><span><b class="app-mono">{{ tool.value }}</b></span></label>
+          {%- endfor %}
+        </div>
+      </fieldset>
+    </div>
+  {% </card> %}
+  {%- endif %}
+
+  {% <card title={t(key="skill-files", lang="id")} description={t(key="skill-files-description", lang="id", count=files | length)} attrs="data-skill-files"> %}
+  <div class="app-skill">
+    <nav class="app-ftree" aria-label="{{ t(key="skill-files", lang="id") }}">
+      {%- for f in files %}
+      <a href="{{ f.href }}"{% if f.current %} aria-current="page"{% endif %} data-file="{{ f.path }}">{{ icon(name=f.icon) }}<span>{{ f.path }}</span></a>
+      {%- endfor %}
+      {%- if editable %}
+      <form method="post" action="{{ href }}/files/new" data-skill-add-file>
+        {{ <field id="skill-new-path" name="path" label={t(key="skill-add-file", lang="id")} value={new_path} error={errors.path.code} placeholder="scripts/cek.py" mono={true} hide_label={true}/> }}
+        {{ <button label={t(key="skill-add-file", lang="id")} type="submit" icon="plus" variant="outline" size="sm"/> }}
+      </form>
+      {%- endif %}
+    </nav>
+    <div class="app-stack-v" data-gap="sm">
+      {%- if editable and current %}
+      <form method="post" action="{{ href }}/files" class="app-stack-v" data-gap="sm" data-skill-editor>
+        <input type="hidden" name="path" value="{{ current }}">
+        <div class="app-fhead">{{ icon(name=current_icon) }}<b>{{ current }}</b>
+          {%- if current == "SKILL.md" %}<span class="app-meta">{{ icon(name="lock") }}{{ t(key="skill-required-file", lang="id") }}</span>{% endif %}</div>
+        {{ <textarea_field id="skill-body" name="body" label={current} value={body} rows={20} error={errors.body.code} hide_label={true} class="app-mono"/> }}
+        <div class="app-btnrow">
+          {{ <button label={t(key="skill-save-file", lang="id")} type="submit" icon="device-floppy" size="sm"/> }}
+          {%- if current != "SKILL.md" %}
+          <button type="submit" class="btn" data-variant="ghost" data-size="sm" formaction="{{ href }}/files/delete" data-delete-file>{{ icon(name="trash") }}{{ t(key="skill-delete-file", lang="id") }}</button>
+          {%- endif %}
+        </div>
+      </form>
+      {%- elif current %}
+      <div class="app-fhead">{{ icon(name=current_icon) }}<b>{{ current }}</b></div>
+      <pre class="app-codeview" data-skill-body>{{ body }}</pre>
+      {%- endif %}
+    </div>
+  </div>
+  {% </card> %}
+
+  {%- if editable %}
+  {% <card title={t(key="skill-submit-title", lang="id")} description={t(key="skill-submit-description", lang="id")} form={href ~ "/submit"} save_label={t(key="skill-submit", lang="id")} attrs="data-skill-submit"> %}
+    {{ <textarea_field id="skill-note" name="note" label={t(key="skill-note", lang="id")} value="" rows={2} optional={t(key="field-optional", lang="id")}/> }}
+  {% </card> %}
+  {%- endif %}
+</div>
+
+<aside class="app-stack-v" data-gap="lg">
+  {% <card title={t(key="skill-details", lang="id")} attrs="data-skill-details"> %}
+  <dl class="app-props">
+    <dt>{{ t(key="skill-status", lang="id") }}</dt><dd>{{ <badge label={t(key=pack.status_key, lang="id")} variant={pack.status_variant}/> }}</dd>
+    <dt>{{ t(key="skill-risk", lang="id") }}</dt><dd>{% if pack.risk_key %}{{ <badge label={t(key=pack.risk_key, lang="id")} variant={pack.risk_variant}/> }}{% else %}<span class="app-muted">{{ t(key="skill-risk-none", lang="id") }}</span>{% endif %}</dd>
+    <dt>{{ t(key="skill-source", lang="id") }}</dt><dd>{% if pack.repo %}<a class="app-mono" href="{{ raw.repo_url }}" rel="noopener noreferrer" target="_blank">{{ pack.repo }}</a>{% else %}{{ t(key="skill-source-custom", lang="id") }}{% endif %}</dd>
+    {%- if raw.repo_ref %}<dt>{{ t(key="skill-repo-ref", lang="id") }}</dt><dd class="app-mono">{{ raw.repo_ref }}{% if raw.repo_path %} · {{ raw.repo_path }}{% endif %}</dd>{% endif %}
+    {%- if raw.commit_sha %}<dt>{{ t(key="skill-commit", lang="id") }}</dt><dd class="app-mono">{{ raw.commit_sha | truncate(length=12, end="") }}</dd>{% endif %}
+    <dt>{{ t(key="skill-used-by", lang="id") }}</dt><dd>{% if used %}{{ used | join(sep=", ") }}{% else %}<span class="app-muted">{{ t(key="skill-unused", lang="id") }}</span>{% endif %}</dd>
+    {%- if reviewer %}<dt>{{ t(key="skill-reviewer", lang="id") }}</dt><dd>{{ reviewer }}</dd>{% endif %}
+  </dl>
+  {% </card> %}
+
+  {%- if pending %}
+  {% <card title={t(key="skill-decision", lang="id")} description={t(key="skill-decision-description", lang="id")} attrs="data-skill-decision"> %}
+  <div class="app-stack-v" data-gap="md">
+    <form method="post" action="{{ href }}/approve" class="app-stack-v" data-gap="sm" data-skill-approve>
+      {%- if danger %}
+      <div class="alert" data-variant="destructive">{{ icon(name="alert-triangle") }}<span>{{ t(key="skill-approve-danger", lang="id") }}</span></div>
+      {{ <field id="skill-confirm" name="confirm" label={t(key="skill-confirm", lang="id", pack=raw.key)} error={errors.confirm.code} mono={true} autocomplete="off" required={true}/> }}
+      {%- endif %}
+      {{ <button label={t(key="skill-approve", lang="id")} type="submit" icon="check" full={true}/> }}
+    </form>
+    <form method="post" action="{{ href }}/reject" class="app-stack-v" data-gap="sm" data-skill-reject>
+      {{ <textarea_field id="skill-reject-note" name="note" label={t(key="skill-reject-note", lang="id")} rows={2} error={errors.note.code} required={true}/> }}
+      {{ <button label={t(key="skill-reject", lang="id")} type="submit" icon="x" variant="danger" full={true}/> }}
+    </form>
+  </div>
+  {% </card> %}
+  {%- endif %}
+
+  {% <card title={t(key="skill-danger-zone", lang="id")} variant="danger" attrs="data-skill-danger"> %}
+  <form method="post" action="{{ href }}/delete" class="app-stack-v" data-gap="sm">
+    <p class="app-hint">{{ t(key="skill-delete-description", lang="id") }}</p>
+    {{ <button label={t(key="skill-delete", lang="id")} type="submit" icon="trash" variant="outline" size="sm"/> }}
+  </form>
+  {% </card> %}
+</aside>
+</div>
+{% endblock settings %}
