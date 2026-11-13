@@ -171,6 +171,7 @@ mcp-tool-ag-snippet = Ambil kode sumber simbol
 mcp-tool-ag-impact = Analisis dampak perubahan simbol atau diff
 mcp-tool-ag-graph = Ringkasan graph, kode mati, relasi lintas repo, kueri Cypher
 mcp-tool-ag-knowledge = Baca, cari, dan usulkan perubahan dokumen knowledge project
+mcp-tool-ag-planning = Estimasi tiket, release notes, dan sprint project
 
 ## Pengaturan → Skill pack
 settings-skills-description = Impor skill dari repo GitHub (format SKILL.md) atau buat sendiri. Setiap skill pack dipindai server, lalu wajib disetujui manusia sebelum bisa dipasang ke persona.

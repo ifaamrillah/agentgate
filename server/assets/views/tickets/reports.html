@@ -1,0 +1,81 @@
+{#- Project → Laporan (prototype M9 "Laporan"): tab tautan (burndown, burnup, velocity, sprint
+    report, cumulative flow, kalibrasi, cycle time), pilihan sprint, grafik SVG dari
+    views::charts (sudah di-escape, `| safe`), legenda, angka, dan tabel. Tombol "Cetak / PDF"
+    memakai cetak peramban (CSS print menyembunyikan navigasi).
+    Variabel: project, views, views_action, return_to, tab, tabs, sprint, sprints, chart, legend,
+    stats, note, note_arg, done_rows, left_rows, moved_to, stage_rows, cycle_rows, scatter, empty,
+    backlog, updated. -#}
+{% extends "layouts/project.html" %}
+{% block title %}{{ t(key="project-view-reports", lang="id") }} · {{ project.name }}{% endblock title %}
+{% block crumb %}{{ <crumb label={t(key="project-view-reports", lang="id")}/> }}{% endblock crumb %}
+{% block page_attrs %}data-reports-page="{{ tab }}"{% endblock page_attrs %}
+{% block description %}{{ t(key="report-description", lang="id", time=updated) }}{% endblock description %}
+{% block head_actions %}
+  <span data-no-print>{{ <button label={t(key="report-print", lang="id")} icon="download" variant="outline" attrs="data-print"/> }}</span>
+{% endblock head_actions %}
+{% block main %}
+{%- set tab_key = "report-tab-" ~ tab %}{% set empty_key = "report-empty-" ~ tab %}{% set desc_key = "report-" ~ tab ~ "-description" %}
+{{ <tabs label={t(key="report-tabs", lang="id")} items={tabs}/> }}
+{%- if sprints and tab in ["burndown", "sprint"] %}
+<nav class="app-chips" aria-label="{{ t(key="report-sprint-choose", lang="id") }}" data-sprint-picker data-no-print>
+  {%- for s in sprints %}<a class="app-chip" href="{{ s.href }}"{% if s.current %} aria-pressed="true"{% endif %}>{% if s.state == "active" %}{{ icon(name="player-play") }}{% endif %}{{ s.name }} · {{ s.range }}</a>{% endfor %}
+</nav>
+{%- endif %}
+{%- if stats %}{{ <stats items={stats}/> }}{% endif %}
+
+{%- if empty %}
+{% <card title={t(key=tab_key, lang="id")}> %}
+  {%- if note %}{{ <empty_state title={t(key="report-empty", lang="id")} description={t(key=note, lang="id")} icon="chart-line" variant="plain"/> }}
+  {%- else %}{{ <empty_state title={t(key="report-empty", lang="id")} description={t(key=empty_key, lang="id")} icon="chart-line" variant="plain"/> }}{% endif %}
+  <div class="app-pad" data-no-print>{{ <button label={t(key="report-open-backlog", lang="id")} icon="stack-2" variant="outline" href={backlog}/> }}</div>
+{% </card> %}
+{%- elif tab == "sprint" %}
+{%- if note_arg %}<p class="app-hint">{{ icon(name="target") }} {{ t(key="report-sprint-goal", lang="id", goal=note_arg) }}</p>{% endif %}
+{% <card title={t(key="report-sprint-done", lang="id")} count={done_rows | length ~ ""} flush={true} attrs="data-report-done"> %}
+  <div class="table-container"><table class="table">
+    <thead><tr><th>{{ t(key="report-col-ticket", lang="id") }}</th><th>{{ t(key="report-col-title", lang="id") }}</th><th data-align="right">{{ t(key="report-col-points", lang="id") }}</th><th data-align="right" data-hide="md">{{ t(key="report-col-estimate", lang="id") }}</th><th data-align="right" data-hide="md">{{ t(key="report-col-actual", lang="id") }}</th></tr></thead>
+    <tbody>
+    {%- for r in done_rows %}<tr data-report-row="{{ r.code }}"><td><a class="app-code" href="{{ r.href }}">{{ r.code }}</a></td><td>{{ r.title }}</td><td data-align="right"><span class="app-code">{% if r.points is not none %}{{ r.points }}{% else %}–{% endif %}</span></td><td data-align="right" data-hide="md"><span class="app-hint">{{ r.estimate }}</span></td><td data-align="right" data-hide="md"{% if r.over %} data-tone="warn"{% endif %}>{{ r.actual }}</td></tr>
+    {%- else %}<tr><td colspan="5"><span class="app-hint">{{ t(key="report-none", lang="id") }}</span></td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+{% </card> %}
+{%- if left_rows %}
+{%- if moved_to %}{% set left_title = t(key="report-sprint-moved", lang="id", name=moved_to) %}{% else %}{% set left_title = t(key="report-sprint-backlog", lang="id") %}{% endif %}
+{% <card title={left_title} count={left_rows | length ~ ""} flush={true} attrs="data-report-left"> %}
+  {%- for r in left_rows %}<a class="app-lrow" href="{{ r.href }}" data-report-row="{{ r.code }}"><span class="app-code">{{ r.code }}</span><span class="app-lrow-main"><b>{{ r.title }}</b></span><span class="app-pts"{% if r.points is none %} data-none{% endif %}>{% if r.points is not none %}{{ r.points }}{% else %}?{% endif %}</span></a>{% endfor %}
+{% </card> %}
+{%- endif %}
+{%- elif tab == "calibration" %}
+<div class="app-grid" data-cols="two">
+{% <card title={t(key="report-calibration-scatter", lang="id")} description={t(key="report-calibration-scatter-description", lang="id")}> %}
+  {{ scatter | safe }}
+  <div class="app-leg"><span><i data-c="accent"></i>{{ t(key="report-legend-on-target", lang="id") }}</span><span><i data-c="warn"></i>{{ t(key="report-legend-longer", lang="id") }}</span><span><i data-c="muted" data-dash></i>{{ t(key="report-legend-exact", lang="id") }}</span></div>
+{% </card> %}
+{% <card title={t(key="report-calibration-factors", lang="id")} description={t(key="report-note-calibration", lang="id")} flush={true}> %}
+  <div class="table-container"><table class="table" data-calibration>
+    <thead><tr><th>{{ t(key="report-col-stage", lang="id") }}</th><th>{{ t(key="report-col-estimate-split", lang="id") }}</th><th>{{ t(key="report-col-actual-median", lang="id") }}</th><th data-align="right">{{ t(key="report-col-factor", lang="id") }}</th></tr></thead>
+    <tbody>{% for s in stage_rows %}<tr><td>{{ s.name }}</td><td><span class="app-code">{{ s.estimate }} j</span></td><td><span class="app-code">{{ s.actual }} j</span></td><td data-align="right">{% if s.high %}{{ <badge label={s.factor} variant="destructive" code={true}/> }}{% else %}{{ <badge label={s.factor} variant="neutral" code={true}/> }}{% endif %}</td></tr>{% endfor %}</tbody>
+  </table></div>
+{% </card> %}
+</div>
+{%- elif tab == "cycle" %}
+{% <card title={t(key="report-tab-cycle", lang="id")} description={t(key="report-cycle-description", lang="id")}> %}
+  {%- if note %}<div class="alert" data-variant="warn">{{ icon(name="hourglass") }}<span>{{ t(key=note, lang="id", share=note_arg) }}</span></div>{% endif %}
+  <div class="app-hbars" data-cycle>
+  {%- for r in cycle_rows %}
+    <div class="app-hbar"><span>{{ r.name }}</span><div class="app-hbar-t" style="width: {{ r.width }}%"><i data-c="accent" style="width: {{ r.ai_pct }}%" title="{{ r.name }} · AI {{ r.ai }} jam"></i><i data-c="warn" title="{{ r.name }} · manusia {{ r.human }} jam"></i></div><span class="app-code">{{ r.total }} j</span></div>
+  {%- endfor %}
+  </div>
+  <div class="app-leg">{% for l in legend %}<span><i data-c="{{ l.tone }}"{% if l.dash %} data-dash{% endif %}></i>{{ t(key=l.key, lang="id") }}</span>{% endfor %}</div>
+{% </card> %}
+{%- else %}
+{%- if sprint and tab == "burndown" %}{% set chart_desc = sprint.name ~ " · " ~ sprint.range %}{% else %}{% set chart_desc = t(key=desc_key, lang="id") %}{% endif %}
+{% <card title={t(key=tab_key, lang="id")} description={chart_desc} attrs="data-report-chart"> %}
+  {{ chart | safe }}
+  {%- if legend %}<div class="app-leg">{% for l in legend %}<span><i data-c="{{ l.tone }}"{% if l.dash %} data-dash{% endif %}></i>{{ t(key=l.key, lang="id") }}</span>{% endfor %}</div>{% endif %}
+  {%- if tab == "cfd" %}<div class="app-leg">{% for s in stage_rows %}<span><i data-c="{{ s.estimate }}"></i>{{ s.name }}</span>{% endfor %}</div>{% endif %}
+  {%- if note %}<p class="app-hint">{{ t(key=note, lang="id") }}</p>{% endif %}
+{% </card> %}
+{%- endif %}
+{% endblock main %}

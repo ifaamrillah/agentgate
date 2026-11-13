@@ -77,6 +77,8 @@ pub struct ProjectPaths {
     pub graph_index: String,
     /// Tab project → Knowledge (M8).
     pub knowledge: String,
+    /// Pengaturan project → Components (M9).
+    pub components: String,
 }
 
 impl ProjectPaths {
@@ -104,6 +106,7 @@ impl ProjectPaths {
             graph: format!("{home}/graph"),
             graph_index: format!("{home}/graph/index"),
             knowledge: format!("{home}/knowledge"),
+            components: format!("{home}/settings/components"),
             home,
         }
     }

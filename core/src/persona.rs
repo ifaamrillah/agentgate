@@ -28,6 +28,7 @@ pub const MCP_TOOLS: &[&str] = &[
     "ag_impact",
     "ag_graph",
     "ag_knowledge",
+    "ag_planning",
 ];
 
 /// Tool code graph (M7), dipakai semua persona bawaan yang menyentuh kode atau analisis.
@@ -198,6 +199,7 @@ const READ_TOOLS: &[&str] = &[
     GRAPH_TOOLS[3],
     GRAPH_TOOLS[4],
     "ag_knowledge",
+    "ag_planning",
 ];
 const WORK_TOOLS: &[&str] = &[
     "ag_context",
@@ -239,6 +241,7 @@ pub const BUILTINS: [Builtin; 9] = [
             "ag_trace",
             "ag_snippet",
             "ag_knowledge",
+            "ag_planning",
         ],
         client_tools: &["read", "web"],
         danger: &[],

@@ -60,6 +60,9 @@ pub const TICKET_FIELDS: &[&str] = &[
     "labels",
     "due_on",
     "story_points",
+    "sprint",
+    "release",
+    "component",
 ];
 pub const TYPE_FIELDS: &[&str] = &["key", "name", "description", "icon", "color", "type"];
 pub const FIELD_FIELDS: &[&str] = &["name", "kind", "options"];
@@ -463,6 +466,10 @@ pub struct StageColumn {
     pub name: String,
     pub status: StatusView,
     pub cards: Vec<TicketRow>,
+    /// Batas WIP (M9); `None` = tanpa batas.
+    pub wip: Option<u16>,
+    /// Kartu melebihi batas WIP.
+    pub over: bool,
 }
 
 /// Kolom board dari gabungan stage semua workflow yang dipakai project: kunci sama = satu kolom
@@ -474,24 +481,32 @@ pub fn stage_columns(
     definitions: &[agentgate_core::workflow::Definition],
     tickets: &[tickets::Model],
 ) -> Vec<StageColumn> {
-    let mut seen: Vec<(String, String, agentgate_core::workflow::Category, usize)> = Vec::new();
+    let mut seen: Vec<(
+        String,
+        String,
+        agentgate_core::workflow::Category,
+        usize,
+        Option<u16>,
+    )> = Vec::new();
     for d in definitions {
         for (i, s) in d.stages.iter().enumerate() {
             if !seen.iter().any(|(k, ..)| *k == s.key) {
-                seen.push((s.key.clone(), s.name.clone(), s.category, i));
+                seen.push((s.key.clone(), s.name.clone(), s.category, i, s.wip));
             }
         }
     }
-    seen.sort_by_key(|(_, _, c, i)| (*c, *i));
+    seen.sort_by_key(|(_, _, c, i, _)| (*c, *i));
     let mut columns: Vec<StageColumn> = seen
         .into_iter()
-        .map(|(key, name, category, _)| StageColumn {
+        .map(|(key, name, category, _, wip)| StageColumn {
             key,
             name,
             status: status_view(
                 TicketStatus::parse(category.as_str()).unwrap_or(TicketStatus::Todo),
             ),
             cards: Vec::new(),
+            wip,
+            over: false,
         })
         .collect();
     for t in tickets {
@@ -506,8 +521,13 @@ pub fn stage_columns(
                 name: t.stage_key.clone(),
                 status: status_view(t.status().unwrap_or(TicketStatus::Todo)),
                 cards: vec![lookup.row(t)],
+                wip: None,
+                over: false,
             }),
         }
+    }
+    for c in &mut columns {
+        c.over = c.wip.is_some_and(|w| c.cards.len() > usize::from(w));
     }
     columns
 }
@@ -730,6 +750,10 @@ pub struct TicketFormView {
     pub labels: String,
     pub due_on: String,
     pub story_points: String,
+    /// Id sprint/rilis/component terpilih (`""` = kosong).
+    pub sprint: String,
+    pub release: String,
+    pub component: String,
     pub errors: FieldErrors,
 }
 
@@ -753,6 +777,9 @@ impl TicketFormView {
             labels: t.labels.join(", "),
             due_on: t.due_on.map(|d| d.to_string()).unwrap_or_default(),
             story_points: t.story_points.map(|p| p.to_string()).unwrap_or_default(),
+            sprint: t.sprint_id.map(|id| id.to_string()).unwrap_or_default(),
+            release: t.release_id.map(|id| id.to_string()).unwrap_or_default(),
+            component: t.component_id.map(|id| id.to_string()).unwrap_or_default(),
             errors: field_errors(TICKET_FIELDS, None),
         }
     }

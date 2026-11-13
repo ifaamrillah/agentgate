@@ -538,6 +538,8 @@ struct StageForm {
     exit: &'static str,
     fail_limit: u8,
     fail_to: String,
+    /// Batas WIP kolom board; `""` = tanpa batas.
+    wip: String,
     parallel: bool,
     executors: Vec<String>,
     approvers: Vec<String>,
@@ -563,6 +565,7 @@ impl StageForm {
             exit: s.exit.as_str(),
             fail_limit: s.fail_limit,
             fail_to: s.fail_to.clone().unwrap_or_default(),
+            wip: s.wip.map(|n| n.to_string()).unwrap_or_default(),
             parallel: s.parallel,
             executors: ids(&s.people.executors),
             approvers: ids(&s.people.approvers),
@@ -600,6 +603,11 @@ fn stage_from(pairs: &[(String, String)]) -> Stage {
     s.fail_to = Some(get_one(pairs, "fail_to").trim())
         .filter(|v| !v.is_empty())
         .map(str::to_string);
+    s.wip = get_one(pairs, "wip")
+        .trim()
+        .parse::<u16>()
+        .ok()
+        .filter(|n| *n > 0);
     s.parallel = !get_one(pairs, "parallel").is_empty();
     s.people = People {
         executors: uuids(pairs, "executors"),

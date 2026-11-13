@@ -11,5 +11,12 @@
   {{ <field id={id_prefix ~ "-story-points"} name="story_points" label={t(key="ticket-field-story-points", lang="id")} type="text" inputmode="numeric" value={form.story_points} error={form.errors.story_points.code} error_max={form.errors.story_points.max} optional={t(key="field-optional", lang="id")}/> }}
   {{ <field id={id_prefix ~ "-due-on"} name="due_on" label={t(key="ticket-field-due-on", lang="id")} type="date" value={form.due_on} error={form.errors.due_on.code} optional={t(key="field-optional", lang="id")}/> }}
 </div>
+{%- if planning.sprints or planning.releases or planning.components %}
+<div class="app-form-row" data-planning-fields>
+  {%- if planning.sprints or form.sprint %}{{ <select_field id={id_prefix ~ "-sprint"} name="sprint" label={t(key="ticket-field-sprint", lang="id")} options={planning.sprints} empty_label={t(key="backlog-title", lang="id")} value={form.sprint} error={form.errors.sprint.code}/> }}{% endif %}
+  {%- if planning.releases or form.release %}{{ <select_field id={id_prefix ~ "-release"} name="release" label={t(key="ticket-field-release", lang="id")} options={planning.releases} empty_label={t(key="ticket-none", lang="id")} value={form.release} error={form.errors.release.code}/> }}{% endif %}
+  {%- if planning.components or form.component %}{{ <select_field id={id_prefix ~ "-component"} name="component" label={t(key="ticket-field-component", lang="id")} options={planning.components} empty_label={t(key="ticket-none", lang="id")} value={form.component} error={form.errors.component.code}/> }}{% endif %}
+</div>
+{%- endif %}
 {{ <field id={id_prefix ~ "-parent"} name="parent" label={t(key="ticket-field-parent", lang="id")} value={form.parent} error={form.errors.parent.code} mono={true} placeholder={t(key="ticket-parent-placeholder", lang="id")} optional={t(key="field-optional", lang="id")}/> }}
 {% include "tickets/_custom_fields.html" %}

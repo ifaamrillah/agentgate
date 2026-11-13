@@ -37,6 +37,7 @@
 @import "./components/git.css";
 @import "./components/graph.css";
 @import "./components/knowledge.css";
+@import "./components/planning.css";
 
 @source "../views";
 @source "../../src";

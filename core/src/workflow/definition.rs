@@ -293,6 +293,9 @@ pub struct Stage {
     pub parallel: bool,
     #[serde(default)]
     pub people: People,
+    /// Batas WIP kolom board (M9); `None` = tanpa batas. Melebihi batas hanya diberi tanda.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wip: Option<u16>,
 }
 
 impl Stage {
@@ -317,6 +320,7 @@ impl Stage {
             fail_to: None,
             parallel: false,
             people: People::default(),
+            wip: None,
         }
     }
 

@@ -45,7 +45,12 @@ pub struct DraftInput {
     pub description: String,
     #[serde(default)]
     pub story_points: Option<i32>,
+    /// Estimasi AI per stage (disalin ke `ticket_estimates` saat tiket dibuat).
+    #[serde(default)]
+    pub estimate: Option<DraftEstimate>,
 }
+
+pub use crate::models::ticket_drafts::DraftEstimate;
 
 /// Isian ubah draft dari halaman review.
 #[derive(Debug, Clone, Default)]
@@ -124,7 +129,26 @@ pub async fn save_from_agent(
                     .ok_or_else(|| TicketFailure::field("parent", PARENT_INVALID))?,
             ),
         };
+        let estimate = match &input.estimate {
+            Some(e) => {
+                let valid = crate::services::planning::estimates::validate(
+                    &crate::services::planning::estimates::EstimateInput {
+                        points: valid.story_points,
+                        stages: e.stages.clone(),
+                        basis: e.basis.clone(),
+                    },
+                )?;
+                serde_json::to_value(DraftEstimate {
+                    stages: valid.stages,
+                    basis: valid.basis,
+                    persona: e.persona.chars().take(60).collect(),
+                })
+                .unwrap_or_default()
+            }
+            None => serde_json::json!({}),
+        };
         let draft = ticket_drafts::ActiveModel {
+            estimate: Set(estimate),
             workspace_id: Set(wid.get()),
             project_id: Set(project_id),
             source_ticket_id: Set(source_ticket_id),
@@ -260,6 +284,22 @@ pub async fn create_tickets(
             ..TicketForm::default()
         };
         let ticket = create::run_in(&txn, acting, project_id, &form).await?;
+        if let Some(e) = d.estimate() {
+            crate::services::planning::estimates::record_in(
+                &txn,
+                acting.workspace_id(),
+                &ticket,
+                crate::models::ticket_estimates::EstimateSource::Ai,
+                &crate::services::planning::estimates::EstimateInput {
+                    points: d.story_points,
+                    stages: e.stages,
+                    basis: e.basis,
+                },
+                Some(acting.user.id),
+                &e.persona,
+            )
+            .await?;
+        }
         created.push((d.id, ticket));
     }
     // Draft yang tidak dibuat kehilangan induknya yang sudah jadi tiket (bukan ikut terhapus).

@@ -150,6 +150,7 @@ async fn workflow_is_built_from_a_template_edited_and_published() {
                 ("output", "brainstorm.md"),
                 ("fail_limit", "3"),
                 ("fail_to", ""),
+                ("wip", "4"),
             ],
         )
         .await;
@@ -158,6 +159,11 @@ async fn workflow_is_built_from_a_template_edited_and_published() {
         assert_eq!(w.version, 1);
         let draft = w.draft().expect("draf ada");
         assert_eq!(draft.stage("brainstorm").unwrap().name, "Brainstorm ide");
+        assert_eq!(
+            draft.stage("brainstorm").unwrap().wip,
+            Some(4),
+            "batas WIP tersimpan"
+        );
         assert_css_exists(&get(&request, c, &base).await.text(), "[data-draft-bar]");
 
         // Persona yang tidak ada di workspace → 422, draf tidak berubah.

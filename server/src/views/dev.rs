@@ -136,6 +136,7 @@ pub fn ui(v: &impl ViewRenderer, query: &[(String, String)]) -> Result<Response>
                 "runner": runner_samples(),
                 "git": git_samples(),
                 "graph": graph_samples(),
+                "planning": planning_samples(),
                 "kb": {
                     "markdown": "## Alur refund\n\nSupervisor menyetujui refund **di atas Rp500.000**.\n\n- [x] Cek struk\n- [ ] Catat alasan\n\n| Batas | Tindakan |\n| --- | --- |\n| ≤ Rp500.000 | Kasir |\n| > Rp500.000 | Supervisor |\n\n```mermaid\nflowchart LR\n  Kasir --> Supervisor --> Selesai\n```\n\n<script>alert(1)</script>",
                     "sbs": [
@@ -148,6 +149,31 @@ pub fn ui(v: &impl ViewRenderer, query: &[(String, String)]) -> Result<Response>
             }),
         ),
     )
+}
+
+/// Contoh planning (M9) untuk katalog: burndown (`views::charts::line_chart`).
+fn planning_samples() -> serde_json::Value {
+    use crate::views::charts::{Mark, Series, line_chart};
+    let labels: Vec<String> = (1..=10).map(|d| format!("{d} Des")).collect();
+    let ideal: Vec<Option<f64>> = (0..10)
+        .map(|i| Some(30.0 - 30.0 / 9.0 * f64::from(i)))
+        .collect();
+    let actual = [30.0, 30.0, 27.0, 25.0, 25.0, 19.0];
+    let remaining: Vec<Option<f64>> = (0..10).map(|i| actual.get(i).copied()).collect();
+    let tips: Vec<String> = labels.iter().map(|l| format!("{l}\nSisa poin")).collect();
+    serde_json::json!({
+        "chart": line_chart(
+            "Burndown",
+            &labels,
+            &[
+                Series { tone: "muted", values: ideal, dash: true, area: false },
+                Series { tone: "accent", values: remaining, dash: false, area: true },
+            ],
+            &[Mark { index: 5, tone: "warn", label: "Hari ini".into() }],
+            &tips,
+            640.0,
+        ),
+    })
 }
 
 /// Contoh komponen code graph (M7) untuk katalog.

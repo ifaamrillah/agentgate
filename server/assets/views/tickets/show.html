@@ -157,6 +157,9 @@
         <dd>{% if ticket.points is not none %}<span class="app-points">{{ ticket.points }}</span>{% else %}<span class="app-hint">—</span>{% endif %}</dd>
         <dt>{{ t(key="ticket-field-due-on", lang="id") }}</dt>
         <dd>{% if ticket.due %}<span class="app-due"{% if ticket.overdue %} data-overdue{% endif %}>{{ icon(name="calendar") }}{{ ticket.due }}</span>{% else %}<span class="app-hint">{{ t(key="ticket-due-none", lang="id") }}</span>{% endif %}</dd>
+        {%- if plan.sprint %}<dt>{{ t(key="ticket-field-sprint", lang="id") }}</dt><dd data-ticket-sprint><a class="app-link" href="{{ plan.sprint.href }}">{{ plan.sprint.name }}</a> <span class="app-hint">{{ plan.sprint.hint }}</span></dd>{% endif %}
+        {%- if plan.release %}<dt>{{ t(key="ticket-field-release", lang="id") }}</dt><dd data-ticket-release><a class="app-link" href="{{ plan.release.href }}">{{ plan.release.name }}</a>{% if plan.release.hint %} <span class="app-hint">{{ plan.release.hint }}</span>{% endif %}</dd>{% endif %}
+        {%- if plan.component %}<dt>{{ t(key="ticket-field-component", lang="id") }}</dt><dd data-ticket-component>{{ plan.component.name }}</dd>{% endif %}
         <dt>{{ t(key="ticket-field-parent", lang="id") }}</dt>
         <dd>{% if parent %}<a class="app-tref" href="{{ parent.href }}">{{ <type_icon icon={parent.ticket_type.icon} color={parent.ticket_type.color} label={parent.ticket_type.name}/> }}<span class="app-code">{{ parent.code }}</span></a>{% else %}<span class="app-hint">—</span>{% endif %}</dd>
         {%- for cv in custom_values %}
@@ -172,11 +175,58 @@
       <div class="app-blk">{{ <button label={t(key="ticket-edit-details", lang="id")} icon="pencil" variant="outline" size="sm" dialog="ticket-edit" full={true}/> }}</div>
       {%- endif %}
     {% </card> %}
+
+    <div id="estimate">
+    {% <card title={t(key="estimate-title", lang="id")} attrs="data-ticket-estimate" flush={true}> %}
+      <div class="app-blk">
+        {%- if plan.ai %}
+        <div class="app-est-h"><span class="app-ai">{{ icon(name="sparkles") }}{% if plan.changed %}<s>AI {{ plan.ai.points }}</s>{{ icon(name="user") }}{% else %}AI {{ plan.ai.points | default(value="–") }}{% endif %}</span>
+          <span class="app-hint">{{ t(key="estimate-ai-hours", lang="id", ai=plan.ai.ai, human=plan.ai.human) }}</span></div>
+        {%- if plan.changed %}<p class="app-hint">{{ t(key="estimate-ai-changed", lang="id", ai=plan.ai.points, points=ticket.points) }}</p>{% endif %}
+        {%- else %}
+        <p class="app-hint" data-estimate-none>{{ t(key="estimate-ai-none", lang="id") }}</p>
+        {%- endif %}
+        {%- if plan.current and plan.current.stages %}
+        <div class="app-est-stages" data-estimate-stages>
+          {%- for s in plan.current.stages %}<span>{{ s.name }}</span><span class="app-code">{{ s.ai }} + {{ s.human }} j</span>{% endfor %}
+        </div>
+        {%- endif %}
+        {%- if plan.current and plan.current.basis %}<p class="app-hint">{{ t(key="estimate-basis", lang="id", basis=plan.current.basis) }}</p>{% endif %}
+        {%- if plan.forecast %}<p{% if plan.forecast_late %} class="app-warn-text"{% endif %} data-estimate-forecast>{{ icon(name="calendar") }} {{ t(key="estimate-forecast", lang="id", date=plan.forecast) }}{% if plan.forecast_late %} · {{ t(key="estimate-forecast-late", lang="id") }}{% endif %}</p>{% endif %}
+      </div>
+      {%- if can_edit %}
+      <div class="app-blk app-est-acts">
+        {{ <button label={t(key="estimate-edit", lang="id")} icon="pencil" variant="outline" size="sm" dialog="estimate-edit" attrs="data-estimate-edit"/> }}
+        <form method="post" action="{{ plan.request_action }}">{{ <button label={t(key="estimate-request-ai", lang="id")} icon="sparkles" variant="ghost" size="sm" type="submit" attrs="data-estimate-request"/> }}</form>
+      </div>
+      {%- endif %}
+    {% </card> %}
+    </div>
   </aside>
 </div>
 
 {% include "tickets/_stage_dialogs.html" %}
 {%- if can_edit %}
+{% <dialog id="estimate-edit" title={t(key="estimate-edit", lang="id")} description={t(key="estimate-edit-description", lang="id")} icon="sparkles" tone="accent"> %}
+<form method="post" action="{{ plan.save_action }}">
+  <section><div class="app-stack-v" data-gap="sm">
+    {{ <field id="estimate-points" name="points" type="number" label={t(key="ticket-field-story-points", lang="id")} value={plan.points} optional={t(key="field-optional", lang="id")}/> }}
+    <div class="app-est-grid">
+      <span class="app-hint">{{ t(key="report-col-stage", lang="id") }}</span><span class="app-hint">{{ t(key="estimate-col-ai", lang="id") }}</span><span class="app-hint">{{ t(key="estimate-col-human", lang="id") }}</span>
+      {%- for s in plan.form %}
+      <label for="est-ai-{{ s.key }}">{{ s.name }}</label>
+      <input class="app-input" id="est-ai-{{ s.key }}" name="ai_{{ s.key }}" inputmode="decimal" value="{{ s.ai }}" aria-label="{{ s.name }} · {{ t(key="estimate-col-ai", lang="id") }}">
+      <input class="app-input" name="human_{{ s.key }}" inputmode="decimal" value="{{ s.human }}" aria-label="{{ s.name }} · {{ t(key="estimate-col-human", lang="id") }}">
+      {%- endfor %}
+    </div>
+    {{ <textarea_field id="estimate-basis" name="basis" label={t(key="estimate-basis-label", lang="id")} value={plan.current.basis | default(value="")} rows={2} optional={t(key="field-optional", lang="id")}/> }}
+  </div></section>
+  <footer>
+    <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+    {{ <button label={t(key="action-save", lang="id")} type="submit" attrs="data-estimate-save"/> }}
+  </footer>
+</form>
+{% </dialog> %}
 {% <dialog id="ticket-edit" title={t(key="ticket-edit-details", lang="id")} icon="pencil" tone="accent" open={details_open}> %}
 <form method="post" action="{{ paths.show }}" data-ticket-edit data-ticket-form>
   <section><div class="app-stack-v" data-gap="sm">

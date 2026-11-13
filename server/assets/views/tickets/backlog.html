@@ -1,0 +1,213 @@
+{#- Project → Backlog & sprint (prototype M9 "Backlog & sprint"): stats, pencarian, blok sprint
+    belum selesai (aktif dulu) lalu backlog. Baris tiket: grip seret (static/js/backlog-dnd.js
+    mengisi form pindah lalu submit biasa), prioritas, tipe, kode, judul, label, stage, usulan AI,
+    story point, penerima, menu ⋯ (pindah sprint, ke atas/bawah) yang jalan tanpa JS.
+    Variabel: project, views, views_action, return_to, base, q, total, shown, stats, sprints
+    ([views::planning::SprintBlock]), backlog (SprintBlock), can_edit, new_ticket, reports,
+    new_action, new_input, failed_dialog, failed_input, errors, blank, flash. -#}
+{% extends "layouts/project.html" %}
+{% block title %}{{ t(key="project-view-backlog", lang="id") }} · {{ project.name }}{% endblock title %}
+{% block crumb %}{{ <crumb label={t(key="project-view-backlog", lang="id")}/> }}{% endblock crumb %}
+{% block page_attrs %}data-backlog-page{% endblock page_attrs %}
+{% block description %}{{ t(key="backlog-description", lang="id") }}{% endblock description %}
+{% block head_actions %}
+  {%- if can_edit %}{{ <button label={t(key="sprint-new", lang="id")} icon="plus" variant="outline" dialog="sprint-new" attrs="data-sprint-new"/> }}{% endif -%}
+{% endblock head_actions %}
+{% block main %}
+{{ <stats items={stats}/> }}
+<form class="app-fr" method="get" action="{{ base }}" role="search" data-backlog-filter>
+  <label class="app-fsearch">{{ icon(name="search") }}<input type="search" name="q" value="{{ q }}" placeholder="{{ t(key="backlog-search", lang="id") }}" aria-label="{{ t(key="backlog-search", lang="id") }}"></label>
+  {%- if q %}<a class="app-fclear" href="{{ base }}">{{ icon(name="x") }}{{ t(key="table-filter-clear", lang="id") }}</a>{% endif %}
+  <span data-grow></span>
+  <span class="app-hint" data-backlog-count>{% if q %}{{ t(key="backlog-count-filtered", lang="id", shown=shown, total=total) }}{% else %}{{ t(key="backlog-count", lang="id", total=total) }}{% endif %}</span>
+  {%- if can_edit %}<span class="app-hint app-board-hint">{{ icon(name="grip-vertical") }}{{ t(key="backlog-drag-hint", lang="id") }}</span>{% endif %}
+</form>
+{%- if can_edit %}<form method="post" hidden data-backlog-move-form><input type="hidden" name="to" value=""><input type="hidden" name="place" value="keep"></form>{% endif %}
+
+<div class="app-stack-v" data-gap="md"{% if can_edit %} data-backlog-dnd{% endif %}>
+{%- for b in blocks %}
+{%- set target = b.id | default(value="") %}
+<section class="app-spr" data-sprint="{% if b.id %}{{ b.id }}{% else %}backlog{% endif %}" data-drop-target="{% if b.id %}{{ b.id }}{% else %}backlog{% endif %}" aria-label="{% if b.id %}{{ b.name }}{% else %}{{ t(key="backlog-title", lang="id") }}{% endif %}">
+  <header class="app-spr-h">
+    {%- if b.id %}
+    <div class="app-spr-t">
+      <div><h2>{{ b.name }}</h2>
+        {%- if b.state == "active" %}{{ <badge label={t(key="sprint-state-active", lang="id")} variant="info"/> }}{% else %}{{ <badge label={t(key="sprint-state-planned", lang="id")} variant="neutral"/> }}{% endif %}
+        <span class="app-hint">{{ b.range }}</span>
+        {%- if b.state == "active" %}<span class="app-hint">· {{ t(key="sprint-days-left", lang="id", days=b.days_left, workdays=b.workdays_left) }}</span>{% endif %}</div>
+      {%- if b.goal %}<span class="app-spr-goal">{{ icon(name="target") }}{{ b.goal }}</span>{% endif %}
+    </div>
+    <div class="app-spr-cap" data-sprint-capacity>
+      <div><span class="app-hint">{{ t(key="sprint-ticket-count", lang="id", count=b.count) }}</span>
+        <span class="tabular-nums"{% if b.over %} data-over{% endif %}>{% if b.capacity is not none %}{{ t(key="sprint-points-of", lang="id", points=b.points, capacity=b.capacity) }}{% else %}{{ t(key="sprint-points", lang="id", points=b.points) }}{% endif %}</span></div>
+      {%- if b.state == "active" %}<div class="app-bar" title="{{ t(key="sprint-done-points", lang="id", done=b.done_points, points=b.points) }}"><i style="width: {{ b.done_pct }}%; --c: var(--ag-success)"></i></div>
+      {%- else %}<div class="app-bar"{% if b.over %} data-over{% endif %}><i style="width: {{ b.fill }}%"></i></div>{% endif %}
+    </div>
+    {%- if can_edit %}
+    {%- if b.state == "active" %}{{ <button label={t(key="sprint-complete", lang="id")} icon="flag" variant="outline" size="sm" dialog={"sprint-complete-" ~ b.id} attrs="data-sprint-complete"/> }}
+    {%- else %}{{ <button label={t(key="sprint-start", lang="id")} icon="player-play" size="sm" dialog={"sprint-start-" ~ b.id} attrs="data-sprint-start"/> }}{% endif %}
+    {% <action_menu id={"sprint-menu-" ~ b.id} label={t(key="sprint-options", lang="id", name=b.name)}> %}
+      <button type="button" class="app-menu-item" data-dialog="sprint-edit-{{ b.id }}">{{ icon(name="pencil") }}{{ t(key="sprint-edit", lang="id") }}</button>
+      <a class="app-menu-item" href="{{ reports }}?sprint={{ b.id }}">{{ icon(name="chart-line") }}{{ t(key="sprint-report", lang="id") }}</a>
+      {%- if b.state != "active" %}
+      <div class="app-menu-sep"></div>
+      <form method="post" action="{{ b.base }}/delete" hx-confirm="{{ t(key="sprint-delete-confirm", lang="id", name=b.name) }}">
+        <button type="submit" class="app-menu-item" data-variant="destructive" data-sprint-delete>{{ icon(name="trash") }}{{ t(key="sprint-delete", lang="id") }}</button>
+      </form>
+      {%- endif %}
+    {% </action_menu> %}
+    {%- endif %}
+    {%- else %}
+    <div class="app-spr-t"><div><h2>{{ t(key="backlog-title", lang="id") }}</h2><span class="app-hint">{{ t(key="backlog-summary", lang="id", count=b.count, points=b.points) }}</span></div></div>
+    {%- endif %}
+  </header>
+  {%- if b.over %}<div class="alert" data-variant="warn">{{ icon(name="alert-triangle") }}<span>{{ t(key="sprint-over-capacity", lang="id", over=b.points - b.capacity) }}</span></div>{% endif %}
+  {%- if b.id and b.unestimated %}<div class="alert" data-variant="neutral">{{ icon(name="sparkles") }}<span>{{ t(key="sprint-unestimated", lang="id", count=b.unestimated) }}</span></div>{% endif %}
+  <div data-rows>
+  {%- for r in b.rows %}
+  <div class="app-tr" data-ticket-row="{{ r.code }}" data-ticket-id="{{ r.id }}"{% if r.done %} data-done{% endif %}{% if can_edit %} draggable="true" data-move-action="{{ r.move_action }}"{% endif %}>
+    <span class="app-tr-grip" aria-hidden="true">{% if can_edit %}{{ icon(name="grip-vertical") }}{% endif %}</span>
+    {{ <prio rank={r.priority.rank} label={t(key=r.priority.label_key, lang="id")}/> }}
+    {{ <type_icon icon={r.ticket_type.icon} color={r.ticket_type.color} label={r.ticket_type.name}/> }}
+    <span class="app-code">{{ r.code }}</span>
+    <a class="app-tr-title" href="{{ r.href }}" title="{{ r.title }}">{{ r.title }}</a>
+    <span class="app-tr-labels" data-hide-sm>{% for l in r.labels %}{% if loop.index <= 2 %}<span class="app-label-pill">{{ l }}</span>{% endif %}{% endfor %}</span>
+    <span class="app-tr-stage" data-hide-sm title="{{ r.stage }}">{{ r.stage }}</span>
+    <span data-hide-sm>
+      {%- if r.ai_points is none %}<span class="app-ai" data-none title="{{ t(key="estimate-ai-none", lang="id") }}">{{ icon(name="sparkles") }}–</span>
+      {%- elif r.ai_changed %}<span class="app-ai" title="{{ t(key="estimate-ai-changed", lang="id", ai=r.ai_points, points=r.points) }}">{{ icon(name="sparkles") }}<s>AI {{ r.ai_points }}</s>{{ icon(name="user") }}</span>
+      {%- else %}<span class="app-ai" title="{% if r.hours %}{{ t(key="estimate-ai-hours", lang="id", ai=r.hours.ai, human=r.hours.human) }}{% else %}{{ t(key="estimate-ai-accepted", lang="id", ai=r.ai_points) }}{% endif %}">{{ icon(name="sparkles") }}AI {{ r.ai_points }}</span>{% endif -%}
+    </span>
+    {%- if r.points is not none %}<span class="app-pts" title="{{ t(key="ticket-field-story-points", lang="id") }}">{{ r.points }}</span>{% else %}<a class="app-pts" data-none href="{{ r.href }}" title="{{ t(key="estimate-missing", lang="id") }}" aria-label="{{ t(key="estimate-missing", lang="id") }}">?</a>{% endif %}
+    {%- if r.assignee %}{{ <avatar initials={r.assignee.initials} color={r.assignee.color} label={r.assignee.name} size="sm"/> }}{% else %}<span class="app-av-empty" title="{{ t(key="ticket-unassigned", lang="id") }}"></span>{% endif %}
+    {%- if can_edit %}
+    {% <action_menu id={"bl-move-" ~ r.id} label={t(key="ticket-move-label", lang="id", code=r.code)}> %}
+      <div class="app-menu-label">{{ t(key="backlog-move-to", lang="id", code=r.code) }}</div>
+      {%- for s in sprints %}{% if s.id != target %}
+      <form method="post" action="{{ r.move_action }}"><input type="hidden" name="to" value="{{ s.id }}"><input type="hidden" name="place" value="keep">
+        <button type="submit" class="app-menu-item">{% if s.state == "active" %}{{ icon(name="player-play") }}{% else %}{{ icon(name="calendar") }}{% endif %}{{ s.name }}</button></form>
+      {%- endif %}{% endfor %}
+      {%- if b.id %}
+      <form method="post" action="{{ r.move_action }}"><input type="hidden" name="to" value="backlog"><input type="hidden" name="place" value="keep">
+        <button type="submit" class="app-menu-item" data-move-backlog>{{ icon(name="stack-2") }}{{ t(key="backlog-title", lang="id") }}</button></form>
+      {%- endif %}
+      <div class="app-menu-sep"></div>
+      <form method="post" action="{{ r.move_action }}"><input type="hidden" name="place" value="top">
+        <button type="submit" class="app-menu-item">{{ icon(name="arrow-up") }}{{ t(key="backlog-move-top", lang="id") }}</button></form>
+      <form method="post" action="{{ r.move_action }}"><input type="hidden" name="place" value="bottom">
+        <button type="submit" class="app-menu-item">{{ icon(name="arrow-down") }}{{ t(key="backlog-move-bottom", lang="id") }}</button></form>
+      <div class="app-menu-sep"></div>
+      <a class="app-menu-item" href="{{ r.href }}">{{ icon(name="external-link") }}{{ t(key="backlog-open-ticket", lang="id") }}</a>
+    {% </action_menu> %}
+    {%- else %}<span></span>{% endif %}
+  </div>
+  {%- else %}
+  <div class="app-spr-empty">
+    {%- if q %}{{ <empty_state title={t(key="backlog-no-match", lang="id")} description={t(key="backlog-no-match-description", lang="id")} icon="filter" variant="plain"/> }}
+    {%- elif b.id %}{{ <empty_state title={t(key="sprint-empty", lang="id")} description={t(key="sprint-empty-description", lang="id")} icon="stack-2" variant="plain"/> }}
+    {%- else %}{{ <empty_state title={t(key="backlog-empty", lang="id")} description={t(key="backlog-empty-description", lang="id")} icon="stack-2" variant="plain"/> }}{% endif %}
+  </div>
+  {%- endfor %}
+  </div>
+  {%- if can_edit %}<a class="app-spr-add" href="{{ new_ticket }}{% if b.id %}?sprint={{ b.id }}{% endif %}">{{ icon(name="plus") }}{{ t(key="ticket-new", lang="id") }}</a>{% endif %}
+</section>
+{%- endfor %}
+</div>
+
+{%- if can_edit %}
+{#- Sprint baru. -#}
+{%- if failed_dialog == "sprint-new" %}{% set e = errors %}{% else %}{% set e = blank %}{% endif %}
+{% <dialog id="sprint-new" title={t(key="sprint-new", lang="id")} description={t(key="sprint-new-description", lang="id")} icon="calendar" tone="accent" open={failed_dialog == "sprint-new"}> %}
+<form method="post" action="{{ new_action }}">
+  <section><div class="app-stack-v" data-gap="sm">
+    {{ <field id="sprint-new-name" name="name" label={t(key="sprint-field-name", lang="id")} value={new_input.name} error={e.name.code} required={true}/> }}
+    {{ <textarea_field id="sprint-new-goal" name="goal" label={t(key="sprint-field-goal", lang="id")} value={new_input.goal} rows={2} error={e.goal.code}/> }}
+    <div class="app-form-row">
+      {{ <field id="sprint-new-start" name="starts_on" type="date" label={t(key="sprint-field-start", lang="id")} value={new_input.starts_on} error={e.starts_on.code} required={true}/> }}
+      {{ <field id="sprint-new-end" name="ends_on" type="date" label={t(key="sprint-field-end", lang="id")} value={new_input.ends_on} error={e.ends_on.code} required={true}/> }}
+      {{ <field id="sprint-new-capacity" name="capacity" type="number" label={t(key="sprint-field-capacity", lang="id")} value={new_input.capacity} error={e.capacity.code} optional={t(key="field-optional", lang="id")}/> }}
+    </div>
+  </div></section>
+  <footer>
+    <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+    {{ <button label={t(key="sprint-create", lang="id")} type="submit"/> }}
+  </footer>
+</form>
+{% </dialog> %}
+
+{%- for b in sprints %}
+{#- Ubah sprint. -#}
+{%- set did = "sprint-edit-" ~ b.id %}
+{%- if failed_dialog == did %}{% set e = errors %}{% set v = failed_input %}{% else %}{% set e = blank %}{% set v = b %}{% endif %}
+{% <dialog id={did} title={t(key="sprint-edit", lang="id")} description={b.name} icon="pencil" tone="accent" open={failed_dialog == did}> %}
+<form method="post" action="{{ b.base }}">
+  <section><div class="app-stack-v" data-gap="sm">
+    {{ <field id={did ~ "-name"} name="name" label={t(key="sprint-field-name", lang="id")} value={v.name} error={e.name.code} required={true}/> }}
+    {{ <textarea_field id={did ~ "-goal"} name="goal" label={t(key="sprint-field-goal", lang="id")} value={v.goal} rows={2} error={e.goal.code}/> }}
+    <div class="app-form-row">
+      {{ <field id={did ~ "-start"} name="starts_on" type="date" label={t(key="sprint-field-start", lang="id")} value={v.starts_on} error={e.starts_on.code} required={true}/> }}
+      {{ <field id={did ~ "-end"} name="ends_on" type="date" label={t(key="sprint-field-end", lang="id")} value={v.ends_on} error={e.ends_on.code} required={true}/> }}
+      {{ <field id={did ~ "-capacity"} name="capacity" type="number" label={t(key="sprint-field-capacity", lang="id")} value={v.capacity_input} error={e.capacity.code} optional={t(key="field-optional", lang="id")}/> }}
+    </div>
+  </div></section>
+  <footer>
+    <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+    {{ <button label={t(key="action-save", lang="id")} type="submit"/> }}
+  </footer>
+</form>
+{% </dialog> %}
+
+{%- if b.state == "planned" %}
+{#- Mulai sprint: konfirmasi nama, tujuan, tanggal; daftar tiketnya. -#}
+{%- set did = "sprint-start-" ~ b.id %}
+{%- if failed_dialog == did %}{% set e = errors %}{% set v = failed_input %}{% else %}{% set e = blank %}{% set v = b %}{% endif %}
+{%- if b.capacity is not none %}{% set desc = t(key="sprint-start-description", lang="id", count=b.count, points=b.points, capacity=b.capacity) %}{% else %}{% set desc = t(key="sprint-start-description-plain", lang="id", count=b.count, points=b.points) %}{% endif %}
+{% <dialog id={did} title={t(key="sprint-start-title", lang="id", name=b.name)} description={desc} icon="player-play" tone="accent" size="lg" open={failed_dialog == did}> %}
+<form method="post" action="{{ b.base }}/start">
+  <section><div class="app-stack-v" data-gap="sm">
+    {%- for o in sprints %}{% if o.state == "active" %}<div class="alert" data-variant="warn">{{ icon(name="alert-triangle") }}<span>{{ t(key="sprint-start-parallel", lang="id", name=o.name) }}</span></div>{% endif %}{% endfor %}
+    {%- if e.sprint.code %}<div class="alert" data-variant="destructive">{{ icon(name="alert-circle") }}<span>{{ t(key=e.sprint.code, lang="id") }}</span></div>{% endif %}
+    {{ <field id={did ~ "-name"} name="name" label={t(key="sprint-field-name", lang="id")} value={v.name} error={e.name.code} required={true}/> }}
+    {{ <textarea_field id={did ~ "-goal"} name="goal" label={t(key="sprint-field-goal", lang="id")} value={v.goal} rows={2} error={e.goal.code}/> }}
+    <div class="app-form-row">
+      {{ <field id={did ~ "-start"} name="starts_on" type="date" label={t(key="sprint-field-start", lang="id")} value={v.starts_on} error={e.starts_on.code} required={true}/> }}
+      {{ <field id={did ~ "-end"} name="ends_on" type="date" label={t(key="sprint-field-end", lang="id")} value={v.ends_on} error={e.ends_on.code} required={true}/> }}
+    </div>
+    <input type="hidden" name="capacity" value="{{ b.capacity_input }}">
+    {%- if b.rows %}<div class="app-boxlist">{% for r in b.rows %}<div class="app-lrow">{{ <prio rank={r.priority.rank} label={t(key=r.priority.label_key, lang="id")}/> }}{{ <type_icon icon={r.ticket_type.icon} color={r.ticket_type.color} label={r.ticket_type.name}/> }}<span class="app-code">{{ r.code }}</span><span class="app-lrow-main"><b>{{ r.title }}</b></span><span class="app-pts"{% if r.points is none %} data-none{% endif %}>{% if r.points is not none %}{{ r.points }}{% else %}?{% endif %}</span></div>{% endfor %}</div>{% endif %}
+    {%- if b.unestimated %}<div class="alert" data-variant="neutral">{{ icon(name="sparkles") }}<span>{{ t(key="sprint-start-unestimated", lang="id", count=b.unestimated) }}</span></div>{% endif %}
+  </div></section>
+  <footer>
+    <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+    {{ <button label={t(key="sprint-start", lang="id")} icon="player-play" type="submit" attrs="data-sprint-start-submit"/> }}
+  </footer>
+</form>
+{% </dialog> %}
+{%- else %}
+{#- Selesaikan sprint: ringkasan dan tujuan tiket yang belum selesai. -#}
+{%- set did = "sprint-complete-" ~ b.id %}
+{% <dialog id={did} title={t(key="sprint-complete-title", lang="id", name=b.name)} description={t(key="sprint-complete-description", lang="id", end=b.range)} icon="flag" tone="accent" size="lg" open={failed_dialog == did}> %}
+<form method="post" action="{{ b.base }}/complete">
+  <section><div class="app-stack-v" data-gap="sm">
+    {%- if failed_dialog == did and errors.sprint.code %}<div class="alert" data-variant="destructive">{{ icon(name="alert-circle") }}<span>{{ t(key=errors.sprint.code, lang="id") }}</span></div>{% endif %}
+    {{ <stats items={b.complete_stats}/> }}
+    <fieldset class="app-stack-v" data-gap="sm"><legend class="app-blk-t">{{ t(key="sprint-complete-target", lang="id") }}</legend>
+      {%- for o in b.targets %}
+      <label class="app-choice"><input type="radio" name="target" value="{{ o.id }}"{% if loop.first %} checked{% endif %}><span><b>{{ o.name }}</b><small>{{ o.range }} · {{ t(key="sprint-points", lang="id", points=o.points) }}</small></span></label>
+      {%- endfor %}
+      <label class="app-choice"><input type="radio" name="target" value="new"{% if not b.targets %} checked{% endif %}><span><b>{{ t(key="sprint-complete-new", lang="id") }}</b><small>{{ t(key="sprint-complete-new-hint", lang="id") }}</small></span></label>
+      <label class="app-choice"><input type="radio" name="target" value="backlog"><span><b>{{ t(key="backlog-title", lang="id") }}</b><small>{{ t(key="sprint-complete-backlog-hint", lang="id") }}</small></span></label>
+    </fieldset>
+    {%- if b.left_count %}<div class="app-boxlist">{% for r in b.rows %}{% if not r.done %}<div class="app-lrow">{{ <type_icon icon={r.ticket_type.icon} color={r.ticket_type.color} label={r.ticket_type.name}/> }}<span class="app-code">{{ r.code }}</span><span class="app-lrow-main"><b>{{ r.title }}</b></span><span class="app-hint">{{ r.stage }}</span></div>{% endif %}{% endfor %}</div>{% endif %}
+    <div class="alert" data-variant="neutral">{{ icon(name="info-circle") }}<span>{{ t(key="sprint-complete-note", lang="id") }}</span></div>
+  </div></section>
+  <footer>
+    <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+    {{ <button label={t(key="sprint-complete", lang="id")} icon="flag" type="submit" attrs="data-sprint-complete-submit"/> }}
+  </footer>
+</form>
+{% </dialog> %}
+{%- endif %}
+{%- endfor %}
+{%- endif %}
+{% endblock main %}

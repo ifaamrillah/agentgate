@@ -26,6 +26,7 @@
     {%- if r.ticket_type %}{{ <type_icon icon={r.ticket_type.icon} color={r.ticket_type.color} label={r.ticket_type.name}/> }}{% endif %}
     <span class="app-lrow-main"><b>{{ r.title }}</b>
       {%- if r.description %}<small>{{ r.description | truncate(length=140) }}</small>{% endif %}</span>
+    {%- if r.estimate %}<span class="app-ai app-hide-sm" title="{{ t(key="draft-estimate-title", lang="id") }}{% for s in r.estimate.stages %}&#10;{{ s.stage }}: {{ s.ai }} + {{ s.human }} j{% endfor %}{% if r.estimate.basis %}&#10;{{ r.estimate.basis }}{% endif %}" data-draft-estimate>{{ icon(name="sparkles") }}{{ t(key="estimate-ai-hours", lang="id", ai=r.estimate.ai, human=r.estimate.human) }}</span>{% endif %}
     {%- if r.story_points %}{{ <badge label={t(key="draft-points", lang="id", points=r.story_points)} variant="secondary" class="app-hide-sm"/> }}{% endif %}
     {%- if can_edit %}
     {{ <button icon="pencil" variant="ghost" size="icon-sm" dialog={"draft-edit-" ~ r.id} aria_label={t(key="draft-edit", lang="id")} attrs="data-draft-edit"/> }}

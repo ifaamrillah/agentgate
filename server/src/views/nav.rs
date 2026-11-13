@@ -115,6 +115,7 @@ pub const PROJECT_SETTINGS_SECTIONS: &[&str] = &[
     "project_workflow",
     "project_ticket_code",
     "project_git",
+    "project_components",
 ];
 
 /// Menu kiri Pengaturan workspace: Umum selalu ada (indeks Pengaturan), sisanya menurut izin role.
@@ -234,6 +235,7 @@ pub fn project_settings_nav(paths: &ProjectPaths, current: &str) -> Vec<NavItem>
                 &paths.ticket_code,
             ),
             NavItem::link("git", "project-git-title", "git-branch", &paths.git),
+            NavItem::link("components", "component-title", "puzzle", &paths.components),
         ],
         current,
     )
@@ -398,7 +400,21 @@ fn project_side_views(home: &str, section: &str) -> Vec<NavItem> {
         &format!("{home}/knowledge"),
     );
     knowledge.current = section == "project_knowledge";
-    vec![board, list, knowledge, graph]
+    let mut backlog = NavItem::link(
+        "backlog",
+        "nav-backlog",
+        "stack-2",
+        &format!("{home}/backlog"),
+    );
+    backlog.current = section == "project_backlog";
+    let mut reports = NavItem::link(
+        "reports",
+        "nav-reports",
+        "chart-line",
+        &format!("{home}/reports"),
+    );
+    reports.current = section == "project_reports";
+    vec![board, list, backlog, reports, knowledge, graph]
 }
 
 fn settings_side(shell: &AppShell) -> Vec<SideGroup> {
@@ -535,7 +551,8 @@ pub fn project_views(home_href: &str, pinned: &[String], current: &str) -> Proje
             .unwrap_or(PROJECT_VIEWS[0]);
         let mut nav = match key {
             "overview" => NavItem::link(key, label, icon, home_href),
-            "board" | "list" | "prs" | "graph" | "knowledge" => {
+            "board" | "list" | "prs" | "graph" | "knowledge" | "backlog" | "roadmap"
+            | "calendar" | "releases" | "reports" => {
                 NavItem::link(key, label, icon, &format!("{home_href}/{key}"))
             }
             _ => NavItem::soon(key, label, icon),

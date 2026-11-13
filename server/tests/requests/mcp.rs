@@ -22,7 +22,12 @@ use crate::support::{
 const PROTOCOL: &str = "2025-06-18";
 
 /// Satu panggilan JSON-RPC ke `/mcp`; kembalikan (status, body JSON).
-async fn rpc(request: &TestServer, token: &str, method: &str, params: Value) -> (u16, Value) {
+pub(super) async fn rpc(
+    request: &TestServer,
+    token: &str,
+    method: &str,
+    params: Value,
+) -> (u16, Value) {
     let res = request
         .post("/mcp")
         .add_header("authorization", format!("Bearer {token}"))

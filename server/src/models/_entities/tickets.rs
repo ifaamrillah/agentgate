@@ -53,10 +53,42 @@ pub struct Model {
     pub fail_stage_key: Option<String>,
     pub stage_entered_at: DateTimeWithTimeZone,
     pub cancelled_at: Option<DateTimeWithTimeZone>,
+    pub sprint_id: Option<Uuid>,
+    pub release_id: Option<Uuid>,
+    pub component_id: Option<Uuid>,
+    pub backlog_rank: i64,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
+    #[sea_orm(
+        belongs_to = "super::components::Entity",
+        from = "(Column::ComponentId, Column::WorkspaceId)",
+        to = "(super::components::Column::Id, super::components::Column::WorkspaceId)",
+        on_update = "NoAction",
+        on_delete = "SetNull"
+    )]
+    Components,
+    #[sea_orm(
+        belongs_to = "super::releases::Entity",
+        from = "(Column::ReleaseId, Column::WorkspaceId)",
+        to = "(super::releases::Column::Id, super::releases::Column::WorkspaceId)",
+        on_update = "NoAction",
+        on_delete = "SetNull"
+    )]
+    Releases,
+    #[sea_orm(has_many = "super::sprint_scope_events::Entity")]
+    SprintScopeEvents,
+    #[sea_orm(
+        belongs_to = "super::sprints::Entity",
+        from = "(Column::SprintId, Column::WorkspaceId)",
+        to = "(super::sprints::Column::Id, super::sprints::Column::WorkspaceId)",
+        on_update = "NoAction",
+        on_delete = "SetNull"
+    )]
+    Sprints,
+    #[sea_orm(has_many = "super::ticket_estimates::Entity")]
+    TicketEstimates,
     #[sea_orm(has_many = "super::job_evidence::Entity")]
     JobEvidence,
     #[sea_orm(has_many = "super::job_permissions::Entity")]
@@ -248,5 +280,35 @@ impl Related<super::workflows::Entity> for Entity {
 impl Related<super::workspaces::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Workspaces.def()
+    }
+}
+
+impl Related<super::components::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Components.def()
+    }
+}
+
+impl Related<super::releases::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Releases.def()
+    }
+}
+
+impl Related<super::sprint_scope_events::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::SprintScopeEvents.def()
+    }
+}
+
+impl Related<super::sprints::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Sprints.def()
+    }
+}
+
+impl Related<super::ticket_estimates::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::TicketEstimates.def()
     }
 }

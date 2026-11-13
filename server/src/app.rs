@@ -220,7 +220,8 @@ impl Hooks for App {
         seed_runner(ctx).await?;
         seed_git(ctx).await?;
         seed_graph(ctx, base).await?;
-        seed_knowledge(ctx).await
+        seed_knowledge(ctx).await?;
+        seed_planning(ctx).await
     }
 }
 
@@ -657,6 +658,9 @@ async fn seed_tickets(ctx: &AppContext) -> Result<()> {
             parent: parent.map(|i| codes[i].clone()).unwrap_or_default(),
             custom: std::collections::BTreeMap::new(),
             stage: String::new(),
+            sprint: None,
+            release: None,
+            component: None,
         };
         let ticket = ticket_service::create::run(&ctx.db, &acting, project.id, &form)
             .await
@@ -763,6 +767,9 @@ async fn seed_workflows(ctx: &AppContext) -> Result<()> {
         parent: String::new(),
         custom: std::collections::BTreeMap::new(),
         stage: "brainstorm".to_string(),
+        sprint: None,
+        release: None,
+        component: None,
     };
     // Artifact output stage sekarang lalu minta review.
     let to_review = |ticket_id: uuid::Uuid, body: &'static str| {
@@ -838,6 +845,151 @@ async fn seed_workflows(ctx: &AppContext) -> Result<()> {
         .map_err(fail)?;
     to_review(member.id, PLAN).await?;
     stages::approve(&ctx.db, &acting, member.id, "Rencana oke, lanjut.")
+        .await
+        .map_err(fail)?;
+    Ok(())
+}
+
+/// Planning contoh (M9) di KSR: sprint aktif berisi tiket berpoin, sprint berikutnya (rencana),
+/// rilis v1.4 dengan Fix version, dan dua component. Lewat service produksi (izin, log scope);
+/// dilewati bila KSR sudah punya sprint.
+async fn seed_planning(ctx: &AppContext) -> Result<()> {
+    use sea_orm::{
+        ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, IntoActiveModel, QueryFilter,
+        QueryOrder,
+    };
+
+    use crate::{
+        models::{sprints, tickets},
+        services::{
+            planning::{
+                self,
+                components::ComponentInput,
+                releases::ReleaseInput,
+                sprints::{Place, SprintInput},
+            },
+            workspaces::Acting,
+        },
+    };
+    let Some(workspace) = workspaces::Model::find_by_slug(&ctx.db, SEED_WORKSPACE_SLUG).await?
+    else {
+        return Ok(());
+    };
+    let wid = workspace.workspace_id();
+    let Some(project) = projects::Model::find_by_key(&ctx.db, wid, SEED_PROJECT.0).await? else {
+        return Ok(());
+    };
+    if !sprints::Model::of_project(&ctx.db, wid, project.id)
+        .await?
+        .is_empty()
+    {
+        tracing::info!("seed planning dilewati: KSR sudah punya sprint");
+        return Ok(());
+    }
+    let owner = users::Model::find_by_email(&ctx.db, SEED_MARKER_EMAIL)
+        .await?
+        .ok_or_else(|| loco_rs::Error::string("owner seed tidak ada"))?;
+    let (_, role) = workspace_members::Model::find_with_role(&ctx.db, wid, owner.id)
+        .await?
+        .ok_or_else(|| loco_rs::Error::string("owner seed bukan anggota"))?;
+    let acting = Acting {
+        workspace: &workspace,
+        user: &owner,
+        role: &role,
+        request_id: None,
+    };
+    let fail = |e: planning::Failure| loco_rs::Error::string(&format!("seed planning: {e:?}"));
+    let today = planning::today();
+    let day = |n: i64| (today + chrono::Duration::days(n)).to_string();
+    let active = planning::sprints::create(
+        &ctx.db,
+        &acting,
+        project.id,
+        &SprintInput {
+            name: "Sprint 4".into(),
+            goal: "Kasir tetap jalan saat offline".into(),
+            starts_on: day(-4),
+            ends_on: day(9),
+            capacity: "30".into(),
+        },
+    )
+    .await
+    .map_err(fail)?;
+    planning::sprints::create(
+        &ctx.db,
+        &acting,
+        project.id,
+        &SprintInput {
+            name: "Sprint 5".into(),
+            goal: "Struk digital dan laporan harian".into(),
+            starts_on: day(10),
+            ends_on: day(23),
+            capacity: "30".into(),
+        },
+    )
+    .await
+    .map_err(fail)?;
+    let release = planning::releases::create(
+        &ctx.db,
+        &acting,
+        project.id,
+        &ReleaseInput {
+            name: "v1.4".into(),
+            description: "Mode offline kasir".into(),
+            starts_on: day(-4),
+            target_on: day(20),
+        },
+    )
+    .await
+    .map_err(fail)?;
+    let payments = planning::components::create(
+        &ctx.db,
+        &acting,
+        project.id,
+        &ComponentInput {
+            name: "Pembayaran".into(),
+            description: "QRIS, tunai, refund".into(),
+            owner: owner.id.to_string(),
+            modules: Vec::new(),
+        },
+    )
+    .await
+    .map_err(fail)?;
+    planning::components::create(
+        &ctx.db,
+        &acting,
+        project.id,
+        &ComponentInput {
+            name: "Struk & printer".into(),
+            description: "Cetak dan kirim struk".into(),
+            owner: String::new(),
+            modules: Vec::new(),
+        },
+    )
+    .await
+    .map_err(fail)?;
+    let list = tickets::Entity::find()
+        .filter(tickets::Column::WorkspaceId.eq(wid.get()))
+        .filter(tickets::Column::ProjectId.eq(project.id))
+        .filter(tickets::Column::DeletedAt.is_null())
+        .order_by_asc(tickets::Column::CreatedAt)
+        .all(&ctx.db)
+        .await?;
+    // Lima tiket pertama ke Sprint 4 (Fix version v1.4); yang tanpa poin diberi 3.
+    for t in list.iter().take(5) {
+        let t =
+            planning::sprints::move_ticket(&ctx.db, &acting, t.id, Some(active.id), Place::Keep)
+                .await
+                .map_err(fail)?;
+        let mut m = t.clone().into_active_model();
+        m.release_id = Set(Some(release.id));
+        m.component_id = Set(Some(payments.id));
+        if t.story_points.is_none() {
+            m.story_points = Set(Some(3));
+        }
+        m.update(&ctx.db).await?;
+    }
+    planning::sprints::start(&ctx.db, &acting, active.id, None)
         .await
         .map_err(fail)?;
     Ok(())
@@ -1057,6 +1209,25 @@ async fn seed_agents(ctx: &AppContext) -> Result<()> {
             title: title.to_string(),
             description: format!("{title}. Disusun dari sesi brainstorming laporan harian."),
             story_points: points,
+            estimate: points.map(|p| {
+                let h = f64::from(p);
+                crate::services::drafts::DraftEstimate {
+                    stages: [
+                        ("prd", 0.5, 1.0),
+                        ("development", 1.5, 0.5),
+                        ("code_review", 0.2, 0.8),
+                    ]
+                    .iter()
+                    .map(|(k, a, m)| crate::models::ticket_estimates::StageHours {
+                        stage: (*k).to_string(),
+                        ai_hours: a * h,
+                        human_hours: m * h,
+                    })
+                    .collect(),
+                    basis: "Mirip fitur laporan sebelumnya; diskalakan dari story point.".into(),
+                    persona: "analyst".into(),
+                }
+            }),
         };
     drafts::save_from_agent(
         &ctx.db,
@@ -1545,6 +1716,9 @@ async fn seed_runner(ctx: &AppContext) -> Result<()> {
             parent: String::new(),
             custom: std::collections::BTreeMap::new(),
             stage: "brainstorm".into(),
+            sprint: None,
+            release: None,
+            component: None,
         };
         let t = ticket_service::create::run(&ctx.db, &acting, project.id, &form)
             .await

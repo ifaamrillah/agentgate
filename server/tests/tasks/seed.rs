@@ -173,3 +173,40 @@ async fn seed_creates_sample_project_with_teams_and_grants() {
         );
     }
 }
+
+#[tokio::test]
+async fn seed_creates_sample_planning() {
+    use agentgate_server::models::{components, releases, sprints, tickets};
+    use sea_orm::{ColumnTrait, QueryFilter};
+
+    let boot = boot_test::<App>().await.unwrap();
+    let ctx = &boot.app_context;
+    let base = std::path::Path::new("src/fixtures");
+    App::seed(ctx, base).await.unwrap();
+    App::seed(ctx, base).await.unwrap();
+    let workspace = workspaces::Model::find_by_slug(&ctx.db, "pt-contoh")
+        .await
+        .unwrap()
+        .unwrap();
+    let wid = workspace.workspace_id();
+    let project = projects::Model::find_by_key(&ctx.db, wid, "KSR")
+        .await
+        .unwrap()
+        .unwrap();
+    let all = sprints::Model::of_project(&ctx.db, wid, project.id)
+        .await
+        .unwrap();
+    assert_eq!(all.len(), 2, "seed kedua tidak menggandakan sprint");
+    let active = all
+        .iter()
+        .find(|s| s.state() == sprints::SprintState::Active)
+        .expect("sprint aktif");
+    let in_sprint = tickets::Entity::find()
+        .filter(tickets::Column::SprintId.eq(active.id))
+        .count(&ctx.db)
+        .await
+        .unwrap();
+    assert_eq!(in_sprint, 5);
+    assert_eq!(releases::Entity::find().count(&ctx.db).await.unwrap(), 1);
+    assert_eq!(components::Entity::find().count(&ctx.db).await.unwrap(), 2);
+}

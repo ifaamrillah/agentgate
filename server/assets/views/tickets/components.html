@@ -1,0 +1,67 @@
+{#- Pengaturan project → Components (prototype M9 "Components", Admin project): subpage varian E
+    "Daftar component" (datatable: nama + deskripsi, modul code graph, pemilik, jumlah tiket, menu
+    ubah/hapus; dialog buat/ubah) dan "Aturan otomatis" (pemilik jadi penerima default).
+    Variabel: project, paths, panel, subnav, table, components, base, rules_action, rules,
+    module_options, graph_indexed, graph_href, people, failed_dialog, dialogs ([{id, action, new, form}]),
+    errors, blank, flash. -#}
+{% extends "layouts/settings.html" %}
+{% block title %}{{ t(key="component-title", lang="id") }} · {{ project.name }}{% endblock title %}
+{% block crumb_label %}{{ t(key="component-title", lang="id") }}{% endblock crumb_label %}
+{% block page_attrs %}data-components="{{ panel }}"{% endblock page_attrs %}
+{% block settings %}
+{% <subpage title={t(key="component-title", lang="id")} description={t(key="component-description", lang="id", project=project.name)} items={subnav}> %}
+{%- if panel == "rules" %}
+{% <card title={t(key="component-panel-rules", lang="id")} description={t(key="component-rules-description", lang="id")} flush={true} form={rules_action} cancel_href={rules_action} attrs="data-component-rules"> %}
+  {% <setting_row title={t(key="component-rule-assignee", lang="id")} description={t(key="component-rule-assignee-hint", lang="id")}> %}<input type="checkbox" class="app-switch" role="switch" name="component_assignee" value="1" aria-label="{{ t(key="component-rule-assignee", lang="id") }}"{% if rules.component_assignee %} checked{% endif %}>{% </setting_row> %}
+{% </card> %}
+{%- else %}
+{% <card title={t(key="component-panel-list", lang="id")} description={t(key="component-list-description", lang="id")} flush={true} attrs="data-component-list"> %}
+  <div class="app-pad app-row-end">{{ <button label={t(key="component-new", lang="id")} icon="plus" size="sm" dialog="component-new" attrs="data-component-new"/> }}</div>
+  {% <datatable table={table} empty_title={t(key="component-empty", lang="id")} empty_description={t(key="component-empty-description", lang="id")} empty_icon="puzzle"> %}
+  {%- for c in components %}
+  <tr data-component="{{ c.name }}">
+    <td><span class="app-who app-rel-name"><span><b>{{ c.name }}</b>{% if c.description %}<small>{{ c.description }}</small>{% endif %}</span></span></td>
+    <td data-hide="sm">
+      {%- for m in c.modules %}<a class="app-mod" href="{{ graph_href }}" title="{{ m }}">{{ icon(name="topology-star-3") }}<span>{{ m }}</span></a>{% else %}{{ <badge label={t(key="component-graph-unlinked", lang="id")} variant="neutral"/> }}{% endfor -%}
+    </td>
+    <td>{% if c.owner %}<span class="app-who">{{ <avatar initials={c.owner.initials} color={c.owner.color} label={c.owner.name} size="sm"/> }}<span>{{ c.owner.name }}</span></span>{% else %}<span class="app-hint">{{ t(key="component-no-owner", lang="id") }}</span>{% endif %}</td>
+    <td class="tabular-nums" data-align="right">{{ c.tickets }}</td>
+    <td data-align="right">
+      {% <action_menu id={"component-menu-" ~ c.id} label={t(key="component-options", lang="id", name=c.name)}> %}
+        <button type="button" class="app-menu-item" data-dialog="component-edit-{{ c.id }}">{{ icon(name="pencil") }}{{ t(key="action-edit", lang="id") }}</button>
+        <a class="app-menu-item" href="{{ graph_href }}">{{ icon(name="topology-star-3") }}{{ t(key="component-open-graph", lang="id") }}</a>
+        <div class="app-menu-sep"></div>
+        <form method="post" action="{{ c.action }}/delete" hx-confirm="{{ t(key="component-delete-confirm", lang="id", name=c.name) }}">
+          <button type="submit" class="app-menu-item" data-variant="destructive" data-component-delete>{{ icon(name="trash") }}{{ t(key="action-delete", lang="id") }}</button>
+        </form>
+      {% </action_menu> %}
+    </td>
+  </tr>
+  {%- endfor %}
+  {% </datatable> %}
+{% </card> %}
+
+{#- Dialog buat dan ubah. -#}
+{%- for d in dialogs %}
+{%- set did = d.id %}{% set v = d.form %}
+{%- if failed_dialog == did %}{% set e = errors %}{% else %}{% set e = blank %}{% endif %}
+{%- if graph_indexed %}{% set graph_hint = t(key="component-field-modules-hint", lang="id") %}{% else %}{% set graph_hint = t(key="component-field-modules-none", lang="id") %}{% endif %}
+{%- if d.new %}{% set dt = t(key="component-new", lang="id") %}{% set save = t(key="component-create", lang="id") %}{% else %}{% set dt = t(key="component-edit", lang="id") %}{% set save = t(key="action-save", lang="id") %}{% endif %}
+{% <dialog id={did} title={dt} icon="puzzle" tone="accent" open={failed_dialog == did}> %}
+<form method="post" action="{{ d.action }}">
+  <section><div class="app-stack-v" data-gap="sm">
+    {{ <field id={did ~ "-name"} name="name" label={t(key="component-field-name", lang="id")} value={v.name} error={e.name.code} required={true} placeholder={t(key="component-field-name-placeholder", lang="id")}/> }}
+    {{ <field id={did ~ "-description"} name="description" label={t(key="component-field-description", lang="id")} value={v.description} error={e.description.code} optional={t(key="field-optional", lang="id")}/> }}
+    {{ <combo id={did ~ "-modules"} name="modules" label={t(key="component-field-modules", lang="id")} options={module_options} values={v.modules} multiple={true} placeholder={t(key="component-field-modules-placeholder", lang="id")} hint={graph_hint}/> }}
+    {{ <combo id={did ~ "-owner"} name="owner" label={t(key="component-field-owner", lang="id")} options={people} value={v.owner} error={e.owner.code}/> }}
+  </div></section>
+  <footer>
+    <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+    {{ <button label={save} type="submit" attrs="data-component-save"/> }}
+  </footer>
+</form>
+{% </dialog> %}
+{%- endfor %}
+{%- endif %}
+{% </subpage> %}
+{% endblock settings %}

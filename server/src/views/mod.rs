@@ -2,6 +2,7 @@
 pub mod account;
 pub mod audit;
 pub mod auth;
+pub mod charts;
 pub mod datatable;
 pub mod dev;
 pub mod device;
@@ -20,6 +21,7 @@ pub mod nav;
 pub mod oauth;
 pub mod palette;
 pub mod personas;
+pub mod planning;
 pub mod projects;
 pub mod roles;
 pub mod runner;

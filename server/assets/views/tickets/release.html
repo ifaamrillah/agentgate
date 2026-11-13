@@ -1,0 +1,123 @@
+{#- Project → Rilis → detail (prototype M9 "Detail rilis"): angka (tiket, selesai, story point,
+    perkiraan siap), release notes (draf/terbit, susun dengan AI, edit), tiket dalam versi, dialog
+    Rilis sekarang (tiket belum selesai dipindah/dilepas, terbitkan notes) dan Ubah rilis; menu ⋯
+    (ubah, arsip/buka arsip, batal rilis, hapus).
+    Variabel: project, views, views_action, return_to, base, can_edit, release (ReleaseView),
+    released, archived, notes, notes_version, notes_ai, notes_updated, notes_published, ai_running,
+    stats, tickets, left, targets, paths, edit_open, edit_input, errors, flash. -#}
+{% extends "layouts/project.html" %}
+{% block title %}{{ release.name }} · {{ t(key="project-view-releases", lang="id") }} · {{ project.name }}{% endblock title %}
+{% block crumb %}{{ <crumb label={t(key="project-view-releases", lang="id")} href={base}/> }}{{ <crumb label={release.name}/> }}{% endblock crumb %}
+{% block page_attrs %}data-release-page="{{ release.status }}"{% endblock page_attrs %}
+{% block leading %}<span class="app-tile" data-size="lg">{{ icon(name="rocket") }}</span>{% endblock leading %}
+{% block heading %}{{ release.name }} <span data-release-status>{{ <badge label={t(key=release.status_key, lang="id")} variant={release.variant}/> }}</span>{% endblock heading %}
+{% block description %}{% if release.description %}{{ release.description }}{% endif %}{% if release.description and release.target %} · {% endif %}{% if release.target %}{{ t(key="release-target", lang="id", date=release.target) }}{% endif %}{% endblock description %}
+{% block head_actions %}
+  {%- if can_edit %}
+  {% <action_menu id="release-menu" label={t(key="release-options", lang="id")}> %}
+    <button type="button" class="app-menu-item" data-dialog="release-edit">{{ icon(name="pencil") }}{{ t(key="release-edit", lang="id") }}</button>
+    {%- if released and not archived %}
+    <form method="post" action="{{ paths.status }}"><input type="hidden" name="status" value="unreleased"><button type="submit" class="app-menu-item" data-release-reopen>{{ icon(name="arrow-back-up") }}{{ t(key="release-reopen", lang="id") }}</button></form>
+    {%- endif %}
+    {%- if archived %}
+    <form method="post" action="{{ paths.status }}"><input type="hidden" name="status" value="unreleased"><button type="submit" class="app-menu-item" data-release-unarchive>{{ icon(name="archive") }}{{ t(key="release-unarchive", lang="id") }}</button></form>
+    {%- else %}
+    <form method="post" action="{{ paths.status }}"><input type="hidden" name="status" value="archived"><button type="submit" class="app-menu-item" data-release-archive>{{ icon(name="archive") }}{{ t(key="release-archive", lang="id") }}</button></form>
+    {%- endif %}
+    <div class="app-menu-sep"></div>
+    <form method="post" action="{{ paths.delete }}" hx-confirm="{{ t(key="release-delete-confirm", lang="id", name=release.name) }}">
+      <button type="submit" class="app-menu-item" data-variant="destructive" data-release-delete>{{ icon(name="trash") }}{{ t(key="release-delete", lang="id") }}</button>
+    </form>
+  {% </action_menu> %}
+  {%- if not released %}{{ <button label={t(key="release-now", lang="id", name=release.name)} icon="rocket" dialog="release-now" attrs="data-release-now"/> }}{% endif %}
+  {%- endif %}
+{% endblock head_actions %}
+{% block main %}
+{{ <stats items={stats}/> }}
+<div class="app-ticket">
+  <div class="app-ticket-main">
+  {%- if notes %}{% if notes_published %}{% set nd = t(key="release-notes-published", lang="id") %}{% else %}{% set nd = t(key="release-notes-draft-hint", lang="id") %}{% endif %}{% set nd = t(key="release-notes-meta", lang="id", version=notes_version, time=notes_updated) ~ " · " ~ nd %}{% else %}{% set nd = t(key="release-notes-none", lang="id") %}{% endif %}
+  {% <card title={t(key="release-notes", lang="id")} description={nd} flush={true} attrs="data-release-notes"> %}
+    {%- if ai_running %}<div class="alert" data-variant="info" data-notes-running>{{ icon(name="sparkles") }}<span>{{ t(key="release-notes-running", lang="id") }}</span></div>{% endif %}
+    {%- if notes %}
+    <div class="app-blk">{{ <md_view text={notes} size="doc"/> }}</div>
+    {%- if can_edit %}
+    <div class="app-blk app-est-acts">
+      {{ <button label={t(key="action-edit", lang="id")} icon="pencil" variant="outline" size="sm" href={paths.notes} attrs="data-notes-edit"/> }}
+      {%- if not released %}<form method="post" action="{{ paths.notes_ai }}">{{ <button label={t(key="release-notes-regenerate", lang="id")} icon="sparkles" variant="ghost" size="sm" type="submit" attrs="data-notes-ai"/> }}</form>{% endif %}
+      <span data-grow></span>
+      <form method="post" action="{{ paths.notes_publish }}">
+        {%- if notes_published %}<input type="hidden" name="published" value="0">{{ <button label={t(key="release-notes-unpublish", lang="id")} icon="eye-off" variant="ghost" size="sm" type="submit" attrs="data-notes-unpublish"/> }}
+        {%- else %}<input type="hidden" name="published" value="1">{{ <button label={t(key="release-notes-publish", lang="id")} icon="send" variant="ghost" size="sm" type="submit" attrs="data-notes-publish"/> }}{% endif %}
+      </form>
+    </div>
+    {%- endif %}
+    {%- else %}
+    {{ <empty_state title={t(key="release-notes-empty", lang="id")} description={t(key="release-notes-empty-description", lang="id")} icon="writing" variant="plain"/> }}
+    {%- if can_edit %}
+    <div class="app-blk app-est-acts" data-center>
+      <form method="post" action="{{ paths.notes_ai }}">{{ <button label={t(key="release-notes-ai", lang="id")} icon="sparkles" variant="outline" type="submit" attrs="data-notes-ai"/> }}</form>
+      {{ <button label={t(key="release-notes-write", lang="id")} icon="pencil" href={paths.notes} attrs="data-notes-edit"/> }}
+    </div>
+    {%- endif %}
+    {%- endif %}
+  {% </card> %}
+  </div>
+  <aside class="app-ticket-side">
+  {% <card title={t(key="release-tickets", lang="id")} count={tickets | length ~ ""} flush={true} attrs="data-release-tickets"> %}
+    {%- if left and not released %}<div class="alert" data-variant="neutral">{{ icon(name="info-circle") }}<span>{{ t(key="release-left", lang="id", count=left) }}</span></div>{% endif %}
+    {%- for r in tickets %}
+    <a class="app-lrow app-rel-t" href="{{ r.href }}" data-release-ticket="{{ r.code }}"{% if r.done %} data-done{% endif %}>
+      {{ <prio rank={r.priority.rank} label={t(key=r.priority.label_key, lang="id")}/> }}
+      {{ <type_icon icon={r.ticket_type.icon} color={r.ticket_type.color} label={r.ticket_type.name}/> }}
+      <span class="app-code">{{ r.code }}</span>
+      <span class="app-lrow-main"><b title="{{ r.title }}">{{ r.title }}</b><small>{{ r.stage }}</small></span>
+      {%- if r.done %}<span class="app-rel-done" title="{{ t(key="report-sprint-done", lang="id") }}">{{ icon(name="circle-check") }}</span>{% endif %}
+    </a>
+    {%- else %}
+    {{ <empty_state title={t(key="release-tickets-empty", lang="id")} description={t(key="release-tickets-empty-description", lang="id")} icon="ticket" variant="plain"/> }}
+    {%- endfor %}
+  {% </card> %}
+  </aside>
+</div>
+
+{%- if can_edit %}
+{% <dialog id="release-edit" title={t(key="release-edit", lang="id")} description={release.name} icon="pencil" tone="accent" open={edit_open}> %}
+<form method="post" action="{{ paths.update }}">
+  {%- set v = edit_input %}{% set e = errors %}{% set did = "release-edit" %}
+  {% include "tickets/_release_fields.html" %}
+  <footer>
+    <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+    {{ <button label={t(key="action-save", lang="id")} type="submit"/> }}
+  </footer>
+</form>
+{% </dialog> %}
+
+{%- if not released %}
+{% <dialog id="release-now" title={t(key="release-now", lang="id", name=release.name)} description={t(key="release-now-description", lang="id")} icon="rocket" tone="accent"> %}
+<form method="post" action="{{ paths.release }}">
+  <section><div class="app-stack-v" data-gap="sm">
+    {%- if left %}
+    <div class="alert" data-variant="warn">{{ icon(name="alert-triangle") }}<span>{{ t(key="release-left", lang="id", count=left) }}</span></div>
+    <fieldset class="app-stack-v" data-gap="sm"><legend class="app-blk-t">{{ t(key="release-now-target", lang="id") }}</legend>
+      {%- for x in targets %}
+      <label class="app-choice"><input type="radio" name="target" value="{{ x.id }}"{% if loop.first %} checked{% endif %}><span><b>{{ t(key="release-now-move", lang="id", name=x.name) }}</b></span></label>
+      {%- endfor %}
+      <label class="app-choice"><input type="radio" name="target" value="none"{% if not targets %} checked{% endif %}><span><b>{{ t(key="release-now-detach", lang="id") }}</b><small>{{ t(key="release-now-detach-hint", lang="id") }}</small></span></label>
+    </fieldset>
+    {%- endif %}
+    {%- if notes %}
+    <label class="app-choice"><input type="checkbox" class="app-check" name="publish" value="1" checked><span><b>{{ t(key="release-now-publish", lang="id") }}</b><small>{{ t(key="release-now-publish-hint", lang="id") }}</small></span></label>
+    {%- else %}
+    <p class="app-hint">{{ t(key="release-now-no-notes", lang="id") }}</p>
+    {%- endif %}
+  </div></section>
+  <footer>
+    <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+    {{ <button label={t(key="release-now", lang="id", name=release.name)} icon="rocket" type="submit" attrs="data-release-confirm"/> }}
+  </footer>
+</form>
+{% </dialog> %}
+{%- endif %}
+{%- endif %}
+{% endblock main %}

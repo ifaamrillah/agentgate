@@ -73,6 +73,17 @@ pub async fn run(
         "story_points",
         audit::change(&before.story_points, &valid.story_points),
     );
+    let names = crate::services::planning::refs::names(
+        &work.txn,
+        work.wid,
+        [before.sprint_id, resolved.sprint_id],
+        [before.release_id, resolved.release_id],
+        [before.component_id, resolved.component_id],
+    )
+    .await?;
+    put("sprint", names.sprint);
+    put("release", names.release);
+    put("component", names.component);
     put(
         "custom_values",
         (before.custom_values() != resolved.custom).then(|| serde_json::json!({})),
@@ -93,7 +104,27 @@ pub async fn run(
     model.due_on = Set(valid.due_on);
     model.story_points = Set(valid.story_points);
     model.custom_values = Set(resolved.custom.to_json());
+    model.sprint_id = Set(resolved.sprint_id);
+    model.release_id = Set(resolved.release_id);
+    model.component_id = Set(resolved.component_id);
     let mut updated = model.update(&work.txn).await?;
+    crate::services::planning::scope::sprint_changed(
+        &work.txn,
+        work.wid,
+        &updated,
+        before.sprint_id,
+        updated.sprint_id,
+    )
+    .await?;
+    if before.story_points != valid.story_points {
+        crate::services::planning::scope::points_changed(
+            &work.txn,
+            work.wid,
+            &updated,
+            valid.story_points,
+        )
+        .await?;
+    }
     if before.type_id != resolved.ticket_type.id {
         let workflow_id = project_workflows::Model::effective(
             &work.txn,
@@ -122,10 +153,13 @@ pub async fn run(
         let from = flow
             .rule(&updated.stage_key)
             .map_or_else(|| updated.stage_key.clone(), |s| s.name.clone());
+        let from_key = updated.stage_key.clone();
         updated = stages::enter_stage(&work.txn, work.wid, updated, &flow, &to).await?;
         changes.insert(
             "stage".into(),
-            serde_json::json!({ "from": from, "to": to.name }),
+            serde_json::json!({
+                "from": from, "to": to.name, "from_key": from_key, "to_key": to.key,
+            }),
         );
     }
     let status_only = changes.keys().all(|k| k == "status" || k == "stage");
