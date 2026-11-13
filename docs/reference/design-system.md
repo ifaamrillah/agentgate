@@ -202,3 +202,24 @@ katalog `/_dev/ui` di commit yang sama.
   daftar check `app-pr-checks`/`app-pr-check`), ukuran diff `app-pr-diff`.
 - **Badge PR**: header tiket (`app-pr-link` → tab PR & CI, + CI) dan kartu board
   (`app-tcard-pr`, `pr_state compact` + `ci_state compact`). CSS: `components/git.css`.
+
+## M7 (Code graph)
+
+- **Komponen baru** (katalog `/_dev/ui`, kartu "Code graph (M7)"):
+  - `confidence level=certain|inferred|unmatched|external`: badge keyakinan relasi
+    (success/gate/destructive/neutral + ikon). Dipakai di trace, relasi lintas repo, ringkasan.
+  - `lang_bar parts=[LangPart]`: bar bertumpuk komposisi bahasa; warna dari data
+    (`views::graph::lang_color`), lebar lewat `--w`, label bahasa terbesar.
+  - `code_view lines=[CodeLine]`: potongan kode bernomor baris (gulir horizontal, tinggi maks.),
+    tanpa pewarnaan sintaks. Dipakai di detail simbol.
+- **Cari simbol** (`/w/{slug}/p/{KEY}/graph`, tab project `graph`): `stats` + `tabs` (Cari simbol /
+  Status index / Viewer M10 "segera"), form `app-graph-search`, hasil = `app-lrow app-sym`
+  (ikon jenis simbol, path:baris, jumlah pemanggil/dipanggil, badge mati/tes). Tanpa kueri:
+  daftar modul + node pusat.
+- **Detail simbol** (`/graph/symbol/{id}`): kepala `app-symbol`, `code_view`, panel trace
+  pemanggil/dipanggil (`confidence` per langkah), dampak perubahan (risiko rendah/sedang/tinggi),
+  relasi lintas repo.
+- **Status index** (`/graph/index/{repo|cross|git|quality|bench}`): `subpage` + panel; repo =
+  `datatable` (status, sumber CLI/server, commit, `lang_bar`, cakupan `app-gi-*`), lintas repo dan
+  kode mati = `datatable`, git = hotspot/coupling/pemilik, benchmark = hasil korpus bawaan.
+  Index ulang lewat dialog `graph-reindex` (`EditProject`). CSS: `components/graph.css`.
