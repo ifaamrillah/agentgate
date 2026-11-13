@@ -641,6 +641,7 @@ impl<'s, 't> Extractor<'s, 't> {
                     method,
                     path,
                     exact,
+                    host: url_host(literal),
                     line: line(n),
                     scope,
                 });
@@ -768,6 +769,21 @@ pub fn url_path(literal: &str) -> Option<String> {
         return None;
     }
     Some(normalize_path(s))
+}
+
+/// Host URL absolut (`https://api.x.co/v1` → `api.x.co`); localhost dan template → kosong.
+#[must_use]
+pub fn url_host(literal: &str) -> String {
+    let Some(i) = literal.find("://") else {
+        return String::new();
+    };
+    let host = literal[i + 3..].split(['/', '?', ':']).next().unwrap_or("");
+    if host.contains("${") || host.contains('{') || host == "localhost" || host.starts_with("127.")
+    {
+        String::new()
+    } else {
+        host.to_string()
+    }
 }
 
 /// Normalisasi path route/URL: `:id`, `{id}`, `<id>`, `${id}`, `{id:int}` → `:p`; tanpa `/` akhir.

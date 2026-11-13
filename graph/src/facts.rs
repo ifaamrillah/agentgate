@@ -149,6 +149,9 @@ pub struct HttpFact {
     pub path: String,
     /// URL literal utuh (bukan template/variabel) → relasi pasti.
     pub exact: bool,
+    /// Host URL absolut (kosong = relatif/template), mis. `api.xendit.co`.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub host: String,
     pub line: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scope: Option<u32>,

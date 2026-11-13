@@ -184,6 +184,8 @@ pub struct SurfaceHttp {
     pub method: String,
     pub path: String,
     pub exact: bool,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub host: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -521,6 +523,20 @@ pub fn build(files: &[SourceFile], scip: Option<&ScipData>) -> RepoGraph {
         let mut al: HashMap<&str, Vec<u32>> = HashMap::new();
         let mut ext: HashSet<&str> = HashSet::new();
         for imp in &f.facts.imports {
+            // Python `from pkg import modul`: nama yang diimpor bisa berupa modul.
+            if f.facts.lang == Lang::Python {
+                for n in &imp.names {
+                    let sub = if imp.source.ends_with('.') {
+                        format!("{}{n}", imp.source)
+                    } else {
+                        format!("{}.{n}", imp.source)
+                    };
+                    let t = ix.resolve_import(fi, &sub, Lang::Python);
+                    if !t.is_empty() {
+                        al.entry(n.as_str()).or_default().extend(t);
+                    }
+                }
+            }
             let targets = ix.resolve_import(fi, &imp.source, f.facts.lang);
             let alias = if imp.alias.is_empty() {
                 imp.source
@@ -531,7 +547,7 @@ pub fn build(files: &[SourceFile], scip: Option<&ScipData>) -> RepoGraph {
                 imp.alias.as_str()
             };
             if targets.is_empty() {
-                for n in &imp.names {
+                for n in imp.names.iter().filter(|n| !al.contains_key(n.as_str())) {
                     ext.insert(n.as_str());
                 }
                 if !alias.is_empty() {
@@ -989,6 +1005,7 @@ pub fn build(files: &[SourceFile], scip: Option<&ScipData>) -> RepoGraph {
                 method: h.method.clone(),
                 path: h.path.clone(),
                 exact: h.exact,
+                host: h.host.clone(),
             });
         }
         for e in &f.facts.events {
