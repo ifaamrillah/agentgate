@@ -34,8 +34,12 @@ pub enum Relation {
     Identities,
     #[sea_orm(has_many = "super::invitations::Entity")]
     Invitations,
+    #[sea_orm(has_many = "super::job_permissions::Entity")]
+    JobPermissions,
     #[sea_orm(has_many = "super::notifications::Entity")]
     Notifications,
+    #[sea_orm(has_many = "super::oauth_device_codes::Entity")]
+    OauthDeviceCodes,
     #[sea_orm(has_many = "super::oauth_grants::Entity")]
     OauthGrants,
     #[sea_orm(has_many = "super::personas::Entity")]
@@ -44,6 +48,12 @@ pub enum Relation {
     Projects,
     #[sea_orm(has_many = "super::recovery_codes::Entity")]
     RecoveryCodes,
+    #[sea_orm(has_many = "super::rule_checks::Entity")]
+    RuleChecks,
+    #[sea_orm(has_many = "super::runner_prefs::Entity")]
+    RunnerPrefs,
+    #[sea_orm(has_many = "super::runners::Entity")]
+    Runners,
     #[sea_orm(has_many = "super::ticket_artifacts::Entity")]
     TicketArtifacts,
     #[sea_orm(has_many = "super::ticket_attachments::Entity")]
@@ -86,9 +96,21 @@ impl Related<super::invitations::Entity> for Entity {
     }
 }
 
+impl Related<super::job_permissions::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::JobPermissions.def()
+    }
+}
+
 impl Related<super::notifications::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Notifications.def()
+    }
+}
+
+impl Related<super::oauth_device_codes::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::OauthDeviceCodes.def()
     }
 }
 
@@ -113,6 +135,24 @@ impl Related<super::projects::Entity> for Entity {
 impl Related<super::recovery_codes::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::RecoveryCodes.def()
+    }
+}
+
+impl Related<super::rule_checks::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::RuleChecks.def()
+    }
+}
+
+impl Related<super::runner_prefs::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::RunnerPrefs.def()
+    }
+}
+
+impl Related<super::runners::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Runners.def()
     }
 }
 

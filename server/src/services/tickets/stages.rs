@@ -228,6 +228,7 @@ pub async fn enter_stage<C: ConnectionTrait>(
     model.stage_entered_at = Set(chrono::Utc::now().into());
     let ticket = model.update(db).await?;
     seed_people(db, wid, ticket.id, to).await?;
+    crate::services::jobs::on_stage_entered(db, wid, &ticket, to).await?;
     Ok(ticket)
 }
 
@@ -808,7 +809,14 @@ pub async fn reject(
                 .await?;
                 entered
             }
-            None => set_state(&work.txn, ticket, StageState::Active).await?,
+            None => {
+                let t = set_state(&work.txn, ticket, StageState::Active).await?;
+                // AI merevisi di stage yang sama: job stage diumumkan ulang.
+                if let Some(r) = rule.as_ref() {
+                    crate::services::jobs::on_stage_entered(&work.txn, work.wid, &t, r).await?;
+                }
+                t
+            }
         };
         notify_all(
             &work.txn,

@@ -31,6 +31,21 @@ pub enum NotificationKind {
     /// Agent bertanya lewat `ag_ask` (executor dan approver stage).
     #[sea_orm(string_value = "agent_question")]
     AgentQuestion,
+    /// Job stage diumumkan ke executor (M5).
+    #[sea_orm(string_value = "job_queued")]
+    JobQueued,
+    /// Job dijeda menunggu izin aksi berbahaya.
+    #[sea_orm(string_value = "job_permission")]
+    JobPermission,
+    /// Kuota AI executor habis.
+    #[sea_orm(string_value = "job_quota")]
+    JobQuota,
+    /// Job gagal.
+    #[sea_orm(string_value = "job_failed")]
+    JobFailed,
+    /// Terminal stage interaktif gagal dibuka; jalankan `/ag-…` sendiri.
+    #[sea_orm(string_value = "job_terminal")]
+    JobTerminal,
 }
 
 impl TenantEntity for Entity {

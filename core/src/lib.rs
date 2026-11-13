@@ -5,6 +5,7 @@
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub mod persona;
+pub mod runner;
 pub mod workflow;
 
 #[cfg(test)]

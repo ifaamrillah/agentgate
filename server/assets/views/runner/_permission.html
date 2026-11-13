@@ -1,0 +1,28 @@
+{#- Satu permintaan izin menunggu: baris + dialog Tinjau. Variabel: p (PermissionView), next. -#}
+<div class="app-lrow" data-align="top" data-wrap data-permission="{{ p.id }}">
+  <span class="app-pav" data-size="sm" style="--pc: {{ p.persona.color }}" aria-hidden="true">{{ icon(name=p.persona.icon) }}</span>
+  <span class="app-lrow-main">
+    <span>{{ t(key="permission-wants", lang="id", persona=p.persona.name) }} <code class="app-perm-cmd">{{ p.command }}</code></span>
+    <small><a class="app-link" href="{{ p.ticket_href }}">{{ p.ticket }}</a>{% if p.runner %} · {{ p.runner }}{% endif %} · {{ t(key=p.age.key, lang="id", n=p.age.n) }}</small>
+  </span>
+  <form method="post" action="{{ p.decide_href }}" class="app-lrow-acts">
+    <input type="hidden" name="next" value="{{ next }}">
+    {{ <button label={t(key="permission-deny", lang="id")} variant="outline" size="sm" type="submit" name="decision" value="deny" attrs="data-deny"/> }}
+    {{ <button label={t(key="permission-review", lang="id")} variant="primary" size="sm" dialog={"perm-" ~ p.id}/> }}
+  </form>
+</div>
+{% <dialog id={"perm-" ~ p.id} title={t(key="permission-title", lang="id", persona=p.persona.name)} description={p.ticket ~ " · " ~ p.ticket_title} icon="hand-stop" tone="warn" size="lg"> %}
+<form method="post" action="{{ p.decide_href }}">
+  <input type="hidden" name="next" value="{{ next }}">
+  <section><div class="app-stack-v" data-gap="sm">
+    <pre class="app-term-cmd"><span>$</span> {{ p.command }}</pre>
+    {%- if p.reason %}<div><b>{{ t(key="permission-reason", lang="id") }}</b><p class="app-muted">{{ p.reason }}</p></div>{% endif %}
+    {{ <flash kind="warn" message={t(key="permission-ask-note", lang="id", persona=p.persona.name, action=p.action)}/> }}
+  </div></section>
+  <footer>
+    {{ <button label={t(key="permission-deny", lang="id")} variant="destructive" type="submit" name="decision" value="deny"/> }}
+    {{ <button label={t(key="permission-allow-ticket", lang="id")} variant="outline" type="submit" name="decision" value="allow_ticket" attrs="data-allow-ticket"/> }}
+    {{ <button label={t(key="permission-allow-once", lang="id")} variant="primary" type="submit" name="decision" value="allow" attrs="data-allow"/> }}
+  </footer>
+</form>
+{% </dialog> %}

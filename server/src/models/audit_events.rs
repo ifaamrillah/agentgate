@@ -154,6 +154,17 @@ pub enum AuditAction {
     /// Akses client AI dicabut.
     #[sea_orm(string_value = "mcp.revoked")]
     McpRevoked,
+    /// Runner perangkat didaftarkan (M5).
+    #[sea_orm(string_value = "runner.registered")]
+    RunnerRegistered,
+    #[sea_orm(string_value = "runner.revoked")]
+    RunnerRevoked,
+    /// Job dibatalkan executor/Admin project.
+    #[sea_orm(string_value = "job.cancelled")]
+    JobCancelled,
+    /// Permintaan izin aksi berbahaya dijawab.
+    #[sea_orm(string_value = "job.permission_decided")]
+    JobPermissionDecided,
 }
 
 /// Kelompok aksi untuk filter halaman audit: awalan `<subjek>` dari aksi, kecuali jabatan
@@ -260,7 +271,11 @@ impl AuditAction {
             | Self::SkillPackRejected
             | Self::SkillPackDeleted
             | Self::McpConnected
-            | Self::McpRevoked => AuditGroup::Agent,
+            | Self::McpRevoked
+            | Self::RunnerRegistered
+            | Self::RunnerRevoked
+            | Self::JobCancelled
+            | Self::JobPermissionDecided => AuditGroup::Agent,
         }
     }
 }
@@ -360,6 +375,10 @@ pub enum AuditSubject {
     /// Grant OAuth client MCP (`oauth_grants`).
     #[sea_orm(string_value = "mcp_client")]
     McpClient,
+    #[sea_orm(string_value = "runner")]
+    Runner,
+    #[sea_orm(string_value = "job")]
+    Job,
 }
 
 /// Data satu baris audit untuk [`ActiveModel::append`].

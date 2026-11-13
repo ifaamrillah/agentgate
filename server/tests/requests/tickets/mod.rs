@@ -10,7 +10,7 @@ mod flow;
 mod pages;
 mod search;
 mod settings;
-mod stages;
+pub mod stages;
 mod trash;
 mod workflows;
 

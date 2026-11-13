@@ -229,6 +229,8 @@ pub struct SettingsLinks {
     pub ticket_code: Option<String>,
     pub personas: Option<String>,
     pub skills: Option<String>,
+    /// Runner & CLI: semua anggota (runner milik sendiri).
+    pub runner: Option<String>,
 }
 
 impl AppShell {

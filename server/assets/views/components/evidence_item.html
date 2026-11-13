@@ -1,0 +1,15 @@
+{#- Satu evidence bertanda tangan runner: ikon jenis, nama berkas (tautan buka), ringkasan
+    (lulus/gagal + jumlah tes, atau ukuran), waktu. Screenshot tampil sebagai thumbnail.
+    Parameter:
+      item: map                 views::runner::EvidenceView
+      thumb: bool               tampilkan thumbnail screenshot (default false) -#}
+{% component evidence_item(item: map, thumb: bool = false) %}
+<div class="app-ev" data-evidence="{{ item.kind }}"{% if item.passed is not none %} data-passed="{{ item.passed }}"{% endif %}>
+  <span class="app-tile"{% if item.passed == true %} data-tone="success"{% elif item.passed == false %} data-tone="danger"{% endif %}>{{ icon(name=item.icon) }}</span>
+  <span class="app-ev-main">
+    <a class="app-link" href="{{ item.href }}" target="_blank" rel="noopener">{{ item.name }}</a>
+    <small>{%- if item.kind == "test_report" %}{% if item.passed %}{{ t(key="evidence-passed", lang="id") }}{% else %}{{ t(key="evidence-failed", lang="id") }}{% endif %}{% if item.total is not none %} · {{ t(key="evidence-tests", lang="id", total=item.total, failed=item.failed | default(value=0)) }}{% endif %}{% else %}{{ item.size }}{% endif %} · {{ item.at }}</small>
+  </span>
+  {%- if thumb and item.image %}<a href="{{ item.href }}" target="_blank" rel="noopener" class="app-ev-thumb"><img src="{{ item.href }}" alt="{{ item.name }}" loading="lazy"></a>{% endif %}
+</div>
+{%- endcomponent evidence_item %}

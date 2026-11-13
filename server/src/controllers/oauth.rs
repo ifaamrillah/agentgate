@@ -27,13 +27,13 @@ pub fn resource_url(base: &str) -> String {
     format!("{base}/mcp")
 }
 
-fn no_store(mut res: Response) -> Response {
+pub(crate) fn no_store(mut res: Response) -> Response {
     res.headers_mut()
         .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
     res
 }
 
-fn json_error(status: StatusCode, e: &OAuthError) -> Response {
+pub(crate) fn json_error(status: StatusCode, e: &OAuthError) -> Response {
     no_store(
         (
             status,
@@ -66,7 +66,8 @@ async fn authorization_server(State(ctx): State<AppContext>) -> Result<Response>
         "registration_endpoint": format!("{base}/oauth/register"),
         "revocation_endpoint": format!("{base}/oauth/revoke"),
         "response_types_supported": ["code"],
-        "grant_types_supported": ["authorization_code", "refresh_token"],
+        "grant_types_supported": ["authorization_code", "refresh_token", crate::services::device::GRANT_TYPE],
+        "device_authorization_endpoint": format!("{base}/oauth/device_authorization"),
         "code_challenge_methods_supported": ["S256"],
         "token_endpoint_auth_methods_supported": ["none"],
         "revocation_endpoint_auth_methods_supported": ["none"],
@@ -289,6 +290,8 @@ struct TokenForm {
     code_verifier: String,
     #[serde(default)]
     refresh_token: String,
+    #[serde(default)]
+    device_code: String,
 }
 
 #[debug_handler]
@@ -305,9 +308,12 @@ async fn token(State(ctx): State<AppContext>, Form(f): Form<TokenForm>) -> Resul
             .await
         }
         "refresh_token" => service::refresh(&ctx.db, &f.client_id, &f.refresh_token).await,
+        crate::services::device::GRANT_TYPE => {
+            crate::services::device::poll(&ctx.db, &f.client_id, &f.device_code).await
+        }
         _ => Err(OAuthError {
             code: "unsupported_grant_type",
-            description: "grant_type must be authorization_code or refresh_token",
+            description: "grant_type must be authorization_code, refresh_token, or device_code",
         }),
     };
     Ok(match result {

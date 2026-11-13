@@ -12,10 +12,37 @@ name = "agentgate"
 path = "src/main.rs"
 
 [dependencies]
-# Type dan versi bersama dengan server.
+# Type dan versi bersama dengan server (protokol runner, tanda tangan evidence, aturan).
 agentgate-core = { path = "../core" }
 # Parsing argumen CLI.
-clap = { version = "4.5", features = ["derive"] }
+clap = { version = "4.5", features = ["derive", "env"] }
+# Runtime async: HTTP, WebSocket, proses client AI, timer.
+tokio = { version = "1.45", default-features = false, features = ["rt-multi-thread", "macros", "process", "io-util", "io-std", "time", "sync", "signal", "fs"] }
+# HTTP ke server (TLS lewat rustls, sama dengan server).
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+# WebSocket kontrol runner (`/api/runner/ws`), TLS lewat rustls.
+tokio-tungstenite = { version = "0.29", default-features = false, features = ["connect", "handshake", "rustls-tls-webpki-roots"] }
+# Provider kripto rustls dipasang eksplisit (ring, sama dengan reqwest): WebSocket TLS memakai
+# provider default proses, dan build workspace bisa mengaktifkan dua provider sekaligus.
+rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
+futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# `.agentgate/project.toml`.
+toml = "1"
+uuid = { version = "1", features = ["serde", "v4"] }
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde", "std"] }
+# Isi evidence (base64) dan rahasia runner.
+base64 = "0.22"
+# Error domain per modul.
+thiserror = "2"
+# Arsip backup aturan lama (`.agentgate/backup/<ts>.tar.gz`).
+flate2 = "1"
+tar = "0.4"
+# Rahasia Ed25519 runner (32 byte acak dari OS).
+rand = "0.9"
+# Nama bawaan runner = nama perangkat.
+hostname = "0.4"
 
 [lints]
 workspace = true
@@ -23,3 +50,7 @@ workspace = true
 [dev-dependencies]
 # Tes integrasi memeriksa versi yang dilaporkan sama dengan crate core.
 agentgate-core = { path = "../core" }
+# Server API palsu untuk tes integrasi (login device flow, siklus runner).
+axum = "0.8"
+tokio = { version = "1.45", default-features = false, features = ["net", "rt-multi-thread", "macros", "process", "time"] }
+serde_json = "1"

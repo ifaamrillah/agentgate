@@ -201,6 +201,14 @@
   <div class="app-lrow app-draft"><input type="checkbox" class="app-check" checked aria-label="Pilih"><span class="app-lrow-main"><b>Laporan harian otomatis</b><small>Epic</small></span></div>
   <div class="app-lrow app-draft" style="padding-left: 38px"><input type="checkbox" class="app-check" checked aria-label="Pilih"><span class="app-lrow-main"><b>Pengaturan penerima</b><small>Story</small></span>{{ <badge label="3 poin" variant="secondary"/> }}</div>
 {% </card> %}
+{% <card title="Runner & job (M5)" description="live_dot: status runner. job_steps: langkah job + progres. log_view: log terminal (gelap di dua tema). evidence_item: evidence bertanda tangan runner." flush={true} attrs="data-catalog-runner"> %}
+  <div class="app-lrow">
+    {{ <live_dot state="online" label="Online"/> }}{{ <live_dot state="busy" label="Sibuk"/> }}{{ <live_dot state="offline" label="Offline"/> }}
+  </div>
+  {{ <job_steps steps={runner.steps}/> }}
+  {{ <log_view lines={runner.logs} live={true}/> }}
+  <div class="app-evs">{% for e in runner.evidence %}{{ <evidence_item item={e}/> }}{% endfor %}</div>
+{% </card> %}
 </div>
 
 <div id="editor">

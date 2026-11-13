@@ -39,9 +39,9 @@ use crate::{
         flash::Flash,
         nav::NavItem,
         tickets::{
-            AttachmentView, BoardPaths, ChangeView, CommentView, CustomValueView, EventView,
-            LinkView, Lookup, TicketFormView, TicketPaths, TypeView, human_size, priority_options,
-            priority_view, status_options, status_view, ticket_href,
+            AgentJobView, AttachmentView, BoardPaths, ChangeView, CommentView, CustomValueView,
+            EventView, LinkView, Lookup, TicketFormView, TicketPaths, TypeView, human_size,
+            priority_options, priority_view, status_options, status_view, ticket_href,
         },
     },
 };
@@ -223,6 +223,44 @@ async fn render_show(
         .map(|l| l.other.code.clone())
         .collect();
     let user_id = tenant.user.id;
+    let agent_jobs = crate::services::jobs::of_comments(&ctx.db, wid, t.id).await?;
+    let labels = crate::models::personas::Model::labels(&ctx.db, wid).await?;
+    let mut online: std::collections::HashMap<Uuid, bool> = std::collections::HashMap::new();
+    for j in &agent_jobs {
+        if let Some(u) = j.requested_by
+            && let std::collections::hash_map::Entry::Vacant(e) = online.entry(u)
+        {
+            let list = crate::services::jobs::runners_of(&ctx.db, wid, Some(u)).await?;
+            e.insert(list.iter().any(crate::models::runners::Model::is_online));
+        }
+    }
+    let agent_views = |comment: Uuid| -> Vec<AgentJobView> {
+        agent_jobs
+            .iter()
+            .filter(|j| j.comment_id == Some(comment))
+            .map(|j| {
+                let status = j.status();
+                let (status_key, status_variant) = views::runner::status_badge(status);
+                AgentJobView {
+                    persona: labels
+                        .get(&j.persona)
+                        .map_or_else(|| j.persona.clone(), |l| l.name.clone()),
+                    status_key,
+                    status_variant,
+                    href: format!("/w/{}/jobs/{}", tenant.workspace.slug, j.id),
+                    waiting: matches!(
+                        status,
+                        agentgate_core::runner::protocol::JobStatus::Queued
+                            | agentgate_core::runner::protocol::JobStatus::Claimed
+                    ) && j.requested_by == Some(user_id)
+                        && !j
+                            .requested_by
+                            .and_then(|u| online.get(&u).copied())
+                            .unwrap_or(false),
+                }
+            })
+            .collect()
+    };
     let comment_views: Vec<CommentView> = comments
         .iter()
         .rev()
@@ -235,6 +273,7 @@ async fn render_show(
             mine: can_edit && c.author_id == Some(user_id),
             edit_action: format!("{}/{}", paths.comments, c.id),
             delete_action: format!("{}/{}/delete", paths.comments, c.id),
+            agent_jobs: agent_views(c.id),
         })
         .collect();
     let attachment_views: Vec<AttachmentView> = attachments

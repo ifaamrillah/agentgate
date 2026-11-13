@@ -96,6 +96,10 @@ Semua di `server/assets/views/components/`; parameter lengkap ada di komentar ke
 | `ticket_card` | kartu tiket board C: tipe + kode, judul, prioritas, label, poin, tenggat, penerima; menu ⋯ pindah status tanpa JS, drag-drop (`board-dnd.js`); `stages` = kolom stage, badge Menunggu review / Butuh keputusan (`app-tcard-state`) | `views::tickets::TicketRow` |
 | `stage_stepper` | chip per stage workflow (selesai hijau bercentang, sekarang aksen, `aria-current=step`), gulir horizontal | `views::workflow::stepper` → `StageView` |
 | `gate_list` | daftar gate keluar stage: centang hijau terpenuhi, silang merah belum, dengan petunjuk | `views::workflow::GateView` |
+| `live_dot` | titik status hidup: `online` hijau, `busy` aksen, `offline` abu, dengan label | `views::runner::RunnerView::state` |
+| `job_steps` | bar progres + daftar langkah job (ok/now/wait/fail, durasi) di `card flush` | `views::runner::StepsView` |
+| `log_view` | log job gaya terminal (gelap di dua tema), warna per aliran, kursor saat berjalan; `job-log.js` menjaga gulir di bawah | `[views::runner::LogLineView]` |
+| `evidence_item` | evidence bertanda tangan runner: ikon jenis, tautan berkas, lulus/gagal + jumlah tes atau ukuran, thumbnail screenshot | `views::runner::EvidenceView` |
 
 Pola isi (class): `app-grid[data-cols=duo|two|three]`, `app-stack-v`, `app-form`, `app-form-row`,
 `app-blk`, `app-lrow` (baris daftar), `app-srow`, `app-props` (dl properti), `app-feed`/`app-fe`
@@ -165,3 +169,19 @@ katalog `/_dev/ui` di commit yang sama.
   user, combobox workspace, daftar scope, footer Tolak/Izinkan). Navigasi penuh (`hx-boost="false"`).
 - **Draft tiket**: `app-lrow app-draft` dengan indentasi per kedalaman, checkbox `form=` ke form
   "Buat tiket" di kepala halaman (tanpa form bersarang), ubah lewat `dialog` per draft.
+
+## M5 (runner & CLI)
+
+- **Login perangkat** (`/device`): halaman solo tiga langkah (`app-device-*`): kode → setujui
+  (pilih workspace) → selesai. Satu isian kode (bukan 8 kotak seperti prototype).
+- **Runner & CLI** (`/w/{slug}/runner/{panel}`, menu Pengaturan untuk semua anggota): `subpage`
+  varian E; antrean job memakai `datatable` (filter/sort di memori), runner = `app-lrow` +
+  `live_dot`, pengaturan = `card form` + `setting_row` + `app-choices`.
+- **Log job** (`/w/{slug}/jobs/{id}`): `app-job` (kolom utama | samping 320px, menumpuk < 900px);
+  bagian `#job-live` memuat dirinya ulang lewat HTMX (`hx-trigger="every 2s"`, `outerMorph`) selama
+  job terbuka. Aksi Lepas/Batalkan di bar aksi (`runner/_job_actions.html` + dialognya).
+- **Kartu stage tiket**: blok `app-stage-job` (persona, status job, Lihat job, Ambil) dan evidence
+  stage sekarang (`evidence_item`). Komentar `@agent` menampilkan status job dan penanda
+  "menunggu runner Anda online" (`app-agent-wait`).
+- **Izin aksi**: baris `app-lrow` + dialog Tinjau dengan `app-term-cmd` (perintah gaya terminal),
+  satu form dengan tiga tombol submit (`decision=deny|allow|allow_ticket`).

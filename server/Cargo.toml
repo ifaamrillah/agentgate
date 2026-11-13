@@ -37,7 +37,7 @@ tokio = { version = "1.45", default-features = false, features = ["rt-multi-thre
 # Trait async untuk Hooks dan Initializer Loco.
 async-trait = "0.1"
 # Router, extractor, dan middleware HTTP.
-axum = "0.8"
+axum = { version = "0.8", features = ["ws"] }
 # Logging terstruktur.
 tracing = "0.1"
 # i18n: file Fluent dimuat saat runtime dan fungsi `t()` untuk Tera.

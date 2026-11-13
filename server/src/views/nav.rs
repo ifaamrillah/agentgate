@@ -101,6 +101,7 @@ pub const SETTINGS_SECTIONS: &[&str] = &[
     "ticket_code",
     "personas",
     "skills",
+    "runner",
 ];
 /// Bagian Akun.
 pub const ACCOUNT_SECTIONS: &[&str] = &["profile", "password", "two_factor", "connect"];
@@ -163,6 +164,7 @@ pub fn settings_nav(settings_href: &str, links: &SettingsLinks) -> Vec<NavItem> 
             &links.personas,
         ),
         ("skills", "settings-skills-title", "package", &links.skills),
+        ("runner", "runner-title", "device-laptop", &links.runner),
     ];
     items.extend(optional.into_iter().filter_map(|(key, label, icon, href)| {
         href.as_deref().map(|h| NavItem::link(key, label, icon, h))

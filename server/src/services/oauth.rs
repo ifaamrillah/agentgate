@@ -40,7 +40,7 @@ pub struct OAuthError {
     pub description: &'static str,
 }
 
-const fn oauth_error(code: &'static str, description: &'static str) -> OAuthError {
+pub(crate) const fn oauth_error(code: &'static str, description: &'static str) -> OAuthError {
     OAuthError { code, description }
 }
 
@@ -344,40 +344,7 @@ pub async fn approve(
         return Ok(None);
     };
     let txn = db.begin().await?;
-    let existing = oauth_grants::Entity::find()
-        .filter(oauth_grants::Column::WorkspaceId.eq(workspace_id))
-        .filter(oauth_grants::Column::UserId.eq(user.id))
-        .filter(oauth_grants::Column::ClientId.eq(client.id))
-        .filter(oauth_grants::Column::RevokedAt.is_null())
-        .one(&txn)
-        .await?;
-    let grant = match existing {
-        Some(g) => g,
-        None => {
-            let g = oauth_grants::ActiveModel {
-                workspace_id: Set(workspace_id),
-                user_id: Set(user.id),
-                client_id: Set(client.id),
-                scope: Set(SCOPE.to_string()),
-                ..Default::default()
-            }
-            .insert(&txn)
-            .await?;
-            audit::record(
-                &txn,
-                AuditEntry {
-                    workspace_id: workspace.workspace_id(),
-                    actor_id: Some(user.id),
-                    action: AuditAction::McpConnected,
-                    subject: (AuditSubject::McpClient, g.id),
-                    changes: serde_json::json!({ "client": client.name }),
-                    request_id,
-                },
-            )
-            .await?;
-            g
-        }
-    };
+    let grant = ensure_grant(&txn, client, user.id, &workspace, request_id).await?;
     let code = random_token();
     oauth_codes::ActiveModel {
         grant_id: Set(grant.id),
@@ -394,6 +361,52 @@ pub async fn approve(
     Ok(Some(code))
 }
 
+/// Grant aktif client × user × workspace; dibuat (dengan audit `mcp.connected`) bila belum ada.
+///
+/// # Errors
+///
+/// Error database.
+pub(crate) async fn ensure_grant<C: ConnectionTrait>(
+    txn: &C,
+    client: &oauth_clients::Model,
+    user_id: Uuid,
+    workspace: &workspaces::Model,
+    request_id: Option<String>,
+) -> Result<oauth_grants::Model, DbErr> {
+    let existing = oauth_grants::Entity::find()
+        .filter(oauth_grants::Column::WorkspaceId.eq(workspace.id))
+        .filter(oauth_grants::Column::UserId.eq(user_id))
+        .filter(oauth_grants::Column::ClientId.eq(client.id))
+        .filter(oauth_grants::Column::RevokedAt.is_null())
+        .one(txn)
+        .await?;
+    if let Some(g) = existing {
+        return Ok(g);
+    }
+    let g = oauth_grants::ActiveModel {
+        workspace_id: Set(workspace.id),
+        user_id: Set(user_id),
+        client_id: Set(client.id),
+        scope: Set(SCOPE.to_string()),
+        ..Default::default()
+    }
+    .insert(txn)
+    .await?;
+    audit::record(
+        txn,
+        AuditEntry {
+            workspace_id: workspace.workspace_id(),
+            actor_id: Some(user_id),
+            action: AuditAction::McpConnected,
+            subject: (AuditSubject::McpClient, g.id),
+            changes: serde_json::json!({ "client": client.name }),
+            request_id,
+        },
+    )
+    .await?;
+    Ok(g)
+}
+
 // ---------------------------------------------------------------------------------------------
 // Token
 
@@ -407,9 +420,13 @@ pub struct TokenResponse {
     pub scope: &'static str,
 }
 
-const INVALID_GRANT: OAuthError = oauth_error("invalid_grant", "invalid, expired, or used grant");
+pub(crate) const INVALID_GRANT: OAuthError =
+    oauth_error("invalid_grant", "invalid, expired, or used grant");
 
-async fn issue<C: ConnectionTrait>(db: &C, grant_id: Uuid) -> Result<TokenResponse, DbErr> {
+pub(crate) async fn issue<C: ConnectionTrait>(
+    db: &C,
+    grant_id: Uuid,
+) -> Result<TokenResponse, DbErr> {
     let access = random_token();
     let refresh = random_token();
     let now = Utc::now();
@@ -450,7 +467,7 @@ async fn active_grant<C: ConnectionTrait>(
         .filter(|g| g.revoked_at.is_none()))
 }
 
-async fn revoke_grant<C: ConnectionTrait>(db: &C, grant_id: Uuid) -> Result<(), DbErr> {
+pub(crate) async fn revoke_grant<C: ConnectionTrait>(db: &C, grant_id: Uuid) -> Result<(), DbErr> {
     oauth_grants::Entity::update_many()
         .col_expr(
             oauth_grants::Column::RevokedAt,

@@ -1,0 +1,9 @@
+{#- Titik status hidup (runner, log live): hijau online, aksen sibuk/berjalan, abu offline.
+    Parameter:
+      state: online|busy|offline
+      label: string             teks di samping titik (sudah diterjemahkan; default "" = titik saja)
+      attrs: string             penanda tes tanpa kutip (default "") -#}
+{% component live_dot(state: string, label: string = "", attrs: string = "") %}
+{%- if state not in ["online", "busy", "offline"] %}{{ throw(message="live_dot: state tidak dikenal: " ~ state) }}{% endif -%}
+<span class="app-live-wrap" {{ attrs }}><span class="app-live" data-state="{{ state }}"{% if not label %} aria-hidden="true"{% endif %}></span>{% if label %}<span>{{ label }}</span>{% endif %}</span>
+{%- endcomponent live_dot %}

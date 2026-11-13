@@ -33,10 +33,20 @@ pub enum Relation {
     CustomFields,
     #[sea_orm(has_many = "super::invitations::Entity")]
     Invitations,
+    #[sea_orm(has_many = "super::job_evidence::Entity")]
+    JobEvidence,
+    #[sea_orm(has_many = "super::job_logs::Entity")]
+    JobLogs,
+    #[sea_orm(has_many = "super::job_permissions::Entity")]
+    JobPermissions,
     #[sea_orm(has_one = "super::job_titles::Entity")]
     JobTitles,
+    #[sea_orm(has_many = "super::jobs::Entity")]
+    Jobs,
     #[sea_orm(has_many = "super::notifications::Entity")]
     Notifications,
+    #[sea_orm(has_many = "super::oauth_device_codes::Entity")]
+    OauthDeviceCodes,
     #[sea_orm(has_many = "super::oauth_grants::Entity")]
     OauthGrants,
     #[sea_orm(has_many = "super::persona_skills::Entity")]
@@ -53,6 +63,12 @@ pub enum Relation {
     Repos,
     #[sea_orm(has_one = "super::roles::Entity")]
     Roles,
+    #[sea_orm(has_many = "super::rule_checks::Entity")]
+    RuleChecks,
+    #[sea_orm(has_many = "super::runner_prefs::Entity")]
+    RunnerPrefs,
+    #[sea_orm(has_many = "super::runners::Entity")]
+    Runners,
     #[sea_orm(has_many = "super::skill_files::Entity")]
     SkillFiles,
     #[sea_orm(has_many = "super::skill_packs::Entity")]
@@ -127,15 +143,45 @@ impl Related<super::invitations::Entity> for Entity {
     }
 }
 
+impl Related<super::job_evidence::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::JobEvidence.def()
+    }
+}
+
+impl Related<super::job_logs::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::JobLogs.def()
+    }
+}
+
+impl Related<super::job_permissions::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::JobPermissions.def()
+    }
+}
+
 impl Related<super::job_titles::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::JobTitles.def()
     }
 }
 
+impl Related<super::jobs::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Jobs.def()
+    }
+}
+
 impl Related<super::notifications::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Notifications.def()
+    }
+}
+
+impl Related<super::oauth_device_codes::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::OauthDeviceCodes.def()
     }
 }
 
@@ -184,6 +230,24 @@ impl Related<super::repos::Entity> for Entity {
 impl Related<super::roles::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Roles.def()
+    }
+}
+
+impl Related<super::rule_checks::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::RuleChecks.def()
+    }
+}
+
+impl Related<super::runner_prefs::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::RunnerPrefs.def()
+    }
+}
+
+impl Related<super::runners::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Runners.def()
     }
 }
 

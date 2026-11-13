@@ -133,7 +133,33 @@ pub fn ui(v: &impl ViewRenderer, query: &[(String, String)]) -> Result<Response>
                 "people": people,
                 "table": table,
                 "rows": page_rows,
+                "runner": runner_samples(),
             }),
         ),
     )
+}
+
+/// Contoh komponen runner & job (M5) untuk katalog.
+fn runner_samples() -> serde_json::Value {
+    serde_json::json!({
+        "steps": {
+            "items": [
+                { "name": "Baca konteks dan rencana", "state": "ok", "seconds": "1m 28s" },
+                { "name": "Implementasi StockGuard", "state": "now", "seconds": null },
+                { "name": "Ajukan review", "state": "wait", "seconds": null },
+            ],
+            "done": 1,
+            "percent": 33,
+        },
+        "logs": [
+            { "stream": "info", "at": "09.41:02", "text": "Job KSR-26 · stage Development · runner MacBook Olivia" },
+            { "stream": "tool", "at": "09.41:09", "text": "→ ag_context KSR-26" },
+            { "stream": "ok", "at": "09.58:34", "text": "test checkout::stok_cukup_lolos ... ok" },
+            { "stream": "fail", "at": "09.58:35", "text": "test checkout::stok_nol_bundle ... FAILED" },
+        ],
+        "evidence": [
+            { "kind": "test_report", "icon": "test-pipe", "name": "junit.xml", "passed": true, "total": 12, "failed": 0, "note": "", "size": "2 KB", "at": "13/11/2026 09:44", "href": "#", "image": false },
+            { "kind": "screenshot", "icon": "photo", "name": "checkout.png", "passed": null, "total": null, "failed": null, "note": "", "size": "48 KB", "at": "13/11/2026 09:51", "href": "#", "image": true },
+        ],
+    })
 }

@@ -9,12 +9,24 @@
     {%- if stage.current.persona %}{{ <badge label={t(key=stage.current.mode_key, lang="id")} variant="ai"/> }}{% endif %}
   </div>
   {%- if stage.current.persona %}
-  <div class="app-blk app-stage-persona">{{ icon(name=stage.current.icon) }}<span><b>{{ t(key="stage-agent", lang="id", persona=stage.current.persona_name) }}</b><small>{{ t(key="stage-agent-soon", lang="id") }}</small></span></div>
+  <div class="app-blk app-stage-job" data-stage-job{% if stage.job %}="{{ stage.job.status }}"{% endif %}>
+    <div class="app-stage-persona">{{ icon(name=stage.current.icon) }}<span><b>{{ t(key="stage-agent", lang="id", persona=stage.current.persona_name) }}</b><small>{% if stage.job %}{{ t(key=stage.job.mode_key, lang="id") }}{% if stage.job.holder %} · {{ t(key="job-held-by", lang="id", name=stage.job.holder.name) }}{% endif %}{% else %}{{ t(key="stage-agent-no-job", lang="id") }}{% endif %}</small></span></div>
+    {%- if stage.job %}
+    <div>{{ <badge label={t(key=stage.job.status_key, lang="id")} variant={stage.job.status_variant}/> }}{% if stage.job.status != "queued" %}<a class="app-link" href="{{ stage.job.href }}" data-job-link>{{ t(key="job-view-log", lang="id") }}</a>{% endif %}</div>
+    {%- set j = stage.job %}{% set next = stage.back %}{% set my_runners = stage.my_runners %}{% set compact = true %}{% set hide_view = true %}{% include "runner/_job_actions.html" %}
+    {%- endif %}
+  </div>
   {%- endif %}
   {%- if stage.gates %}
   <div class="app-blk">
     <p class="app-hint app-stage-gate-head">{{ icon(name="shield-check") }}{{ t(key="stage-gates-summary", lang="id", ok=stage.gates_ok, total=stage.gates | length) }}</p>
     {{ <gate_list gates={stage.gates}/> }}
+  </div>
+  {%- endif %}
+  {%- if stage.evidence %}
+  <div class="app-blk" data-stage-evidence>
+    <p class="app-hint app-stage-gate-head">{{ icon(name="certificate") }}{{ t(key="stage-evidence", lang="id", count=stage.evidence | length) }}</p>
+    <div class="app-evs" style="padding: 0">{% for e in stage.evidence %}{{ <evidence_item item={e}/> }}{% endfor %}</div>
   </div>
   {%- endif %}
   <dl class="app-props app-stage-props">

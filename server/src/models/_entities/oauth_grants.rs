@@ -31,8 +31,12 @@ pub enum Relation {
     OauthClients,
     #[sea_orm(has_many = "super::oauth_codes::Entity")]
     OauthCodes,
+    #[sea_orm(has_many = "super::oauth_device_codes::Entity")]
+    OauthDeviceCodes,
     #[sea_orm(has_many = "super::oauth_tokens::Entity")]
     OauthTokens,
+    #[sea_orm(has_many = "super::runners::Entity")]
+    Runners,
     #[sea_orm(
         belongs_to = "super::users::Entity",
         from = "Column::UserId",
@@ -63,9 +67,21 @@ impl Related<super::oauth_codes::Entity> for Entity {
     }
 }
 
+impl Related<super::oauth_device_codes::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::OauthDeviceCodes.def()
+    }
+}
+
 impl Related<super::oauth_tokens::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::OauthTokens.def()
+    }
+}
+
+impl Related<super::runners::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Runners.def()
     }
 }
 
