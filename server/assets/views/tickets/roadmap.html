@@ -1,0 +1,77 @@
+{#- Project → Roadmap (prototype M9 "Roadmap"): Gantt server-side. Label tiket lengket di kiri,
+    trek bergulir: kepala (bulan, hari, pita sprint, label hari ini/rilis), baris per sprint lalu
+    "Tanpa sprint", bar (progres stage; putus-putus = belum mulai, tanggal dari estimasi; merah =
+    melewati tenggat), penanda hari ini dan target rilis, panah "blocks" (SVG). static/js/
+    timeline.js menggulir ke hari ini.
+    Variabel: project, views, views_action, return_to, base, backlog, q, zoom, zooms, total,
+    shown, rows, track, height, months, days, bands, releases, today_x, arrows. -#}
+{% extends "layouts/project.html" %}
+{% block title %}{{ t(key="project-view-roadmap", lang="id") }} · {{ project.name }}{% endblock title %}
+{% block crumb %}{{ <crumb label={t(key="project-view-roadmap", lang="id")}/> }}{% endblock crumb %}
+{% block page_attrs %}data-roadmap-page="{{ zoom }}"{% endblock page_attrs %}
+{% block description %}{{ t(key="roadmap-description", lang="id") }}{% endblock description %}
+{% block main %}
+<form class="app-fr" method="get" action="{{ base }}" role="search">
+  <input type="hidden" name="zoom" value="{{ zoom }}">
+  <label class="app-fsearch">{{ icon(name="search") }}<input type="search" name="q" value="{{ q }}" placeholder="{{ t(key="roadmap-search", lang="id") }}" aria-label="{{ t(key="roadmap-search", lang="id") }}"></label>
+  {%- if q %}<a class="app-fclear" href="{{ base }}?zoom={{ zoom }}">{{ icon(name="x") }}{{ t(key="table-filter-clear", lang="id") }}</a>{% endif %}
+  <span data-grow></span>
+  <span class="app-hint">{{ t(key="roadmap-count", lang="id", shown=shown, total=total) }}</span>
+  <nav class="app-seg" aria-label="{{ t(key="roadmap-zoom", lang="id") }}">{% for z in zooms %}<a href="{{ z.href }}"{% if z.current %} aria-current="true"{% endif %}>{{ t(key=z.label, lang="id") }}</a>{% endfor %}</nav>
+  {{ <button label={t(key="roadmap-today", lang="id")} icon="target" variant="outline" size="sm" attrs="data-tl-today"/> }}
+</form>
+{% <card title={t(key="roadmap-card", lang="id")} flush={true} attrs="data-roadmap"> %}
+  <div class="app-pad app-leg">
+    <span data-c="accent"><i></i>{{ t(key="roadmap-legend-progress", lang="id") }}</span>
+    <span data-c="muted"><i data-dash></i>{{ t(key="roadmap-legend-estimated", lang="id") }}</span>
+    <span data-c="danger"><i data-line></i>{{ t(key="roadmap-legend-today", lang="id") }}</span>
+    <span data-c="success"><i data-line></i>{{ t(key="roadmap-legend-release", lang="id") }}</span>
+    <span data-c="muted"><i data-line></i>{{ t(key="roadmap-legend-blocks", lang="id") }}</span>
+  </div>
+  {%- if rows %}
+  <div class="app-tl" data-tl data-tl-scroll="{{ today_x }}">
+    <div class="app-tl-g" style="width: calc(var(--tl-lab) + {{ track }}px)">
+      <div class="app-tl-h" style="height: 88px">
+        <div class="app-tl-lab">{{ t(key="roadmap-ticket", lang="id") }}</div>
+        <div class="app-tl-trk" style="width: {{ track }}px">
+          <div class="app-tl-hd" data-month>{% for m in months %}<span style="left: {{ m.left }}px">{{ m.label }}</span>{% endfor %}</div>
+          <div class="app-tl-hd">{% for d in days %}<span style="left: {{ d.left }}px; width: {{ d.width }}px"{% if d.today %} data-today{% elif d.weekend %} data-weekend{% endif %}>{{ d.label }}</span>{% endfor %}</div>
+          <div class="app-tl-hd">{% for b in bands %}<span class="app-tl-spb" style="left: {{ b.left }}px; width: {{ b.width }}px"{% if b.old %} data-old{% endif %} title="{{ b.tip }}">{{ b.label }}</span>{% endfor %}</div>
+          <div class="app-tl-hd">
+            <span class="app-tl-mkl" data-today style="left: {{ today_x }}px">{{ t(key="roadmap-today", lang="id") }}</span>
+            {%- for r in releases %}<a class="app-tl-mkl" data-release href="{{ r.href }}" style="left: {{ r.left }}px" title="{{ r.tip }}">{{ r.label }}</a>{% endfor %}
+          </div>
+        </div>
+      </div>
+      {%- for r in rows %}
+      {%- if r.group is not none %}
+      <div class="app-tl-r" data-group><div class="app-tl-lab">{{ icon(name="chevron-down") }}<span>{% if r.group %}{{ r.group }}{% else %}{{ t(key="roadmap-no-sprint", lang="id") }}{% endif %}</span></div><div class="app-tl-trk" style="width: {{ track }}px"></div></div>
+      {%- else %}
+      {%- set tk = r.ticket %}
+      <div class="app-tl-r" data-tl-row="{{ tk.code }}">
+        <div class="app-tl-lab">{{ <type_icon icon={tk.ticket_type.icon} color={tk.ticket_type.color} label={tk.ticket_type.name}/> }}<span class="app-code">{{ tk.code }}</span><a href="{{ tk.href }}" title="{{ tk.title }}" data-hide-sm>{{ tk.title }}</a>{% if tk.assignee %}<span data-push>{{ <avatar initials={tk.assignee.initials} color={tk.assignee.color} label={tk.assignee.name} size="sm"/> }}</span>{% endif %}</div>
+        <div class="app-tl-trk" style="width: {{ track }}px">
+          <a class="app-tl-bar" href="{{ tk.href }}" style="left: {{ r.left }}px; width: {{ r.width }}px"{% if r.estimated %} data-est{% endif %}{% if r.late %} data-late{% endif %}{% if r.epic %} data-epic{% endif %} title="{{ r.tip }}" aria-label="{{ r.tip }}">{% if r.progress %}<b style="width: {{ r.progress }}%"></b>{% endif %}{% if not r.epic %}<span>{{ tk.code }}</span>{% endif %}</a>
+        </div>
+      </div>
+      {%- endif %}
+      {%- endfor %}
+      <div class="app-tl-ov" style="height: {{ height }}px; width: {{ track }}px">
+        <div class="app-tl-mk" data-today style="left: {{ today_x }}px"></div>
+        {%- for r in releases %}<div class="app-tl-mk" data-release style="left: {{ r.left }}px"></div>{% endfor %}
+        {%- if arrows %}
+        <svg width="{{ track }}" height="{{ height }}" aria-hidden="true"><defs><marker id="tl-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 Z"/></marker></defs>
+          {%- for a in arrows %}<path d="{{ a.d }}" marker-end="url(#tl-arrow)"><title>{{ a.tip }}</title></path>{% endfor %}
+        </svg>
+        {%- endif %}
+      </div>
+    </div>
+  </div>
+  {%- elif q %}
+  {{ <empty_state title={t(key="backlog-no-match", lang="id")} description={t(key="backlog-no-match-description", lang="id")} icon="filter" variant="plain"/> }}
+  {%- else %}
+  {{ <empty_state title={t(key="roadmap-empty", lang="id")} description={t(key="roadmap-empty-description", lang="id")} icon="timeline" variant="plain"/> }}
+  <div class="app-pad">{{ <button label={t(key="report-open-backlog", lang="id")} icon="stack-2" variant="outline" href={backlog}/> }}</div>
+  {%- endif %}
+{% </card> %}
+{% endblock main %}

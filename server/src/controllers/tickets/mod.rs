@@ -26,6 +26,7 @@ mod inbox;
 mod pulls;
 pub mod releases;
 pub mod reports;
+pub mod timeline;
 mod settings;
 mod stage;
 mod ticket;
@@ -237,6 +238,8 @@ pub fn routes() -> Routes {
         .add("/w/{slug}/p/{key}/list", get(board::list))
         .add("/w/{slug}/p/{key}/backlog", get(backlog::index))
         .add("/w/{slug}/p/{key}/reports", get(reports::index))
+        .add("/w/{slug}/p/{key}/roadmap", get(timeline::roadmap))
+        .add("/w/{slug}/p/{key}/calendar", get(timeline::calendar))
         .add(
             "/w/{slug}/p/{key}/settings/components",
             get(components::index).post(components::create),

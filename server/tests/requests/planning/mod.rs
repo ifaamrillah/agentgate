@@ -7,6 +7,7 @@ mod estimate;
 mod mcp;
 mod releases;
 mod reports;
+mod timeline;
 
 use agentgate_server::models::{projects, sprints};
 use loco_rs::app::AppContext;

@@ -12,6 +12,7 @@ pub mod releases;
 pub mod reports;
 pub mod scope;
 pub mod sprints;
+pub mod timeline;
 
 use chrono::{Datelike, NaiveDate, Weekday};
 

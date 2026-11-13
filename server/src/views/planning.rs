@@ -82,6 +82,24 @@ pub fn long_day(d: NaiveDate) -> String {
     format!("{} {}", day_month(d), d.year())
 }
 
+/// Nama bulan pendek (`Nov`).
+#[must_use]
+pub fn month_name(d: NaiveDate) -> &'static str {
+    use chrono::Datelike;
+    MONTHS[d.month0() as usize]
+}
+
+/// Nama bulan panjang (`November`).
+#[must_use]
+pub fn month_long(d: NaiveDate) -> &'static str {
+    use chrono::Datelike;
+    const LONG: [&str; 12] = [
+        "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September",
+        "Oktober", "November", "Desember",
+    ];
+    LONG[d.month0() as usize]
+}
+
 /// `18 Nov – 1 Des`.
 #[must_use]
 pub fn range(from: NaiveDate, to: NaiveDate) -> String {

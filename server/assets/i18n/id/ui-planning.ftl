@@ -333,3 +333,40 @@ component-flash-created = Component dibuat.
 component-flash-saved = Component disimpan.
 component-flash-deleted = Component dihapus.
 component-flash-rules = Aturan component disimpan.
+
+## Roadmap
+roadmap-description = Bar dihitung dari estimasi dan diperbarui otomatis saat tiket bergerak. Garis putus-putus berarti belum mulai.
+roadmap-search = Cari tiket…
+roadmap-count = { $shown } dari { $total } tiket punya tanggal
+roadmap-zoom = Zoom
+roadmap-zoom-week = Minggu
+roadmap-zoom-month = Bulan
+roadmap-zoom-quarter = Kuartal
+roadmap-today = Hari ini
+roadmap-card = Linimasa tiket
+roadmap-ticket = Tiket
+roadmap-no-sprint = Tanpa sprint
+roadmap-legend-progress = Progres stage
+roadmap-legend-estimated = Belum mulai (dari estimasi)
+roadmap-legend-today = Hari ini
+roadmap-legend-release = Target rilis
+roadmap-legend-blocks = Blocks
+roadmap-empty = Belum ada tiket bertanggal
+roadmap-empty-description = Tiket muncul di roadmap setelah masuk sprint, punya tenggat, atau punya estimasi.
+
+## Kalender
+calendar-description = Tenggat tiket, perkiraan selesai dari estimasi AI, dan target rilis. Pita di tanggal menandai sprint.
+calendar-kind = Jenis acara
+calendar-kind-due = Tenggat
+calendar-kind-forecast = Perkiraan selesai AI
+calendar-kind-release = Rilis
+calendar-legend-late = Lewat/berisiko
+calendar-prev = Bulan sebelumnya
+calendar-next = Bulan berikutnya
+calendar-card = Tenggat & perkiraan selesai
+calendar-count = { $count } acara di bulan ini
+calendar-release = Rilis { $name }
+calendar-empty = Tidak ada acara di bulan ini.
+calendar-undated = Tanpa tanggal
+calendar-undated-description = { $count } tiket belum punya tenggat maupun estimasi, jadi tidak muncul di kalender.
+calendar-undated-link = Atur di backlog

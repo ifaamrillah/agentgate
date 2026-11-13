@@ -1,0 +1,61 @@
+{#- Project → Kalender (prototype M9 "Kalender"): grid bulan Senin–Minggu dengan tenggat tiket,
+    perkiraan selesai AI (putus-putus), dan target rilis; merah = lewat/berisiko. Pita sprint di
+    hari pertama sprint dan tiap Senin. Filter jenis (chip) dan cari; navigasi bulan. Di layar
+    kecil hari tanpa acara disembunyikan (menjadi agenda). Kartu "Tanpa tanggal".
+    Variabel: project, views, views_action, return_to, base, backlog, q, month, month_label, prev,
+    next, today_href, kinds, kind_values, weeks, events, undated, undated_count. -#}
+{% extends "layouts/project.html" %}
+{% block title %}{{ t(key="project-view-calendar", lang="id") }} · {{ project.name }}{% endblock title %}
+{% block crumb %}{{ <crumb label={t(key="project-view-calendar", lang="id")}/> }}{% endblock crumb %}
+{% block page_attrs %}data-calendar-page="{{ month }}"{% endblock page_attrs %}
+{% block description %}{{ t(key="calendar-description", lang="id") }}{% endblock description %}
+{% block main %}
+<form class="app-fr" method="get" action="{{ base }}" role="search">
+  <input type="hidden" name="month" value="{{ month }}">
+  {%- for k in kind_values %}<input type="hidden" name="kind" value="{{ k }}">{% endfor %}
+  <label class="app-fsearch">{{ icon(name="search") }}<input type="search" name="q" value="{{ q }}" placeholder="{{ t(key="roadmap-search", lang="id") }}" aria-label="{{ t(key="roadmap-search", lang="id") }}"></label>
+  <nav class="app-chips" aria-label="{{ t(key="calendar-kind", lang="id") }}">{% for k in kinds %}<a class="app-chip" href="{{ k.href }}"{% if k.on %} aria-pressed="true"{% endif %} data-kind="{{ k.key }}">{{ t(key=k.label, lang="id") }}</a>{% endfor %}</nav>
+  <span data-grow></span>
+  <span class="app-cal-mon">
+    {{ <button icon="chevron-left" variant="ghost" size="sm" href={prev} aria_label={t(key="calendar-prev", lang="id")} attrs="data-cal-prev"/> }}
+    <b>{{ month_label }}</b>
+    {{ <button icon="chevron-right" variant="ghost" size="sm" href={next} aria_label={t(key="calendar-next", lang="id")} attrs="data-cal-next"/> }}
+  </span>
+  {{ <button label={t(key="roadmap-today", lang="id")} variant="outline" size="sm" href={today_href}/> }}
+</form>
+{% <card title={t(key="calendar-card", lang="id")} description={t(key="calendar-count", lang="id", count=events)} flush={true} attrs="data-calendar"> %}
+  <div class="app-pad app-leg">
+    <span data-c="muted"><i></i>{{ t(key="calendar-kind-due", lang="id") }}</span>
+    <span data-c="muted"><i data-dash></i>{{ t(key="calendar-kind-forecast", lang="id") }}</span>
+    <span data-c="danger"><i></i>{{ t(key="calendar-legend-late", lang="id") }}</span>
+    <span data-c="success"><i></i>{{ t(key="calendar-kind-release", lang="id") }}</span>
+  </div>
+  <div class="app-cal">
+    <div class="app-cal-h">{% for d in ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"] %}<div>{{ d }}</div>{% endfor %}</div>
+    {%- for w in weeks %}
+    <div class="app-cal-w">
+      {%- for d in w %}
+      <div class="app-cal-d" data-date="{{ d.date }}"{% if d.out %} data-out{% endif %}{% if d.weekend %} data-weekend{% endif %}{% if d.today %} data-today{% endif %}>
+        <span class="app-cal-n">{{ d.label }}</span>
+        {%- if d.band %}<span class="app-cal-band" title="{{ d.band }}">{{ d.band }}</span>{% endif %}
+        {%- for e in d.events %}
+        <a class="app-cal-ev" href="{{ e.href }}" title="{{ e.tip }}" data-event="{{ e.kind }}"{% if e.kind == "forecast" %} data-est{% elif e.kind == "release" %} data-release{% endif %}{% if e.late %} data-late{% endif %}>
+          {%- if e.kind == "due" %}{{ <type_icon icon={e.icon} color={e.color} label={e.code}/> }}{% else %}{{ icon(name=e.icon) }}{% endif %}
+          {%- if e.code %}<span class="app-code">{{ e.code }}</span>{% endif %}<span>{% if e.kind == "release" %}{{ t(key="calendar-release", lang="id", name=e.title) }}{% else %}{{ e.title }}{% endif %}</span>
+        </a>
+        {%- endfor %}
+      </div>
+      {%- endfor %}
+    </div>
+    {%- endfor %}
+  </div>
+  {%- if not events %}<div class="app-pad app-hint" data-cal-empty>{{ t(key="calendar-empty", lang="id") }}</div>{% endif %}
+{% </card> %}
+{%- if undated_count %}
+{% <card title={t(key="calendar-undated", lang="id")} description={t(key="calendar-undated-description", lang="id", count=undated_count)} link_label={t(key="calendar-undated-link", lang="id")} link_href={backlog} flush={true} attrs="data-calendar-undated"> %}
+  {%- for r in undated %}
+  <a class="app-lrow" href="{{ r.href }}">{{ <prio rank={r.priority.rank} label={t(key=r.priority.label_key, lang="id")}/> }}{{ <type_icon icon={r.ticket_type.icon} color={r.ticket_type.color} label={r.ticket_type.name}/> }}<span class="app-code">{{ r.code }}</span><span class="app-lrow-main"><b>{{ r.title }}</b></span>{% if r.assignee %}{{ <avatar initials={r.assignee.initials} color={r.assignee.color} label={r.assignee.name} size="sm"/> }}{% endif %}</a>
+  {%- endfor %}
+{% </card> %}
+{%- endif %}
+{% endblock main %}
