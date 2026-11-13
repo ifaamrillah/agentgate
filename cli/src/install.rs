@@ -136,7 +136,8 @@ fn walk(root: &Path, rel: &str, out: &mut BTreeSet<String>) {
 }
 
 /// File aturan lama di repo (relatif root, urut), kecuali file yang isinya sudah sama dengan
-/// aturan Agent Gate `current` (init ulang tidak mem-backup aturan Agent Gate sendiri).
+/// aturan Agent Gate `current` atau aturan Agent Gate versi sebelumnya
+/// ([`rules::is_own_rule_file`]): init ulang tidak mem-backup aturan Agent Gate sendiri.
 ///
 /// # Errors
 ///
@@ -155,9 +156,11 @@ pub fn legacy_files(root: &Path, current: &[RuleFile]) -> Result<Vec<String>> {
         .into_iter()
         .filter(|p| is_legacy_rule_path(p) && root.join(p).is_file())
         .filter(|p| {
-            !current.iter().any(|f| {
-                f.path == *p && fs::read_to_string(root.join(p)).is_ok_and(|b| b == f.body)
-            })
+            let Ok(body) = fs::read_to_string(root.join(p)) else {
+                return true;
+            };
+            !current.iter().any(|f| f.path == *p && f.body == body)
+                && !rules::is_own_rule_file(p, &body)
         })
         .collect())
 }
@@ -705,19 +708,30 @@ mod tests {
         fs::write(root.join("CLAUDE.local.md"), "pribadi").unwrap();
         let ours = rules::agent_gate_files("http://x", "KSR");
         fs::write(root.join(".mcp.json"), &ours[2].body).unwrap();
+        // Aturan Agent Gate v1 (init ulang setelah naik versi) bukan aturan lama.
+        fs::create_dir_all(root.join(".codex")).unwrap();
+        fs::write(root.join(".codex/hooks.json"), &ours[5].body).unwrap();
+        fs::write(
+            root.join("AGENTS.md"),
+            "# Agent Gate\n<!-- agentgate-rules v1 -->\n",
+        )
+        .unwrap();
+        fs::create_dir_all(root.join(".opencode/plugins")).unwrap();
+        fs::write(root.join(".opencode/plugins/lain.ts"), "export default {}").unwrap();
 
         let legacy = legacy_files(&root, &ours).unwrap();
         assert_eq!(
             legacy,
             [
                 ".claude/commands/x.md",
+                ".opencode/plugins/lain.ts",
                 "CLAUDE.local.md",
                 "CLAUDE.md",
                 "web/AGENTS.md"
             ]
         );
         let manifest = backup(&root, &legacy, "KSR").unwrap();
-        assert_eq!(manifest.files.len(), 4);
+        assert_eq!(manifest.files.len(), 5);
         remove_files(&root, &legacy).unwrap();
         assert!(!root.join("CLAUDE.md").exists());
         assert!(!root.join(".claude").exists(), "folder kosong ikut dihapus");
