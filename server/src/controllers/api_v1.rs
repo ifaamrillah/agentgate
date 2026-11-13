@@ -188,7 +188,13 @@ async fn project_for(
         .await?
         .filter(|p| caller.allows_project(p.id))
         .ok_or_else(ApiError::not_found)?;
-    access_in(&ctx.db, &caller.acting(), project.id, Permission::ViewProject).await?;
+    access_in(
+        &ctx.db,
+        &caller.acting(),
+        project.id,
+        Permission::ViewProject,
+    )
+    .await?;
     Ok(project)
 }
 
@@ -220,7 +226,13 @@ async fn ticket_for(
     let project = projects::Model::find_in(&ctx.db, wid, ticket.project_id)
         .await?
         .ok_or_else(ApiError::not_found)?;
-    access_in(&ctx.db, &caller.acting(), project.id, Permission::ViewProject).await?;
+    access_in(
+        &ctx.db,
+        &caller.acting(),
+        project.id,
+        Permission::ViewProject,
+    )
+    .await?;
     Ok((ticket, project))
 }
 
@@ -320,7 +332,10 @@ async fn list_tickets(
             .unwrap_or_default()
     };
     let next = offset + rows.len() as u64;
-    let list: Vec<Value> = rows.iter().map(|t| ticket_json(t, &key(t.project_id))).collect();
+    let list: Vec<Value> = rows
+        .iter()
+        .map(|t| ticket_json(t, &key(t.project_id)))
+        .collect();
     ok(json!({
         "tickets": list,
         "total": total,
@@ -337,7 +352,9 @@ async fn ticket_detail(
     let wid = caller.workspace.workspace_id();
     let ty = ticket_types::Model::find_in(&ctx.db, wid, ticket.type_id).await?;
     let parent = match ticket.parent_id {
-        Some(id) => tickets::Model::find_in(&ctx.db, wid, id).await?.map(|p| p.code),
+        Some(id) => tickets::Model::find_in(&ctx.db, wid, id)
+            .await?
+            .map(|p| p.code),
         None => None,
     };
     let mut out = ticket_json(ticket, &project.key);
@@ -435,7 +452,9 @@ async fn patch_ticket(
     let (ticket, project) = ticket_for(&ctx, &c, &code).await?;
     let wid = c.workspace.workspace_id();
     let parent = match ticket.parent_id {
-        Some(id) => tickets::Model::find_in(&ctx.db, wid, id).await?.map(|p| p.code),
+        Some(id) => tickets::Model::find_in(&ctx.db, wid, id)
+            .await?
+            .map(|p| p.code),
         None => None,
     };
     let mut form = crate::controllers::tickets::ticket::current_form(&ticket, parent.as_deref());
@@ -543,7 +562,9 @@ async fn post_comment(
     need(&c, ApiScope::CommentsWrite)?;
     let (ticket, _) = ticket_for(&ctx, &c, &code).await?;
     let comment = comments::post(&ctx.db, &c.acting(), ticket.id, &body.body).await?;
-    created(json!({ "comment": { "id": comment.id, "body": comment.body, "created_at": comment.created_at } }))
+    created(
+        json!({ "comment": { "id": comment.id, "body": comment.body, "created_at": comment.created_at } }),
+    )
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -679,9 +700,8 @@ async fn create_webhook(
     Json(body): Json<WebhookBody>,
 ) -> ApiResult {
     manage(&c)?;
-    let settings = Settings::from_ctx(&ctx).map_err(|_| {
-        ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "server_error")
-    })?;
+    let settings = Settings::from_ctx(&ctx)
+        .map_err(|_| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "server_error"))?;
     let input = WebhookInput {
         url: body.url,
         events: body.events,
@@ -729,5 +749,8 @@ pub fn routes(ctx: &AppContext) -> Routes {
         .add("/knowledge/{slug}", get(get_knowledge))
         .add("/webhooks", get(list_webhooks).post(create_webhook))
         .add("/webhooks/{id}", delete(delete_webhook))
-        .layer(axum::middleware::from_fn_with_state(ctx.clone(), auth_layer))
+        .layer(axum::middleware::from_fn_with_state(
+            ctx.clone(),
+            auth_layer,
+        ))
 }

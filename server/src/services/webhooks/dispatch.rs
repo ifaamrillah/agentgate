@@ -15,8 +15,7 @@ use std::time::{Duration, Instant};
 use chrono::{DateTime, Utc};
 use hmac::{Hmac, Mac};
 use sea_orm::{
-    ConnectionTrait, DatabaseConnection, DbBackend, DbErr, EntityTrait, FromQueryResult,
-    Statement,
+    ConnectionTrait, DatabaseConnection, DbBackend, DbErr, EntityTrait, FromQueryResult, Statement,
 };
 use sha2::Sha256;
 use uuid::Uuid;
@@ -99,7 +98,9 @@ pub async fn deliver(
     let Some(delivery) = webhook_deliveries::Entity::find_by_id(id).one(db).await? else {
         return Ok(false);
     };
-    let hook = webhooks::Entity::find_by_id(delivery.webhook_id).one(db).await?;
+    let hook = webhooks::Entity::find_by_id(delivery.webhook_id)
+        .one(db)
+        .await?;
     let Some(hook) = hook.filter(webhooks::Model::is_active) else {
         let attempt = Attempt {
             error: "webhook_disabled".into(),

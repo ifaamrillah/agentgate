@@ -6,9 +6,7 @@
 use agentgate_server::{
     app::App,
     common::settings::Settings,
-    models::{
-        notifications, outbox_events::WebhookEvent, webhook_deliveries, webhooks,
-    },
+    models::{notifications, outbox_events::WebhookEvent, webhook_deliveries, webhooks},
     services::webhooks::{dispatch, url_guard},
 };
 use chrono::{Duration, Utc};
@@ -24,7 +22,12 @@ use crate::{
 };
 
 /// Buat webhook lewat UI; kembalikan secret (tampil sekali).
-async fn new_hook(request: &TestServer, cookie: &Cookie<'static>, url: &str, events: &[&str]) -> String {
+async fn new_hook(
+    request: &TestServer,
+    cookie: &Cookie<'static>,
+    url: &str,
+    events: &[&str],
+) -> String {
     let mut form = vec![("url", url)];
     form.extend(events.iter().map(|e| ("events", *e)));
     form.push(("projects", "all"));
@@ -46,7 +49,11 @@ async fn deliveries(ctx: &AppContext) -> Vec<webhook_deliveries::Model> {
 }
 
 async fn hook(ctx: &AppContext) -> webhooks::Model {
-    webhooks::Entity::find().one(&ctx.db).await.unwrap().unwrap()
+    webhooks::Entity::find()
+        .one(&ctx.db)
+        .await
+        .unwrap()
+        .unwrap()
 }
 
 fn expected_signature(secret: &str, ts: &str, body: &str) -> String {
@@ -60,7 +67,13 @@ async fn events_are_signed_and_sent_after_commit() {
     request::<App, _, _>(|request, ctx| async move {
         let fake = fake_hook::start().await;
         let f = fixture(&request, &ctx).await;
-        let secret = new_hook(&request, &f.cookie, &fake.url, &["ticket.created", "comment.created"]).await;
+        let secret = new_hook(
+            &request,
+            &f.cookie,
+            &fake.url,
+            &["ticket.created", "comment.created"],
+        )
+        .await;
         create_ticket(&request, &f.cookie, &[("title", "Checkout QRIS")]).await;
 
         let got = fake.received();
@@ -70,7 +83,10 @@ async fn events_are_signed_and_sent_after_commit() {
         assert_eq!(r.header("content-type"), "application/json");
         let ts = r.header("x-agentgate-timestamp");
         assert!((Utc::now().timestamp() - ts.parse::<i64>().unwrap()).abs() < 60);
-        assert_eq!(r.header("x-agentgate-signature"), expected_signature(&secret, &ts, &r.body));
+        assert_eq!(
+            r.header("x-agentgate-signature"),
+            expected_signature(&secret, &ts, &r.body)
+        );
         let body: Value = serde_json::from_str(&r.body).unwrap();
         assert_eq!(body["event"], "ticket.created");
         assert_eq!(body["workspace"]["slug"], "acme");
@@ -96,7 +112,11 @@ async fn events_are_signed_and_sent_after_commit() {
             .form(&[("body", "Sudah dicek")])
             .await;
         assert_eq!(res.status_code(), 303, "{}", res.text());
-        let events: Vec<String> = fake.received().iter().map(|r| r.header("x-agentgate-event")).collect();
+        let events: Vec<String> = fake
+            .received()
+            .iter()
+            .map(|r| r.header("x-agentgate-event"))
+            .collect();
         assert_eq!(events, ["ticket.created", "comment.created"]);
         let res = request
             .post(&format!("/w/acme/settings/api/hooks/{}/ping", h.id))
@@ -137,11 +157,19 @@ async fn failures_retry_with_backoff_then_disable_the_webhook() {
         assert_eq!(first.status, "pending");
         assert_eq!(first.response_status, Some(500));
         let wait = first.next_attempt_at.unwrap().with_timezone(&Utc) - Utc::now();
-        assert!(wait > Duration::seconds(30) && wait <= Duration::minutes(1), "{wait}");
+        assert!(
+            wait > Duration::seconds(30) && wait <= Duration::minutes(1),
+            "{wait}"
+        );
 
         let settings = Settings::from_ctx(&ctx).unwrap();
         // Belum jatuh tempo: sapuan tidak mengirim.
-        assert_eq!(dispatch::sweep(&ctx.db, &settings, Utc::now(), 50).await.unwrap(), 0);
+        assert_eq!(
+            dispatch::sweep(&ctx.db, &settings, Utc::now(), 50)
+                .await
+                .unwrap(),
+            0
+        );
         let mut at = Utc::now();
         let mut gaps = Vec::new();
         for _ in 0..4 {
@@ -149,7 +177,10 @@ async fn failures_retry_with_backoff_then_disable_the_webhook() {
             let due = row.next_attempt_at.unwrap().with_timezone(&Utc);
             gaps.push((due - at).num_minutes());
             at = due + Duration::seconds(1);
-            assert_eq!(dispatch::sweep(&ctx.db, &settings, at, 50).await.unwrap(), 1);
+            assert_eq!(
+                dispatch::sweep(&ctx.db, &settings, at, 50).await.unwrap(),
+                1
+            );
         }
         // Jeda bertahap 1, 5, 30, 120 menit.
         assert!(gaps.windows(2).all(|w| w[0] < w[1]), "{gaps:?}");
@@ -160,7 +191,10 @@ async fn failures_retry_with_backoff_then_disable_the_webhook() {
         assert!(row.next_attempt_at.is_none());
 
         let h = hook(&ctx).await;
-        assert!(h.disabled_at.is_some(), "5 gagal beruntun menonaktifkan webhook");
+        assert!(
+            h.disabled_at.is_some(),
+            "5 gagal beruntun menonaktifkan webhook"
+        );
         assert_eq!(h.consecutive_failures, 5);
         let notes = notifications::Entity::find()
             .filter(notifications::Column::UserId.eq(f.owner.id))
@@ -176,7 +210,10 @@ async fn failures_retry_with_backoff_then_disable_the_webhook() {
             .get("/w/acme/settings/api/hooks")
             .add_cookie(f.cookie.clone())
             .await;
-        assert_css_exists(&res.text(), &format!("tr[data-hook='{}'][data-state='off']", h.id));
+        assert_css_exists(
+            &res.text(),
+            &format!("tr[data-hook='{}'][data-state='off']", h.id),
+        );
 
         // Aktifkan lagi lalu kirim ulang: penerima sudah pulih (antrean 500 habis).
         fake.clear();
@@ -219,18 +256,34 @@ async fn private_and_loopback_targets_are_rejected_in_production_mode() {
                 let res = request
                     .post("/w/acme/settings/api/hooks")
                     .add_cookie(f.cookie.clone())
-                    .form(&[("url", url), ("events", "ticket.created"), ("projects", "all")])
+                    .form(&[
+                        ("url", url),
+                        ("events", "ticket.created"),
+                        ("projects", "all"),
+                    ])
                     .await;
                 assert_eq!(res.status_code(), 422, "{url}");
                 assert_css_exists(&res.text(), "dialog#hook-new[data-open-on-load]");
                 let text = res.text();
-                let msg = if code == "webhook-url-forbidden" { "jaringan internal" } else { "URL HTTPS yang valid" };
+                let msg = if code == "webhook-url-forbidden" {
+                    "jaringan internal"
+                } else {
+                    "URL HTTPS yang valid"
+                };
                 assert!(text.contains(msg), "{url}");
             }
-            assert!(webhooks::Entity::find().one(&ctx.db).await.unwrap().is_none());
+            assert!(
+                webhooks::Entity::find()
+                    .one(&ctx.db)
+                    .await
+                    .unwrap()
+                    .is_none()
+            );
             // Nama host yang resolve ke loopback ditolak setelah resolve DNS.
             assert_eq!(
-                url_guard::resolve("https://localhost:9/hook", false).await.unwrap_err(),
+                url_guard::resolve("https://localhost:9/hook", false)
+                    .await
+                    .unwrap_err(),
                 "url_forbidden"
             );
         },
@@ -259,7 +312,11 @@ async fn sending_rechecks_the_target_after_dns_resolution() {
         )
         .await
         .unwrap();
-        assert!(dispatch::deliver(&ctx.db, &strict, delivery.id, Utc::now()).await.unwrap());
+        assert!(
+            dispatch::deliver(&ctx.db, &strict, delivery.id, Utc::now())
+                .await
+                .unwrap()
+        );
         assert!(fake.received().is_empty());
         let row = webhook_deliveries::Entity::find_by_id(delivery.id)
             .one(&ctx.db)

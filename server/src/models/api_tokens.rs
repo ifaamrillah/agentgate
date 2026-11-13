@@ -117,7 +117,10 @@ impl Model {
     /// Cakupan token (nilai tak dikenal dilewati; CHECK menjaga isinya).
     #[must_use]
     pub fn scopes(&self) -> Vec<ApiScope> {
-        self.scopes.iter().filter_map(|s| ApiScope::parse(s)).collect()
+        self.scopes
+            .iter()
+            .filter_map(|s| ApiScope::parse(s))
+            .collect()
     }
 
     #[must_use]
@@ -193,7 +196,10 @@ impl Model {
     ) -> Result<(), DbErr> {
         let stale = DateTimeWithTimeZone::from(now - Duration::minutes(1));
         Entity::update_many()
-            .col_expr(Column::LastUsedAt, Expr::value(DateTimeWithTimeZone::from(now)))
+            .col_expr(
+                Column::LastUsedAt,
+                Expr::value(DateTimeWithTimeZone::from(now)),
+            )
             .filter(Column::Id.eq(id))
             .filter(
                 sea_orm::Condition::any()

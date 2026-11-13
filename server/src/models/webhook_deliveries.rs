@@ -9,7 +9,9 @@
 
 use chrono::{DateTime, Duration, Utc};
 use sea_orm::{
-    ActiveValue::Set, Condition, PaginatorTrait, QueryOrder, QuerySelect, entity::prelude::*,
+    ActiveValue::Set,
+    Condition, PaginatorTrait, QueryOrder, QuerySelect,
+    entity::prelude::*,
     sea_query::{Expr, ExprTrait, Func},
 };
 
@@ -116,7 +118,9 @@ impl Model {
         let res = Entity::update_many()
             .col_expr(
                 Column::NextAttemptAt,
-                Expr::value(DateTimeWithTimeZone::from(now + Duration::seconds(CLAIM_SECONDS))),
+                Expr::value(DateTimeWithTimeZone::from(
+                    now + Duration::seconds(CLAIM_SECONDS),
+                )),
             )
             .filter(Column::Id.eq(id))
             .filter(Column::Status.eq(DeliveryStatus::Pending.to_value()))
@@ -276,10 +280,19 @@ pub async fn fail_pending_of<C: ConnectionTrait>(
     error: &str,
 ) -> Result<u64, DbErr> {
     Ok(Entity::update_many()
-        .col_expr(Column::Status, Expr::value(DeliveryStatus::Failed.to_value()))
-        .col_expr(Column::NextAttemptAt, Expr::value(Option::<DateTimeWithTimeZone>::None))
+        .col_expr(
+            Column::Status,
+            Expr::value(DeliveryStatus::Failed.to_value()),
+        )
+        .col_expr(
+            Column::NextAttemptAt,
+            Expr::value(Option::<DateTimeWithTimeZone>::None),
+        )
         .col_expr(Column::Error, Expr::value(error.to_string()))
-        .col_expr(Column::UpdatedAt, Expr::value(DateTimeWithTimeZone::from(Utc::now())))
+        .col_expr(
+            Column::UpdatedAt,
+            Expr::value(DateTimeWithTimeZone::from(Utc::now())),
+        )
         .filter(Column::WebhookId.eq(webhook_id))
         .filter(Column::Status.eq(DeliveryStatus::Pending.to_value()))
         .exec(db)
@@ -304,7 +317,11 @@ pub async fn delete_expired<C: ConnectionTrait>(
     if dry_run {
         return Entity::find().filter(filter).count(db).await;
     }
-    Ok(Entity::delete_many().filter(filter).exec(db).await?.rows_affected)
+    Ok(Entity::delete_many()
+        .filter(filter)
+        .exec(db)
+        .await?
+        .rows_affected)
 }
 
 /// Potong `s` sampai `max` byte di batas karakter.

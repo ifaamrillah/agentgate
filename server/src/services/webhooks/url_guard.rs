@@ -88,7 +88,8 @@ pub fn validate(raw: &str, allow_loopback: bool) -> Result<Url, &'static str> {
         return Err(URL_INVALID);
     }
     let host = url.host_str().ok_or(URL_INVALID)?.to_string();
-    let loopback_target = is_loopback_name(&host) || literal_ip(&url).is_some_and(|ip| ip.is_loopback());
+    let loopback_target =
+        is_loopback_name(&host) || literal_ip(&url).is_some_and(|ip| ip.is_loopback());
     match url.scheme() {
         "https" => {}
         // http hanya untuk server lokal saat development/test.
@@ -122,7 +123,10 @@ fn literal_ip(url: &Url) -> Option<IpAddr> {
 /// # Errors
 ///
 /// Kode error pendek untuk log pengiriman: `url_invalid`, `url_forbidden`, `dns_failed`.
-pub async fn resolve(raw: &str, allow_loopback: bool) -> Result<(String, SocketAddr), &'static str> {
+pub async fn resolve(
+    raw: &str,
+    allow_loopback: bool,
+) -> Result<(String, SocketAddr), &'static str> {
     let url = validate(raw, allow_loopback).map_err(|code| {
         if code == URL_FORBIDDEN {
             "url_forbidden"

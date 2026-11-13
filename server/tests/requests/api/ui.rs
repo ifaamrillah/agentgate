@@ -63,7 +63,11 @@ async fn tokens_are_shown_once_listed_and_revoked() {
         let res = request
             .post("/w/acme/settings/api/tokens")
             .add_cookie(f.cookie.clone())
-            .form(&[("name", "Tanpa cakupan"), ("expiry", "90"), ("project", "all")])
+            .form(&[
+                ("name", "Tanpa cakupan"),
+                ("expiry", "90"),
+                ("project", "all"),
+            ])
             .await;
         assert_eq!(res.status_code(), 422);
         let html = res.text();
@@ -72,7 +76,11 @@ async fn tokens_are_shown_once_listed_and_revoked() {
         assert!(html.contains("value=\"Tanpa cakupan\""));
 
         let raw = new_token(&request, &f.cookie, &["tiket:baca", "laporan:baca"], "KSR").await;
-        let token = api_tokens::Entity::find().one(&ctx.db).await.unwrap().unwrap();
+        let token = api_tokens::Entity::find()
+            .one(&ctx.db)
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(token.scopes, ["tiket:baca", "laporan:baca"]);
         assert!(token.expires_at.is_some());
         assert!(token.project_id.is_some());
@@ -102,7 +110,11 @@ async fn tokens_are_shown_once_listed_and_revoked() {
             .add_cookie(f.cookie.clone())
             .await;
         assert_eq!(res.status_code(), 303);
-        let token = api_tokens::Entity::find().one(&ctx.db).await.unwrap().unwrap();
+        let token = api_tokens::Entity::find()
+            .one(&ctx.db)
+            .await
+            .unwrap()
+            .unwrap();
         assert!(token.revoked_at.is_some());
         let audit = newest_audit_events(&ctx.db, f.workspace.workspace_id(), 1)
             .await
@@ -124,7 +136,11 @@ async fn webhooks_are_created_edited_toggled_rotated_and_deleted() {
         let res = request
             .post("/w/acme/settings/api/hooks")
             .add_cookie(f.cookie.clone())
-            .form(&[("url", "ftp://contoh.id"), ("events", "ticket.created"), ("projects", "all")])
+            .form(&[
+                ("url", "ftp://contoh.id"),
+                ("events", "ticket.created"),
+                ("projects", "all"),
+            ])
             .await;
         assert_eq!(res.status_code(), 422);
         let html = res.text();
@@ -143,11 +159,23 @@ async fn webhooks_are_created_edited_toggled_rotated_and_deleted() {
             .await;
         assert_eq!(res.status_code(), 200, "{}", res.text());
         let html = res.text();
-        assert_css_exists(&html, "dialog#hook-secret[data-open-on-load] [data-raw-secret]");
+        assert_css_exists(
+            &html,
+            "dialog#hook-secret[data-open-on-load] [data-raw-secret]",
+        );
         let secret = raw_secret(&html, "whsec_");
-        let hook = webhooks::Entity::find().one(&ctx.db).await.unwrap().unwrap();
+        let hook = webhooks::Entity::find()
+            .one(&ctx.db)
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(hook.project_ids.len(), 1);
-        assert!(!hook.secret_encrypted.windows(secret.len()).any(|w| w == secret.as_bytes()));
+        assert!(
+            !hook
+                .secret_encrypted
+                .windows(secret.len())
+                .any(|w| w == secret.as_bytes())
+        );
         let key = agentgate_server::common::settings::Settings::from_ctx(&ctx)
             .unwrap()
             .auth
@@ -164,7 +192,10 @@ async fn webhooks_are_created_edited_toggled_rotated_and_deleted() {
             .add_cookie(f.cookie.clone())
             .await;
         let html = res.text();
-        assert_css_exists(&html, &format!("tr[data-hook='{}'][data-state='none']", hook.id));
+        assert_css_exists(
+            &html,
+            &format!("tr[data-hook='{}'][data-state='none']", hook.id),
+        );
         assert!(!html.contains(&secret));
 
         // Ubah: event dan semua project.
@@ -179,7 +210,11 @@ async fn webhooks_are_created_edited_toggled_rotated_and_deleted() {
             ])
             .await;
         assert_eq!(res.status_code(), 303, "{}", res.text());
-        let hook = webhooks::Entity::find().one(&ctx.db).await.unwrap().unwrap();
+        let hook = webhooks::Entity::find()
+            .one(&ctx.db)
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(hook.url, "https://contoh.id/hooks/v2");
         assert_eq!(hook.events, ["ticket.stage_changed"]);
         assert!(hook.project_ids.is_empty());
@@ -190,7 +225,10 @@ async fn webhooks_are_created_edited_toggled_rotated_and_deleted() {
             .form(&[("url", "https://contoh.id/x"), ("projects", "all")])
             .await;
         assert_eq!(res.status_code(), 422);
-        assert_css_exists(&res.text(), &format!("dialog#hook-edit-{}[data-open-on-load]", hook.id));
+        assert_css_exists(
+            &res.text(),
+            &format!("dialog#hook-edit-{}[data-open-on-load]", hook.id),
+        );
 
         // Nonaktif (switch tidak tercentang = tanpa nilai) → aktif.
         let res = request
@@ -199,7 +237,11 @@ async fn webhooks_are_created_edited_toggled_rotated_and_deleted() {
             .form(&[("active", "")])
             .await;
         assert_eq!(res.status_code(), 303);
-        let off = webhooks::Entity::find().one(&ctx.db).await.unwrap().unwrap();
+        let off = webhooks::Entity::find()
+            .one(&ctx.db)
+            .await
+            .unwrap()
+            .unwrap();
         assert!(off.disabled_at.is_some());
         // Ping ke webhook nonaktif ditolak.
         let res = request
@@ -207,14 +249,28 @@ async fn webhooks_are_created_edited_toggled_rotated_and_deleted() {
             .add_cookie(f.cookie.clone())
             .await;
         assert_eq!(res.status_code(), 303);
-        assert!(webhook_deliveries::Entity::find().one(&ctx.db).await.unwrap().is_none());
+        assert!(
+            webhook_deliveries::Entity::find()
+                .one(&ctx.db)
+                .await
+                .unwrap()
+                .is_none()
+        );
         let res = request
             .post(&format!("{base}/toggle"))
             .add_cookie(f.cookie.clone())
             .form(&[("active", "1")])
             .await;
         assert_eq!(res.status_code(), 303);
-        assert!(webhooks::Entity::find().one(&ctx.db).await.unwrap().unwrap().disabled_at.is_none());
+        assert!(
+            webhooks::Entity::find()
+                .one(&ctx.db)
+                .await
+                .unwrap()
+                .unwrap()
+                .disabled_at
+                .is_none()
+        );
 
         // Rotasi: secret baru tampil sekali dan berbeda.
         let res = request
@@ -230,15 +286,27 @@ async fn webhooks_are_created_edited_toggled_rotated_and_deleted() {
             .into_iter()
             .map(|a| a.action)
             .collect();
-        assert!(actions.contains(&"webhook.updated".to_string()), "{actions:?}");
-        assert!(actions.contains(&"webhook.secret_rotated".to_string()), "{actions:?}");
+        assert!(
+            actions.contains(&"webhook.updated".to_string()),
+            "{actions:?}"
+        );
+        assert!(
+            actions.contains(&"webhook.secret_rotated".to_string()),
+            "{actions:?}"
+        );
 
         let res = request
             .post(&format!("{base}/delete"))
             .add_cookie(f.cookie.clone())
             .await;
         assert_eq!(res.status_code(), 303);
-        assert!(webhooks::Entity::find().one(&ctx.db).await.unwrap().is_none());
+        assert!(
+            webhooks::Entity::find()
+                .one(&ctx.db)
+                .await
+                .unwrap()
+                .is_none()
+        );
         let audit = newest_audit_events(&ctx.db, f.workspace.workspace_id(), 1)
             .await
             .unwrap();

@@ -70,7 +70,12 @@ fn require(tenant: &Tenant) -> Result<()> {
 /// Panel: (kunci, label, ikon, deskripsi).
 const PANELS: &[(&str, &str, &str, &str)] = &[
     ("tokens", "api-panel-tokens", "key", "api-panel-tokens-desc"),
-    ("hooks", "api-panel-hooks", "webhook", "api-panel-hooks-desc"),
+    (
+        "hooks",
+        "api-panel-hooks",
+        "webhook",
+        "api-panel-hooks-desc",
+    ),
     ("log", "api-panel-log", "history", "api-panel-log-desc"),
     ("docs", "api-panel-docs", "book", "api-panel-docs-desc"),
 ];
@@ -203,7 +208,10 @@ async fn render_page(
         .iter()
         .map(|p| (p.id, (p.key.clone(), p.name.clone())))
         .collect();
-    let failing = hooks.iter().filter(|h| h.is_failing() || (h.is_active() && h.consecutive_failures > 0)).count();
+    let failing = hooks
+        .iter()
+        .filter(|h| h.is_failing() || (h.is_active() && h.consecutive_failures > 0))
+        .count();
     let subnav: Vec<NavItem> = PANELS
         .iter()
         .map(|(k, label, icon, desc)| {
@@ -253,12 +261,19 @@ async fn render_page(
         data["hook_form"] = serde_json::json!({
             "id": null, "url": "", "events": [], "projects": ["all"], "field": "", "code": "",
         });
-    } else if data["hook_form"]["projects"].as_array().is_some_and(Vec::is_empty) {
+    } else if data["hook_form"]["projects"]
+        .as_array()
+        .is_some_and(Vec::is_empty)
+    {
         data["hook_form"]["projects"] = serde_json::json!(["all"]);
     }
     let token_scopes: Vec<String> = data["extra"]["token_failed"]["scopes"]
         .as_array()
-        .map(|a| a.iter().filter_map(|s| s.as_str().map(str::to_string)).collect())
+        .map(|a| {
+            a.iter()
+                .filter_map(|s| s.as_str().map(str::to_string))
+                .collect()
+        })
         .unwrap_or_else(|| vec!["tiket:baca".to_string()]);
     data["scope_options"] = serde_json::to_value(iv::scope_options(&token_scopes))?;
     match panel {
@@ -288,9 +303,14 @@ async fn render_page(
                 rows.retain(|r| creators.contains(&r.creator));
             }
             match state.sort {
-                "used" => rows.sort_by(|a, b| a.used.as_ref().map(|u| (u.key, u.n)).cmp(&b.used.as_ref().map(|u| (u.key, u.n)))),
+                "used" => rows.sort_by(|a, b| {
+                    a.used
+                        .as_ref()
+                        .map(|u| (u.key, u.n))
+                        .cmp(&b.used.as_ref().map(|u| (u.key, u.n)))
+                }),
                 "expires" => rows.sort_by(|a, b| a.expires.cmp(&b.expires)),
-                _ => rows.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase())),
+                _ => rows.sort_by_key(|r| r.name.to_lowercase()),
             }
             if state.desc {
                 rows.reverse();
@@ -301,10 +321,8 @@ async fn render_page(
                 .skip(usize::try_from(state.offset()).unwrap_or(0))
                 .take(usize::try_from(state.per).unwrap_or(10))
                 .collect();
-            let mut creator_opts: Vec<FilterOption> = names
-                .values()
-                .map(|n| FilterOption::raw(n, n))
-                .collect();
+            let mut creator_opts: Vec<FilterOption> =
+                names.values().map(|n| FilterOption::raw(n, n)).collect();
             creator_opts.sort_by(|a, b| a.label.cmp(&b.label));
             creator_opts.dedup_by(|a, b| a.label == b.label);
             let table = TableView::new(&TOKENS_TABLE, &state, &format!("{base}/tokens"), total)
@@ -563,13 +581,24 @@ async fn create_hook(
     match hook_svc::create(&ctx.db, &acting(&tenant, request_id), &settings, &input).await {
         Ok((hook, secret)) => {
             let extra = Extra {
-                secret: Some(serde_json::json!({ "url": hook.url, "secret": secret, "created": true })),
+                secret: Some(
+                    serde_json::json!({ "url": hook.url, "secret": secret, "created": true }),
+                ),
                 ..Extra::default()
             };
             render_page(&ctx, &v, &tenant, "hooks", &[], None, extra).await
         }
         Err(e @ TicketFailure::Invalid(_)) => {
-            render_page(&ctx, &v, &tenant, "hooks", &[], None, hook_failed(&input, None, &e)).await
+            render_page(
+                &ctx,
+                &v,
+                &tenant,
+                "hooks",
+                &[],
+                None,
+                hook_failed(&input, None, &e),
+            )
+            .await
         }
         Err(e) => Err(e.into()),
     }
@@ -588,7 +617,14 @@ async fn update_hook(
     require(&tenant)?;
     let settings = Settings::from_ctx(&ctx)?;
     let input = hook_input(&form);
-    match hook_svc::update(&ctx.db, &acting(&tenant, request_id), &settings, id.id, &input).await
+    match hook_svc::update(
+        &ctx.db,
+        &acting(&tenant, request_id),
+        &settings,
+        id.id,
+        &input,
+    )
+    .await
     {
         Ok(_) => redirect_with(
             session,
@@ -596,8 +632,16 @@ async fn update_hook(
             &format!("{}/hooks", base(&tenant.workspace.slug)),
         ),
         Err(e @ TicketFailure::Invalid(_)) => {
-            render_page(&ctx, &v, &tenant, "hooks", &[], None, hook_failed(&input, Some(id.id), &e))
-                .await
+            render_page(
+                &ctx,
+                &v,
+                &tenant,
+                "hooks",
+                &[],
+                None,
+                hook_failed(&input, Some(id.id), &e),
+            )
+            .await
         }
         Err(e) => Err(e.into()),
     }
@@ -617,7 +661,11 @@ async fn toggle_hook(
     hook_svc::set_active(&ctx.db, &acting(&tenant, request_id), id.id, active).await?;
     redirect_with(
         session,
-        &Flash::success(if active { iv::FLASH_HOOK_ON } else { iv::FLASH_HOOK_OFF }),
+        &Flash::success(if active {
+            iv::FLASH_HOOK_ON
+        } else {
+            iv::FLASH_HOOK_OFF
+        }),
         &format!("{}/hooks", base(&tenant.workspace.slug)),
     )
 }
@@ -705,13 +753,28 @@ pub fn routes() -> Routes {
             "/w/{slug}/settings/api/tokens",
             get(tokens_page).post(create_token),
         )
-        .add("/w/{slug}/settings/api/tokens/{id}/revoke", post(revoke_token))
-        .add("/w/{slug}/settings/api/hooks", get(hooks_page).post(create_hook))
+        .add(
+            "/w/{slug}/settings/api/tokens/{id}/revoke",
+            post(revoke_token),
+        )
+        .add(
+            "/w/{slug}/settings/api/hooks",
+            get(hooks_page).post(create_hook),
+        )
         .add("/w/{slug}/settings/api/hooks/{id}", post(update_hook))
-        .add("/w/{slug}/settings/api/hooks/{id}/toggle", post(toggle_hook))
+        .add(
+            "/w/{slug}/settings/api/hooks/{id}/toggle",
+            post(toggle_hook),
+        )
         .add("/w/{slug}/settings/api/hooks/{id}/ping", post(ping_hook))
-        .add("/w/{slug}/settings/api/hooks/{id}/rotate", post(rotate_hook))
-        .add("/w/{slug}/settings/api/hooks/{id}/delete", post(delete_hook))
+        .add(
+            "/w/{slug}/settings/api/hooks/{id}/rotate",
+            post(rotate_hook),
+        )
+        .add(
+            "/w/{slug}/settings/api/hooks/{id}/delete",
+            post(delete_hook),
+        )
         .add("/w/{slug}/settings/api/log/{id}/resend", post(resend))
         .add("/w/{slug}/settings/api/{panel}", get(page))
 }

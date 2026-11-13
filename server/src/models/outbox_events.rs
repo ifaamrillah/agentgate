@@ -21,7 +21,9 @@ use serde::Serialize;
 
 pub use super::_entities::outbox_events::{ActiveModel, Column, Entity, Model};
 use super::{
-    projects, ticket_events::EventKind, tickets, users, webhook_deliveries, webhooks,
+    projects,
+    ticket_events::EventKind,
+    tickets, users, webhook_deliveries, webhooks,
     workspaces::{self, WorkspaceId},
 };
 
@@ -181,14 +183,14 @@ pub async fn publish<C: ConnectionTrait>(db: &C, new: NewEvent) -> Result<Model,
         id,
         event: new.event,
         created_at,
-        workspace: workspace
-            .as_ref()
-            .map_or(serde_json::Value::Null, |w| {
-                serde_json::json!({ "slug": w.slug, "name": w.name })
-            }),
-        project: project.as_ref().map_or(serde_json::Value::Null, |p| {
-            serde_json::json!({ "key": p.key, "name": p.name })
-        }),
+        workspace: workspace.as_ref().map_or(
+            serde_json::Value::Null,
+            |w| serde_json::json!({ "slug": w.slug, "name": w.name }),
+        ),
+        project: project.as_ref().map_or(
+            serde_json::Value::Null,
+            |p| serde_json::json!({ "key": p.key, "name": p.name }),
+        ),
         data: &new.data,
     };
     let payload = serde_json::to_value(&envelope).unwrap_or_default();
@@ -204,7 +206,8 @@ pub async fn publish<C: ConnectionTrait>(db: &C, new: NewEvent) -> Result<Model,
     }
     .insert(db)
     .await?;
-    let hooks = webhooks::Model::subscribed(db, new.workspace_id, new.event, new.project_id).await?;
+    let hooks =
+        webhooks::Model::subscribed(db, new.workspace_id, new.event, new.project_id).await?;
     if hooks.is_empty() {
         return Ok(row);
     }
@@ -433,12 +436,10 @@ pub async fn actor_json<C: ConnectionTrait>(
     actor_id: Option<Uuid>,
 ) -> Result<serde_json::Value, DbErr> {
     Ok(match actor_id {
-        Some(id) => users::Entity::find_by_id(id)
-            .one(db)
-            .await?
-            .map_or(serde_json::Value::Null, |u| {
-                serde_json::json!({ "id": u.id, "name": u.name })
-            }),
+        Some(id) => users::Entity::find_by_id(id).one(db).await?.map_or(
+            serde_json::Value::Null,
+            |u| serde_json::json!({ "id": u.id, "name": u.name }),
+        ),
         None => serde_json::Value::Null,
     })
 }
@@ -489,11 +490,16 @@ pub async fn delete_expired<C: ConnectionTrait>(
     now: chrono::DateTime<chrono::Utc>,
     dry_run: bool,
 ) -> Result<u64, DbErr> {
-    let cutoff =
-        DateTimeWithTimeZone::from(now - chrono::Duration::days(webhook_deliveries::RETENTION_DAYS));
+    let cutoff = DateTimeWithTimeZone::from(
+        now - chrono::Duration::days(webhook_deliveries::RETENTION_DAYS),
+    );
     let filter = Column::CreatedAt.lt(cutoff);
     if dry_run {
         return Entity::find().filter(filter).count(db).await;
     }
-    Ok(Entity::delete_many().filter(filter).exec(db).await?.rows_affected)
+    Ok(Entity::delete_many()
+        .filter(filter)
+        .exec(db)
+        .await?
+        .rows_affected)
 }

@@ -61,8 +61,7 @@ const NOTIFICATION_KINDS_M8: &str = "'mentioned', 'assigned', 'commented',
         'knowledge_proposal', 'knowledge_job', 'knowledge_rejected'";
 
 /// Cakupan token API (`models::api_tokens::ApiScope`).
-const SCOPES: &str =
-    "'tiket:baca', 'tiket:tulis', 'komentar:tulis', 'laporan:baca', 'knowledge:baca', 'webhook:kelola'";
+const SCOPES: &str = "'tiket:baca', 'tiket:tulis', 'komentar:tulis', 'laporan:baca', 'knowledge:baca', 'webhook:kelola'";
 
 /// Event webhook (`models::outbox_events::OutboxEvent`).
 const EVENTS: &str = "'ticket.created', 'ticket.updated', 'ticket.stage_changed',

@@ -94,7 +94,12 @@ async fn validated(
     let wid = acting.workspace_id();
     let mut project_ids = Vec::new();
     if !input.projects.iter().any(|p| p.trim() == "all") {
-        for k in input.projects.iter().map(|k| k.trim()).filter(|k| !k.is_empty()) {
+        for k in input
+            .projects
+            .iter()
+            .map(|k| k.trim())
+            .filter(|k| !k.is_empty())
+        {
             let p = projects::Model::find_by_key(db, wid, k)
                 .await?
                 .ok_or(TicketFailure::field("projects", PROJECT_INVALID))?;

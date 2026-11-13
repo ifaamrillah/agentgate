@@ -36,9 +36,7 @@ pub async fn hit<C: ConnectionTrait>(
     token_id: Uuid,
     now: DateTime<Utc>,
 ) -> Result<i32, DbErr> {
-    let window = now
-        .duration_trunc(Duration::minutes(1))
-        .unwrap_or(now);
+    let window = now.duration_trunc(Duration::minutes(1)).unwrap_or(now);
     let row = Count::find_by_statement(Statement::from_sql_and_values(
         DbBackend::Postgres,
         "INSERT INTO api_rate_limits (token_id, window_started_at, requests)

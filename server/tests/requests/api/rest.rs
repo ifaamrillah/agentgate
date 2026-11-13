@@ -28,12 +28,21 @@ async fn bearer_token_is_required_and_acts_as_its_creator() {
         let res = request.get("/api/v1/projects").await;
         assert_eq!(res.status_code(), 401);
         assert_eq!(json(&res)["error"], "invalid_token");
-        assert_eq!(get(&request, "ag_pat_salah", "/api/v1/projects").await.status_code(), 401);
+        assert_eq!(
+            get(&request, "ag_pat_salah", "/api/v1/projects")
+                .await
+                .status_code(),
+            401
+        );
 
         let token = new_token(&request, &f.cookie, &["tiket:baca"], "all").await;
         assert!(token.starts_with("ag_pat_"));
         // Hanya digest yang disimpan.
-        let row = api_tokens::Entity::find().one(&ctx.db).await.unwrap().unwrap();
+        let row = api_tokens::Entity::find()
+            .one(&ctx.db)
+            .await
+            .unwrap()
+            .unwrap();
         assert_ne!(row.digest, token);
         assert!(!row.digest.contains("ag_pat_"));
         assert!(token.starts_with(&row.prefix));
@@ -42,7 +51,11 @@ async fn bearer_token_is_required_and_acts_as_its_creator() {
         assert_eq!(res.status_code(), 200, "{}", res.text());
         assert_eq!(res.header("x-ratelimit-remaining"), "599");
         assert_eq!(json(&res)["projects"][0]["key"], "KSR");
-        let row = api_tokens::Entity::find().one(&ctx.db).await.unwrap().unwrap();
+        let row = api_tokens::Entity::find()
+            .one(&ctx.db)
+            .await
+            .unwrap()
+            .unwrap();
         assert!(row.last_used_at.is_some());
 
         // Tanpa cookie sesi pun POST tidak kena CSRF (bearer saja).
@@ -178,7 +191,13 @@ async fn scopes_and_project_limits_are_enforced() {
     request::<App, _, _>(|request, ctx| async move {
         let f = fixture(&request, &ctx).await;
         a_project(&ctx, &f.workspace, "GDG").await;
-        let reports = new_token(&request, &f.cookie, &["laporan:baca", "knowledge:baca"], "GDG").await;
+        let reports = new_token(
+            &request,
+            &f.cookie,
+            &["laporan:baca", "knowledge:baca"],
+            "GDG",
+        )
+        .await;
         let res = get(&request, &reports, "/api/v1/tickets").await;
         assert_eq!(res.status_code(), 403);
         assert_eq!(json(&res)["error"], "insufficient_scope");
@@ -187,8 +206,22 @@ async fn scopes_and_project_limits_are_enforced() {
         assert!(json(&res)["sprints"].as_array().unwrap().is_empty());
         let res = get(&request, &reports, "/api/v1/knowledge?project=GDG").await;
         assert_eq!(res.status_code(), 200, "{}", res.text());
-        assert_eq!(get(&request, &reports, "/api/v1/knowledge/tidak-ada?project=GDG").await.status_code(), 404);
-        assert_eq!(get(&request, &reports, "/api/v1/sprints").await.status_code(), 400);
+        assert_eq!(
+            get(
+                &request,
+                &reports,
+                "/api/v1/knowledge/tidak-ada?project=GDG"
+            )
+            .await
+            .status_code(),
+            404
+        );
+        assert_eq!(
+            get(&request, &reports, "/api/v1/sprints")
+                .await
+                .status_code(),
+            400
+        );
         // Token dibatasi ke GDG: project lain 404.
         let res = get(&request, &reports, "/api/v1/sprints?project=KSR").await;
         assert_eq!(res.status_code(), 404);
@@ -203,7 +236,12 @@ async fn scopes_and_project_limits_are_enforced() {
         assert_eq!(keys, ["GDG"]);
 
         // Tanpa webhook:kelola.
-        assert_eq!(get(&request, &reports, "/api/v1/webhooks").await.status_code(), 403);
+        assert_eq!(
+            get(&request, &reports, "/api/v1/webhooks")
+                .await
+                .status_code(),
+            403
+        );
     })
     .await;
 }
@@ -225,24 +263,57 @@ async fn other_workspaces_and_inaccessible_projects_are_not_found() {
         assert_eq!(res.status_code(), 303);
 
         let token = new_token(&request, &f.cookie, &["tiket:baca", "tiket:tulis"], "all").await;
-        assert_eq!(get(&request, &token, "/api/v1/tickets/LAIN-1").await.status_code(), 404);
-        assert_eq!(get(&request, &token, "/api/v1/tickets?project=LAIN").await.status_code(), 404);
-        let res = send(&request, &token, Method::POST, "/api/v1/tickets", &json!({ "project": "LAIN", "title": "x" })).await;
+        assert_eq!(
+            get(&request, &token, "/api/v1/tickets/LAIN-1")
+                .await
+                .status_code(),
+            404
+        );
+        assert_eq!(
+            get(&request, &token, "/api/v1/tickets?project=LAIN")
+                .await
+                .status_code(),
+            404
+        );
+        let res = send(
+            &request,
+            &token,
+            Method::POST,
+            "/api/v1/tickets",
+            &json!({ "project": "LAIN", "title": "x" }),
+        )
+        .await;
         assert_eq!(res.status_code(), 404);
 
         // Member tanpa akses project: tiket project itu 404 lewat tokennya.
         let user = a_user().name("Mira Member").create(&ctx).await;
-        crate::support::add_member(&ctx, &f.workspace, &user, agentgate_server::models::roles::RoleKey::Member).await;
+        crate::support::add_member(
+            &ctx,
+            &f.workspace,
+            &user,
+            agentgate_server::models::roles::RoleKey::Member,
+        )
+        .await;
         let member_cookie = sign_in_as(&request, &user).await;
         // Member biasa tidak memegang ManageIntegrations: Pengaturan API 404.
         let res = request
             .post("/w/acme/settings/api/tokens")
             .add_cookie(member_cookie.clone())
-            .form(&[("name", "x"), ("scopes", "tiket:baca"), ("expiry", "30"), ("project", "all")])
+            .form(&[
+                ("name", "x"),
+                ("scopes", "tiket:baca"),
+                ("expiry", "30"),
+                ("project", "all"),
+            ])
             .await;
         assert_eq!(res.status_code(), 404);
         let member_token = token_for(&ctx, &f.workspace, &user, &["tiket:baca"]).await;
-        assert_eq!(get(&request, &member_token, "/api/v1/tickets/KSR-1").await.status_code(), 404);
+        assert_eq!(
+            get(&request, &member_token, "/api/v1/tickets/KSR-1")
+                .await
+                .status_code(),
+            404
+        );
         let res = get(&request, &member_token, "/api/v1/tickets").await;
         assert_eq!(json(&res)["total"], 0);
     })
@@ -254,25 +325,69 @@ async fn revoked_disabled_and_departed_tokens_stop_working() {
     request::<App, _, _>(|request, ctx| async move {
         let f = fixture(&request, &ctx).await;
         let token = new_token(&request, &f.cookie, &["tiket:baca"], "all").await;
-        assert_eq!(get(&request, &token, "/api/v1/projects").await.status_code(), 200);
-        let row = api_tokens::Entity::find().one(&ctx.db).await.unwrap().unwrap();
+        assert_eq!(
+            get(&request, &token, "/api/v1/projects")
+                .await
+                .status_code(),
+            200
+        );
+        let row = api_tokens::Entity::find()
+            .one(&ctx.db)
+            .await
+            .unwrap()
+            .unwrap();
         let res = request
             .post(&format!("/w/acme/settings/api/tokens/{}/revoke", row.id))
             .add_cookie(f.cookie.clone())
             .await;
         assert_eq!(res.status_code(), 303);
-        assert_eq!(get(&request, &token, "/api/v1/projects").await.status_code(), 401);
+        assert_eq!(
+            get(&request, &token, "/api/v1/projects")
+                .await
+                .status_code(),
+            401
+        );
 
         // User dinonaktifkan.
         let token = new_token(&request, &f.cookie, &["tiket:baca"], "all").await;
-        exec(&ctx, "UPDATE users SET disabled_at = now() WHERE id = $1", f.owner.id).await;
-        assert_eq!(get(&request, &token, "/api/v1/projects").await.status_code(), 401);
-        exec(&ctx, "UPDATE users SET disabled_at = NULL WHERE id = $1", f.owner.id).await;
-        assert_eq!(get(&request, &token, "/api/v1/projects").await.status_code(), 200);
+        exec(
+            &ctx,
+            "UPDATE users SET disabled_at = now() WHERE id = $1",
+            f.owner.id,
+        )
+        .await;
+        assert_eq!(
+            get(&request, &token, "/api/v1/projects")
+                .await
+                .status_code(),
+            401
+        );
+        exec(
+            &ctx,
+            "UPDATE users SET disabled_at = NULL WHERE id = $1",
+            f.owner.id,
+        )
+        .await;
+        assert_eq!(
+            get(&request, &token, "/api/v1/projects")
+                .await
+                .status_code(),
+            200
+        );
 
         // Kedaluwarsa.
-        exec(&ctx, "UPDATE api_tokens SET expires_at = now() - interval '1 minute' WHERE user_id = $1", f.owner.id).await;
-        assert_eq!(get(&request, &token, "/api/v1/projects").await.status_code(), 401);
+        exec(
+            &ctx,
+            "UPDATE api_tokens SET expires_at = now() - interval '1 minute' WHERE user_id = $1",
+            f.owner.id,
+        )
+        .await;
+        assert_eq!(
+            get(&request, &token, "/api/v1/projects")
+                .await
+                .status_code(),
+            401
+        );
     })
     .await;
 }
@@ -287,18 +402,37 @@ async fn member_tokens_follow_their_role_and_die_when_they_leave() {
             .await
             .unwrap()
             .unwrap();
-        let raw = token_for(&ctx, &f.workspace, &member_row, &["tiket:baca", "webhook:kelola"]).await;
+        let raw = token_for(
+            &ctx,
+            &f.workspace,
+            &member_row,
+            &["tiket:baca", "webhook:kelola"],
+        )
+        .await;
         create_ticket(&request, &f.cookie, &[("title", "Tiket KSR")]).await;
-        assert_eq!(get(&request, &raw, "/api/v1/tickets/KSR-1").await.status_code(), 200);
+        assert_eq!(
+            get(&request, &raw, "/api/v1/tickets/KSR-1")
+                .await
+                .status_code(),
+            200
+        );
         // Member tidak memegang ManageIntegrations: webhook API 404 walau cakupannya ada.
-        assert_eq!(get(&request, &raw, "/api/v1/webhooks").await.status_code(), 404);
+        assert_eq!(
+            get(&request, &raw, "/api/v1/webhooks").await.status_code(),
+            404
+        );
         exec(
             &ctx,
             "DELETE FROM workspace_members WHERE user_id = $1",
             member_id,
         )
         .await;
-        assert_eq!(get(&request, &raw, "/api/v1/tickets/KSR-1").await.status_code(), 401);
+        assert_eq!(
+            get(&request, &raw, "/api/v1/tickets/KSR-1")
+                .await
+                .status_code(),
+            401
+        );
     })
     .await;
 }
@@ -317,7 +451,10 @@ async fn token_for(
             user_id: user.id,
             project_id: None,
             name: "Token member".into(),
-            scopes: scopes.iter().filter_map(|s| api_tokens::ApiScope::parse(s)).collect(),
+            scopes: scopes
+                .iter()
+                .filter_map(|s| api_tokens::ApiScope::parse(s))
+                .collect(),
             expires_at: None,
         },
     )
@@ -328,7 +465,11 @@ async fn token_for(
 
 async fn exec(ctx: &loco_rs::app::AppContext, sql: &str, id: uuid::Uuid) {
     ctx.db
-        .execute_raw(Statement::from_sql_and_values(DbBackend::Postgres, sql, [id.into()]))
+        .execute_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            sql,
+            [id.into()],
+        ))
         .await
         .unwrap();
 }
@@ -350,7 +491,12 @@ async fn rate_limit_answers_429_json() {
             assert_eq!(third.header("x-ratelimit-remaining"), "0");
             // Token lain punya jatahnya sendiri.
             let other = new_token(&request, &f.cookie, &["tiket:baca"], "all").await;
-            assert_eq!(get(&request, &other, "/api/v1/projects").await.status_code(), 200);
+            assert_eq!(
+                get(&request, &other, "/api/v1/projects")
+                    .await
+                    .status_code(),
+                200
+            );
         },
     )
     .await;
@@ -364,13 +510,31 @@ async fn transition_goes_through_the_gate() {
         let code = create_ticket(&request, &f.cookie, &[("title", "Checkout QRIS")]).await;
         let token = new_token(&request, &f.cookie, &["tiket:baca", "tiket:tulis"], "all").await;
         let path = format!("/api/v1/tickets/{code}/transition");
-        let res = send(&request, &token, Method::POST, &path, &json!({ "to": "prd" })).await;
+        let res = send(
+            &request,
+            &token,
+            Method::POST,
+            &path,
+            &json!({ "to": "prd" }),
+        )
+        .await;
         assert_eq!(res.status_code(), 200, "{}", res.text());
         assert_eq!(json(&res)["ticket"]["stage"], "prd");
         // PRD butuh artifact + approval: lompat ke Dev ditolak gate.
-        let res = send(&request, &token, Method::POST, &path, &json!({ "to": "dev" })).await;
+        let res = send(
+            &request,
+            &token,
+            Method::POST,
+            &path,
+            &json!({ "to": "dev" }),
+        )
+        .await;
         assert_eq!(res.status_code(), 422, "{}", res.text());
-        assert!(json(&res)["error"].as_str().unwrap().starts_with("ticket-"), "{}", res.text());
+        assert!(
+            json(&res)["error"].as_str().unwrap().starts_with("ticket-"),
+            "{}",
+            res.text()
+        );
         assert_eq!(ticket(&ctx, &f.workspace, &code).await.stage_key, "prd");
         let res = send(&request, &token, Method::POST, &path, &json!({ "to": "" })).await;
         assert_eq!(res.status_code(), 422);
@@ -436,10 +600,10 @@ async fn openapi_document_lists_every_route() {
         for line in doc.lines() {
             if let Some(p) = line.strip_prefix("  /").and_then(|l| l.strip_suffix(':')) {
                 current = format!("/{p}");
-            } else if let Some(m) = line.strip_prefix("    ").and_then(|l| l.strip_suffix(':')) {
-                if ["get", "post", "patch", "put", "delete"].contains(&m) {
-                    documented.push((current.clone(), m.to_string()));
-                }
+            } else if let Some(m) = line.strip_prefix("    ").and_then(|l| l.strip_suffix(':'))
+                && ["get", "post", "patch", "put", "delete"].contains(&m)
+            {
+                documented.push((current.clone(), m.to_string()));
             }
         }
         let mut missing = Vec::new();
@@ -460,7 +624,10 @@ async fn openapi_document_lists_every_route() {
             }
         }
         assert!(count >= 15, "{count}");
-        assert!(missing.is_empty(), "route tanpa dokumentasi OpenAPI: {missing:?}");
+        assert!(
+            missing.is_empty(),
+            "route tanpa dokumentasi OpenAPI: {missing:?}"
+        );
     })
     .await;
 }

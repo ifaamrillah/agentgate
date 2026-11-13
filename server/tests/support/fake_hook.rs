@@ -62,7 +62,11 @@ impl FakeHook {
     }
 }
 
-async fn hook(State(state): State<Shared>, headers: HeaderMap, body: Bytes) -> (StatusCode, String) {
+async fn hook(
+    State(state): State<Shared>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> (StatusCode, String) {
     let mut s = state.lock().unwrap();
     s.received.push(Received {
         headers,
@@ -75,7 +79,9 @@ async fn hook(State(state): State<Shared>, headers: HeaderMap, body: Bytes) -> (
 
 pub async fn start() -> FakeHook {
     let state: Shared = Arc::default();
-    let app = Router::new().route("/hook", post(hook)).with_state(state.clone());
+    let app = Router::new()
+        .route("/hook", post(hook))
+        .with_state(state.clone());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });

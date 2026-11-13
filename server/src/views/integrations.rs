@@ -117,14 +117,11 @@ pub struct TokenRow {
 
 impl TokenRow {
     #[must_use]
-    pub fn of(
-        t: &api_tokens::Model,
-        creator: &str,
-        project: &str,
-        base: &str,
-    ) -> Self {
+    pub fn of(t: &api_tokens::Model, creator: &str, project: &str, base: &str) -> Self {
         let now = Utc::now();
-        let expires = t.expires_at.map(|e| super::time::wib_datetime(&e)[..10].to_string());
+        let expires = t
+            .expires_at
+            .map(|e| super::time::wib_datetime(&e)[..10].to_string());
         let left = t.expires_at.map(|e| e.with_timezone(&Utc) - now);
         Self {
             id: t.id,
@@ -178,7 +175,11 @@ pub struct HookRow {
 
 impl HookRow {
     #[must_use]
-    pub fn of(h: &webhooks::Model, project_names: &HashMap<Uuid, (String, String)>, base: &str) -> Self {
+    pub fn of(
+        h: &webhooks::Model,
+        project_names: &HashMap<Uuid, (String, String)>,
+        base: &str,
+    ) -> Self {
         let state = if !h.is_active() {
             "off"
         } else if h.consecutive_failures > 0 {
@@ -266,7 +267,8 @@ impl DeliveryRow {
             title: format!(
                 "{} · {}",
                 d.event,
-                d.response_status.map_or_else(|| "–".to_string(), |s| s.to_string())
+                d.response_status
+                    .map_or_else(|| "–".to_string(), |s| s.to_string())
             ),
             at: super::time::wib_datetime(&d.created_at),
             event: d.event.clone(),

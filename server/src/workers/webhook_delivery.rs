@@ -24,8 +24,13 @@ impl BackgroundWorker<WebhookDeliveryArgs> for WebhookDeliveryWorker {
 
     async fn perform(&self, args: WebhookDeliveryArgs) -> loco_rs::Result<()> {
         let settings = Settings::from_ctx(&self.ctx)?;
-        dispatch::send_many(&self.ctx.db, &settings, &args.delivery_ids, chrono::Utc::now())
-            .await?;
+        dispatch::send_many(
+            &self.ctx.db,
+            &settings,
+            &args.delivery_ids,
+            chrono::Utc::now(),
+        )
+        .await?;
         Ok(())
     }
 }
