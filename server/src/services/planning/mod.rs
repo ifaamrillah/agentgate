@@ -6,6 +6,7 @@
 //! `EditProject`; components `AdministerProject`. Saved filter milik user (dibagikan ke tim/
 //! workspace); mengubah/menghapus hanya pemiliknya.
 pub mod components;
+pub mod estimates;
 pub mod refs;
 pub mod scope;
 pub mod sprints;

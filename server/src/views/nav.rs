@@ -398,7 +398,21 @@ fn project_side_views(home: &str, section: &str) -> Vec<NavItem> {
         &format!("{home}/knowledge"),
     );
     knowledge.current = section == "project_knowledge";
-    vec![board, list, knowledge, graph]
+    let mut backlog = NavItem::link(
+        "backlog",
+        "nav-backlog",
+        "stack-2",
+        &format!("{home}/backlog"),
+    );
+    backlog.current = section == "project_backlog";
+    let mut reports = NavItem::link(
+        "reports",
+        "nav-reports",
+        "chart-line",
+        &format!("{home}/reports"),
+    );
+    reports.current = section == "project_reports";
+    vec![board, list, backlog, reports, knowledge, graph]
 }
 
 fn settings_side(shell: &AppShell) -> Vec<SideGroup> {
@@ -535,7 +549,8 @@ pub fn project_views(home_href: &str, pinned: &[String], current: &str) -> Proje
             .unwrap_or(PROJECT_VIEWS[0]);
         let mut nav = match key {
             "overview" => NavItem::link(key, label, icon, home_href),
-            "board" | "list" | "prs" | "graph" | "knowledge" => {
+            "board" | "list" | "prs" | "graph" | "knowledge" | "backlog" | "roadmap"
+            | "calendar" | "releases" | "reports" => {
                 NavItem::link(key, label, icon, &format!("{home_href}/{key}"))
             }
             _ => NavItem::soon(key, label, icon),

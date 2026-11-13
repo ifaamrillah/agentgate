@@ -153,10 +153,13 @@ pub async fn run(
         let from = flow
             .rule(&updated.stage_key)
             .map_or_else(|| updated.stage_key.clone(), |s| s.name.clone());
+        let from_key = updated.stage_key.clone();
         updated = stages::enter_stage(&work.txn, work.wid, updated, &flow, &to).await?;
         changes.insert(
             "stage".into(),
-            serde_json::json!({ "from": from, "to": to.name }),
+            serde_json::json!({
+                "from": from, "to": to.name, "from_key": from_key, "to_key": to.key,
+            }),
         );
     }
     let status_only = changes.keys().all(|k| k == "status" || k == "stage");

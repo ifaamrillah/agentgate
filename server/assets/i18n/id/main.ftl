@@ -11,6 +11,7 @@ nav-projects = Project
 nav-no-projects = Belum ada project.
 nav-board = Board
 nav-backlog = Backlog
+nav-reports = Laporan
 nav-knowledge = Knowledge
 nav-ai-office = AI Office
 nav-soon = segera
