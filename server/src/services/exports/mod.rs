@@ -171,15 +171,19 @@ pub async fn request(
 /// # Errors
 ///
 /// `NotFound` (bukan milik workspace / bukan `failed`), error database.
-pub async fn retry(ctx: &AppContext, acting: &Acting<'_>, id: Uuid) -> Result<(), TicketFailure> {
+pub async fn retry(ctx: &AppContext, acting: &Acting<'_>, id: Uuid) -> Result<bool, TicketFailure> {
     if !can_export(acting.role) {
         return Err(TicketFailure::NotFound);
     }
     if !data_exports::ActiveModel::requeue_failed(&ctx.db, acting.workspace_id(), id).await? {
-        return Err(TicketFailure::NotFound);
+        // Sudah diulang (klik ganda) atau tidak gagal: bukan error selama ekspornya ada.
+        return data_exports::Model::find_in(&ctx.db, acting.workspace_id(), id)
+            .await?
+            .map(|_| false)
+            .ok_or(TicketFailure::NotFound);
     }
     enqueue(ctx, id).await;
-    Ok(())
+    Ok(true)
 }
 
 /// Enqueue worker ekspor; gagal hanya dicatat (baris `queued` disapu `export_sweep`).

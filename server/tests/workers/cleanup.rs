@@ -46,6 +46,8 @@ const TENANT_TABLES: &[&str] = &[
     "project_grants",
     "repos",
     "ticket_types",
+    "data_exports",
+    "ticket_imports",
 ];
 
 /// Tandai `workspace` terjadwal hapus `days` hari lalu.

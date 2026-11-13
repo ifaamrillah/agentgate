@@ -440,8 +440,11 @@ async fn retry(
     id: IdOr404<data_exports::Entity>,
 ) -> Result<Response> {
     let tenant = &access.tenant;
-    svc::retry(&ctx, &acting(tenant, request_id), id.id).await?;
-    let session = flash::set(session, &Flash::success(FLASH_RETRIED))?;
+    let session = if svc::retry(&ctx, &acting(tenant, request_id), id.id).await? {
+        flash::set(session, &Flash::success(FLASH_RETRIED))?
+    } else {
+        session
+    };
     Ok((
         session,
         format::redirect(&format!("{}/hist", base(&tenant.workspace.slug)))?,
