@@ -41,6 +41,8 @@ pub struct Model {
     #[sea_orm(column_type = "JsonBinary")]
     pub git: Json,
     pub knowledge_owner_id: Option<Uuid>,
+    #[sea_orm(column_type = "JsonBinary")]
+    pub planning: Json,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

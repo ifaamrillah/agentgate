@@ -95,6 +95,8 @@ struct StageDoc {
     #[serde(default, skip_serializing_if = "is_false")]
     paralel: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    batas_wip: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     penugasan: Option<PeopleDoc>,
 }
 
@@ -225,6 +227,7 @@ pub fn parse(
             fail_to: s.gagal_ke,
             parallel: s.paralel,
             people,
+            wip: s.batas_wip.filter(|n| *n > 0),
         });
     }
     let mut definition = Definition { stages };
@@ -279,6 +282,7 @@ pub fn emit(
                 batas_gagal: (s.fail_limit != FAIL_LIMIT_DEFAULT).then_some(s.fail_limit),
                 gagal_ke: s.fail_to.clone(),
                 paralel: s.parallel,
+                batas_wip: s.wip,
                 penugasan: (!s.people.is_empty()).then(|| PeopleDoc {
                     executor: emails(&s.people.executors),
                     approver: emails(&s.people.approvers),

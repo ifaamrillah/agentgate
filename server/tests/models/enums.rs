@@ -945,3 +945,152 @@ async fn code_graph_checks_match_enums() {
     }
     assert!(!update_ok(db, "graph_links", "confidence", link, "bogus").await);
 }
+
+/// Kolom enum tabel M9 (sprint, log scope, rilis, versi release notes, estimasi, saved filter):
+/// setiap varian diterima CHECK, literal lain ditolak.
+#[tokio::test]
+async fn planning_enum_checks_match_enums() {
+    use agentgate_server::models::{
+        release_note_versions::VersionSource,
+        releases::{NotesSource, ReleaseStatus},
+        saved_filters::Visibility,
+        sprint_scope_events::ScopeKind,
+        sprints::SprintState,
+        ticket_estimates::EstimateSource,
+        tickets::TicketInput,
+    };
+    use agentgate_server::services::{tickets::create, workspaces::Acting};
+
+    use crate::support::{a_project, a_user, a_workspace, builtin_role};
+
+    let boot = boot_test::<App>().await.unwrap();
+    let ctx = &boot.app_context;
+    let db = &ctx.db;
+    let owner = a_user().create(ctx).await;
+    let workspace = a_workspace(&owner).create(ctx).await;
+    let project = a_project(ctx, &workspace, "PLN").await;
+    let role = builtin_role(ctx, &workspace, RoleKey::Owner).await;
+    let acting = Acting {
+        workspace: &workspace,
+        user: &owner,
+        role: &role,
+        request_id: None,
+    };
+    let form = create::TicketForm {
+        input: TicketInput {
+            title: "Satu".into(),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let ticket = create::run(db, &acting, project.id, &form).await.unwrap();
+    let insert = |sql: &str, values: Vec<Value>| {
+        let stmt = Statement::from_sql_and_values(DbBackend::Postgres, sql, values);
+        async move {
+            db.query_one_raw(stmt)
+                .await
+                .unwrap()
+                .unwrap()
+                .try_get::<Uuid>("", "id")
+                .unwrap()
+        }
+    };
+    let w = Value::from(workspace.id);
+    let sprint = insert(
+        "INSERT INTO sprints (workspace_id, project_id, name, starts_on, ends_on) \
+         VALUES ($1, $2, 'Sprint 1', '2026-11-02', '2026-11-13') RETURNING id",
+        vec![w.clone(), project.id.into()],
+    )
+    .await;
+    let scope = insert(
+        "INSERT INTO sprint_scope_events (workspace_id, sprint_id, ticket_id, kind) \
+         VALUES ($1, $2, $3, 'added') RETURNING id",
+        vec![w.clone(), sprint.into(), ticket.id.into()],
+    )
+    .await;
+    let release = insert(
+        "INSERT INTO releases (workspace_id, project_id, name) VALUES ($1, $2, 'v1.0') \
+         RETURNING id",
+        vec![w.clone(), project.id.into()],
+    )
+    .await;
+    let version = insert(
+        "INSERT INTO release_note_versions (workspace_id, release_id, number, body, source) \
+         VALUES ($1, $2, 1, 'x', 'manual') RETURNING id",
+        vec![w.clone(), release.into()],
+    )
+    .await;
+    let estimate = insert(
+        "INSERT INTO ticket_estimates (workspace_id, ticket_id, source) VALUES ($1, $2, 'ai') \
+         RETURNING id",
+        vec![w.clone(), ticket.id.into()],
+    )
+    .await;
+    let filter = insert(
+        "INSERT INTO saved_filters (workspace_id, owner_id, name, query) \
+         VALUES ($1, $2, 'Saya', 'assignee = currentUser()') RETURNING id",
+        vec![w, owner.id.into()],
+    )
+    .await;
+    let cases: Vec<(&str, &str, Uuid, Vec<String>)> = vec![
+        (
+            "sprints",
+            "state",
+            sprint,
+            SprintState::iter().map(|v| v.to_value()).collect(),
+        ),
+        (
+            "sprint_scope_events",
+            "kind",
+            scope,
+            ScopeKind::iter().map(|v| v.to_value()).collect(),
+        ),
+        (
+            "releases",
+            "status",
+            release,
+            ReleaseStatus::iter().map(|v| v.to_value()).collect(),
+        ),
+        (
+            "releases",
+            "notes_source",
+            release,
+            NotesSource::iter().map(|v| v.to_value()).collect(),
+        ),
+        (
+            "release_note_versions",
+            "source",
+            version,
+            VersionSource::iter().map(|v| v.to_value()).collect(),
+        ),
+        (
+            "ticket_estimates",
+            "source",
+            estimate,
+            EstimateSource::iter().map(|v| v.to_value()).collect(),
+        ),
+        (
+            "saved_filters",
+            "visibility",
+            filter,
+            // `team` wajib dengan team_id (CHECK terpisah).
+            Visibility::iter()
+                .filter(|v| *v != Visibility::Team)
+                .map(|v| v.to_value())
+                .collect(),
+        ),
+    ];
+    for (table, column, id, values) in cases {
+        for value in &values {
+            assert!(
+                update_ok(db, table, column, id, value).await,
+                "{table}.{column} = {value}"
+            );
+        }
+        assert!(
+            !update_ok(db, table, column, id, "bogus").await,
+            "{table}.{column}"
+        );
+    }
+    assert!(!update_ok(db, "saved_filters", "visibility", filter, "team").await);
+}

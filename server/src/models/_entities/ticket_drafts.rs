@@ -29,6 +29,8 @@ pub struct Model {
     pub created_by: Option<Uuid>,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
+    #[sea_orm(column_type = "JsonBinary")]
+    pub estimate: Json,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
