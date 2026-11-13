@@ -183,6 +183,7 @@ impl Hooks for App {
         #[cfg(debug_assertions)]
         tasks.register(crate::tasks::dev_login::DevLogin);
         tasks.register(crate::tasks::cleanup::Cleanup);
+        tasks.register(crate::tasks::export_sweep::ExportSweep);
         tasks.register(crate::tasks::knowledge_audit::KnowledgeAudit);
         tasks.register(crate::tasks::user_create::UserCreate);
         tasks.register(crate::tasks::user_set_password::UserSetPassword);

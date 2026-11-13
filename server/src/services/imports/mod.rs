@@ -354,6 +354,69 @@ pub async fn enqueue(ctx: &AppContext, id: Uuid) {
     }
 }
 
+/// Draf yang tidak disentuh selama ini dibatalkan cleanup (berkas sumbernya dihapus).
+pub const DRAFT_RETENTION_DAYS: i64 = 7;
+
+/// Sapuan (task `export_sweep`): impor `queued`/`running` tanpa kemajuan di-enqueue ulang;
+/// `updated_at` disentuh dulu supaya sapuan berikutnya tidak mengantre dua kali. Worker
+/// melanjutkan dari `processed`.
+///
+/// # Errors
+///
+/// Error database.
+pub async fn sweep(ctx: &AppContext, now: chrono::DateTime<Utc>) -> Result<u64, DbErr> {
+    let mut n = 0;
+    for row in ticket_imports::Model::stuck(&ctx.db, now).await? {
+        let touched = ticket_imports::Entity::update_many()
+            .col_expr(ticket_imports::Column::UpdatedAt, Expr::value(now))
+            .filter(ticket_imports::Column::Id.eq(row.id))
+            .filter(ticket_imports::Column::UpdatedAt.eq(row.updated_at))
+            .exec(&ctx.db)
+            .await?;
+        if touched.rows_affected == 1 {
+            enqueue(ctx, row.id).await;
+            n += 1;
+        }
+    }
+    Ok(n)
+}
+
+/// Pembersihan (task `cleanup`): draf yang ditinggal lebih dari [`DRAFT_RETENTION_DAYS`] hari
+/// dibatalkan dan berkas sumbernya dihapus. `apply` false = hanya menghitung.
+///
+/// # Errors
+///
+/// Error database.
+pub async fn expire_drafts(
+    ctx: &AppContext,
+    now: chrono::DateTime<Utc>,
+    apply: bool,
+) -> Result<u64, DbErr> {
+    let due = ticket_imports::Model::abandoned_drafts(
+        &ctx.db,
+        now - Duration::days(DRAFT_RETENTION_DAYS),
+    )
+    .await?;
+    if !apply {
+        return Ok(due.len() as u64);
+    }
+    let mut n = 0;
+    for row in due {
+        if ticket_imports::ActiveModel::transition(
+            &ctx.db,
+            row.id,
+            &[ImportStatus::Draft],
+            ImportStatus::Cancelled,
+        )
+        .await?
+        {
+            drop_source(ctx, &row).await?;
+            n += 1;
+        }
+    }
+    Ok(n)
+}
+
 /// Batalkan draf: berkas dihapus setelah commit.
 ///
 /// # Errors

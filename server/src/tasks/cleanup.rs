@@ -19,7 +19,8 @@ impl Task for Cleanup {
         TaskInfo {
             name: "cleanup".to_string(),
             detail: "Bersihkan sesi, rate limit, token, undangan lama, dan workspace yang masa \
-                     tenggang hapusnya lewat. Dry run kecuali confirm:yes"
+                     tenggang hapusnya lewat, tiket di sampah, ekspor kedaluwarsa, laporan dan draf impor \
+                     lama. Dry run kecuali confirm:yes"
                 .to_string(),
         }
     }

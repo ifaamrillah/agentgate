@@ -1,5 +1,5 @@
 //! Pembersihan harian (job `workers::cleanup`, dijadwalkan scheduler 03:00 UTC; juga task
-//! `bin/loco task cleanup`). Enam langkah, masing-masing berdiri sendiri: langkah atau item
+//! `bin/loco task cleanup`). Sembilan langkah, masing-masing berdiri sendiri: langkah atau item
 //! yang gagal dicatat di log dan dihitung `failed`, lalu pembersihan berlanjut (rules §8).
 //! Idempoten: menjalankannya lagi hanya menemukan yang belum dibersihkan.
 //!
@@ -12,6 +12,9 @@
 //!    seluruh datanya, termasuk audit log-nya, ikut terhapus (FK `ON DELETE CASCADE`).
 //! 6. Tiket yang di sampah lebih dari [`tickets::trash::RETENTION_DAYS`] hari, beserta file
 //!    lampirannya (`services::tickets::trash::purge_expired`).
+//! 7. Ekspor data `ready` yang lewat 7 hari → `expired`, berkas ZIP-nya dihapus (M11).
+//! 8. Laporan baris dilewati impor CSV yang lewat 30 hari dikosongkan (M11).
+//! 9. Draf impor CSV yang ditinggal lebih dari 7 hari dibatalkan, berkas sumbernya dihapus.
 //!
 //! [`CleanupMode::DryRun`] hanya menghitung (task tanpa `confirm:yes`).
 
@@ -47,6 +50,9 @@ pub enum CleanupStep {
     Invitations,
     Workspaces,
     Tickets,
+    Exports,
+    ImportReports,
+    ImportDrafts,
 }
 
 impl CleanupStep {
@@ -60,6 +66,9 @@ impl CleanupStep {
             Self::Invitations => "invitations",
             Self::Workspaces => "workspaces",
             Self::Tickets => "tickets",
+            Self::Exports => "exports",
+            Self::ImportReports => "import_reports",
+            Self::ImportDrafts => "import_drafts",
         }
     }
 }
@@ -114,7 +123,7 @@ impl CleanupReport {
     }
 }
 
-/// Jalankan keenam langkah. Tidak pernah gagal karena satu langkah: kegagalan ada di
+/// Jalankan semua langkah. Tidak pernah gagal karena satu langkah: kegagalan ada di
 /// [`CleanupReport::failed`] dan di log.
 pub async fn run(ctx: &AppContext, mode: CleanupMode) -> CleanupReport {
     let now = Utc::now();
@@ -153,6 +162,14 @@ pub async fn run(ctx: &AppContext, mode: CleanupMode) -> CleanupReport {
 
     let trashed = tickets::trash::purge_expired(&ctx.db, &ctx.storage, now, apply).await;
     report.push(CleanupStep::Tickets, trashed.map_err(Into::into));
+
+    let exports = crate::services::exports::expire(ctx, now, apply).await;
+    report.push(CleanupStep::Exports, exports.map_err(Into::into));
+    let reports =
+        crate::models::ticket_imports::ActiveModel::purge_reports(&ctx.db, now, apply).await;
+    report.push(CleanupStep::ImportReports, reports.map_err(Into::into));
+    let drafts = crate::services::imports::expire_drafts(ctx, now, apply).await;
+    report.push(CleanupStep::ImportDrafts, drafts.map_err(Into::into));
     report
 }
 

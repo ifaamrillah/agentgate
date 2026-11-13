@@ -84,6 +84,12 @@ scheduler:
       run: knowledge_audit
       schedule: "0 0 2 * * *"
       tags: ["knowledge"]
+    # Sapuan ekspor data dan impor CSV (task `export_sweep`, M11): baris antre/berjalan yang macet
+    # (enqueue gagal, worker mati) diantrekan ulang. Tiap 10 menit; idempoten.
+    export_sweep:
+      run: export_sweep
+      schedule: "0 */10 * * * *"
+      tags: ["maintenance"]
 
 mailer:
   smtp:

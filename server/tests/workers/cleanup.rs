@@ -420,6 +420,9 @@ async fn cleanup_is_idempotent() {
         CleanupStep::Invitations,
         CleanupStep::Workspaces,
         CleanupStep::Tickets,
+        CleanupStep::Exports,
+        CleanupStep::ImportReports,
+        CleanupStep::ImportDrafts,
     ] {
         assert_eq!(second.count(step), 0, "{step:?}");
     }
