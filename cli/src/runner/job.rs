@@ -10,8 +10,8 @@ use std::{
 use agentgate_core::{
     git::CodeOutput,
     runner::protocol::{
-        FinishReport, JobKind, JobMode, JobSpec, LogBatch, LogLine, LogStream, Outcome,
-        PullRequestInfo, PullRequestOpen, Step, StepState, StepsUpdate,
+        ChangedFile, FinishReport, JobKind, JobMode, JobSpec, LogBatch, LogLine, LogStream,
+        Outcome, PullRequestInfo, PullRequestOpen, Step, StepState, StepsUpdate, TokenUsage,
     },
 };
 use tokio::{
@@ -153,6 +153,7 @@ enum Agent {
         ok: bool,
         summary: String,
         tokens: Option<u64>,
+        usage: Option<TokenUsage>,
         cost_usd: Option<f64>,
     },
     Quota {
@@ -262,6 +263,7 @@ async fn run_agent(
             ok: false,
             summary: "output client tidak bisa dibaca".into(),
             tokens: None,
+            usage: None,
             cost_usd: None,
         });
     };
@@ -324,16 +326,18 @@ async fn run_agent(
     if let Some(text) = quota {
         return Ok(Agent::Quota { text });
     }
-    let (ok, summary, tokens, cost_usd) = match finished {
+    let (ok, summary, tokens, usage, cost_usd) = match finished {
         Some(f) => (
             status.success() && !f.is_error,
             f.text,
             f.tokens,
+            f.usage,
             f.cost_usd,
         ),
         None => (
             false,
             format!("client berhenti tanpa hasil (status {status})"),
+            None,
             None,
             None,
         ),
@@ -342,6 +346,7 @@ async fn run_agent(
         ok,
         summary,
         tokens,
+        usage,
         cost_usd,
     })
 }
@@ -499,6 +504,20 @@ async fn upload(
     }
 }
 
+/// File yang diubah job di repo pertamanya (satu repo per job runner).
+fn changed_files(spec: &JobSpec, wt: &Path) -> Vec<ChangedFile> {
+    let Some(repo) = spec.repos.first() else {
+        return Vec::new();
+    };
+    worktree::changed_files(wt, &spec.base_branch)
+        .into_iter()
+        .map(|path| ChangedFile {
+            repo: repo.clone(),
+            path,
+        })
+        .collect()
+}
+
 async fn finish(ctx: &Ctx, id: Uuid, report: &FinishReport) -> Result<()> {
     ctx.api
         .post::<_, serde_json::Value>(&ctx.job_path(id, "finish"), report)
@@ -556,6 +575,7 @@ pub async fn run(ctx: &Ctx, id: Uuid, mut cancel: watch::Receiver<bool>) -> Resu
                 ok: false,
                 summary: msg,
                 tokens: None,
+                usage: None,
                 cost_usd: None,
             }
         }
@@ -581,6 +601,7 @@ pub async fn run(ctx: &Ctx, id: Uuid, mut cancel: watch::Receiver<bool>) -> Resu
             ok,
             summary,
             tokens,
+            usage,
             cost_usd,
         } => {
             steps.agent = if ok { StepState::Ok } else { StepState::Fail };
@@ -598,6 +619,8 @@ pub async fn run(ctx: &Ctx, id: Uuid, mut cancel: watch::Receiver<bool>) -> Resu
                 tokens,
                 cost_usd,
                 quota_reset_at: None,
+                usage,
+                changed_files: changed_files(&spec, &wt),
             }
         }
     };
@@ -699,6 +722,7 @@ pub async fn attach(ctx: &Ctx, id: Uuid, out: &mut impl Write) -> Result<()> {
                 Outcome::Failed
             }),
             summary: "Sesi interaktif selesai".into(),
+            changed_files: changed_files(&spec, &wt),
             ..FinishReport::default()
         },
     )

@@ -11,7 +11,7 @@
 
 use std::path::Path;
 
-use agentgate_core::runner::protocol::{JobSpec, LogLine, LogStream, Step, StepState};
+use agentgate_core::runner::protocol::{JobSpec, LogLine, LogStream, Step, StepState, TokenUsage};
 use serde_json::Value;
 
 use crate::ui::clip;
@@ -68,6 +68,7 @@ pub struct Finished {
     pub is_error: bool,
     pub text: String,
     pub tokens: Option<u64>,
+    pub usage: Option<TokenUsage>,
     pub cost_usd: Option<f64>,
     pub turns: Option<u64>,
 }
@@ -163,13 +164,15 @@ fn tool_result_text(content: &Value) -> String {
     }
 }
 
-fn usage_tokens(usage: &Value) -> Option<u64> {
+fn usage_breakdown(usage: &Value) -> Option<TokenUsage> {
     let n = |k: &str| usage.get(k).and_then(Value::as_u64).unwrap_or(0);
-    let total = n("input_tokens")
-        + n("output_tokens")
-        + n("cache_creation_input_tokens")
-        + n("cache_read_input_tokens");
-    (total > 0).then_some(total)
+    let u = TokenUsage {
+        input: n("input_tokens"),
+        output: n("output_tokens"),
+        cache_read: n("cache_read_input_tokens"),
+        cache_write: n("cache_creation_input_tokens"),
+    };
+    (u.total() > 0).then_some(u)
 }
 
 impl Parser {
@@ -256,7 +259,8 @@ impl Parser {
                     } else {
                         text
                     },
-                    tokens: v.get("usage").and_then(usage_tokens),
+                    tokens: v.get("usage").and_then(usage_breakdown).map(|u| u.total()),
+                    usage: v.get("usage").and_then(usage_breakdown),
                     cost_usd: v.get("total_cost_usd").and_then(Value::as_f64),
                     turns: v.get("num_turns").and_then(Value::as_u64),
                 };
@@ -362,6 +366,15 @@ mod tests {
         assert!(!done.is_error);
         assert_eq!(done.text, "Validasi stok ditambahkan dan tes lulus.");
         assert_eq!(done.tokens, Some(7300));
+        assert_eq!(
+            done.usage,
+            Some(TokenUsage {
+                input: 1200,
+                output: 800,
+                cache_read: 5000,
+                cache_write: 300,
+            })
+        );
         assert_eq!(done.turns, Some(7));
     }
 

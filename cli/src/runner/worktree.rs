@@ -119,6 +119,29 @@ pub fn ahead_of(worktree: &Path, base: &str) -> u64 {
         .unwrap_or(0)
 }
 
+/// File yang diubah branch worktree dibanding base (`git diff --name-only base...HEAD`), maks.
+/// [`agentgate_core::runner::protocol::CHANGED_FILES_MAX`]. Tanpa base yang dikenal: kosong.
+#[must_use]
+pub fn changed_files(worktree: &Path, base: &str) -> Vec<String> {
+    let base = base_ref(worktree, base);
+    if base == "HEAD" {
+        return Vec::new();
+    }
+    git::git(
+        worktree,
+        &["diff", "--name-only", &format!("{base}...HEAD")],
+    )
+    .map(|out| {
+        out.lines()
+            .map(str::trim)
+            .filter(|l| !l.is_empty())
+            .take(agentgate_core::runner::protocol::CHANGED_FILES_MAX)
+            .map(str::to_string)
+            .collect()
+    })
+    .unwrap_or_default()
+}
+
 /// `git push -u origin <branch>` dari worktree.
 ///
 /// # Errors
@@ -209,6 +232,8 @@ mod tests {
         assert!(commit_work(&target, &rules, "feat(KSR-1): x").unwrap());
         let files = git::git(&target, &["show", "--name-only", "--format=", "HEAD"]).unwrap();
         assert_eq!(files, "stok.rs");
+        assert!(changed_files(&target, "main").contains(&"stok.rs".to_string()));
+        assert!(changed_files(&target, "").is_empty());
         assert_eq!(git::current_branch(&target).unwrap(), "ag/KSR-1-x");
     }
 }

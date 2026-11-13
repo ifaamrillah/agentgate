@@ -987,6 +987,40 @@ pub async fn permission(
     })
 }
 
+/// Biaya USD dari client → mikro-dolar (bilangan bulat); nilai negatif/tak hingga dibuang.
+#[allow(clippy::cast_possible_truncation)]
+fn usd_micros(usd: f64) -> Option<i64> {
+    (usd.is_finite() && usd >= 0.0 && usd < 1e9).then(|| (usd * 1_000_000.0).round() as i64)
+}
+
+/// Batas panjang nama repo / path file yang disimpan dari laporan runner.
+const CHANGED_REPO_MAX: usize = 200;
+const CHANGED_PATH_MAX: usize = 1024;
+
+/// `[{"repo", "path"}]` dari laporan runner: entri kosong, terlalu panjang, atau path absolut /
+/// berisi `..` dibuang; maks. [`agentgate_core::runner::protocol::CHANGED_FILES_MAX`].
+fn changed_files_json(
+    files: &[agentgate_core::runner::protocol::ChangedFile],
+) -> serde_json::Value {
+    let ok = |f: &&agentgate_core::runner::protocol::ChangedFile| {
+        let (repo, path) = (f.repo.trim(), f.path.trim());
+        !repo.is_empty()
+            && repo.len() <= CHANGED_REPO_MAX
+            && !path.is_empty()
+            && path.len() <= CHANGED_PATH_MAX
+            && !path.starts_with('/')
+            && !path.split('/').any(|seg| seg == "..")
+    };
+    serde_json::Value::Array(
+        files
+            .iter()
+            .filter(ok)
+            .take(agentgate_core::runner::protocol::CHANGED_FILES_MAX)
+            .map(|f| serde_json::json!({ "repo": f.repo.trim(), "path": f.path.trim() }))
+            .collect(),
+    )
+}
+
 /// Runner melaporkan hasil job. Sukses stage → stage diselesaikan sebagai executor (minta
 /// review / maju bila gate terpenuhi); gagal gate dicatat di log. Sukses `@agent` → jawaban
 /// dibalas sebagai komentar.
@@ -1008,7 +1042,22 @@ pub async fn finish(
     let summary = clip(&report.summary, SUMMARY_MAX);
     let mut m = job.clone().into_active_model();
     m.summary = Set(summary.clone());
-    m.tokens = Set(report.tokens.and_then(|t| i64::try_from(t).ok()));
+    m.tokens = Set(report
+        .tokens
+        .or_else(|| report.usage.map(|u| u.total()))
+        .and_then(|t| i64::try_from(t).ok()));
+    if let Some(u) = report.usage {
+        let n = |v: u64| i64::try_from(v).ok();
+        m.tokens_input = Set(n(u.input));
+        m.tokens_output = Set(n(u.output));
+        m.tokens_cache_read = Set(n(u.cache_read));
+        m.tokens_cache_write = Set(n(u.cache_write));
+    }
+    m.cost_usd_micros = Set(report.cost_usd.and_then(usd_micros));
+    let files = changed_files_json(&report.changed_files);
+    if files.as_array().is_some_and(|a| !a.is_empty()) {
+        m.changed_files = Set(files);
+    }
     match outcome {
         Outcome::Succeeded => {
             m.status = Set(JobStatus::Succeeded.as_str().into());
@@ -1218,4 +1267,36 @@ pub async fn terminal_failed(
     )
     .await?;
     Ok(())
+}
+
+#[cfg(test)]
+mod usage_tests {
+    use agentgate_core::runner::protocol::ChangedFile;
+
+    use super::*;
+
+    #[test]
+    fn usd_micros_rounds_and_rejects_garbage() {
+        assert_eq!(usd_micros(0.4213), Some(421_300));
+        assert_eq!(usd_micros(-1.0), None);
+        assert_eq!(usd_micros(f64::NAN), None);
+    }
+
+    #[test]
+    fn changed_files_drop_unsafe_paths() {
+        let f = |repo: &str, path: &str| ChangedFile {
+            repo: repo.into(),
+            path: path.into(),
+        };
+        let v = changed_files_json(&[
+            f("kasir-web", "src/a.ts"),
+            f("kasir-web", "/etc/passwd"),
+            f("kasir-web", "src/../../x"),
+            f("", "b.ts"),
+        ]);
+        assert_eq!(
+            v,
+            serde_json::json!([{ "repo": "kasir-web", "path": "src/a.ts" }])
+        );
+    }
 }

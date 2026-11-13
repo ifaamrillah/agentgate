@@ -50,6 +50,13 @@ pub struct Model {
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
     pub knowledge_run_id: Option<Uuid>,
+    pub tokens_input: Option<i64>,
+    pub tokens_output: Option<i64>,
+    pub tokens_cache_read: Option<i64>,
+    pub tokens_cache_write: Option<i64>,
+    pub cost_usd_micros: Option<i64>,
+    #[sea_orm(column_type = "JsonBinary")]
+    pub changed_files: Json,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

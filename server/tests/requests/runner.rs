@@ -395,11 +395,41 @@ async fn runner_executes_stage_job_with_signed_evidence_then_requests_review() {
             &token,
             Some(&runner),
             &format!("/api/runner/jobs/{job}/finish"),
-            &json!({ "outcome": "succeeded", "summary": "Checkout QRIS selesai", "tokens": 1200 }),
+            &json!({
+                "outcome": "succeeded", "summary": "Checkout QRIS selesai",
+                "usage": { "input": 700, "output": 300, "cache_read": 150, "cache_write": 50 },
+                "cost_usd": 0.42,
+                "changed_files": [
+                    { "repo": "kasir-web", "path": "src/qris.ts" },
+                    { "repo": "kasir-web", "path": "../rahasia" }
+                ]
+            }),
         )
         .await;
         assert_eq!(status, 200, "{body}");
         assert_eq!(body["status"], "succeeded");
+        // Pemakaian token rinci dan file yang diubah tersimpan (M10).
+        let saved =
+            agentgate_server::models::jobs::Entity::find_by_id(Uuid::parse_str(&job).unwrap())
+                .one(&ctx.db)
+                .await
+                .unwrap()
+                .unwrap();
+        assert_eq!(saved.tokens, Some(1200));
+        assert_eq!(
+            (
+                saved.tokens_input,
+                saved.tokens_output,
+                saved.tokens_cache_read,
+                saved.tokens_cache_write
+            ),
+            (Some(700), Some(300), Some(150), Some(50))
+        );
+        assert_eq!(saved.cost_usd_micros, Some(420_000));
+        assert_eq!(
+            saved.changed_files,
+            json!([{ "repo": "kasir-web", "path": "src/qris.ts" }])
+        );
         let t = ticket(&ctx, &f.workspace, "KSR-1").await;
         assert_eq!(t.stage_key, "dev");
         assert_eq!(t.stage_state, "review");

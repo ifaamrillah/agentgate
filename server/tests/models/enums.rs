@@ -1094,3 +1094,55 @@ async fn planning_enum_checks_match_enums() {
     }
     assert!(!update_ok(db, "saved_filters", "visibility", filter, "team").await);
 }
+
+/// Kolom enum tabel M10 (penghematan token, tampilan karakter AI Office).
+#[tokio::test]
+async fn visual_enum_checks_match_enums() {
+    use agentgate_server::models::{office_looks::LookSubject, token_savings::SavingFeature};
+
+    use crate::support::{a_project, a_user, a_workspace};
+
+    let boot = boot_test::<App>().await.unwrap();
+    let ctx = &boot.app_context;
+    let db = &ctx.db;
+    let owner = a_user().create(ctx).await;
+    let workspace = a_workspace(&owner).create(ctx).await;
+    let project = a_project(ctx, &workspace, "VIS").await;
+    let row = |sql: &str, values: Vec<Value>| {
+        let stmt = Statement::from_sql_and_values(DbBackend::Postgres, sql, values);
+        async move {
+            db.query_one_raw(stmt)
+                .await
+                .unwrap()
+                .unwrap()
+                .try_get::<Uuid>("", "id")
+                .unwrap()
+        }
+    };
+    let saving = row(
+        "INSERT INTO token_savings (workspace_id, project_id, feature, tokens) \
+         VALUES ($1, $2, 'code_graph', 10) RETURNING id",
+        vec![workspace.id.into(), project.id.into()],
+    )
+    .await;
+    let look = row(
+        "INSERT INTO office_looks (workspace_id, subject, subject_key) \
+         VALUES ($1, 'persona', 'dev') RETURNING id",
+        vec![workspace.id.into()],
+    )
+    .await;
+    for v in SavingFeature::iter() {
+        assert!(
+            update_ok(db, "token_savings", "feature", saving, &v.to_value()).await,
+            "{v:?}"
+        );
+    }
+    assert!(!update_ok(db, "token_savings", "feature", saving, "rtk").await);
+    for v in LookSubject::iter() {
+        assert!(
+            update_ok(db, "office_looks", "subject", look, &v.to_value()).await,
+            "{v:?}"
+        );
+    }
+    assert!(!update_ok(db, "office_looks", "subject", look, "bot").await);
+}
