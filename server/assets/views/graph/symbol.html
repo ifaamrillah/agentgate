@@ -24,14 +24,14 @@
       {%- endif %}
     {% </card> %}
     {%- for dir in ["callers", "callees"] %}
-    {%- if dir == "callers" %}{% set hops = callers %}{% set dir_icon = "arrow-down-left" %}{% else %}{% set hops = callees %}{% set dir_icon = "arrow-up-right" %}{% endif %}
-    {% <card title={t(key="graph-" ~ dir, lang="id")} description={t(key="graph-" ~ dir ~ "-description", lang="id")} count={hops | length ~ ""} flush={true} attrs={"data-trace=" ~ dir}> %}
+    {%- if dir == "callers" %}{% set hops = callers %}{% set dir_icon = "arrow-down-left" %}{% set dir_title = "graph-callers" %}{% set dir_desc = "graph-callers-description" %}{% else %}{% set hops = callees %}{% set dir_icon = "arrow-up-right" %}{% set dir_title = "graph-callees" %}{% set dir_desc = "graph-callees-description" %}{% endif %}
+    {% <card title={t(key=dir_title, lang="id")} description={t(key=dir_desc, lang="id")} count={hops | length ~ ""} flush={true} attrs={"data-trace=" ~ dir}> %}
       {%- for h in hops %}
       <a class="app-lrow app-sym" href="{{ h.symbol.href }}" data-hop="{{ h.symbol.qualified }}">
         <span class="app-sym-depth" title="{{ t(key="graph-depth", lang="id") }}">{{ h.depth }}×</span>
         <span class="app-lrow-main">
           <b>{{ h.symbol.qualified }}</b>
-          <small><span class="app-code">{{ h.symbol.repo }}/{{ h.symbol.path }}:{{ h.symbol.line }}</span>{% if h.via != "calls" %} · {{ t(key="graph-via-" ~ h.via, lang="id") }}{% endif %}</small>
+          <small><span class="app-code">{{ h.symbol.repo }}/{{ h.symbol.path }}:{{ h.symbol.line }}</span>{% if h.via != "calls" %} · {{ t(key=h.via_key, lang="id") }}{% endif %}</small>
         </span>
         <span class="app-sym-meta">{{ <confidence level={h.confidence}/> }}</span>
       </a>
@@ -54,7 +54,7 @@
       </dl>
     {% </card> %}
     {% <card title={t(key="graph-impact", lang="id")} description={t(key="graph-impact-description", lang="id")} attrs="data-impact"> %}
-      <p>{{ <badge label={t(key="graph-risk-" ~ impact.risk, lang="id")} variant={impact.variant}/> }} <span class="app-hint">{{ t(key="graph-impact-summary", lang="id", affected=impact.affected, tests=impact.test_count) }}</span></p>
+      <p>{{ <badge label={t(key=impact.risk_key, lang="id")} variant={impact.variant}/> }} <span class="app-hint">{{ t(key="graph-impact-summary", lang="id", affected=impact.affected, tests=impact.test_count) }}</span></p>
       {%- if impact.repos %}<p class="app-hint">{{ t(key="graph-impact-repos", lang="id", repos=impact.repos) }}</p>{% endif %}
       {%- for tt in impact.tests %}<p><a class="app-link app-code" href="{{ tt.href }}">{{ tt.qualified }}</a></p>{% endfor %}
     {% </card> %}
@@ -62,7 +62,7 @@
     {% <card title={t(key="graph-panel-cross", lang="id")} count={links | length ~ ""} flush={true} attrs="data-symbol-links"> %}
       {%- for l in links %}
       <div class="app-lrow">
-        <span class="app-lrow-main"><b>{{ l.to_name }}</b><small>{{ t(key=l.kind_key, lang="id") }} · {{ l.from_repo }} → {% if l.to_repo %}{{ l.to_repo }}{% else %}{{ t(key="graph-conf-" ~ l.confidence, lang="id") }}{% endif %}</small></span>
+        <span class="app-lrow-main"><b>{{ l.to_name }}</b><small>{{ t(key=l.kind_key, lang="id") }} · {{ l.from_repo }} → {% if l.to_repo %}{{ l.to_repo }}{% else %}{{ t(key=l.confidence_key, lang="id") }}{% endif %}</small></span>
         {{ <confidence level={l.confidence}/> }}
       </div>
       {%- endfor %}

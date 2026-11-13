@@ -14,7 +14,7 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 | M4 MCP & persona | selesai (2026-11-13) | OAuth 2.1 (DCR, PKCE S256, consent pilih workspace, refresh rotasi, revoke) untuk `/mcp`; server MCP rmcp (7 tool, slash command = prompt MCP per stage + utilitas); persona DB (CRUD, warna/ikon, instruksi, skill, tools, model per client); skill pack (impor GitHub + pemindaian statis + review manusia); review draft tiket brainstorming; Akun → Hubungkan client AI; 467 tes |
 | M5 CLI & runner | selesai (2026-11-13) | Crate `cli` (`agentgate`): login device flow, `init`/`uninstall`, aturan + hook Claude Code, `jobs`, `runner start` (WS kontrol + fallback polling, worktree per job, headless/terminal, laporan langkah/log), `doctor`; server: job + klaim/lock, API runner (bearer CLI + header runner), evidence bertanda tangan Ed25519 memenuhi gate `tests_passed`/`screenshot_exists`, izin aksi berbahaya; UI Runner & CLI (izin, antrean, runner saya/tim, pengaturan, drift, instal), halaman job + log live, job + evidence di kartu stage, job dari komentar `@agent`; 533 tes |
 | M6 Git & PR | selesai (2026-11-13) | Abstraksi provider git + klien GitHub/GHES (PAT terenkripsi, validasi token, daftar repo, webhook dipasang otomatis); Pengaturan → Git provider (Cloud/Enterprise/Repo tertaut); Konvensi git per project (branch, commit, PR, base, hasil kode, CI wajib); runner: worktree dari base branch, branch per tiket, push + PR otomatis; webhook bertanda tangan HMAC melacak PR/merge/CI dan memenuhi gate `pr_open`/`prs_merged`/`ci_green`; merge otomatis (squash) saat stage reviewer di-approve dan CI hijau; daftar PR project, tab "PR & CI" tiket, badge PR di header tiket dan kartu board; sinkron aturan lewat PR (`agentgate sync`); batas job paralel ditegakkan; 558 tes |
-| M7 Code graph | belum mulai | |
+| M7 Code graph | selesai (2026-11-13) | Crate `graph`: tree-sitter 10 bahasa, fakta per file, build graph (call/import/inherit/route, keyakinan pasti/dugaan), modul + node pusat, kode mati, kompleksitas, trace/dampak dari diff, kueri Cypher-subset, SCIP (`agentgate graph scip`), riwayat git (hotspot/coupling/pemilik), relasi lintas repo HTTP/event/package; index inkremental dari CLI (`agentgate graph index|scip|status`, file rahasia tidak pernah dibaca) dan dari server (arsip tarball provider, tombol Index ulang, otomatis setelah PR di-merge ke branch utama); MCP `ag_search`/`ag_trace`/`ag_snippet`/`ag_impact`/`ag_graph` + bagian `code_graph` di `ag_context` dan prompt job; UI Cari simbol, detail simbol, Status index (repo, lintas repo, git, kualitas, benchmark); benchmark vs codebase-memory di `docs/benchmarks/2026-11-13-code-graph.md`; 590 tes |
 | M8 Knowledge base | belum mulai | |
 | M9 Planning & laporan | belum mulai | |
 | M10 Visual | belum mulai | |
@@ -162,6 +162,17 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 - Role custom tidak pernah menjadi "admin di semua project": hanya Owner/Admin bawaan yang boleh menugaskan
   role Admin bawaan (termasuk di grant project) dan mengubah izin role yang dipakai grant project.
 
+- **M7 Code graph (2026-11-13)**: belum ada embedding/semantic search (pencarian leksikal sadar-identifier +
+  prefix); relasi gRPC belum dicocokkan; dokumen sebagai node graph menunggu M8/M10; viewer graph visual = M10
+  (tab "Viewer" tampil "segera"). Index server memakai arsip tarball (tanpa riwayat git, jadi statistik git hanya
+  dari CLI) dan berjalan di worker Loco dengan direktori sementara; unduhan arsip memakai timeout provider yang
+  sama (repo sangat besar bisa timeout). Request CLI graph memakai timeout 60 detik per panggilan. Pencarian
+  edge duplikat di build `O(E²)` kasus terburuk (cukup untuk ribuan edge per file; ganti ke indeks bila lambat).
+  Call di argumen makro Rust dideteksi heuristik (`ident(` di token tree). Panggilan lewat trait object/closure
+  tersimpan belum ter-resolve tanpa SCIP. Jumlah pemanggil di daftar hasil cari hanya edge `calls` (route handler
+  dan HTTP lintas repo tampil di detail simbol). Fakta lama diparse ulang lewat `FileFacts.version`
+  (`EXTRACTOR_VERSION`) — naikkan setiap kali hasil extractor berubah.
+
 ## Keputusan sementara (dipakai sampai review akhir pemilik produk)
 
 - Sapaan UI memakai "Anda" (mengikuti prototype).
@@ -228,7 +239,25 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 - M6: seed dev (`seed_git`) memakai token palsu; tombol yang memanggil GitHub (pasang ulang webhook, merge) akan
   gagal di dev sampai token asli dipasang.
 
+- M7: index oleh server mengunduh arsip tarball lewat koneksi git M6 (bukan `git clone`): tanpa riwayat git, jadi
+  hotspot/coupling/pemilik hanya dari `agentgate graph index` di CLI dan dipertahankan di antara index server.
+- M7: semantic search/embedding ditunda; pencarian simbol leksikal (tsvector kata identifier + prefix nama).
+- M7: SCIP hanya dikirim dari laptop user (`agentgate graph scip`); server cukup tree-sitter. Panel status hanya
+  menampilkan perintahnya (belum ada "minta SCIP" ke runner).
+- M7: tab Code graph berisi "Cari simbol" (halaman default) + "Status index"; Viewer graph visual prototype = M10.
+  Tombol Index ulang butuh izin `edit_project`; repo tanpa koneksi git langsung ditandai gagal dengan petunjuk CLI.
+- M7: reindex otomatis hanya untuk PR yang baru di-merge ke branch default repo yang sudah pernah di-index.
+- M7: relasi lintas repo: HTTP (route ↔ call literal), event/queue (topik sama), package (dependensi repo lain
+  di project). gRPC belum. Keyakinan "tidak cocok" untuk call HTTP tanpa route.
+- M7: seed dev (`seed_graph`) meng-index `server/src/fixtures/graph/{kasir-api,kasir-web}` lewat jalur index server
+  + statistik git sintetis untuk kasir-api.
+
 ## Perlu dari user (dikumpulkan untuk akhir)
+
+- M7: Graphify (atau akses ke instalasinya) untuk benchmark pembanding kedua; repo pelanggan nyata (TS/Go/Java/PHP)
+  untuk benchmark di luar repo ini; pilihan model embedding (mis. fastembed-rs lokal vs API) sebelum semantic search
+  dikerjakan; konfirmasi apakah index server boleh memakai `git clone` (butuh git di image server) agar statistik
+  git tidak bergantung CLI.
 
 - M6: token GitHub asli (PAT fine-grained dengan izin contents, pull requests, checks/statuses, webhooks) atau
   keputusan membuat GitHub App; semua tes memakai server GitHub palsu.
@@ -278,5 +307,8 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 - Seed dev M6 (`seed_git`): koneksi GitHub (token palsu) dengan repo `kasir-api` dan `kasir-web` tertaut ke KSR,
   PR #142 (open, CI lulus), #87 (open, CI gagal), #131 (merged) pada tiket KSR-2..4. Uji webhook manual:
   kirim payload bertanda tangan `X-Hub-Signature-256` (HMAC-SHA256 secret koneksi) ke `/webhooks/github/{id}`.
+- Seed dev M7 (`seed_graph`): code graph kasir-api (TS, 6 file) dan kasir-web (TS/TSX, 3 file) dengan 3 relasi
+  HTTP lintas repo; buka `/w/pt-contoh/p/KSR/graph`. Uji CLI: `agentgate graph index` di repo mana pun yang
+  terhubung project. Benchmark repo nyata: `cargo run --release -p agentgate-graph --example repo_graph -- <root> <fungsi…>`.
 - Uji CLI manual: `cargo run -p agentgate-cli -- login --server http://127.0.0.1:5150`, lalu `init` di repo
   contoh dan `runner start`.

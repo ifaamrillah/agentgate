@@ -6,10 +6,10 @@
       level: certain|inferred|unmatched|external
       attrs: string             penanda tes tanpa kutip (default "") -#}
 {% component confidence(level: string, attrs: string = "") %}
-{%- if level == "certain" %}{% set v = "success" %}{% set i = "circle-check" %}
-{%- elif level == "inferred" %}{% set v = "gate" %}{% set i = "help-circle" %}
-{%- elif level == "unmatched" %}{% set v = "destructive" %}{% set i = "alert-triangle" %}
-{%- elif level == "external" %}{% set v = "neutral" %}{% set i = "world" %}
+{%- if level == "certain" %}{% set v = "success" %}{% set i = "circle-check" %}{% set k = "graph-conf-certain" %}
+{%- elif level == "inferred" %}{% set v = "gate" %}{% set i = "help-circle" %}{% set k = "graph-conf-inferred" %}
+{%- elif level == "unmatched" %}{% set v = "destructive" %}{% set i = "alert-triangle" %}{% set k = "graph-conf-unmatched" %}
+{%- elif level == "external" %}{% set v = "neutral" %}{% set i = "world" %}{% set k = "graph-conf-external" %}
 {%- else %}{{ throw(message="confidence: level tidak dikenal: " ~ level) }}{% endif -%}
-<span class="badge app-conf" data-variant="{{ v }}" data-confidence="{{ level }}" {{ attrs }}>{{ icon(name=i) }}{{ t(key="graph-conf-" ~ level, lang="id") }}</span>
+<span class="badge app-conf" data-variant="{{ v }}" data-confidence="{{ level }}" {{ attrs }}>{{ icon(name=i) }}{{ t(key=k, lang="id") }}</span>
 {%- endcomponent confidence %}

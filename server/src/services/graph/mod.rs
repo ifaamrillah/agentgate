@@ -165,39 +165,7 @@ pub async fn status(
 /// Baris kosong untuk repo yang belum pernah di-index (tidak disimpan).
 #[must_use]
 pub fn empty_row() -> graph_repos::Model {
-    let t = now();
-    graph_repos::Model {
-        repo_id: Uuid::nil(),
-        workspace_id: Uuid::nil(),
-        project_id: Uuid::nil(),
-        status: "none".into(),
-        source: String::new(),
-        mode: String::new(),
-        commit_sha: String::new(),
-        branch: String::new(),
-        files_indexed: 0,
-        files_skipped: 0,
-        files_parsed: 0,
-        symbols: 0,
-        edges: 0,
-        edges_certain: 0,
-        stats: serde_json::json!({}),
-        languages: serde_json::json!({}),
-        skipped: serde_json::json!({}),
-        modules: serde_json::json!([]),
-        surface: serde_json::json!({}),
-        git_stats: serde_json::json!({}),
-        scip: None,
-        scip_indexer: String::new(),
-        scip_by: String::new(),
-        scip_at: None,
-        error: String::new(),
-        requested_by: None,
-        started_at: None,
-        indexed_at: None,
-        created_at: t,
-        updated_at: t,
-    }
+    graph_repos::Model::empty()
 }
 
 /// Antrekan index server untuk repo (status `queued`, lalu `GraphIndexWorker`).

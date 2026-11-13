@@ -21,7 +21,7 @@ use crate::{
     models::{graph_repos, permission::Permission, repos},
     services::graph::{
         self as svc,
-        query::{self, Direction, SearchFilter},
+        query::{self, Direction, Hop, LinkRow, SearchFilter, SymbolHit},
     },
     views::{
         self,
@@ -228,7 +228,7 @@ async fn search(
         )
         .await?
         .iter()
-        .map(|h| SymbolRow::of(h, &sb))
+        .map(|h| symbol_row(h, &sb))
         .collect()
     };
     let names: HashMap<Uuid, &str> = base.repos.iter().map(|r| (r.id, r.name.as_str())).collect();
@@ -320,7 +320,7 @@ async fn symbol(
         &base,
         ("graph/symbol.html", "search", &return_to),
         serde_json::json!({
-            "symbol": SymbolRow::of(&hit, &sb),
+            "symbol": symbol_row(&hit, &sb),
             "snippet": snippet.as_ref().map(|s| serde_json::json!({
                 "path": s.path,
                 "start": s.start,
@@ -328,11 +328,12 @@ async fn symbol(
                 "truncated": s.truncated,
                 "lines": gv::code_lines(&s.code, s.start),
             })),
-            "callers": gv::hops(&callers, &sb),
-            "callees": gv::hops(&callees, &sb),
-            "links": links.iter().map(|l| gv::link_view(l, &sb)).collect::<Vec<_>>(),
+            "callers": hops(&callers, &sb),
+            "callees": hops(&callees, &sb),
+            "links": links.iter().map(|l| link_view(l, &sb)).collect::<Vec<_>>(),
             "impact": {
                 "risk": impact.risk,
+                "risk_key": format!("graph-risk-{}", impact.risk),
                 "variant": match impact.risk {
                     "tinggi" => "destructive",
                     "sedang" => "gate",
@@ -340,7 +341,7 @@ async fn symbol(
                 },
                 "affected": impact.affected.len(),
                 "test_count": impact.tests.len(),
-                "tests": impact.tests.iter().take(6).map(|t| SymbolRow::of(t, &sb)).collect::<Vec<_>>(),
+                "tests": impact.tests.iter().take(6).map(|t| symbol_row(t, &sb)).collect::<Vec<_>>(),
                 "repos": impact.repos.join(", "),
             },
         }),
@@ -519,7 +520,7 @@ async fn index_panel(
                 .into();
         }
         "cross" => {
-            let mut rows: Vec<gv::LinkView> = links.iter().map(|l| gv::link_view(l, &sb)).collect();
+            let mut rows: Vec<gv::LinkView> = links.iter().map(|l| link_view(l, &sb)).collect();
             let state = LINKS_TABLE.parse(&query_pairs);
             if let Some(q) = state.query() {
                 let q = q.to_lowercase();
@@ -620,7 +621,7 @@ async fn index_panel(
         }
         "quality" => {
             let dead = query::dead_code(&ctx.db, wid, pid, None, 500).await?;
-            let mut rows: Vec<SymbolRow> = dead.iter().map(|d| SymbolRow::of(d, &sb)).collect();
+            let mut rows: Vec<SymbolRow> = dead.iter().map(|d| symbol_row(d, &sb)).collect();
             let state = DEAD_TABLE.parse(&query_pairs);
             if let Some(q) = state.query() {
                 let q = q.to_lowercase();
@@ -682,7 +683,7 @@ async fn index_panel(
             data["complex"] = serde_json::to_value(
                 complex
                     .iter()
-                    .map(|c| SymbolRow::of(c, &sb))
+                    .map(|c| symbol_row(c, &sb))
                     .collect::<Vec<_>>(),
             )
             .unwrap_or_default();
@@ -775,4 +776,71 @@ pub fn routes() -> Routes {
         .add("/w/{slug}/p/{key}/graph/index", get(index_root))
         .add("/w/{slug}/p/{key}/graph/index/{panel}", get(index_panel))
         .add("/w/{slug}/p/{key}/graph/reindex", post(reindex))
+}
+
+/// Hasil query service → baris tampilan (views tidak boleh memakai services).
+fn symbol_row(h: &SymbolHit, symbol_base: &str) -> SymbolRow {
+    let kind = h.kind();
+    SymbolRow {
+        id: h.id,
+        href: format!("{symbol_base}/{}", h.id),
+        name: h.name.clone(),
+        qualified: h.qualified.clone(),
+        kind: h.kind.clone(),
+        kind_key: format!("graph-kind-{}", h.kind),
+        icon: gv::kind_icon(kind),
+        repo: h.repo.clone(),
+        path: h.path.clone(),
+        line: h.start_line,
+        end: h.end_line,
+        signature: h.signature.clone(),
+        doc: h
+            .doc
+            .lines()
+            .next()
+            .unwrap_or_default()
+            .chars()
+            .take(160)
+            .collect(),
+        dead: h.dead.clone(),
+        test: h.test,
+        exported: h.exported,
+        callers: h.callers,
+        callees: h.callees,
+        complexity: h.complexity,
+        module: h.module.clone(),
+        lang: gv::lang_label(&h.lang),
+    }
+}
+
+fn hops(list: &[Hop], symbol_base: &str) -> Vec<gv::HopRow> {
+    list.iter()
+        .map(|h| gv::HopRow {
+            symbol: symbol_row(&h.symbol, symbol_base),
+            depth: h.depth,
+            confidence: h.confidence,
+            via_key: format!("graph-via-{}", h.via),
+            via: h.via.clone(),
+        })
+        .collect()
+}
+
+fn link_view(l: &LinkRow, symbol_base: &str) -> gv::LinkView {
+    let href = |id: Option<Uuid>| id.map(|i| format!("{symbol_base}/{i}"));
+    let to_name = match (&l.to_name, l.confidence.as_str()) {
+        (Some(n), _) if l.kind != "http" => n.clone(),
+        _ => l.detail.clone(),
+    };
+    gv::LinkView {
+        kind: l.kind.clone(),
+        kind_key: format!("graph-link-{}", l.kind),
+        confidence_key: format!("graph-conf-{}", l.confidence),
+        confidence: l.confidence.clone(),
+        from_repo: l.from_repo.clone(),
+        from_name: l.from_name.clone().unwrap_or_else(|| l.from_repo.clone()),
+        from_href: href(l.from_symbol),
+        to_repo: l.to_repo.clone().unwrap_or_default(),
+        to_name,
+        to_href: href(l.to_symbol),
+    }
 }

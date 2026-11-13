@@ -124,6 +124,44 @@ pub struct SurfaceRow {
 }
 
 impl Model {
+    /// Baris kosong (repo belum pernah di-index).
+    #[must_use]
+    pub fn empty() -> Self {
+        let t: DateTimeWithTimeZone = chrono::Utc::now().into();
+        Self {
+            repo_id: Uuid::nil(),
+            workspace_id: Uuid::nil(),
+            project_id: Uuid::nil(),
+            status: "none".into(),
+            source: String::new(),
+            mode: String::new(),
+            commit_sha: String::new(),
+            branch: String::new(),
+            files_indexed: 0,
+            files_skipped: 0,
+            files_parsed: 0,
+            symbols: 0,
+            edges: 0,
+            edges_certain: 0,
+            stats: serde_json::json!({}),
+            languages: serde_json::json!({}),
+            skipped: serde_json::json!({}),
+            modules: serde_json::json!([]),
+            surface: serde_json::json!({}),
+            git_stats: serde_json::json!({}),
+            scip: None,
+            scip_indexer: String::new(),
+            scip_by: String::new(),
+            scip_at: None,
+            error: String::new(),
+            requested_by: None,
+            started_at: None,
+            indexed_at: None,
+            created_at: t,
+            updated_at: t,
+        }
+    }
+
     #[must_use]
     pub fn status(&self) -> IndexStatus {
         IndexStatus::try_from_value(&self.status).unwrap_or(IndexStatus::None)

@@ -78,7 +78,7 @@ fn app_layout_lists_workspaces_and_expands_active_project() {
         "aside.app-side a.app-ni[data-nav=\"home\"][href=\"/w/acme\"]",
     );
     // Project: semua terdaftar dengan titik warna; yang aktif terbuka: Board dan Daftar aktif,
-    // Knowledge dan Code graph "segera".
+    // Knowledge "segera", Code graph aktif (M7).
     assert_count(&html, "[data-project-list] a.app-ni:not([data-sub])", 2);
     assert_css_exists(
         &html,
@@ -87,7 +87,11 @@ fn app_layout_lists_workspaces_and_expands_active_project() {
     assert_count(
         &html,
         "[data-project-list] a[data-sub][aria-disabled=\"true\"]:not([href])",
-        2,
+        1,
+    );
+    assert_css_exists(
+        &html,
+        "[data-project-list] a[data-sub][data-nav=\"code_graph\"][href=\"/w/acme/p/APP/graph\"]",
     );
     assert_css_exists(
         &html,

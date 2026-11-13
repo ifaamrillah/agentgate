@@ -7,7 +7,6 @@ use uuid::Uuid;
 
 use crate::{
     models::{graph_repos, repos},
-    services::graph::query::{Hop, LinkRow, SymbolHit},
     views::runner::{Age, age},
 };
 
@@ -115,7 +114,7 @@ impl RepoIndexView {
     #[must_use]
     pub fn of(repo: &repos::Model, row: Option<&graph_repos::Model>) -> Self {
         let now = Utc::now();
-        let empty = crate::services::graph::empty_row();
+        let empty = graph_repos::Model::empty();
         let r = row.unwrap_or(&empty);
         let (status_key, status_variant) = match r.status() {
             graph_repos::IndexStatus::None => ("graph-status-none", "neutral"),
@@ -212,43 +211,6 @@ pub fn kind_icon(kind: SymbolKind) -> &'static str {
     }
 }
 
-impl SymbolRow {
-    #[must_use]
-    pub fn of(h: &SymbolHit, symbol_base: &str) -> Self {
-        let kind = h.kind();
-        Self {
-            id: h.id,
-            href: format!("{symbol_base}/{}", h.id),
-            name: h.name.clone(),
-            qualified: h.qualified.clone(),
-            kind: h.kind.clone(),
-            kind_key: format!("graph-kind-{}", h.kind),
-            icon: kind_icon(kind),
-            repo: h.repo.clone(),
-            path: h.path.clone(),
-            line: h.start_line,
-            end: h.end_line,
-            signature: h.signature.clone(),
-            doc: h
-                .doc
-                .lines()
-                .next()
-                .unwrap_or_default()
-                .chars()
-                .take(160)
-                .collect(),
-            dead: h.dead.clone(),
-            test: h.test,
-            exported: h.exported,
-            callers: h.callers,
-            callees: h.callees,
-            complexity: h.complexity,
-            module: h.module.clone(),
-            lang: lang_label(&h.lang),
-        }
-    }
-}
-
 /// Satu langkah trace.
 #[derive(Debug, Clone, Serialize)]
 pub struct HopRow {
@@ -256,18 +218,7 @@ pub struct HopRow {
     pub depth: u8,
     pub confidence: &'static str,
     pub via: String,
-}
-
-#[must_use]
-pub fn hops(list: &[Hop], symbol_base: &str) -> Vec<HopRow> {
-    list.iter()
-        .map(|h| HopRow {
-            symbol: SymbolRow::of(&h.symbol, symbol_base),
-            depth: h.depth,
-            confidence: h.confidence,
-            via: h.via.clone(),
-        })
-        .collect()
+    pub via_key: String,
 }
 
 /// Satu relasi lintas repo.
@@ -276,32 +227,13 @@ pub struct LinkView {
     pub kind: String,
     pub kind_key: String,
     pub confidence: String,
+    pub confidence_key: String,
     pub from_repo: String,
     pub from_name: String,
     pub from_href: Option<String>,
     pub to_repo: String,
     pub to_name: String,
     pub to_href: Option<String>,
-}
-
-#[must_use]
-pub fn link_view(l: &LinkRow, symbol_base: &str) -> LinkView {
-    let href = |id: Option<Uuid>| id.map(|i| format!("{symbol_base}/{i}"));
-    let to_name = match (&l.to_name, l.confidence.as_str()) {
-        (Some(n), _) if l.kind != "http" => n.clone(),
-        _ => l.detail.clone(),
-    };
-    LinkView {
-        kind: l.kind.clone(),
-        kind_key: format!("graph-link-{}", l.kind),
-        confidence: l.confidence.clone(),
-        from_repo: l.from_repo.clone(),
-        from_name: l.from_name.clone().unwrap_or_else(|| l.from_repo.clone()),
-        from_href: href(l.from_symbol),
-        to_repo: l.to_repo.clone().unwrap_or_default(),
-        to_name,
-        to_href: href(l.to_symbol),
-    }
 }
 
 /// Baris kode dengan nomor (`code_view`).
