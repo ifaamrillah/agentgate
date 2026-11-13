@@ -25,7 +25,7 @@
       <small>{{ icon(name="folder") }}<span class="app-code">{{ p.repo }}</span><span class="app-pr-diff" data-hide="sm"> · <ins>+{{ p.additions }}</ins> <del>−{{ p.deletions }}</del></span></small>
     </span></div></td>
     <td>{% if p.ticket %}<a class="app-link app-code" href="{{ p.ticket.href }}" title="{{ p.ticket.title }}">{{ p.ticket.code }}</a>{% else %}<span class="app-hint">—</span>{% endif %}</td>
-    <td data-hide="sm"><span class="app-code app-hint">{{ p.head_branch }}</span></td>
+    <td data-hide="md"><span class="app-code app-hint">{{ p.head_branch }}</span></td>
     <td>{{ <ci_state state={p.ci}/> }}</td>
     <td>{{ <pr_state state={p.state}/> }}</td>
     <td data-hide="sm"><span class="app-hint">{% if p.author %}{{ p.author }} · {% endif %}{{ t(key=p.updated.key, lang="id", n=p.updated.n) }}</span></td>

@@ -210,9 +210,9 @@
   <div class="app-evs">{% for e in runner.evidence %}{{ <evidence_item item={e}/> }}{% endfor %}</div>
 {% </card> %}
 {% <card title="Git & PR (M6)" description="pr_state: status PR (ikon git, nomor opsional, compact untuk kartu board). ci_state: status CI atau satu check (ikon berwarna, tanpa latar)." flush={true} attrs="data-catalog-git"> %}
-  <div class="app-lrow">{% for s in git.prs %}{{ <pr_state state={s} number={142}/> }}{% endfor %}</div>
-  <div class="app-lrow">{% for s in git.prs %}{{ <pr_state state={s} number={87} compact={true}/> }}{% endfor %}</div>
-  <div class="app-lrow">{% for s in git.ci %}{{ <ci_state state={s}/> }}{% endfor %}{{ <ci_state state={git.ci[3]} label="e2e playwright" href="https://github.com"/> }}</div>
+  <div class="app-lrow" data-wrap>{% for s in git.prs %}{{ <pr_state state={s} number={142}/> }}{% endfor %}</div>
+  <div class="app-lrow" data-wrap>{% for s in git.prs %}{{ <pr_state state={s} number={87} compact={true}/> }}{% endfor %}</div>
+  <div class="app-lrow" data-wrap>{% for s in git.ci %}{{ <ci_state state={s}/> }}{% endfor %}{{ <ci_state state={git.ci[3]} label="e2e playwright" href="https://github.com"/> }}</div>
 {% </card> %}
 </div>
 

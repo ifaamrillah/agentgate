@@ -56,6 +56,9 @@
       {%- endif %}
     </span>
   </div>
+  {%- endfor %}
+{% </card> %}
+{%- for p in providers %}
   {%- if p.available %}
   {%- set failed_here = false %}{% if failed %}{% if failed.kind == p.key %}{% set failed_here = true %}{% endif %}{% endif %}
   {%- if p.connection %}{% set d_title = t(key="git-replace-token-title", lang="id", provider=p.label) %}{% else %}{% set d_title = t(key="git-connect-title", lang="id", provider=p.label) %}{% endif %}
@@ -105,8 +108,7 @@
   </form>
   {% </dialog> %}
   {%- endif %}
-  {%- endfor %}
-{% </card> %}
+{%- endfor %}
 {%- endif %}
 {% </subpage> %}
 {% endblock settings %}

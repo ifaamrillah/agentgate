@@ -744,7 +744,7 @@ pub static PRS_TABLE: TableSpec = TableSpec {
     columns: &[
         ColumnSpec::new("pr-col-pr").sort("number"),
         ColumnSpec::new("pr-col-ticket"),
-        ColumnSpec::new("pr-col-branch").hide("sm"),
+        ColumnSpec::new("pr-col-branch").hide("md"),
         ColumnSpec::new("pr-col-ci").sort("ci"),
         ColumnSpec::new("pr-col-state").sort("state"),
         ColumnSpec::new("pr-col-updated").sort("updated").hide("sm"),
