@@ -117,23 +117,16 @@ export interface Service extends Base { run(): void }
     assert_eq!(
         calls(&f),
         vec![
-            "-.Map".replace("-.", "PromoService>"),
-            "applyItem>it.price".into()
+            "PromoService>Map",
+            "calcPromo>api.validate",
+            "calcPromo>applyItem",
+            "calcPromo>cap",
+            "calcPromo>items.map",
+            "calcPromo>roundRupiah",
+            "load>axios.get",
+            "run>calcPromo",
+            "run>this.load",
         ]
-        .into_iter()
-        .filter(|_| false)
-        .chain(vec![
-            "PromoService>Map".to_string(),
-            "calcPromo>api.validate".into(),
-            "calcPromo>applyItem".into(),
-            "calcPromo>cap".into(),
-            "calcPromo>items.map".into(),
-            "calcPromo>roundRupiah".into(),
-            "load>axios.get".into(),
-            "run>calcPromo".into(),
-            "run>this.load".into(),
-        ])
-        .collect::<Vec<_>>()
     );
     assert_eq!(
         imports(&f),
@@ -498,14 +491,11 @@ Route::get('/v1/promo', [PromoController::class, 'show']);
     assert_eq!(
         calls(&f),
         vec![
-            "-.Route::get"
-                .replace("-.", "->")
-                .replace(">Route::get", ">Route.get")
-                .replace("Route.get", "Route.get"),
-            "show>$this.load".into(),
-            "show>Promo".into(),
-            "show>User.find".into(),
-            "show>helper".into()
+            "->Route.get",
+            "show>$this.load",
+            "show>Promo",
+            "show>User.find",
+            "show>helper"
         ]
     );
     assert_eq!(imports(&f), vec!["App\\Models\\User[]"]);
