@@ -277,3 +277,5 @@ kb-flash-type-saved = Jenis dokumen disimpan
 kb-flash-type-archived = Jenis dokumen diarsipkan
 kb-flash-settings = Pengaturan update otomatis disimpan
 knowledge-audit-day-invalid = Pilih hari audit.
+inbox-system = Agent Gate
+inbox-knowledge-project = Knowledge · { $project }

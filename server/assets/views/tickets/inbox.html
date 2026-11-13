@@ -32,11 +32,12 @@
   {%- for n in items %}
   <form method="post" action="{{ n.read_action }}" class="app-inbox-item">
     <button type="submit" class="app-lrow" data-notification="{{ n.kind }}"{% if n.unread %} data-unread{% endif %}>
-      {%- if n.actor %}{{ <avatar initials={n.actor.initials} color={n.actor.color} label={n.actor.name} size="md"/> }}{% else %}<span class="app-av-empty"></span>{% endif %}
+      {%- if n.actor %}{{ <avatar initials={n.actor.initials} color={n.actor.color} label={n.actor.name} size="md"/> }}{% elif n.project %}<span class="app-tile" data-tone="accent">{{ icon(name="book") }}</span>{% else %}<span class="app-av-empty"></span>{% endif %}
       <span class="app-lrow-main">
-        <span><b>{% if n.actor %}{{ n.actor.name }}{% else %}{{ t(key="person-removed", lang="id") }}{% endif %}</b> {{ t(key=n.label_key, lang="id") }}</span>
+        <span><b>{% if n.actor %}{{ n.actor.name }}{% elif n.project %}{{ t(key="inbox-system", lang="id") }}{% else %}{{ t(key="person-removed", lang="id") }}{% endif %}</b> {{ t(key=n.label_key, lang="id") }}</span>
         {%- if n.ticket %}
         <small><span class="app-code">{{ n.ticket.code }}</span> {{ n.ticket.title }}{% if n.ticket.project %} · {{ n.ticket.project }}{% endif %}</small>
+        {%- elif n.project %}<small>{{ t(key="inbox-knowledge-project", lang="id", project=n.project) }}</small>
         {%- else %}<small>{{ t(key="inbox-ticket-gone", lang="id") }}</small>{% endif %}
       </span>
       <time class="app-hint">{{ n.at }}</time>

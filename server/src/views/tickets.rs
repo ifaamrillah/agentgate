@@ -867,6 +867,8 @@ pub struct NotificationView {
     pub label_key: String,
     pub actor: Option<PersonView>,
     pub ticket: Option<TicketRow>,
+    /// Nama project untuk notifikasi tingkat project (knowledge).
+    pub project: Option<String>,
     pub at: String,
     pub unread: bool,
     pub read_action: String,

@@ -248,6 +248,13 @@ pub(super) async fn inbox(
                     .ticket_id
                     .and_then(|id| tickets.iter().find(|t| t.id == id))
                     .map(|t| lookup.row(t)),
+                project: n
+                    .ticket_id
+                    .is_none()
+                    .then_some(n.project_id)
+                    .flatten()
+                    .and_then(|pid| names.iter().find(|p| p.id == pid))
+                    .map(|p| p.name.clone()),
                 at: views::time::wib_datetime(&n.created_at),
                 unread: n.read_at.is_none(),
                 read_action: format!("{base}/{}/read", n.id),
@@ -350,7 +357,19 @@ pub(super) async fn read(
             .await?
             .filter(|t| !t.is_trashed())
             .map(|t| ticket_href(slug, &t.code)),
-        None => None,
+        // Notifikasi knowledge (tingkat project): ke tinjau usulan atau beranda knowledge.
+        None => match notification.project_id {
+            Some(pid) => crate::models::projects::Model::find_in(&ctx.db, wid, pid)
+                .await?
+                .map(|p| {
+                    let home = format!("/w/{slug}/p/{}/knowledge", p.key);
+                    match notification.kind() {
+                        Ok(NotificationKind::KnowledgeJob) => home,
+                        _ => format!("{home}/proposals"),
+                    }
+                }),
+            None => None,
+        },
     };
     format::redirect(&target.unwrap_or_else(|| format!("/w/{slug}/inbox")))
 }

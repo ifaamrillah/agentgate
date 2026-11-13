@@ -323,9 +323,28 @@ async fn members_and_viewers_get_limited_actions() {
         .await;
         assert_eq!(res.status_code(), 303);
         assert_eq!(ksr(&ctx, &f).await.knowledge_owner_id, Some(rina));
+        // Usulan baru → pemilik knowledge mendapat notifikasi yang membuka Tinjau usulan.
+        let (err, _) = call(
+            &request,
+            &mcp,
+            "ag_knowledge",
+            json!({ "action": "propose", "project": "KSR", "title": "Glosarium", "type": "glosarium", "body": "Shift" }),
+        )
+        .await;
+        assert!(!err);
+        let res = get(&request, &rina_cookie, "/w/acme/inbox").await;
+        assert_css_exists(&res.text(), "[data-notification='knowledge_proposal']");
+        let n = agentgate_server::models::notifications::Entity::find()
+            .filter(agentgate_server::models::notifications::Column::UserId.eq(rina))
+            .one(&ctx.db)
+            .await
+            .unwrap()
+            .unwrap();
+        let res = post(&request, &rina_cookie, &format!("/w/acme/inbox/{}/read", n.id), &[]).await;
+        assert_eq!(res.header("location"), "/w/acme/p/KSR/knowledge/proposals");
         let res = post(&request, &rina_cookie, &format!("{BASE}/proposals/{id}/approve"), &[]).await;
         assert_eq!(res.status_code(), 303);
-        assert!(proposals_of(&ctx, &f).await.iter().all(|p| p.status == "approved"));
+        assert!(proposals_of(&ctx, &f).await.iter().any(|p| p.status == "approved"));
     })
     .await;
 }
