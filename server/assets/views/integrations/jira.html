@@ -1,0 +1,188 @@
+{#- Pengaturan → Jira (M11, ManageIntegrations): subpage varian E dengan panel Ringkasan, Koneksi,
+    Mode sinkron, Status ↔ stage, Field & user, Log sinkron. Prototype: "M11 · Jira" di
+    screens-m9-m11-m12.js. Variabel: panel, subnav, base, flash, extra ({conn_form, tested,
+    failed}), conn (null = belum terhubung), conn_form, has_token, catalog_options,
+    project_options, unmapped, modes, envs; per panel: stats + summary (overview),
+    stage_options + statuses (status), target_options + fields + people_options + users +
+    unmapped_users (fields), table + rows ([views::jira::LogRow]) (log). -#}
+{% extends "layouts/settings.html" %}
+{% block title %}{{ t(key="jira-title", lang="id") }}{% endblock title %}
+{% block crumb_label %}{{ t(key="jira-title", lang="id") }}{% endblock crumb_label %}
+{% block page_attrs %}data-jira-page="{{ panel }}"{% endblock page_attrs %}
+{% block settings %}
+{% <subpage title={t(key="jira-title", lang="id")} description={t(key="jira-description", lang="id")} items={subnav}> %}
+{%- if extra.failed %}<div class="alert" data-variant="destructive" role="alert" data-jira-error>{{ icon(name="alert-circle") }}<span>{{ t(key=extra.failed.code, lang="id") }}</span></div>{% endif %}
+{%- if panel == "conn" %}
+{#- ===================== Koneksi ===================== -#}
+{% <card title={t(key="jira-panel-conn", lang="id")} description={t(key="jira-conn-description", lang="id")} form={base ~ "/conn"} save_label={t(key="action-save", lang="id")} attrs="data-jira-conn"> %}
+<div class="app-stack-v">
+  <div class="app-jsub"><b>{{ t(key="jira-env", lang="id") }}</b></div>
+  <div class="app-choices" role="radiogroup" aria-label="{{ t(key="jira-env", lang="id") }}">
+    {%- for e in envs %}
+    <label class="app-choice"><input type="radio" class="app-radio" name="env" value="{{ e.key }}"{% if conn_form.env == e.key %} checked{% endif %}><span><b>{{ icon(name=e.icon) }} {{ t(key="jira-env-" ~ e.key, lang="id") }}</b><small>{{ t(key="jira-env-" ~ e.key ~ "-hint", lang="id") }}</small></span></label>
+    {%- endfor %}
+  </div>
+  {%- if conn_form.field == "env" %}<p class="app-field-error" role="alert">{{ t(key=conn_form.code, lang="id") }}</p>{% endif %}
+  <div class="app-jsub"><b>{{ t(key="jira-credentials", lang="id") }}</b></div>
+  {%- if conn_form.field == "base_url" %}{% set url_error = conn_form.code %}{% else %}{% set url_error = "" %}{% endif %}
+  {{ <field id="jira-url" name="base_url" label={t(key="jira-url", lang="id")} type="url" value={conn_form.base_url} placeholder="https://sevima-retail.atlassian.net" error={url_error} hint={t(key="jira-url-hint", lang="id")} required={true} mono={true}/> }}
+  <div class="app-api-grid2">
+    {%- if conn_form.field == "email" %}{% set email_error = conn_form.code %}{% else %}{% set email_error = "" %}{% endif %}
+    {{ <field id="jira-email" name="email" label={t(key="jira-email", lang="id")} type="email" value={conn_form.email} error={email_error} hint={t(key="jira-email-hint", lang="id")} autocomplete="off"/> }}
+    {%- if conn_form.field == "token" %}{% set token_error = conn_form.code %}{% else %}{% set token_error = "" %}{% endif %}
+    {%- if has_token %}{% set token_ph = t(key="jira-token-kept", lang="id") %}{% else %}{% set token_ph = "" %}{% endif %}
+    {{ <field id="jira-token" name="token" label={t(key="jira-token", lang="id")} type="password" placeholder={token_ph} error={token_error} hint={t(key="jira-token-hint", lang="id")} autocomplete="new-password"/> }}
+  </div>
+  <div class="app-jrow">
+    <button type="submit" class="btn" data-variant="outline" formaction="{{ base }}/conn/test" formnovalidate data-jira-test>{{ icon(name="plug") }}{{ t(key="jira-test", lang="id") }}</button>
+    {%- if extra.tested %}<span class="app-jres" data-result="ok" data-jira-tested>{{ icon(name="circle-check") }}{{ t(key="jira-tested", lang="id", name=extra.tested.account, n=extra.tested.projects) }}</span>
+    {%- elif conn and conn.account %}<span class="app-jres" data-result="ok">{{ icon(name="circle-check") }}{{ t(key="jira-connected-as", lang="id", name=conn.account) }}</span>{% endif %}
+  </div>
+  <div class="app-jsub"><b>{{ t(key="jira-projects", lang="id") }}</b></div>
+  <div class="app-api-grid2">
+    {%- if conn_form.field == "jira_project" %}{% set jp_error = conn_form.code %}{% else %}{% set jp_error = "" %}{% endif %}
+    {%- if catalog_options %}{% set jp_hint = "" %}{% else %}{% set jp_hint = t(key="jira-project-hint", lang="id") %}{% endif %}
+    {{ <combo id="jira-project" name="jira_project" label={t(key="jira-jira-project", lang="id")} options={catalog_options} value={conn_form.jira_project} error={jp_error} hint={jp_hint}/> }}
+    {%- if conn_form.field == "project" %}{% set p_error = conn_form.code %}{% else %}{% set p_error = "" %}{% endif %}
+    {{ <combo id="jira-ag-project" name="project" label={t(key="jira-ag-project", lang="id")} options={project_options} value={conn_form.project} error={p_error}/> }}
+  </div>
+</div>
+{% </card> %}
+{%- elif not conn %}
+{#- ===================== Belum terhubung ===================== -#}
+{% <card title={t(key="jira-panel-overview", lang="id")} attrs="data-jira-empty"> %}
+{% <empty_state title={t(key="jira-empty", lang="id")} description={t(key="jira-empty-description", lang="id")} icon="plug" variant="plain"> %}
+{{ <button label={t(key="jira-connect", lang="id")} href={base ~ "/conn"} icon="plug"/> }}
+{% </empty_state> %}
+{% </card> %}
+{%- elif panel == "overview" %}
+{#- ===================== Ringkasan ===================== -#}
+{% <card title={t(key="jira-panel-overview", lang="id")} description={t(key="jira-overview-description", lang="id")} attrs="data-jira-overview"> %}
+<div class="app-stack-v">
+  {%- if unmapped %}<div class="alert" data-variant="warn" data-jira-unmapped>{{ icon(name="alert-triangle") }}<span>{{ t(key="jira-unmapped-alert", lang="id", names=unmapped | join(sep=", "), n=unmapped | length) }} <a class="app-link" href="{{ base }}/status">{{ t(key="jira-unmapped-fix", lang="id") }}</a></span></div>{% endif %}
+  {%- if conn.last_error %}<div class="alert" data-variant="destructive" data-jira-last-error>{{ icon(name="alert-circle") }}<span>{{ t(key="jira-last-error", lang="id", reason=t(key=conn.last_error, lang="id")) }}</span></div>{% endif %}
+  <div class="app-lrow" data-jira-state>
+    {%- if conn.paused %}{% set dot = "offline" %}{% elif conn.running %}{% set dot = "busy" %}{% else %}{% set dot = "online" %}{% endif %}
+    {{ <live_dot state={dot}/> }}
+    <span class="app-lrow-main"><b>{{ t(key="jira-connected-to", lang="id", host=conn.host) }}</b>
+      <small>{% if conn.ready %}{{ conn.jira_project }} ↔ {{ conn.project }} · {% endif %}{{ t(key=conn.mode_key, lang="id") }}
+      {%- if conn.paused %} · {{ t(key="jira-paused", lang="id") }}{% elif conn.running %} · {{ t(key="jira-running", lang="id") }}{% elif conn.last_sync %} · {{ t(key="jira-last-sync", lang="id", when=t(key=conn.last_sync.key, lang="id", n=conn.last_sync.n)) }}{% else %} · {{ t(key="jira-never-synced", lang="id") }}{% endif %}</small></span>
+    <form method="post" action="{{ base }}/sync">{{ <button label={t(key="jira-sync-now", lang="id")} type="submit" variant="outline" size="sm" icon="refresh" disabled={not conn.ready or conn.paused} attrs="data-jira-sync"/> }}</form>
+    {% <action_menu id="jira-menu" label={t(key="jira-menu", lang="id")}> %}
+      {%- if conn.paused %}
+      <form method="post" action="{{ base }}/resume"><button type="submit" class="app-menu-item" data-jira-resume>{{ icon(name="player-play") }}{{ t(key="jira-resume", lang="id") }}</button></form>
+      {%- else %}
+      <form method="post" action="{{ base }}/pause"><button type="submit" class="app-menu-item" data-jira-pause>{{ icon(name="player-pause") }}{{ t(key="jira-pause", lang="id") }}</button></form>
+      {%- endif %}
+      {%- if conn.ready %}<form method="post" action="{{ base }}/resync"><button type="submit" class="app-menu-item" data-jira-resync>{{ icon(name="refresh") }}{{ t(key="jira-resync", lang="id") }}</button></form>{% endif %}
+      <a class="app-menu-item" href="{{ base }}/log/download">{{ icon(name="download") }}{{ t(key="jira-log-download", lang="id") }}</a>
+      <div class="app-menu-sep"></div>
+      <button type="button" class="app-menu-item" data-variant="destructive" data-dialog-open="jira-disconnect" aria-haspopup="dialog">{{ icon(name="plug-x") }}{{ t(key="jira-disconnect", lang="id") }}</button>
+    {% </action_menu> %}
+  </div>
+  {{ <stats items={stats}/> }}
+  <div class="app-jsub"><b>{{ t(key="jira-current", lang="id") }}</b></div>
+  <dl class="app-props" data-jira-summary>
+    <dt>{{ t(key="jira-panel-conn", lang="id") }}</dt><dd>{{ t(key=conn.env_key, lang="id") }} · {{ conn.host }}</dd>
+    <dt>{{ t(key="jira-projects", lang="id") }}</dt><dd>{% if conn.ready %}{{ conn.jira_project }} ↔ {{ conn.project_name }} ({{ conn.project }}){% else %}<a class="app-link" href="{{ base }}/conn">{{ t(key="jira-choose-project", lang="id") }}</a>{% endif %}</dd>
+    <dt>{{ t(key="jira-panel-mode", lang="id") }}</dt><dd>{{ t(key=conn.mode_key, lang="id") }}</dd>
+    <dt>{{ t(key="jira-summary-status", lang="id") }}</dt><dd>{{ t(key="jira-summary-of", lang="id", n=summary.statuses_mapped, total=summary.statuses) }}</dd>
+    <dt>{{ t(key="jira-summary-fields", lang="id") }}</dt><dd>{{ t(key="jira-summary-field-count", lang="id", n=summary.fields) }}</dd>
+    <dt>{{ t(key="jira-summary-users", lang="id") }}</dt><dd>{{ t(key="jira-summary-of", lang="id", n=summary.users_mapped, total=summary.users) }}</dd>
+    <dt>{{ t(key="jira-summary-data", lang="id") }}</dt><dd data-jira-data>{% if conn.mode == "once" and conn.running %}{{ t(key="jira-importing", lang="id", n=summary.data.tickets) }}{% else %}{{ t(key="jira-summary-data-value", lang="id", tickets=summary.data.tickets, comments=summary.data.comments, attachments=summary.data.attachments, sprints=summary.data.sprints) }}{% endif %}</dd>
+  </dl>
+</div>
+{% </card> %}
+{% <dialog id="jira-disconnect" title={t(key="jira-disconnect-title", lang="id", host=conn.host)} description={t(key="jira-disconnect-description", lang="id")} icon="plug-x" tone="danger"> %}
+<form method="post" action="{{ base }}/disconnect">
+  <footer>
+    <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+    {{ <button label={t(key="jira-disconnect", lang="id")} type="submit" variant="danger" attrs="data-jira-disconnect"/> }}
+  </footer>
+</form>
+{% </dialog> %}
+{%- elif panel == "mode" %}
+{#- ===================== Mode sinkron ===================== -#}
+{% <card title={t(key="jira-panel-mode", lang="id")} description={t(key="jira-mode-description", lang="id")} form={base ~ "/mode"} save_label={t(key="jira-save-sync", lang="id")} note={t(key="jira-save-note", lang="id")} attrs="data-jira-mode"> %}
+<div class="app-stack-v">
+  <div class="app-choices" data-cols="one" role="radiogroup" aria-label="{{ t(key="jira-panel-mode", lang="id") }}">
+    {%- for m in modes %}
+    <label class="app-choice"><input type="radio" class="app-radio" name="mode" value="{{ m.key }}"{% if conn.mode == m.key %} checked{% endif %}><span><b>{{ icon(name=m.icon) }} {{ t(key="jira-mode-" ~ m.key, lang="id") }}</b><small>{{ t(key="jira-mode-" ~ m.key ~ "-hint", lang="id") }}</small></span></label>
+    {%- endfor %}
+  </div>
+  <div class="app-jsub"><b>{{ t(key="jira-conflict", lang="id") }}</b><span class="app-hint">{{ t(key="jira-conflict-hint", lang="id") }}</span></div>
+  <div class="app-jnote"><span class="app-tile" data-tone="accent">{{ icon(name="route") }}</span><span><b>{{ t(key="jira-rule-status", lang="id") }}</b> <span>{{ t(key="jira-rule-status-hint", lang="id") }}</span></span></div>
+  <div class="app-jnote"><span class="app-tile">{{ icon(name="clock") }}</span><span><b>{{ t(key="jira-rule-fields", lang="id") }}</b> <span>{{ t(key="jira-rule-fields-hint", lang="id") }}</span></span></div>
+</div>
+{% </card> %}
+{%- elif panel == "status" %}
+{#- ===================== Status ↔ stage ===================== -#}
+{% <card title={t(key="jira-panel-status", lang="id")} description={t(key="jira-status-description", lang="id", jira=conn.jira_project, project=conn.project_name)} form={base ~ "/status"} save_label={t(key="jira-save-sync", lang="id")} attrs="data-jira-status"> %}
+<div class="app-stack-v">
+  {%- if not conn.ready %}
+  {{ <empty_state title={t(key="jira-choose-project", lang="id")} description={t(key="jira-not-ready", lang="id")} icon="route" variant="plain"/> }}
+  {%- else %}
+  {%- if unmapped %}<div class="alert" data-variant="warn">{{ icon(name="alert-triangle") }}<span>{{ t(key="jira-status-unmapped", lang="id", names=unmapped | join(sep=", "), n=unmapped | length) }}</span></div>{% endif %}
+  <div class="app-jmap">
+    <span class="app-jmap-h">{{ t(key="jira-status-jira", lang="id", key=conn.jira_project) }}</span><span class="app-jmap-h"></span><span class="app-jmap-h">{{ t(key="jira-status-stage", lang="id", key=conn.project) }}</span>
+    {%- for s in statuses %}
+    <span class="app-jmap-k"><span class="app-jst" data-category="{{ s.category }}"{% if not s.stage %} data-unmapped{% endif %}>{{ s.name }}</span></span>
+    <span class="app-jmap-arw">{{ icon(name="arrows-exchange") }}</span>
+    {{ <combo id={"jira-st-" ~ s.id} name={"st:" ~ s.id} label={t(key="jira-status-for", lang="id", name=s.name)} options={stage_options} value={s.stage | default(value="")} hide_label={true} placeholder={t(key="jira-unmapped", lang="id")}/> }}
+    {%- endfor %}
+  </div>
+  {%- endif %}
+</div>
+{% </card> %}
+{%- elif panel == "fields" %}
+{#- ===================== Field & user ===================== -#}
+{% <card title={t(key="jira-panel-fields", lang="id")} description={t(key="jira-fields-description", lang="id")} form={base ~ "/fields"} save_label={t(key="jira-save-sync", lang="id")} attrs="data-jira-fields"> %}
+<div class="app-stack-v">
+  {%- if not conn.ready %}
+  {{ <empty_state title={t(key="jira-choose-project", lang="id")} description={t(key="jira-not-ready", lang="id")} icon="list-details" variant="plain"/> }}
+  {%- else %}
+  <div class="app-jsub"><b>{{ t(key="jira-fields", lang="id") }}</b></div>
+  <div class="app-jmap">
+    <span class="app-jmap-h">{{ t(key="jira-field-jira", lang="id") }}</span><span class="app-jmap-h"></span><span class="app-jmap-h">{{ t(key="jira-field-ag", lang="id") }}</span>
+    {%- for f in fields %}
+    <span class="app-jmap-k">{{ f.name }}<small>{{ f.id }}</small></span>
+    <span class="app-jmap-arw">{{ icon(name="arrows-exchange") }}</span>
+    {{ <combo id={"jira-f-" ~ f.id} name={"f:" ~ f.id} label={t(key="jira-field-for", lang="id", name=f.name)} options={target_options} value={f.target} hide_label={true}/> }}
+    {%- endfor %}
+  </div>
+  <div class="app-jsub"><b>{{ t(key="jira-users", lang="id") }}</b><span class="app-hint">{{ t(key="jira-users-hint", lang="id") }}</span></div>
+  {%- if unmapped_users %}<div class="alert">{{ icon(name="info-circle") }}<span>{{ t(key="jira-users-unmapped", lang="id", names=unmapped_users | join(sep=", "), n=unmapped_users | length) }} <a class="app-link" href="{{ members_href }}">{{ t(key="jira-users-invite", lang="id") }}</a></span></div>{% endif %}
+  {%- if users %}
+  <div class="app-jmap">
+    <span class="app-jmap-h">{{ t(key="jira-user-jira", lang="id") }}</span><span class="app-jmap-h"></span><span class="app-jmap-h">{{ t(key="jira-user-ag", lang="id") }}</span>
+    {%- for u in users %}
+    <span class="app-jmap-k">{{ u.name }}<small>{% if u.email %}{{ u.email }}{% else %}{{ u.account }}{% endif %}</small></span>
+    <span class="app-jmap-arw">{{ icon(name="arrows-exchange") }}</span>
+    {{ <combo id={"jira-u-" ~ loop.index} name={"u:" ~ u.account} label={t(key="jira-user-for", lang="id", name=u.name)} options={people_options} value={u.user_id} hide_label={true} placeholder={t(key="jira-user-unmapped", lang="id")}/> }}
+    {%- endfor %}
+  </div>
+  {%- else %}
+  {{ <empty_state title={t(key="jira-users-empty", lang="id")} description={t(key="jira-users-empty-description", lang="id")} icon="users" variant="plain"/> }}
+  {%- endif %}
+  {%- endif %}
+</div>
+{% </card> %}
+{%- elif panel == "log" %}
+{#- ===================== Log sinkron ===================== -#}
+{% <card title={t(key="jira-panel-log", lang="id")} description={t(key="jira-log-description", lang="id")} flush={true} link_label={t(key="jira-log-download", lang="id")} link_href={base ~ "/log/download"} attrs="data-jira-log"> %}
+  {% <datatable table={table} empty_title={t(key="jira-log-empty", lang="id")} empty_description={t(key="jira-log-empty-description", lang="id")} empty_icon="history"> %}
+  {%- for r in rows %}
+  <tr data-log="{{ r.id }}" data-result="{{ r.result }}" data-direction="{{ r.direction }}">
+    <td><span class="app-code app-hint">{{ r.at }}</span></td>
+    <td><span class="app-jres" data-result="{{ r.result }}">{% if r.result == "ok" %}{{ icon(name="circle-check") }}{% elif r.result == "gate" %}{{ icon(name="hand-stop") }}{% else %}{{ icon(name="alert-circle") }}{% endif %}{{ t(key="jira-result-" ~ r.result, lang="id") }}</span></td>
+    <td><span class="app-code">{% if r.ticket_href %}<a class="app-link" href="{{ r.ticket_href }}">{{ r.subject }}</a>{% else %}{{ r.subject }}{% endif %}</span></td>
+    <td data-hide="sm"><span class="app-hint">
+      {%- if r.args.reason %}{% set why = t(key=r.args.reason, lang="id") %}{% else %}{% set why = "" %}{% endif -%}
+      {{ t(key=r.message, lang="id", detail=r.args.detail, status=r.args.status, stage=r.args.stage, size=r.args.size, email=r.args.email, reason=why, back=r.args.back) }}</span></td>
+  </tr>
+  {%- endfor %}
+  {% </datatable> %}
+{% </card> %}
+{%- endif %}
+{% </subpage> %}
+{% endblock settings %}

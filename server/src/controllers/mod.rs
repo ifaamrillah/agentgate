@@ -19,6 +19,7 @@ pub mod graph_api;
 pub mod graph_viewer;
 pub mod imports;
 pub mod integrations;
+pub mod jira;
 pub mod invitations;
 pub mod knowledge;
 pub mod knowledge_api;
@@ -67,6 +68,7 @@ pub fn routes(ctx: &AppContext) -> AppRoutes {
         .add_route(webhooks::routes())
         .add_route(api_v1::routes(ctx))
         .add_route(integrations::routes())
+        .add_route(jira::routes())
         .add_route(mcp::routes(ctx));
     add_dev_routes(routes, &ctx.environment)
 }

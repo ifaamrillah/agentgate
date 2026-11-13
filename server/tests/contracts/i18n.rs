@@ -117,6 +117,7 @@ fn every_validation_error_code_has_a_message() {
         agentgate_server::services::api_tokens::ERROR_CODES,
         agentgate_server::services::webhooks::ERROR_CODES,
         agentgate_server::services::imports::ERROR_CODES,
+        agentgate_server::services::jira::ERROR_CODES,
         agentgate_server::services::exports::ERROR_CODES,
     ]
     .concat();
@@ -228,6 +229,7 @@ fn every_ticket_enum_and_view_key_has_a_translation() {
     used.extend(views::knowledge::label_keys());
     used.extend(views::planning::label_keys());
     used.extend(views::integrations::label_keys());
+    used.extend(views::jira::label_keys());
     used.extend(agentgate_server::controllers::tickets::reports::label_keys());
     used.extend(agentgate_server::controllers::tickets::releases::label_keys());
     used.extend(agentgate_server::controllers::tickets::advanced::label_keys());

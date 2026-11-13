@@ -105,6 +105,7 @@ pub const SETTINGS_SECTIONS: &[&str] = &[
     "runner",
     "git",
     "api",
+    "jira",
     "import_csv",
     "export",
 ];
@@ -181,6 +182,7 @@ pub fn settings_nav(settings_href: &str, links: &SettingsLinks) -> Vec<NavItem> 
         ("runner", "runner-title", "device-laptop", &links.runner),
         ("git", "git-title", "git-pull-request", &links.git),
         ("api", "api-title", "api", &links.api),
+        ("jira", "jira-title", "arrows-exchange", &links.jira),
         (
             "import_csv",
             "import-title",
