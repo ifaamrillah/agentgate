@@ -7,6 +7,7 @@ mod builders;
 pub mod fake_codeload;
 pub mod fake_github;
 pub mod fake_hook;
+pub mod fake_jira;
 pub mod fake_oauth;
 mod mail;
 pub mod oauth_flow;

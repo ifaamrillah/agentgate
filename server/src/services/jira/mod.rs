@@ -130,3 +130,23 @@ pub fn error_code(e: &api::JiraError) -> &'static str {
         api::JiraError::Network(_) | api::JiraError::Decode(_) => UNREACHABLE,
     }
 }
+
+/// Validasi URL site/server Jira (penjaga SSRF webhook: https, http hanya ke loopback bila
+/// `settings.jira.allow_loopback`). Kembalikan URL tanpa query dan `/` di akhir (path konteks
+/// Data Center seperti `/jira` dipertahankan).
+///
+/// # Errors
+///
+/// [`URL_INVALID`] atau [`URL_FORBIDDEN`].
+pub fn webhooks_url(raw: &str, settings: &Settings) -> Result<String, &'static str> {
+    let mut url = crate::services::webhooks::url_guard::validate(raw, settings.jira.allow_loopback)
+        .map_err(|code| {
+            if code == crate::services::webhooks::url_guard::URL_FORBIDDEN {
+                URL_FORBIDDEN
+            } else {
+                URL_INVALID
+            }
+        })?;
+    url.set_query(None);
+    Ok(url.as_str().trim_end_matches('/').to_string())
+}
