@@ -20,6 +20,7 @@ pub mod nav;
 pub mod oauth;
 pub mod palette;
 pub mod personas;
+pub mod planning;
 pub mod projects;
 pub mod roles;
 pub mod runner;

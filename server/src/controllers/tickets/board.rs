@@ -584,7 +584,7 @@ async fn ensure_in_project(ctx: &AppContext, access: &ProjectAccess, id: Uuid) -
 
 /// Definisi workflow yang dipakai project: workflow efektif tiap tipe tiket, lalu workflow tiket
 /// yang tampil (tiket yang belum ikut pindah workflow).
-async fn project_definitions(
+pub(super) async fn project_definitions(
     ctx: &AppContext,
     access: &ProjectAccess,
     shown: &[tickets::Model],

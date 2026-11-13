@@ -113,6 +113,7 @@ fn every_validation_error_code_has_a_message() {
         agentgate_core::git::ERROR_CODES,
         agentgate_server::services::git::ERROR_CODES,
         agentgate_server::services::knowledge::ERROR_CODES,
+        agentgate_server::services::planning::ERROR_CODES,
     ]
     .concat();
     let missing: Vec<_> = codes.iter().filter(|c| !keys.contains(**c)).collect();
@@ -197,6 +198,7 @@ fn every_ticket_enum_and_view_key_has_a_translation() {
     used.extend(views::oauth::label_keys());
     used.extend(views::drafts::label_keys());
     used.extend(views::knowledge::label_keys());
+    used.extend(views::planning::label_keys());
     used.extend(agentgate_server::controllers::knowledge_settings::label_keys());
     used.extend(["knowledge-audit-day-invalid".to_string()]);
     used.extend(

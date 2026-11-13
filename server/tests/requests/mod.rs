@@ -12,6 +12,7 @@ mod home;
 mod knowledge;
 mod mcp;
 mod oauth;
+mod planning;
 mod projects;
 mod runner;
 mod security_headers;

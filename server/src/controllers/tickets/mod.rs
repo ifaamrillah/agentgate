@@ -17,6 +17,7 @@ use sea_orm::{ColumnTrait, ConnectionTrait, DbErr, EntityTrait, QueryFilter};
 use uuid::Uuid;
 
 mod artifact;
+mod backlog;
 mod board;
 mod drafts;
 mod inbox;
@@ -230,6 +231,22 @@ pub fn routes() -> Routes {
         // Project
         .add("/w/{slug}/p/{key}/board", get(board::board))
         .add("/w/{slug}/p/{key}/list", get(board::list))
+        .add("/w/{slug}/p/{key}/backlog", get(backlog::index))
+        .add("/w/{slug}/p/{key}/backlog/sprints", post(backlog::create))
+        .add("/w/{slug}/p/{key}/backlog/sprints/{id}", post(backlog::update))
+        .add(
+            "/w/{slug}/p/{key}/backlog/sprints/{id}/delete",
+            post(backlog::delete),
+        )
+        .add(
+            "/w/{slug}/p/{key}/backlog/sprints/{id}/start",
+            post(backlog::start),
+        )
+        .add(
+            "/w/{slug}/p/{key}/backlog/sprints/{id}/complete",
+            post(backlog::complete),
+        )
+        .add("/w/{slug}/p/{key}/backlog/move/{id}", post(backlog::move_ticket))
         .add(
             "/w/{slug}/p/{key}/tickets/new",
             get(board::new).post(board::create),
