@@ -867,7 +867,9 @@ async fn seed_agents(ctx: &AppContext) -> Result<()> {
 /// KSR `kasir-api` dan `kasir-web` tertaut + webhook, dan tiga PR tiket (CI lulus, CI gagal,
 /// merged). Merge otomatis dan pembukaan PR baru butuh token asli.
 async fn seed_git(ctx: &AppContext) -> Result<()> {
-    use sea_orm::{ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
+    use sea_orm::{
+        ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter, QueryOrder,
+    };
 
     use crate::{
         common::{crypto, settings::Settings},
@@ -881,7 +883,10 @@ async fn seed_git(ctx: &AppContext) -> Result<()> {
     let Some(project) = projects::Model::find_by_key(&ctx.db, wid, SEED_PROJECT.0).await? else {
         return Ok(());
     };
-    if !git_connections::Model::of_workspace(&ctx.db, wid).await?.is_empty() {
+    if !git_connections::Model::of_workspace(&ctx.db, wid)
+        .await?
+        .is_empty()
+    {
         tracing::info!("seed git dilewati: koneksi sudah ada");
         return Ok(());
     }
@@ -959,12 +964,50 @@ async fn seed_git(ctx: &AppContext) -> Result<()> {
         )
     };
     let samples = [
-        (0usize, 142, "feat(pembayaran): integrasi QRIS", "open", "success", checks(&[("build", "success"), ("cargo test", "success"), ("clippy", "success")]), 302, 41, 40),
-        (1, 87, "feat(bayar): panel QRIS di layar kasir", "open", "failure", checks(&[("build", "success"), ("e2e playwright", "failure")]), 120, 18, 25),
-        (0, 131, "feat(auth): login kasir dengan PIN 6 digit", "merged", "success", checks(&[("build", "success"), ("cargo test", "success")]), 210, 33, 4300),
+        (
+            0usize,
+            142,
+            "feat(pembayaran): integrasi QRIS",
+            "open",
+            "success",
+            checks(&[
+                ("build", "success"),
+                ("cargo test", "success"),
+                ("clippy", "success"),
+            ]),
+            302,
+            41,
+            40,
+        ),
+        (
+            1,
+            87,
+            "feat(bayar): panel QRIS di layar kasir",
+            "open",
+            "failure",
+            checks(&[("build", "success"), ("e2e playwright", "failure")]),
+            120,
+            18,
+            25,
+        ),
+        (
+            0,
+            131,
+            "feat(auth): login kasir dengan PIN 6 digit",
+            "merged",
+            "success",
+            checks(&[("build", "success"), ("cargo test", "success")]),
+            210,
+            33,
+            4300,
+        ),
     ];
-    for (n, (repo_i, number, title, state, ci, checks, add, del, mins)) in samples.into_iter().enumerate() {
-        let Some(ticket) = ticket_rows.get(n + 1) else { break };
+    for (n, (repo_i, number, title, state, ci, checks, add, del, mins)) in
+        samples.into_iter().enumerate()
+    {
+        let Some(ticket) = ticket_rows.get(n + 1) else {
+            break;
+        };
         let repo = &linked[repo_i];
         let branch = agentgate_core::git::render_branch(
             agentgate_core::git::DEFAULT_BRANCH_PATTERN,
@@ -979,7 +1022,10 @@ async fn seed_git(ctx: &AppContext) -> Result<()> {
             ticket_id: Set(Some(ticket.id)),
             number: Set(number),
             title: Set(title.into()),
-            url: Set(format!("https://github.com/{}/pull/{number}", repo.full_name)),
+            url: Set(format!(
+                "https://github.com/{}/pull/{number}",
+                repo.full_name
+            )),
             head_branch: Set(branch),
             base_branch: Set("main".into()),
             head_sha: Set(format!("{:07x}{number}", number * 7919)),
