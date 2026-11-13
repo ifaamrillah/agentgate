@@ -285,6 +285,7 @@ pub async fn release_now(
     m.status = Set(ReleaseStatus::Released.to_value());
     m.released_at = Set(Some(chrono::Utc::now().into()));
     let r = m.update(&txn).await?;
+    crate::models::outbox_events::publish_release(&txn, wid, &r, Some(acting.user.id)).await?;
     txn.commit().await?;
     Ok(r)
 }

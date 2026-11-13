@@ -235,6 +235,8 @@ pub struct SettingsLinks {
     pub runner: Option<String>,
     /// Git provider: `ManageIntegrations`.
     pub git: Option<String>,
+    /// API & webhook (M11): `ManageIntegrations`.
+    pub api: Option<String>,
 }
 
 impl AppShell {

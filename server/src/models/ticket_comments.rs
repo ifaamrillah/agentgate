@@ -101,7 +101,7 @@ impl ActiveModel {
         author_id: Uuid,
         body: String,
     ) -> Result<Model, DbErr> {
-        Self {
+        let comment = Self {
             workspace_id: Set(workspace_id.get()),
             ticket_id: Set(ticket_id),
             author_id: Set(Some(author_id)),
@@ -109,6 +109,8 @@ impl ActiveModel {
             ..Default::default()
         }
         .insert(db)
-        .await
+        .await?;
+        super::outbox_events::publish_comment(db, workspace_id, &comment).await?;
+        Ok(comment)
     }
 }

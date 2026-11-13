@@ -1114,6 +1114,7 @@ pub async fn finish(
         }
         Outcome::Failed => {
             log(db, wid, job.id, LogStream::Fail, "✗ Job gagal").await?;
+            crate::models::outbox_events::publish_job_failed(db, wid, &job).await?;
             super::notify_job(
                 db,
                 wid,

@@ -368,7 +368,9 @@ pub(super) async fn read(
                         _ => format!("{home}/proposals"),
                     }
                 }),
-            None => None,
+            // Webhook dinonaktifkan (M11): ke daftar webhook.
+            None => matches!(notification.kind(), Ok(NotificationKind::WebhookDisabled))
+                .then(|| format!("{}/hooks", crate::controllers::integrations::base(slug))),
         },
     };
     format::redirect(&target.unwrap_or_else(|| format!("/w/{slug}/inbox")))

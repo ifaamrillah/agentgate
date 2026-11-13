@@ -149,6 +149,12 @@ impl Hooks for App {
         let preview_host =
             std::sync::Arc::new(crate::common::settings::Settings::from_ctx(ctx)?.preview_host());
         Ok(router
+            // Webhook keluar (M11): delivery yang ditulis selama request di-enqueue setelah
+            // handler selesai (setelah commit).
+            .layer(axum::middleware::from_fn_with_state(
+                ctx.clone(),
+                controllers::middleware::webhook_dispatch::layer,
+            ))
             .layer(axum::middleware::from_fn(
                 controllers::middleware::csrf::layer,
             ))
@@ -166,6 +172,10 @@ impl Hooks for App {
         // Index code graph oleh server (M7).
         queue
             .register(crate::workers::graph_index::GraphIndexWorker::build(ctx))
+            .await?;
+        // Pengiriman webhook keluar (M11).
+        queue
+            .register(crate::workers::webhook_delivery::WebhookDeliveryWorker::build(ctx))
             .await?;
         Ok(())
     }
