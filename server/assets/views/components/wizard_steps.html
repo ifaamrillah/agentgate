@@ -1,0 +1,19 @@
+{#- Langkah wizard bernomor (M11, mis. Impor CSV: Unggah → Pemetaan kolom → Pratinjau → Impor).
+    Langkah selesai bercentang (tautan bila `href` diisi), langkah sekarang beraksen, langkah
+    berikutnya redup. Bergulir horizontal di layar sempit. Bukan `stage_stepper` (stage tiket).
+    Parameter:
+      steps: array              [views::ui::WizardStep {label (sudah diterjemahkan), state
+                                done|current|todo, href ("" = bukan tautan)}]
+      label: string             aria-label daftar (sudah diterjemahkan) -#}
+{% component wizard_steps(steps: array, label: string) %}
+<ol class="app-wsteps" aria-label="{{ label }}" data-wizard-steps>
+  {%- for s in steps %}
+  <li>
+    {%- if s.href and s.state == "done" %}<a class="app-wstep" href="{{ s.href }}" data-state="{{ s.state }}">
+    {%- else %}<span class="app-wstep" data-state="{{ s.state }}"{% if s.state == "current" %} aria-current="step"{% endif %}>{% endif %}
+      <span class="app-wstep-n" aria-hidden="true">{% if s.state == "done" %}{{ icon(name="check") }}{% else %}{{ loop.index }}{% endif %}</span>{{ s.label }}
+    {%- if s.href and s.state == "done" %}</a>{% else %}</span>{% endif %}
+  </li>
+  {%- endfor %}
+</ol>
+{%- endcomponent wizard_steps %}

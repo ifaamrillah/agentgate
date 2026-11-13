@@ -226,6 +226,11 @@ pub(crate) fn links(tenant: &Tenant) -> SettingsLinks {
         knowledge: tenant
             .can(crate::models::permission::Permission::ManageTicketSettings)
             .then(|| format!("/w/{}/settings/knowledge", tenant.workspace.slug)),
+        import_csv: tenant
+            .can(crate::models::permission::Permission::ManageIntegrations)
+            .then(|| crate::controllers::imports::base(&tenant.workspace.slug)),
+        export: crate::services::exports::can_export(&tenant.role)
+            .then(|| crate::controllers::exports::base(&tenant.workspace.slug)),
     }
 }
 

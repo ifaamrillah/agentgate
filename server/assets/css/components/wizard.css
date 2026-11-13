@@ -1,0 +1,22 @@
+/* Wizard M11: langkah bernomor (`app-wsteps`, komponen wizard_steps) dan area pilih/seret berkas
+   (`app-drop`, komponen file_drop; input file transparan menutupi area, tanpa JS). */
+@layer components {
+  .app-wsteps { list-style: none; margin: 0; padding: 0; display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+  .app-wsteps > li { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+  .app-wsteps > li + li::before { content: ""; width: 18px; height: 1px; background: var(--ag-line2, var(--ag-line)); }
+  .app-wstep { display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px 0 6px; border-radius: 7px; color: var(--ag-muted); font-weight: 500; white-space: nowrap; }
+  a.app-wstep:hover { background: var(--ag-hover); color: var(--ag-fg); }
+  .app-wstep[data-state='current'] { background: var(--ag-accent-soft); color: var(--ag-accent-fg); }
+  .app-wstep-n { width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; flex-shrink: 0; background: var(--ag-hover); color: var(--ag-muted); }
+  .app-wstep[data-state='current'] .app-wstep-n { background: var(--ag-accent); color: #fff; }
+  .app-wstep[data-state='done'] .app-wstep-n { background: var(--ag-success); color: #fff; }
+  .app-wstep-n svg { width: 12px; height: 12px; stroke-width: 2.6; }
+  .app-wsteps-wrap { margin: -6px -16px 0; padding: 0 10px 10px; border-bottom: 1px solid var(--ag-line); }
+
+  .app-drop { position: relative; border: 1.5px dashed var(--ag-input); border-radius: 10px; padding: 28px; display: grid; justify-items: center; gap: 8px; text-align: center; color: var(--ag-muted); background: var(--ag-muted-bg); font-size: 13px; }
+  .app-drop:hover, .app-drop:focus-within { border-color: var(--ag-accent); color: var(--ag-fg); }
+  .app-drop > svg { width: 24px; height: 24px; }
+  .app-drop b { color: var(--ag-fg); font-weight: 500; }
+  .app-drop > input[type='file'] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+  [data-invalid] > .app-drop { border-color: var(--ag-danger); }
+}

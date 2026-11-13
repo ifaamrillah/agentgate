@@ -235,6 +235,10 @@ pub struct SettingsLinks {
     pub runner: Option<String>,
     /// Git provider: `ManageIntegrations`.
     pub git: Option<String>,
+    /// Impor CSV tiket (M11): `ManageIntegrations`.
+    pub import_csv: Option<String>,
+    /// Ekspor data (M11): Owner/Admin.
+    pub export: Option<String>,
 }
 
 impl AppShell {

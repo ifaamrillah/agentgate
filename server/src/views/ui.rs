@@ -131,3 +131,35 @@ impl ComboOption {
         self
     }
 }
+
+/// Satu langkah komponen `wizard_steps`.
+#[derive(Debug, Clone, Serialize)]
+pub struct WizardStep {
+    /// Label (sudah diterjemahkan, atau kunci Fluent bila dirender lewat `t()` di pemanggil).
+    pub label: String,
+    /// `done` | `current` | `todo`.
+    pub state: &'static str,
+    /// Tautan ke langkah yang sudah selesai (`""` = bukan tautan).
+    pub href: String,
+}
+
+impl WizardStep {
+    /// Langkah `labels` dengan `current` (0-based) sebagai langkah sekarang; `hrefs[i]` = tautan
+    /// langkah `i` yang sudah selesai.
+    #[must_use]
+    pub fn sequence(labels: &[String], current: usize, hrefs: &[String]) -> Vec<Self> {
+        labels
+            .iter()
+            .enumerate()
+            .map(|(i, label)| Self {
+                label: label.clone(),
+                state: match i.cmp(&current) {
+                    std::cmp::Ordering::Less => "done",
+                    std::cmp::Ordering::Equal => "current",
+                    std::cmp::Ordering::Greater => "todo",
+                },
+                href: hrefs.get(i).cloned().unwrap_or_default(),
+            })
+            .collect()
+    }
+}
