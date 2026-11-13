@@ -15,7 +15,7 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 | M5 CLI & runner | selesai (2026-11-13) | Crate `cli` (`agentgate`): login device flow, `init`/`uninstall`, aturan + hook Claude Code, `jobs`, `runner start` (WS kontrol + fallback polling, worktree per job, headless/terminal, laporan langkah/log), `doctor`; server: job + klaim/lock, API runner (bearer CLI + header runner), evidence bertanda tangan Ed25519 memenuhi gate `tests_passed`/`screenshot_exists`, izin aksi berbahaya; UI Runner & CLI (izin, antrean, runner saya/tim, pengaturan, drift, instal), halaman job + log live, job + evidence di kartu stage, job dari komentar `@agent`; 533 tes |
 | M6 Git & PR | selesai (2026-11-13) | Abstraksi provider git + klien GitHub/GHES (PAT terenkripsi, validasi token, daftar repo, webhook dipasang otomatis); Pengaturan → Git provider (Cloud/Enterprise/Repo tertaut); Konvensi git per project (branch, commit, PR, base, hasil kode, CI wajib); runner: worktree dari base branch, branch per tiket, push + PR otomatis; webhook bertanda tangan HMAC melacak PR/merge/CI dan memenuhi gate `pr_open`/`prs_merged`/`ci_green`; merge otomatis (squash) saat stage reviewer di-approve dan CI hijau; daftar PR project, tab "PR & CI" tiket, badge PR di header tiket dan kartu board; sinkron aturan lewat PR (`agentgate sync`); batas job paralel ditegakkan; 558 tes |
 | M7 Code graph | selesai (2026-11-13) | Crate `graph`: tree-sitter 10 bahasa, fakta per file, build graph (call/import/inherit/route, keyakinan pasti/dugaan), modul + node pusat, kode mati, kompleksitas, trace/dampak dari diff, kueri Cypher-subset, SCIP (`agentgate graph scip`), riwayat git (hotspot/coupling/pemilik), relasi lintas repo HTTP/event/package; index inkremental dari CLI (`agentgate graph index|scip|status`, file rahasia tidak pernah dibaca) dan dari server (arsip tarball provider, tombol Index ulang, otomatis setelah PR di-merge ke branch utama); MCP `ag_search`/`ag_trace`/`ag_snippet`/`ag_impact`/`ag_graph` + bagian `code_graph` di `ag_context` dan prompt job; UI Cari simbol, detail simbol, Status index (repo, lintas repo, git, kualitas, benchmark); benchmark vs codebase-memory di `docs/benchmarks/2026-11-13-code-graph.md` (recall/presisi 100%/100% vs codebase-memory 89,9%/93,7% pada 149 pasangan pemanggil); 601 tes |
-| M8 Knowledge base | belum mulai | |
+| M8 Knowledge base | selesai (2026-11-13) | Dokumen project per kelompok/jenis (bawaan + custom), versi + diff + pulihkan, editor md per dokumen, cari; usulan AI (scan ulang, minta AI perbarui, tiket Done, graph di-index ulang, audit mingguan, repo) dengan Tinjau usulan side-by-side (A/R/J/K) dan batalkan; pemilik knowledge + notifikasi kotak masuk; dokumen workspace (berlaku per project/persona), jenis custom, update otomatis; MCP `ag_knowledge` + konteks job + knowledge per persona; CLI `agentgate knowledge pull|status|sync`, backup `init` diunggah ke server (panel drift); komponen `diff_sbs` dan `donut`; 626 tes |
 | M9 Planning & laporan | belum mulai | |
 | M10 Visual | belum mulai | |
 | M11 Multi-client & integrasi | belum mulai | |
@@ -173,6 +173,15 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
   dan HTTP lintas repo tampil di detail simbol). Fakta lama diparse ulang lewat `FileFacts.version`
   (`EXTRACTOR_VERSION`) — naikkan setiap kali hasil extractor berubah.
 
+- **M8 Knowledge base (2026-11-13)**: editor dokumen belum punya komentar inline + @mention dan highlight kode di
+  blok kode. Sinkron ke repo (`agentgate knowledge sync`) meng-commit ke branch aktif; commit + PR otomatis oleh server
+  lewat provider git belum ada. Instruksi persona `writer` di DB belum diperbarui untuk alur knowledge (job knowledge
+  memakai prompt bawaan). Prompt MCP `ag-knowledge-sync` hanya prompt interaktif. Diff panjang di Tinjau usulan belum
+  dilipat (semua baris tampil). Versi dokumen workspace hanya daftar, belum ada halaman diff seperti dokumen project.
+  Kandidat dokumen untuk pemicu "tiket Done" heuristik: file sumber berubah di repo PR tiket, isi menyebut kode tiket,
+  atau jenis dengan pemicu Done aktif (belum menelusuri dampak lewat code graph).
+  Event knowledge belum masuk audit log. Estimasi biaya scan hanya token (tanpa Rupiah).
+
 ## Keputusan sementara (dipakai sampai review akhir pemilik produk)
 
 - Sapaan UI memakai "Anda" (mengikuti prototype).
@@ -252,7 +261,25 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 - M7: seed dev (`seed_graph`) meng-index `server/src/fixtures/graph/{kasir-api,kasir-web}` lewat jalur index server
   + statistik git sintetis untuk kasir-api.
 
+- M8: izin pengaturan knowledge workspace memakai `manage_ticket_settings` (belum ada izin `manage_knowledge`);
+  approve usulan oleh pemilik knowledge project (selama masih boleh mengubah project) atau admin project.
+- M8: job knowledge (scan, minta AI perbarui, audit) tanpa tiket, memakai persona `writer`, branch
+  `agentgate/knowledge-xxxx`; auto-ambil hanya oleh peminta/pemilik knowledge.
+- M8: setiap graph di-index ulang menandai basi dokumen yang file sumbernya berubah; audit mingguan berjalan pukul
+  02.00 UTC hanya pada hari yang dipilih.
+- M8: persona dengan `knowledge_types` kosong membaca semua jenis dokumen.
+- M8: dokumen workspace memakai jenis `konvensi`; berlaku untuk semua project/persona bila daftar kosong.
+- M8: `agentgate knowledge sync`: file repo yang berbeda dari versi server menjadi usulan (pemicu Repo); file yang
+  sama dengan isi versi dasar dianggap "tertinggal" (pakai `pull`). Backup `init` diunggah ke server (maks 5 MB)
+  dan menghasilkan usulan dokumen `konvensi-coding-style`; gagal unggah hanya peringatan.
+- M8: Tinjau usulan memakai varian B prototype (Beranda + kartu kelompok, fokus side-by-side); di layar < 640px
+  diff tampil satu kolom (hanya sisi sesudah + baris dihapus).
+
 ## Perlu dari user (dikumpulkan untuk akhir)
+
+- M8: konfirmasi apakah perlu izin terpisah `manage_knowledge` (sekarang ikut `manage_ticket_settings`); tarif token → Rupiah
+  bila estimasi biaya scan perlu tampil dalam Rupiah; apakah server boleh membuat commit + PR knowledge sendiri lewat
+  provider git (sekarang hanya lewat `agentgate knowledge sync` di laptop).
 
 - M7: Graphify (atau akses ke instalasinya) untuk benchmark pembanding kedua; repo pelanggan nyata (TS/Go/Java/PHP)
   untuk benchmark di luar repo ini; pilihan model embedding (mis. fastembed-rs lokal vs API) sebelum semantic search
@@ -312,3 +339,8 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
   terhubung project. Benchmark repo nyata: `cargo run --release -p agentgate-graph --example repo_graph -- <root> <fungsi…>`.
 - Uji CLI manual: `cargo run -p agentgate-cli -- login --server http://127.0.0.1:5150`, lalu `init` di repo
   contoh dan `runner start`.
+- Seed dev M8 (`seed_knowledge`): 6 dokumen KSR (dokumen API ditandai basi), 2 usulan (tiket Done untuk Aturan
+  Bisnis Refund, scan "Glosarium Retail") dan dokumen workspace "Standar coding perusahaan". Buka
+  `/w/pt-contoh/p/KSR/knowledge`. Uji CLI: `agentgate knowledge pull|status|sync` di repo yang terhubung KSR.
+- CSS hasil Tailwind (`server/assets/static/css/app.css`) di-gitignore; setelah menambah file CSS komponen jalankan
+  `bin/tailwind` (atau `bin/dev` yang watch) sebelum screenshot.
