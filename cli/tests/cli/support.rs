@@ -211,6 +211,8 @@ impl Env {
             .env_remove("AGENTGATE_SERVER")
             .env_remove("AGENTGATE_JOB_ID")
             .env_remove("AGENTGATE_CLAUDE_BIN")
+            .env_remove("AGENTGATE_CLIENT")
+            .env_remove("AGENTGATE_JOB_CLIENT")
             .env_remove("DISPLAY")
             .env_remove("WAYLAND_DISPLAY")
             .stdin(if stdin.is_some() {

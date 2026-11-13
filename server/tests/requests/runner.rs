@@ -881,6 +881,42 @@ async fn register_rejects_bad_keys_and_reuses_known_runner() {
     .await;
 }
 
+/// Runner tanpa `--client` memakai "Client default" pengaturan runner web; client eksplisit menang.
+#[tokio::test]
+async fn register_falls_back_to_the_default_client_preference() {
+    request::<App, _, _>(|request, ctx| async move {
+        let f = fixture(&request, &ctx).await;
+        let token = device_login(&request, &f.cookie, &f.workspace.id.to_string()).await;
+        let res = web_post(
+            &request,
+            &f.cookie,
+            "/w/acme/runner/prefs",
+            &[("default_client", "codex"), ("quota_policy", "wait")],
+        )
+        .await;
+        assert_eq!(res.status_code(), 303);
+        let body = |client: &str| {
+            json!({ "name": "Laptop", "os": "linux", "client": client, "version": "0.1.0",
+                    "public_key": public_key_b64(&SECRET) })
+        };
+        let (status, info) =
+            post_json(&request, &token, None, "/api/runner/register", &body("")).await;
+        assert_eq!(status, 200, "{info}");
+        assert_eq!(info["client"], "codex");
+        let (status, info) = post_json(
+            &request,
+            &token,
+            None,
+            "/api/runner/register",
+            &body("gemini"),
+        )
+        .await;
+        assert_eq!(status, 200, "{info}");
+        assert_eq!(info["client"], "gemini");
+    })
+    .await;
+}
+
 // ---------------------------------------------------------------------------------------------
 // Web: Runner & CLI, Log job, kartu job di tiket.
 

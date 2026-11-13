@@ -141,6 +141,8 @@ pub struct RegisterRunner {
     pub runner_id: Option<Uuid>,
     pub name: String,
     pub os: String,
+    /// Client default runner (kunci katalog). Kosong = "Client default" di pengaturan runner web.
+    #[serde(default)]
     pub client: String,
     pub version: String,
     /// Kunci publik Ed25519 (base64, 32 byte).
@@ -157,6 +159,9 @@ pub struct RunnerInfo {
     pub auto_claim: bool,
     #[serde(default)]
     pub max_parallel: Option<u32>,
+    /// Client default runner yang dipakai server untuk job runner ini.
+    #[serde(default)]
+    pub client: String,
 }
 
 /// Pesan runner → server (WebSocket).

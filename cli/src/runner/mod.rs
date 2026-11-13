@@ -6,7 +6,7 @@
 //! event yang sama. `job_ready` dikirim ulang oleh polling selama job belum dimulai, jadi
 //! runner menyimpan job yang sudah ditangani.
 
-pub mod claude;
+pub mod clients;
 pub mod evidence;
 pub mod job;
 pub mod slots;
@@ -33,6 +33,7 @@ use tokio_tungstenite::{
 };
 use uuid::Uuid;
 
+use self::clients::ClientKind;
 use crate::{
     api::{Api, ApiError},
     auth,
@@ -48,20 +49,19 @@ const POLL: u64 = 5;
 
 type Ws = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
-/// Program client Claude Code.
-fn claude_bin() -> String {
-    std::env::var("AGENTGATE_CLAUDE_BIN")
-        .ok()
-        .filter(|s| !s.trim().is_empty())
-        .unwrap_or_else(|| "claude".into())
-}
-
 /// Daftarkan (atau perbarui) runner perangkat ini; id disimpan di `runner.json`.
+///
+/// `client` = client default runner pilihan `--client`; `None` → server memakai "Client
+/// default" di pengaturan runner web.
 ///
 /// # Errors
 ///
 /// Server gagal, IO.
-pub async fn register(paths: &Paths, api: &Api) -> Result<(job::Ctx, RunnerInfo)> {
+pub async fn register(
+    paths: &Paths,
+    api: &Api,
+    client: Option<ClientKind>,
+) -> Result<(job::Ctx, RunnerInfo)> {
     let mut identity = RunnerIdentity::load_or_create(paths)?;
     let secret = identity.secret_bytes(paths)?;
     let known = identity.runner_id.filter(|_| identity.server == api.base());
@@ -69,7 +69,7 @@ pub async fn register(paths: &Paths, api: &Api) -> Result<(job::Ctx, RunnerInfo)
         runner_id,
         name: identity.name.clone(),
         os: std::env::consts::OS.into(),
-        client: "claude".into(),
+        client: client.map(ClientKind::key).unwrap_or_default().into(),
         version: agentgate_core::VERSION.into(),
         public_key: public_key_b64(&secret),
     };
@@ -84,24 +84,28 @@ pub async fn register(paths: &Paths, api: &Api) -> Result<(job::Ctx, RunnerInfo)
     identity.runner_id = Some(info.id);
     identity.server = api.base().to_string();
     identity.save(paths)?;
+    let client = ClientKind::parse(&info.client)
+        .or(client)
+        .unwrap_or(ClientKind::Claude);
     Ok((
         job::Ctx {
             paths: paths.clone(),
             api: api.with_runner(info.id),
             runner_id: info.id,
             secret,
-            claude: claude_bin(),
+            client,
         },
         info,
     ))
 }
 
-/// Konteks runner yang sudah terdaftar (untuk `job attach`), tanpa mendaftar ulang.
+/// Konteks runner yang sudah terdaftar (untuk `job attach`), tanpa mendaftar ulang. Client job
+/// diambil dari `JobSpec.client`; `client` hanya cadangan.
 ///
 /// # Errors
 ///
 /// Runner belum terdaftar di server ini.
-pub fn registered(paths: &Paths, api: &Api) -> Result<job::Ctx> {
+pub fn registered(paths: &Paths, api: &Api, client: Option<ClientKind>) -> Result<job::Ctx> {
     let identity = RunnerIdentity::load(paths)?.ok_or(Error::NoRunner)?;
     let runner_id = identity
         .runner_id
@@ -112,7 +116,7 @@ pub fn registered(paths: &Paths, api: &Api) -> Result<job::Ctx> {
         api: api.with_runner(runner_id),
         runner_id,
         secret: identity.secret_bytes(paths)?,
-        claude: claude_bin(),
+        client: client.unwrap_or(ClientKind::Claude),
     })
 }
 
@@ -185,19 +189,29 @@ impl Source {
     }
 }
 
-fn print_plan(out: &mut impl Write, paths: &Paths, api: &Api, email: &str, repos: &Repos) {
+fn print_plan(
+    out: &mut impl Write,
+    paths: &Paths,
+    api: &Api,
+    email: &str,
+    repos: &Repos,
+    client: Option<ClientKind>,
+) {
+    let client = client.map_or_else(
+        || "client AI job (bawaan: Client default di pengaturan runner web)".to_string(),
+        |c| format!("{} ({})", c.name(), c.program()),
+    );
     let _ = writeln!(
         out,
         "Runner Agent Gate di perangkat ini akan:\n\
          \x20 • terhubung ke {} sebagai {email} dan menerima job yang Anda ambil (atau auto-ambil);\n\
-         \x20 • menjalankan Claude Code ({}) tanpa diawasi di worktree terpisah {}/wt/<repo>/<branch>;\n\
+         \x20 • menjalankan {client} tanpa diawasi di worktree terpisah {}/wt/<repo>/<branch>;\n\
          \x20 • menulis aturan terbaru server ke worktree, menjalankan [test] command, lalu mengirim\n\
          \x20   log dan evidence bertanda tangan ke server;\n\
          \x20 • meng-commit hasil kerja di branch tiket (lokal, tanpa push);\n\
          \x20 • membuka terminal untuk job interaktif.\n\
          Aksi berbahaya dibatasi izin persona lewat hook `agentgate hook pre-tool`.",
         api.base(),
-        claude_bin(),
         paths.state.display()
     );
     if repos.repos.is_empty() {
@@ -214,19 +228,25 @@ fn print_plan(out: &mut impl Write, paths: &Paths, api: &Api, email: &str, repos
     let _ = out.flush();
 }
 
-/// `agentgate runner start [--yes] [--once]`.
+/// `agentgate runner start [--yes] [--once] [--client C]`.
 ///
 /// # Errors
 ///
 /// Belum login, pendaftaran gagal, akses dicabut.
-pub async fn start(paths: &Paths, yes: bool, once: bool, out: &mut impl Write) -> Result<()> {
+pub async fn start(
+    paths: &Paths,
+    yes: bool,
+    once: bool,
+    client: Option<ClientKind>,
+    out: &mut impl Write,
+) -> Result<()> {
     let (api, creds) = auth::session(paths).await?;
     let repos = Repos::load(paths)?;
-    print_plan(out, paths, &api, &creds.email, &repos);
+    print_plan(out, paths, &api, &creds.email, &repos, client);
     if !yes && !ui::confirm("\nNyalakan runner?") {
         return Err(Error::Aborted);
     }
-    let (ctx, info) = register(paths, &api).await?;
+    let (ctx, info) = register(paths, &api, client).await?;
     let mut source = match connect_ws(&api, info.id).await {
         Some(ws) => {
             let (tx, rx) = ws.split();
@@ -244,8 +264,10 @@ pub async fn start(paths: &Paths, yes: bool, once: bool, out: &mut impl Write) -
     };
     let _ = writeln!(
         out,
-        "Workspace {} · {}. Menunggu job… (Ctrl+C untuk berhenti)",
-        info.workspace, info.user_email
+        "Workspace {} · {} · client default {}. Menunggu job… (Ctrl+C untuk berhenti)",
+        info.workspace,
+        info.user_email,
+        ctx.client.name()
     );
     let _ = out.flush();
     let limit = match info.max_parallel {
