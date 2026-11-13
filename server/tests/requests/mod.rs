@@ -13,6 +13,7 @@ mod home;
 mod knowledge;
 mod mcp;
 mod oauth;
+mod office;
 mod planning;
 mod projects;
 mod runner;

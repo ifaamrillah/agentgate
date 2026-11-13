@@ -20,6 +20,7 @@ pub mod layout;
 pub mod members;
 pub mod nav;
 pub mod oauth;
+pub mod office;
 pub mod palette;
 pub mod personas;
 pub mod planning;

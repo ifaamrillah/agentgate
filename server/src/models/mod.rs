@@ -69,6 +69,7 @@ pub mod oauth_codes;
 pub mod oauth_device_codes;
 pub mod oauth_grants;
 pub mod oauth_tokens;
+pub mod office;
 pub mod office_looks;
 pub mod permission;
 pub mod persona_skills;

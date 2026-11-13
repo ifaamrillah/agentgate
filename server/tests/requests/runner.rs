@@ -898,7 +898,7 @@ async fn web_post(
 }
 
 /// Job berjalan di runner owner dengan log, langkah, dan evidence.
-async fn running_job(
+pub(super) async fn running_job(
     request: &TestServer,
     ctx: &AppContext,
     f: &Fixture,

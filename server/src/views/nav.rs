@@ -338,7 +338,13 @@ fn app_side(shell: &AppShell) -> Vec<SideGroup> {
         "search",
         &format!("{}/search", ws.href),
     );
-    let top = mark(vec![home, inbox, my, search], shell.section)
+    let office = NavItem::link(
+        "office",
+        "nav-ai-office",
+        "building",
+        &format!("{}/office", ws.href),
+    );
+    let top = mark(vec![home, inbox, my, search, office], shell.section)
         .into_iter()
         .map(|mut i| {
             i.current = i.current || (i.key == "home" && shell.area == "home");

@@ -147,6 +147,8 @@
     if (scope.matches?.("[data-gv]")) init(scope);
     scope.querySelectorAll?.("[data-gv]").forEach(init);
   };
+  // htmx bisa sudah memproses <body> sebelum skrip ini terdaftar: pindai dokumen juga sekali.
   if (window.htmx?.onLoad) htmx.onLoad(scan);
-  else document.addEventListener("DOMContentLoaded", () => scan(document));
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => scan(document));
+  else scan(document);
 })();

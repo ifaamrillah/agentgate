@@ -11,6 +11,7 @@ pub mod knowledge;
 pub mod mcp;
 pub mod mockups;
 pub mod oauth;
+pub mod office;
 pub mod personas;
 pub mod planning;
 pub mod projects;
