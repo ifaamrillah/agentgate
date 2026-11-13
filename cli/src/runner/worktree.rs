@@ -1,6 +1,7 @@
 //! Satu git worktree per tiket: `<state>/wt/<repo>/<branch>` dari repo lokal yang di-`init`.
-//! Branch tiket (`ag/KSR-26-slug`) dibuat dari HEAD repo bila belum ada, atau diambil dari
-//! `origin/<branch>` bila sudah ada di remote.
+//! Branch tiket (`ag/KSR-26-slug`) diambil dari `origin/<branch>` bila sudah ada di remote, atau
+//! dibuat baru dari base branch repo (`origin/<base>` setelah fetch, lalu `<base>` lokal, lalu
+//! HEAD). Setelah job, branch di-push dan server membuka PR (hasil kode "PR otomatis").
 
 use std::path::{Path, PathBuf};
 
@@ -49,9 +50,14 @@ pub fn path_for(state: &Path, repo: &str, branch: &str) -> PathBuf {
 /// # Errors
 ///
 /// git gagal, IO.
-pub fn prepare(repo_root: &Path, target: &Path, branch: &str) -> Result<()> {
+pub fn prepare(repo_root: &Path, target: &Path, branch: &str, base: &str) -> Result<()> {
     if target.join(".git").exists() {
         return Ok(());
+    }
+    let has_origin = git::git(repo_root, &["remote", "get-url", "origin"]).is_ok();
+    if has_origin {
+        // Gagal fetch (offline) bukan alasan membatalkan job: pakai ref yang ada.
+        let _ = git::git(repo_root, &["fetch", "-q", "origin"]);
     }
     if let Some(parent) = target.parent() {
         std::fs::create_dir_all(parent).map_err(io_at(parent))?;
@@ -78,10 +84,54 @@ pub fn prepare(repo_root: &Path, target: &Path, branch: &str) -> Result<()> {
             "-b".into(),
             branch.into(),
             t,
-            "HEAD".into(),
+            base_ref(repo_root, base),
         ]
     };
     git::git_owned(repo_root, &args)?;
+    Ok(())
+}
+
+/// Titik awal branch baru: `origin/<base>`, `<base>` lokal, atau HEAD.
+fn base_ref(repo_root: &Path, base: &str) -> String {
+    let base = base.trim();
+    if base.is_empty() || base.starts_with('-') {
+        return "HEAD".into();
+    }
+    if git::ref_exists(repo_root, &format!("refs/remotes/origin/{base}")) {
+        format!("origin/{base}")
+    } else if git::ref_exists(repo_root, &format!("refs/heads/{base}")) {
+        base.to_string()
+    } else {
+        "HEAD".into()
+    }
+}
+
+/// Jumlah commit branch worktree yang belum ada di base (`origin/<base>` atau `<base>`).
+#[must_use]
+pub fn ahead_of(worktree: &Path, base: &str) -> u64 {
+    let base = base_ref(worktree, base);
+    if base == "HEAD" {
+        return 0;
+    }
+    git::git(worktree, &["rev-list", "--count", &format!("{base}..HEAD")])
+        .ok()
+        .and_then(|n| n.trim().parse().ok())
+        .unwrap_or(0)
+}
+
+/// `git push -u origin <branch>` dari worktree.
+///
+/// # Errors
+///
+/// Tanpa remote `origin`, push ditolak, jaringan.
+pub fn push(worktree: &Path, branch: &str) -> Result<()> {
+    if branch.starts_with('-') {
+        return Err(Error::Git(git::GitError::Failed {
+            args: "push".into(),
+            stderr: format!("invalid branch name: {branch}"),
+        }));
+    }
+    git::git(worktree, &["push", "-q", "-u", "origin", branch])?;
     Ok(())
 }
 
@@ -145,10 +195,10 @@ mod tests {
         git::git(&repo, &["commit", "-qm", "init"]).unwrap();
         let state = temp_dir("wt-state");
         let target = path_for(&state, "kasir", "ag/KSR-1-x");
-        prepare(&repo, &target, "ag/KSR-1-x").unwrap();
+        prepare(&repo, &target, "ag/KSR-1-x", "main").unwrap();
         assert!(target.join("README.md").is_file());
         // Dipakai ulang tanpa error.
-        prepare(&repo, &target, "ag/KSR-1-x").unwrap();
+        prepare(&repo, &target, "ag/KSR-1-x", "main").unwrap();
 
         let rules = agentgate_core::runner::rules::agent_gate_files("http://x", "KSR");
         write_rules(&target, &rules).unwrap();

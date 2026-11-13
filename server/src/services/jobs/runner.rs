@@ -413,6 +413,47 @@ fn job_prompt(
     }
 }
 
+/// Konvensi git project untuk job stage (spec: "dipakai AI saat membuat branch, commit, dan PR").
+fn with_git(
+    prompt: String,
+    job: &jobs::Model,
+    git: &agentgate_core::git::GitSettings,
+    branch: &str,
+    base: &str,
+) -> String {
+    use agentgate_core::git::{CodeOutput, CommitStyle, Language};
+    if job.kind() != JobKind::Stage {
+        return prompt;
+    }
+    let lang = |l: Language| match l {
+        Language::En => "bahasa Inggris",
+        Language::Id => "bahasa Indonesia",
+    };
+    let style = match git.commit_style {
+        CommitStyle::Conventional => "Conventional Commits (feat:, fix:, test:, …)",
+        CommitStyle::Free => "bebas, ringkas",
+    };
+    let output = match git.code_output {
+        CodeOutput::Pr => format!(
+            "Commit perubahan Anda di branch {branch}. Setelah Anda selesai, runner mem-push branch \
+             dan membuka PR ke {base}; jangan push atau membuat PR sendiri."
+        ),
+        CodeOutput::Manual => {
+            "Hasil kode project ini manual: ubah file saja, jangan commit atau push.".to_string()
+        }
+    };
+    format!(
+        "{prompt}\n\nKonvensi git project:\n\
+         - Branch kerja: {branch} (dari {base}).\n\
+         - Pesan commit: {style}, dalam {commit}.\n\
+         - Deskripsi PR dalam {pr}; komentar kode dalam {code}.\n\
+         - {output}",
+        commit = lang(git.commit_language),
+        pr = lang(git.pr_language),
+        code = lang(git.code_language),
+    )
+}
+
 /// "Job paralel maksimal" pemilik runner: job baru tidak dimulai bila runner ini sudah
 /// menjalankan (`running`/`paused`) sebanyak batasnya. Melanjutkan job yang sudah berjalan
 /// selalu boleh.
@@ -581,7 +622,13 @@ pub async fn start(
         effort: choice.map(|c| c.effort).unwrap_or_default(),
         client,
         command: format!("/{}", prompts::stage_prompt_name(&job.stage_key)),
-        prompt: job_prompt(&stage_name, &ticket, &persona_name, &job),
+        prompt: with_git(
+            job_prompt(&stage_name, &ticket, &persona_name, &job),
+            &job,
+            &git,
+            &branch,
+            &base_branch,
+        ),
         branch,
         base_branch,
         git: git.spec(),

@@ -14,7 +14,7 @@ use std::{
 };
 
 use agentgate_core::runner::{
-    protocol::{DriftReport, RuleFile},
+    protocol::{DriftReport, PullRequestInfo, RuleFile, RulesPullRequest},
     rules::{self, is_legacy_rule_path},
     sha256_hex,
 };
@@ -582,16 +582,51 @@ pub async fn sync(api: &Api, out: &mut impl Write) -> Result<()> {
         git::git(&root, &["switch", "-q", &original])?;
     }
     result?;
+    let files = d
+        .changed
+        .iter()
+        .map(|f| format!("  ~ {f}"))
+        .collect::<Vec<_>>()
+        .join("\n");
     let _ = writeln!(
         out,
-        "Commit aturan baru dibuat di branch {SYNC_BRANCH}:\n{}\n\nPembuatan PR otomatis belum \
-         tersedia. Push lalu buat PR \"Update aturan Agent Gate\":\n  git push -u origin {SYNC_BRANCH}",
-        d.changed
-            .iter()
-            .map(|f| format!("  ~ {f}"))
-            .collect::<Vec<_>>()
-            .join("\n")
+        "Commit aturan baru dibuat di branch {SYNC_BRANCH}:\n{files}"
     );
+    let manual = |out: &mut dyn Write, why: &str| {
+        let _ = writeln!(
+            out,
+            "\n{why}\nPush lalu buat PR \"Update aturan Agent Gate\" sendiri:\n  git push -u origin {SYNC_BRANCH}"
+        );
+    };
+    if let Err(e) = git::git(&root, &["push", "-q", "-u", "origin", SYNC_BRANCH]) {
+        manual(out, &format!("Push gagal: {e}."));
+        return Ok(());
+    }
+    let req = RulesPullRequest {
+        project: project.project.key.clone(),
+        repo: git::repo_name(&root),
+    };
+    match api
+        .post::<_, PullRequestInfo>("/api/cli/rules/pull-request", &req)
+        .await
+    {
+        Ok(pr) => {
+            let _ = writeln!(
+                out,
+                "\nPR #{} \"Update aturan Agent Gate\" {}: {}",
+                pr.number,
+                if pr.created { "dibuka" } else { "sudah ada" },
+                pr.url
+            );
+        }
+        Err(e) => manual(
+            out,
+            &format!(
+                "Branch sudah di-push, tetapi server tidak bisa membuka PR: {}.",
+                Error::from(e).user_message()
+            ),
+        ),
+    }
     Ok(())
 }
 

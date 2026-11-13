@@ -441,6 +441,7 @@ async fn runner_opens_pr_and_green_ci_completes_the_stage() {
         assert_eq!(status, 200, "{spec}");
         assert_eq!(spec["base_branch"], "main");
         assert_eq!(spec["git"]["code_output"], "pr");
+        assert!(spec["prompt"].as_str().unwrap().contains("Konvensi git project"));
         let branch = spec["branch"].as_str().unwrap().to_string();
 
         let pr_url = format!("/api/runner/jobs/{job}/pull-request");

@@ -373,7 +373,7 @@ impl Repos {
 }
 
 /// Nama repo server (`org/kasir`, `kasir.git`) cocok dengan nama lokal (`kasir`).
-fn repo_name_matches(server: &str, local: &str) -> bool {
+pub(crate) fn repo_name_matches(server: &str, local: &str) -> bool {
     let short = server
         .trim()
         .trim_end_matches(".git")

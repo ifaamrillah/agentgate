@@ -7,9 +7,12 @@ use std::{
     process::Stdio,
 };
 
-use agentgate_core::runner::protocol::{
-    FinishReport, JobMode, JobSpec, LogBatch, LogLine, LogStream, Outcome, Step, StepState,
-    StepsUpdate,
+use agentgate_core::{
+    git::CodeOutput,
+    runner::protocol::{
+        FinishReport, JobMode, JobSpec, LogBatch, LogLine, LogStream, Outcome, PullRequestInfo,
+        PullRequestOpen, Step, StepState, StepsUpdate,
+    },
 };
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
@@ -181,7 +184,7 @@ pub fn prepare(ctx: &Ctx, spec: &JobSpec) -> Result<PathBuf> {
         .find_for(&spec.project, &spec.repos)
         .ok_or_else(|| Error::RepoNotFound(spec.project.clone()))?;
     let wt = worktree::path_for(&ctx.paths.state, &repo.name, &spec.branch);
-    worktree::prepare(&repo.path, &wt, &spec.branch)?;
+    worktree::prepare(&repo.path, &wt, &spec.branch, &spec.base_branch)?;
     worktree::write_rules(&wt, &spec.rules)?;
     JobState::from_spec(spec, ctx.runner_id).save(&ctx.paths)?;
     Ok(wt)
@@ -399,6 +402,73 @@ async fn wrap_up(ctx: &Ctx, spec: &JobSpec, wt: &Path, log: &mut Logger, steps: 
         Err(e) => log.push(
             LogStream::Warn,
             format!("Commit gagal: {}", e.user_message()),
+        ),
+    }
+    if spec.git.code_output == CodeOutput::Pr {
+        open_pull_request(ctx, spec, wt, &message, log).await;
+    }
+}
+
+/// Hasil kode "PR otomatis": push branch tiket lalu minta server membuka PR. Gagal tidak
+/// menggagalkan job (gate `pr_open` yang menahan stage); pesannya masuk log job.
+async fn open_pull_request(ctx: &Ctx, spec: &JobSpec, wt: &Path, title: &str, log: &mut Logger) {
+    if worktree::ahead_of(wt, &spec.base_branch) == 0 {
+        log.push(
+            LogStream::Info,
+            "Tidak ada commit baru di branch tiket; PR tidak dibuka",
+        );
+        return;
+    }
+    if let Err(e) = worktree::push(wt, &spec.branch) {
+        log.push(
+            LogStream::Warn,
+            format!(
+                "Push branch {} gagal: {}. Push manual lalu buka PR.",
+                spec.branch,
+                e.user_message()
+            ),
+        );
+        return;
+    }
+    log.push(LogStream::Ok, format!("Branch {} di-push", spec.branch));
+    let repo = Repos::load(&ctx.paths)
+        .ok()
+        .and_then(|r| {
+            r.find_for(&spec.project, &spec.repos)
+                .map(|e| e.name.clone())
+        })
+        .unwrap_or_default();
+    // Nama repo menurut server (spec.repos) yang cocok dengan repo lokal.
+    let repo = spec
+        .repos
+        .iter()
+        .find(|n| config::repo_name_matches(n, &repo))
+        .cloned()
+        .unwrap_or(repo);
+    let req = PullRequestOpen {
+        repo,
+        branch: spec.branch.clone(),
+        base: spec.base_branch.clone(),
+        title: title.to_string(),
+        body: format!("Tiket {}: {}\n\n{}", spec.ticket, spec.title, spec.url),
+    };
+    match ctx
+        .api
+        .post::<_, PullRequestInfo>(&ctx.job_path(spec.id, "pull-request"), &req)
+        .await
+    {
+        Ok(pr) => log.push(
+            LogStream::Ok,
+            format!(
+                "PR #{} {}: {}",
+                pr.number,
+                if pr.created { "dibuka" } else { "sudah ada" },
+                pr.url
+            ),
+        ),
+        Err(e) => log.push(
+            LogStream::Warn,
+            format!("PR gagal dibuka: {}", Error::from(e).user_message()),
         ),
     }
 }
