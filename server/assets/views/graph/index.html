@@ -52,7 +52,6 @@
   </table></div>
   {%- endif %}
 {% </card> %}
-<div class="app-grid" data-cols="two">
 {% <card title={t(key="graph-coverage-title", lang="id")} description={t(key="graph-coverage-description", lang="id")} flush={true} attrs="data-graph-skipped"> %}
   {%- for s in skipped %}
   <div class="app-lrow"><span class="app-tile">{{ icon(name="file-off") }}</span><span class="app-lrow-main"><b>{{ t(key=s.key, lang="id") }}</b><small class="app-code">{{ s.examples }}</small></span><b>{{ s.count }}</b></div>
@@ -66,7 +65,6 @@
   <div class="app-lrow"><span class="app-tile">{{ icon(name="sparkles") }}</span><span class="app-lrow-main"><b>{{ t(key="graph-reindex-embedding", lang="id") }}</b><small>{{ t(key="graph-engine-embedding", lang="id") }}</small></span>{{ <badge label={t(key="nav-soon", lang="id")} variant="neutral"/> }}</div>
   <div class="app-lrow"><span class="app-tile" data-tone="accent">{{ icon(name="plug-connected") }}</span><span class="app-lrow-main"><b>{{ t(key="graph-engine-mcp", lang="id") }}</b><small class="app-code">ag_search · ag_trace · ag_snippet · ag_impact · ag_graph</small></span></div>
 {% </card> %}
-</div>
 {%- elif panel == "cross" %}
 {% <card title={t(key="graph-panel-cross", lang="id")} description={t(key="graph-cross-description", lang="id")} attrs="data-panel=cross"> %}
   {{ <stats items={link_stats}/> }}

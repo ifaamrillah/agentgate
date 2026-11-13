@@ -64,6 +64,9 @@ graph-conf-certain = pasti
 graph-conf-inferred = dugaan
 graph-conf-unmatched = tidak cocok
 graph-conf-external = eksternal
+graph-stat-conf-certain = Pasti
+graph-stat-conf-inferred = Dugaan
+graph-stat-conf-unmatched = Tidak cocok
 
 graph-symbol-props = Properti
 graph-module = Modul

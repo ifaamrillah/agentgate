@@ -377,11 +377,18 @@ fn project_side_views(home: &str, section: &str) -> Vec<NavItem> {
     board.current = matches!(section, "project_board" | "project_ticket");
     let mut list = NavItem::link("list", "nav-list", "list", &format!("{home}/list"));
     list.current = section == "project_list";
+    let mut graph = NavItem::link(
+        "code_graph",
+        "nav-code-graph",
+        "topology-star-3",
+        &format!("{home}/graph"),
+    );
+    graph.current = section == "project_graph";
     vec![
         board,
         list,
         NavItem::soon("knowledge", "nav-knowledge", "book"),
-        NavItem::soon("code_graph", "nav-code-graph", "topology-star-3"),
+        graph,
     ]
 }
 

@@ -159,7 +159,9 @@ async fn render(
     (template, tab, return_to): (&str, &str, &str),
     mut data: serde_json::Value,
 ) -> Result<Response> {
-    let shell = app_shell(ctx, &access.tenant.user, Some(&access.tenant), Some(access)).await?;
+    let shell = app_shell(ctx, &access.tenant.user, Some(&access.tenant), Some(access))
+        .await?
+        .at("project_graph");
     let p = &base.paths;
     let extra = serde_json::json!({
         "project": ProjectSummary::new(&access.project, access.role.label(), p),
@@ -557,10 +559,16 @@ async fn index_panel(
             data["link_stats"] = serde_json::json!([
                 Stat::new("graph-stat-links", links.len(), "arrows-exchange")
                     .hint("graph-stat-links-hint", base.repos.len()),
-                Stat::new("graph-conf-certain", count("certain"), "circle-check").tone("success"),
-                Stat::new("graph-conf-inferred", count("inferred"), "help-circle").tone("warn"),
-                Stat::new("graph-conf-unmatched", count("unmatched"), "alert-triangle")
-                    .tone(if count("unmatched") > 0 { "danger" } else { "" }),
+                Stat::new("graph-stat-conf-certain", count("certain"), "circle-check")
+                    .tone("success"),
+                Stat::new("graph-stat-conf-inferred", count("inferred"), "help-circle")
+                    .tone("warn"),
+                Stat::new(
+                    "graph-stat-conf-unmatched",
+                    count("unmatched"),
+                    "alert-triangle"
+                )
+                .tone(if count("unmatched") > 0 { "danger" } else { "" }),
             ]);
             data["table"] = serde_json::to_value(
                 TableView::new(&LINKS_TABLE, &state, &here, total)
