@@ -181,3 +181,4 @@ report-col-factor = Faktor
 report-calibration-scatter = Estimasi vs aktual
 report-calibration-scatter-description = Jam per tiket selesai
 report-calibration-factors = Faktor koreksi per stage
+draft-estimate-title = Estimasi AI per stage (jam AI + jam manusia):

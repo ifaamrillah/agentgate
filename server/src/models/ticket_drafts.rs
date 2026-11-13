@@ -22,6 +22,14 @@ impl TenantEntity for Entity {
 standard_behavior!(ActiveModel);
 
 impl Model {
+    /// Estimasi AI draft (`None` = tanpa estimasi / tanpa jam per stage).
+    #[must_use]
+    pub fn estimate(&self) -> Option<crate::services::drafts::DraftEstimate> {
+        serde_json::from_value::<crate::services::drafts::DraftEstimate>(self.estimate.clone())
+            .ok()
+            .filter(|e| !e.stages.is_empty())
+    }
+
     /// Draft project, urut posisi.
     ///
     /// # Errors

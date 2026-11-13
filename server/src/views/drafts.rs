@@ -26,6 +26,24 @@ pub struct DraftRow {
     pub indent: usize,
     pub edit_action: String,
     pub delete_action: String,
+    /// Estimasi AI: total jam (AI, manusia) dan rincian per stage; `None` = tanpa estimasi.
+    pub estimate: Option<DraftEstimateView>,
+}
+
+/// Estimasi AI draft siap tampil.
+#[derive(Debug, Clone, Serialize)]
+pub struct DraftEstimateView {
+    pub ai: String,
+    pub human: String,
+    pub basis: String,
+    pub stages: Vec<DraftStageView>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct DraftStageView {
+    pub stage: String,
+    pub ai: String,
+    pub human: String,
 }
 
 /// Urutkan draft menjadi pohon (induk lalu anak-anaknya, urut posisi) beserta kedalamannya.
@@ -64,6 +82,23 @@ pub fn tree(
                 indent: depth * 22,
                 edit_action: format!("{base}/{}", d.id),
                 delete_action: format!("{base}/{}/delete", d.id),
+                estimate: d.estimate().map(|e| {
+                    let n = super::planning::decimal;
+                    DraftEstimateView {
+                        ai: n(e.stages.iter().map(|s| s.ai_hours).sum()),
+                        human: n(e.stages.iter().map(|s| s.human_hours).sum()),
+                        basis: e.basis.clone(),
+                        stages: e
+                            .stages
+                            .iter()
+                            .map(|s| DraftStageView {
+                                stage: s.stage.clone(),
+                                ai: n(s.ai_hours),
+                                human: n(s.human_hours),
+                            })
+                            .collect(),
+                    }
+                }),
             });
             walk(Some(d.id), depth + 1, drafts, types, base, out);
         }

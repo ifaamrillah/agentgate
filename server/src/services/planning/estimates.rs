@@ -142,6 +142,22 @@ pub async fn save_human(
     ticket_id: Uuid,
     input: &EstimateInput,
 ) -> Result<ticket_estimates::Model, Failure> {
+    save(db, acting, ticket_id, EstimateSource::Human, input, "").await
+}
+
+/// Simpan estimasi (`EditProject`): manusia dari panel tiket, AI dari `ag_planning estimate`.
+///
+/// # Errors
+///
+/// Validasi, `NotFound`, error database.
+pub async fn save(
+    db: &DatabaseConnection,
+    acting: &Acting<'_>,
+    ticket_id: Uuid,
+    source: EstimateSource,
+    input: &EstimateInput,
+    persona: &str,
+) -> Result<ticket_estimates::Model, Failure> {
     let wid = acting.workspace_id();
     let txn = db.begin().await?;
     let ticket = tickets::Model::lock_in(&txn, wid, ticket_id)
@@ -153,10 +169,10 @@ pub async fn save_human(
         &txn,
         wid,
         &ticket,
-        EstimateSource::Human,
+        source,
         input,
         Some(acting.user.id),
-        "",
+        persona,
     )
     .await?;
     txn.commit().await?;

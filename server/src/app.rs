@@ -1063,6 +1063,21 @@ async fn seed_agents(ctx: &AppContext) -> Result<()> {
             title: title.to_string(),
             description: format!("{title}. Disusun dari sesi brainstorming laporan harian."),
             story_points: points,
+            estimate: points.map(|p| {
+                let h = f64::from(p);
+                crate::services::drafts::DraftEstimate {
+                    stages: [("prd", 0.5, 1.0), ("development", 1.5, 0.5), ("code_review", 0.2, 0.8)]
+                        .iter()
+                        .map(|(k, a, m)| crate::models::ticket_estimates::StageHours {
+                            stage: (*k).to_string(),
+                            ai_hours: a * h,
+                            human_hours: m * h,
+                        })
+                        .collect(),
+                    basis: "Mirip fitur laporan sebelumnya; diskalakan dari story point.".into(),
+                    persona: "analyst".into(),
+                }
+            }),
         };
     drafts::save_from_agent(
         &ctx.db,

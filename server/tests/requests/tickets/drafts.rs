@@ -39,6 +39,15 @@ async fn drafts_are_reviewed_and_created_as_tickets() {
             title: title.into(),
             description: format!("Deskripsi {title}"),
             story_points: Some(3),
+            estimate: (title == "Kirim via email").then(|| drafts::DraftEstimate {
+                stages: vec![agentgate_server::models::ticket_estimates::StageHours {
+                    stage: "development".into(),
+                    ai_hours: 2.0,
+                    human_hours: 1.5,
+                }],
+                basis: "Mirip struk email".into(),
+                persona: "analyst".into(),
+            }),
         };
         drafts::save_from_agent(
             &ctx.db,
@@ -79,6 +88,7 @@ async fn drafts_are_reviewed_and_created_as_tickets() {
             "form#drafts-create[action=\"/w/acme/p/KSR/drafts/create\"]",
         );
         assert_css_exists(&html, "input[name=draft][form=drafts-create][checked]");
+        assert_css_exists(&html, "[data-draft='Kirim via email'] [data-draft-estimate]");
 
         // Ubah: judul kosong → 422 dialog terbuka; valid → tersimpan.
         let edit = format!("/w/acme/p/KSR/drafts/{}", id("Kirim via WhatsApp"));
@@ -158,6 +168,13 @@ async fn drafts_are_reviewed_and_created_as_tickets() {
         assert_eq!(story.parent_id, Some(epic.id));
         assert_eq!(sub.parent_id, Some(story.id));
         assert_eq!(story.story_points, Some(3));
+        // Estimasi AI draft ikut tersalin ke tiket.
+        let est = agentgate_server::models::ticket_estimates::Model::of_tickets(&ctx.db, wid, &[story.id, sub.id])
+            .await
+            .unwrap();
+        assert_eq!(est.len(), 1);
+        assert_eq!(est[0].ticket_id, story.id);
+        assert_eq!(est[0].totals(), (2.0, 1.5));
 
         // Viewer: melihat tanpa aksi, POST ditolak; non-anggota 404.
         let viewer = a_user().create(&ctx).await;
