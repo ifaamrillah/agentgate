@@ -233,6 +233,9 @@ pub async fn enter_stage<C: ConnectionTrait>(
     if status == TicketStatus::Done && !was_done {
         crate::services::knowledge::triggers::on_ticket_done(db, wid, &ticket).await?;
     }
+    if (status == TicketStatus::Done) != was_done {
+        crate::services::planning::scope::done_changed(db, wid, &ticket, !was_done).await?;
+    }
     Ok(ticket)
 }
 

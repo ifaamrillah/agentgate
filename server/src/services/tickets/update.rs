@@ -94,6 +94,15 @@ pub async fn run(
     model.story_points = Set(valid.story_points);
     model.custom_values = Set(resolved.custom.to_json());
     let mut updated = model.update(&work.txn).await?;
+    if before.story_points != valid.story_points {
+        crate::services::planning::scope::points_changed(
+            &work.txn,
+            work.wid,
+            &updated,
+            valid.story_points,
+        )
+        .await?;
+    }
     if before.type_id != resolved.ticket_type.id {
         let workflow_id = project_workflows::Model::effective(
             &work.txn,

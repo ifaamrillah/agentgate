@@ -315,6 +315,9 @@ pub(crate) async fn run_in(
         story_points: Set(valid.story_points),
         custom_values: Set(resolved.custom.to_json()),
         position: Set(tickets::bottom_position()),
+        backlog_rank: Set(
+            crate::services::planning::sprints::bottom_rank(txn, wid, project.id).await?,
+        ),
         done_at: Set((status == TicketStatus::Done).then(|| chrono::Utc::now().into())),
         created_by: Set(Some(acting.user.id)),
         ..Default::default()
