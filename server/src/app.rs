@@ -167,6 +167,15 @@ impl Hooks for App {
         queue
             .register(crate::workers::graph_index::GraphIndexWorker::build(ctx))
             .await?;
+        // Ekspor data workspace dan impor CSV tiket (M11).
+        queue
+            .register(crate::workers::data_export::DataExportWorker::build(ctx))
+            .await?;
+        queue
+            .register(crate::workers::ticket_import::TicketImportWorker::build(
+                ctx,
+            ))
+            .await?;
         Ok(())
     }
 

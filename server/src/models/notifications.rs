@@ -66,6 +66,12 @@ pub enum NotificationKind {
     /// Usulan knowledge yang diajukan pengguna ini ditolak.
     #[sea_orm(string_value = "knowledge_rejected")]
     KnowledgeRejected,
+    /// Ekspor data workspace siap diunduh (M11, penerima link).
+    #[sea_orm(string_value = "export_ready")]
+    ExportReady,
+    /// Ekspor data workspace gagal.
+    #[sea_orm(string_value = "export_failed")]
+    ExportFailed,
 }
 
 impl TenantEntity for Entity {

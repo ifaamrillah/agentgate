@@ -188,6 +188,15 @@ pub enum AuditAction {
     /// Tampilan karakter AI Office diubah (M10).
     #[sea_orm(string_value = "office.look_updated")]
     OfficeLookUpdated,
+    /// Ekspor data workspace diminta (M11).
+    #[sea_orm(string_value = "export.requested")]
+    ExportRequested,
+    /// Berkas ekspor diunduh.
+    #[sea_orm(string_value = "export.downloaded")]
+    ExportDownloaded,
+    /// Impor CSV tiket selesai.
+    #[sea_orm(string_value = "import.completed")]
+    ImportCompleted,
 }
 
 /// Kelompok aksi untuk filter halaman audit: awalan `<subjek>` dari aksi, kecuali jabatan
@@ -308,6 +317,9 @@ impl AuditAction {
             | Self::JobPermissionDecided => AuditGroup::Agent,
             Self::ProjectGitUpdated | Self::ProjectTokenSaverUpdated => AuditGroup::Project,
             Self::OfficeLookUpdated => AuditGroup::Agent,
+            Self::ExportRequested | Self::ExportDownloaded | Self::ImportCompleted => {
+                AuditGroup::Workspace
+            }
         }
     }
 }
@@ -415,6 +427,10 @@ pub enum AuditSubject {
     GitConnection,
     #[sea_orm(string_value = "pull_request")]
     PullRequest,
+    #[sea_orm(string_value = "data_export")]
+    DataExport,
+    #[sea_orm(string_value = "ticket_import")]
+    TicketImport,
 }
 
 /// Data satu baris audit untuk [`ActiveModel::append`].
