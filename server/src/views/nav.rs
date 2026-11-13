@@ -104,6 +104,7 @@ pub const SETTINGS_SECTIONS: &[&str] = &[
     "knowledge",
     "runner",
     "git",
+    "api",
 ];
 /// Bagian Akun.
 pub const ACCOUNT_SECTIONS: &[&str] = &["profile", "password", "two_factor", "connect"];
@@ -177,6 +178,7 @@ pub fn settings_nav(settings_href: &str, links: &SettingsLinks) -> Vec<NavItem> 
         ),
         ("runner", "runner-title", "device-laptop", &links.runner),
         ("git", "git-title", "git-pull-request", &links.git),
+        ("api", "api-title", "api", &links.api),
     ];
     items.extend(optional.into_iter().filter_map(|(key, label, icon, href)| {
         href.as_deref().map(|h| NavItem::link(key, label, icon, h))

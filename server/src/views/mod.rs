@@ -13,6 +13,7 @@ pub mod form;
 pub mod git;
 pub mod graph;
 pub mod graph_viewer;
+pub mod integrations;
 pub mod invitations;
 pub mod job_titles;
 pub mod knowledge;

@@ -294,6 +294,14 @@ pub async fn start(
     m.started_at = Set(Some(chrono::Utc::now().into()));
     m.committed_points = Set(committed);
     let sprint = m.update(&txn).await?;
+    crate::models::outbox_events::publish_sprint(
+        &txn,
+        acting.workspace_id(),
+        crate::models::outbox_events::WebhookEvent::SprintStarted,
+        &sprint,
+        Some(acting.user.id),
+    )
+    .await?;
     txn.commit().await?;
     Ok(sprint)
 }
@@ -431,6 +439,14 @@ pub async fn complete(
     m.completed_points = Set(report.completed);
     m.report = Set(serde_json::to_value(&report).unwrap_or_default());
     let sprint = m.update(&txn).await?;
+    crate::models::outbox_events::publish_sprint(
+        &txn,
+        wid,
+        crate::models::outbox_events::WebhookEvent::SprintCompleted,
+        &sprint,
+        Some(acting.user.id),
+    )
+    .await?;
     txn.commit().await?;
     Ok(sprint)
 }

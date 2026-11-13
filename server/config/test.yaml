@@ -140,3 +140,9 @@ settings:
     # bawah KHUSUS test, bukan rahasia; staging/production dari env tanpa default.
     # Boot gagal bila nilainya bukan base64 dari tepat 32 byte.
     encryption_key: <%= get_env(name="ENCRYPTION_KEY", default="YWdlbnRnYXRlLXRlc3Qtb25seS1ub3Qtc2VjcmV0ISE=") %>
+  # API publik + webhook keluar (M11). Development/test mengizinkan tujuan webhook http ke
+  # loopback (server palsu lokal); production/staging memakai default (ditolak, cegah SSRF).
+  api:
+    rate_limit_per_minute: 600
+    webhook_timeout_seconds: 5
+    webhook_allow_loopback: true

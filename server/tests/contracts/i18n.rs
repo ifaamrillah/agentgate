@@ -114,6 +114,8 @@ fn every_validation_error_code_has_a_message() {
         agentgate_server::services::git::ERROR_CODES,
         agentgate_server::services::knowledge::ERROR_CODES,
         agentgate_server::services::planning::ERROR_CODES,
+        agentgate_server::services::api_tokens::ERROR_CODES,
+        agentgate_server::services::webhooks::ERROR_CODES,
     ]
     .concat();
     let missing: Vec<_> = codes.iter().filter(|c| !keys.contains(**c)).collect();
@@ -223,6 +225,7 @@ fn every_ticket_enum_and_view_key_has_a_translation() {
     used.extend(views::drafts::label_keys());
     used.extend(views::knowledge::label_keys());
     used.extend(views::planning::label_keys());
+    used.extend(views::integrations::label_keys());
     used.extend(agentgate_server::controllers::tickets::reports::label_keys());
     used.extend(agentgate_server::controllers::tickets::releases::label_keys());
     used.extend(agentgate_server::controllers::tickets::advanced::label_keys());

@@ -37,6 +37,8 @@ macro_rules! standard_behavior {
 }
 
 pub mod _entities;
+pub mod api_rate_limits;
+pub mod api_tokens;
 pub mod artifact_versions;
 pub mod audit_events;
 pub mod components;
@@ -71,6 +73,7 @@ pub mod oauth_grants;
 pub mod oauth_tokens;
 pub mod office;
 pub mod office_looks;
+pub mod outbox_events;
 pub mod permission;
 pub mod persona_skills;
 pub mod personas;
@@ -113,6 +116,8 @@ pub mod tickets;
 pub mod token_savings;
 pub mod user_tokens;
 pub mod users;
+pub mod webhook_deliveries;
+pub mod webhooks;
 pub mod workflow_versions;
 pub mod workflows;
 pub mod workspace_members;

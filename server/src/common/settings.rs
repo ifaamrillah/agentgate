@@ -25,6 +25,31 @@ pub struct Settings {
     /// Provider git (opsional di config; tes mengarahkan ke GitHub palsu).
     #[serde(default)]
     pub git: GitSettings,
+    /// API publik + webhook keluar (M11; opsional di config).
+    #[serde(default)]
+    pub api: ApiSettings,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ApiSettings {
+    /// Request per menit per token API (header `X-RateLimit-Remaining`, 429 bila lewat).
+    pub rate_limit_per_minute: i32,
+    /// Batas waktu satu pengiriman webhook (detik).
+    pub webhook_timeout_seconds: u64,
+    /// Izinkan tujuan webhook `http://` ke host loopback (localhost, 127.0.0.1, ::1). Hanya
+    /// development/test; di production semua alamat privat/loopback ditolak (cegah SSRF).
+    pub webhook_allow_loopback: bool,
+}
+
+impl Default for ApiSettings {
+    fn default() -> Self {
+        Self {
+            rate_limit_per_minute: 600,
+            webhook_timeout_seconds: 10,
+            webhook_allow_loopback: false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]

@@ -29,7 +29,7 @@ pub mod releases;
 pub mod reports;
 mod settings;
 mod stage;
-mod ticket;
+pub(crate) mod ticket;
 pub mod timeline;
 mod workflow;
 
@@ -178,6 +178,7 @@ fn ticket_query(
             },
             state.desc,
         )),
+        stage_keys: Vec::new(),
         offset: state.offset(),
         limit: state.per,
     }

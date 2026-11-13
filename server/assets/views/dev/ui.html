@@ -117,6 +117,12 @@
     <div class="app-fe">{{ <avatar initials="AN" color="#5b5bd6" size="sm"/> }}<span><b>Ana</b> membuat project <b>Website</b></span><time>5 mnt</time></div>
   </div>
 {% </card> %}
+{% <card title="copy_value + aksi kartu" description="Nilai yang bisa disalin; tombol aksi di kepala kartu membuka dialog." flush={true} action_label="Token baru" action_dialog="catalog-dialog" attrs="data-catalog-copy"> %}
+  <div class="app-pad app-stack-v">
+    {{ <copy_value value="ag_pat_Vn4R8sYw2LqT6mKc9HzE1bXa7DfJ3pUo" label="Salin token" attrs="data-catalog-copy-full"/> }}
+    <div class="app-lrow"><span class="app-tile">{{ icon(name="api") }}</span><span class="app-lrow-main"><b>Base URL</b>{{ <copy_value value="https://agentgate.id/api/v1" label="Salin base URL" compact={true}/> }}</span></div>
+  </div>
+{% </card> %}
 {% <card title="Properti" variant="accent"> %}
   <dl class="app-props"><dt>Status</dt><dd>{{ <badge label="Aktif" variant="success"/> }}</dd><dt>Kunci</dt><dd>{{ <badge label="WEB" variant="neutral" code={true}/> }}</dd><dt>Lead</dt><dd>{{ <avatar initials="AN" color="#5b5bd6" size="sm"/> }}Ana Nugraha</dd></dl>
 {% </card> %}

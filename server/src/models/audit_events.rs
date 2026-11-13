@@ -188,6 +188,22 @@ pub enum AuditAction {
     /// Tampilan karakter AI Office diubah (M10).
     #[sea_orm(string_value = "office.look_updated")]
     OfficeLookUpdated,
+    /// Token API dibuat (M11; token mentah tidak pernah dicatat).
+    #[sea_orm(string_value = "api_token.created")]
+    ApiTokenCreated,
+    #[sea_orm(string_value = "api_token.revoked")]
+    ApiTokenRevoked,
+    /// Webhook keluar dibuat (M11).
+    #[sea_orm(string_value = "webhook.created")]
+    WebhookCreated,
+    /// Webhook diubah (URL, event, project, aktif/nonaktif).
+    #[sea_orm(string_value = "webhook.updated")]
+    WebhookUpdated,
+    #[sea_orm(string_value = "webhook.deleted")]
+    WebhookDeleted,
+    /// Secret webhook dibuat ulang (secret tidak pernah dicatat).
+    #[sea_orm(string_value = "webhook.secret_rotated")]
+    WebhookSecretRotated,
 }
 
 /// Kelompok aksi untuk filter halaman audit: awalan `<subjek>` dari aksi, kecuali jabatan
@@ -308,6 +324,12 @@ impl AuditAction {
             | Self::JobPermissionDecided => AuditGroup::Agent,
             Self::ProjectGitUpdated | Self::ProjectTokenSaverUpdated => AuditGroup::Project,
             Self::OfficeLookUpdated => AuditGroup::Agent,
+            Self::ApiTokenCreated
+            | Self::ApiTokenRevoked
+            | Self::WebhookCreated
+            | Self::WebhookUpdated
+            | Self::WebhookDeleted
+            | Self::WebhookSecretRotated => AuditGroup::Workspace,
         }
     }
 }
@@ -415,6 +437,10 @@ pub enum AuditSubject {
     GitConnection,
     #[sea_orm(string_value = "pull_request")]
     PullRequest,
+    #[sea_orm(string_value = "api_token")]
+    ApiToken,
+    #[sea_orm(string_value = "webhook")]
+    Webhook,
 }
 
 /// Data satu baris audit untuk [`ActiveModel::append`].

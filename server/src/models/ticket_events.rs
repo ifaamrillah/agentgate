@@ -112,6 +112,9 @@ impl ActiveModel {
         kind: EventKind,
         changes: serde_json::Value,
     ) -> Result<Model, DbErr> {
+        // Outbox webhook/integrasi (M11), di transaksi yang sama dengan riwayatnya.
+        super::outbox_events::publish_ticket(db, workspace_id, ticket_id, actor_id, kind, &changes)
+            .await?;
         Self {
             workspace_id: Set(workspace_id.get()),
             ticket_id: Set(ticket_id),

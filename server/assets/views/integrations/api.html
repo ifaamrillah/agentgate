@@ -1,0 +1,195 @@
+{#- Pengaturan → API & webhook (M11, ManageIntegrations): subpage varian E dengan panel Token
+    API, Webhook, Log pengiriman, Dokumentasi. Prototype: "M11 · API & webhook" di
+    screens-m9-m11-m12.js. Variabel: panel, subnav, base, extra ({token_failed, token_created,
+    hook_failed, secret}), token_form, hook_form, scope_options, expiry_options,
+    project_options, event_options, api_base, rate_limit; per panel: table + rows
+    ([views::integrations::TokenRow | HookRow | DeliveryRow]). -#}
+{% extends "layouts/settings.html" %}
+{% block title %}{{ t(key="api-title", lang="id") }}{% endblock title %}
+{% block crumb_label %}{{ t(key="api-title", lang="id") }}{% endblock crumb_label %}
+{% block page_attrs %}data-api-page="{{ panel }}"{% endblock page_attrs %}
+{% block settings %}
+{% <subpage title={t(key="api-title", lang="id")} description={t(key="api-description", lang="id")} items={subnav}> %}
+{%- if panel == "tokens" %}
+{% <card title={t(key="api-panel-tokens", lang="id")} description={t(key="api-tokens-description", lang="id")} flush={true} action_label={t(key="api-token-new", lang="id")} action_dialog="token-new" attrs="data-api-tokens"> %}
+  {% <datatable table={table} empty_title={t(key="api-tokens-empty", lang="id")} empty_description={t(key="api-tokens-empty-description", lang="id")} empty_icon="key"> %}
+  {%- for r in rows %}
+  <tr data-token="{{ r.id }}">
+    <td><span class="app-who">{{ <avatar initials={r.creator_initials} label={r.creator} size="sm"/> }}<span class="app-cell2"><b>{{ r.name }}</b><small class="app-code">{{ r.prefix }}••••{% if r.project %} · {{ r.project }}{% endif %}</small></span></span></td>
+    <td data-hide="sm"><span class="app-chips">{% for s in r.scopes %}{{ <badge label={s} variant="neutral" code={true}/> }}{% endfor %}</span></td>
+    <td data-hide="sm"><span class="app-hint">{% if r.used %}{{ t(key=r.used.key, lang="id", n=r.used.n) }}{% else %}{{ t(key="api-never-used", lang="id") }}{% endif %}</span></td>
+    <td>{% if r.expired %}{{ <badge label={t(key="api-expired", lang="id")} variant="destructive"/> }}{% elif r.expires %}<span class="{% if r.expiring %}text-ag-warn{% else %}app-hint{% endif %}">{{ r.expires }}</span>{% else %}<span class="app-hint">{{ t(key="api-expiry-never", lang="id") }}</span>{% endif %}</td>
+    <td data-align="right">
+      {{ <button label={t(key="api-revoke", lang="id")} variant="destructive" size="sm" dialog={"revoke-" ~ r.id} attrs="data-revoke"/> }}
+      {% <dialog id={"revoke-" ~ r.id} title={t(key="api-revoke-title", lang="id", name=r.name)} description={t(key="api-revoke-description", lang="id")} icon="key-off" tone="danger"> %}
+      <form method="post" action="{{ r.revoke_action }}">
+        <footer>
+          <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+          {{ <button label={t(key="api-revoke-confirm", lang="id")} type="submit" variant="danger"/> }}
+        </footer>
+      </form>
+      {% </dialog> %}
+    </td>
+  </tr>
+  {%- endfor %}
+  {% </datatable> %}
+{% </card> %}
+{#- Token baru (terbuka lagi bila isian ditolak). -#}
+{% <dialog id="token-new" title={t(key="api-token-new", lang="id")} description={t(key="api-token-new-description", lang="id")} icon="key" tone="accent" open={extra.token_failed is not none}> %}
+<form method="post" action="{{ base }}/tokens" class="app-form" data-token-form>
+  <section class="app-stack-v">
+    {%- if token_form.field == "name" %}{% set name_error = token_form.code %}{% else %}{% set name_error = "" %}{% endif %}
+    {{ <field id="token-name" name="name" label={t(key="api-col-name", lang="id")} value={token_form.name} placeholder={t(key="api-token-name-placeholder", lang="id")} error={name_error} error_max={100} required={true}/> }}
+    <div class="app-field"{% if token_form.field == "scopes" %} data-invalid="true"{% endif %}>
+      <span class="app-label">{{ t(key="api-col-scopes", lang="id") }}</span>
+      <div class="app-scopes" role="group" aria-label="{{ t(key="api-col-scopes", lang="id") }}">
+        {%- for s in scope_options %}
+        <label><input type="checkbox" class="app-check" name="scopes" value="{{ s.value }}"{% if s.checked %} checked{% endif %}><span><span class="app-code">{{ s.value }}</span> <span class="app-hint">· {{ t(key=s.label_key, lang="id") }}</span></span></label>
+        {%- endfor %}
+      </div>
+      {%- if token_form.field == "scopes" %}<p class="app-field-error" role="alert">{{ t(key=token_form.code, lang="id") }}</p>{% endif %}
+    </div>
+    <div class="app-api-grid2">
+      {%- if token_form.field == "expiry" %}{% set expiry_error = token_form.code %}{% else %}{% set expiry_error = "" %}{% endif %}
+      {{ <select_field id="token-expiry" name="expiry" label={t(key="api-col-expires", lang="id")} options={expiry_options} translate={true} value={token_form.expiry} error={expiry_error}/> }}
+      {%- if token_form.field == "project" %}{% set project_error = token_form.code %}{% else %}{% set project_error = "" %}{% endif %}
+      {{ <combo id="token-project" name="project" label={t(key="api-project", lang="id")} options={project_options} value={token_form.project} error={project_error}/> }}
+    </div>
+  </section>
+  <footer>
+    <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+    {{ <button label={t(key="api-token-create", lang="id")} type="submit" attrs="data-token-create"/> }}
+  </footer>
+</form>
+{% </dialog> %}
+{%- if extra.token_created %}
+{% <dialog id="token-created" title={t(key="api-token-created", lang="id")} description={t(key="api-token-created-description", lang="id")} icon="circle-check" tone="success" open={true}> %}
+<section class="app-stack-v" data-token-created>
+  {{ <copy_value value={extra.token_created.raw} label={t(key="api-copy-token", lang="id")} attrs="data-raw-token"/> }}
+  <div class="alert" data-variant="warn">{{ icon(name="alert-triangle") }}<span>{{ t(key="api-token-created-warning", lang="id") }}</span></div>
+  <pre class="app-codeblock app-api-pre">curl -H "Authorization: Bearer {{ extra.token_created.preview }}" \
+  "{{ api_base }}/tickets"</pre>
+</section>
+<footer>{{ <button label={t(key="api-token-saved", lang="id")} attrs="data-dialog-close"/> }}</footer>
+{% </dialog> %}
+{%- endif %}
+{%- elif panel == "hooks" %}
+{% <card title={t(key="api-panel-hooks", lang="id")} description={t(key="api-hooks-description", lang="id")} flush={true} action_label={t(key="api-hook-new", lang="id")} action_dialog="hook-new" attrs="data-api-hooks"> %}
+  {% <datatable table={table} empty_title={t(key="api-hooks-empty", lang="id")} empty_description={t(key="api-hooks-empty-description", lang="id")} empty_icon="webhook"> %}
+  {%- for h in rows %}
+  <tr data-hook="{{ h.id }}" data-state="{{ h.state }}">
+    <td><span class="app-cell2"><span class="app-code" title="{{ h.url }}">{{ h.url }}</span><span class="app-chips">{% for e in h.events %}{{ <badge label={e} variant="neutral" code={true}/> }}{% endfor %}{% for p in h.projects %}{{ <badge label={p} variant="outline"/> }}{% endfor %}</span></span></td>
+    <td data-hide="sm"><span class="app-hook-st" data-state="{{ h.state }}">
+      {%- if h.state == "off" %}{{ icon(name="player-pause") }}{{ t(key="api-hook-off", lang="id") }}
+      {%- elif h.state == "none" %}{{ t(key="api-hook-none", lang="id") }}
+      {%- else %}{% if h.state == "ok" %}{{ icon(name="circle-check") }}{% else %}{{ icon(name="circle-x") }}{% endif %}{% if h.last_status %}{{ h.last_status }}{% else %}{{ t(key="api-no-response", lang="id") }}{% endif %} · {{ t(key=h.last.key, lang="id", n=h.last.n) }}{% if h.failures > 0 %} · {{ t(key="api-hook-failures", lang="id", n=h.failures) }}{% endif %}{% endif -%}
+    </span></td>
+    <td><form method="post" action="{{ h.toggle_action }}"><input type="checkbox" class="app-switch" role="switch" name="active" value="1" data-submit-on-change aria-label="{{ t(key="api-hook-toggle", lang="id", host=h.host) }}"{% if h.active %} checked{% endif %}></form></td>
+    <td data-align="right"><span class="app-lrow-acts">
+      {{ <button variant="ghost" size="icon-sm" icon="pencil" dialog={"hook-edit-" ~ h.id} aria_label={t(key="api-hook-edit", lang="id", host=h.host)}/> }}
+      {% <action_menu id={"hook-menu-" ~ h.id} label={t(key="api-hook-menu", lang="id", host=h.host)}> %}
+        <a class="app-menu-item" href="{{ h.log_href }}">{{ icon(name="history") }}{{ t(key="api-hook-history", lang="id") }}</a>
+        <form method="post" action="{{ h.ping_action }}"><button type="submit" class="app-menu-item" data-ping>{{ icon(name="send") }}{{ t(key="api-hook-ping", lang="id") }}</button></form>
+        <form method="post" action="{{ h.rotate_action }}"><button type="submit" class="app-menu-item" data-rotate>{{ icon(name="key") }}{{ t(key="api-hook-rotate", lang="id") }}</button></form>
+        <div class="app-menu-sep"></div>
+        <button type="button" class="app-menu-item" data-variant="destructive" data-dialog-open="{{ "hook-delete-" ~ h.id }}" aria-haspopup="dialog">{{ icon(name="trash") }}{{ t(key="action-delete", lang="id") }}</button>
+      {% </action_menu> %}
+    </span>
+      {% <dialog id={"hook-delete-" ~ h.id} title={t(key="api-hook-delete-title", lang="id", host=h.host)} description={t(key="api-hook-delete-description", lang="id")} icon="trash" tone="danger"> %}
+      <form method="post" action="{{ h.delete_action }}">
+        <footer>
+          <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+          {{ <button label={t(key="api-hook-delete", lang="id")} type="submit" variant="danger"/> }}
+        </footer>
+      </form>
+      {% </dialog> %}
+      {%- set editing = false %}{% if extra.hook_failed %}{% if hook_form.id == h.id %}{% set editing = true %}{% endif %}{% endif %}
+      {%- if editing %}{% set f_url = hook_form.url %}{% set f_events = hook_form.events %}{% set f_projects = hook_form.projects %}{% set f_field = hook_form.field %}{% set f_code = hook_form.code %}
+      {%- else %}{% set f_url = h.url %}{% set f_events = h.events %}{% set f_projects = h.form_projects %}{% set f_field = "" %}{% set f_code = "" %}{% endif %}
+      {% <dialog id={"hook-edit-" ~ h.id} title={t(key="api-hook-edit-title", lang="id")} description={h.host} icon="webhook" tone="accent" open={editing}> %}
+      <form method="post" action="{{ h.update_action }}" class="app-form" data-hook-form>
+        <section class="app-stack-v">{% set prefix = "hook-" ~ h.id %}{% include "integrations/_hook_fields.html" %}</section>
+        <footer>
+          <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+          {{ <button label={t(key="action-save", lang="id")} type="submit"/> }}
+        </footer>
+      </form>
+      {% </dialog> %}
+    </td>
+  </tr>
+  {%- endfor %}
+  {% </datatable> %}
+{% </card> %}
+{%- set new_failed = false %}{% if extra.hook_failed %}{% if not hook_form.id %}{% set new_failed = true %}{% endif %}{% endif %}
+{%- if new_failed %}{% set f_url = hook_form.url %}{% set f_events = hook_form.events %}{% set f_projects = hook_form.projects %}{% set f_field = hook_form.field %}{% set f_code = hook_form.code %}
+{%- else %}{% set f_url = "" %}{% set f_events = [] %}{% set f_projects = ["all"] %}{% set f_field = "" %}{% set f_code = "" %}{% endif %}
+{% <dialog id="hook-new" title={t(key="api-hook-new", lang="id")} description={t(key="api-hook-new-description", lang="id")} icon="webhook" tone="accent" open={new_failed}> %}
+<form method="post" action="{{ base }}/hooks" class="app-form" data-hook-form>
+  <section class="app-stack-v">{% set prefix = "hook-new" %}{% include "integrations/_hook_fields.html" %}</section>
+  <footer>
+    <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+    {{ <button label={t(key="api-hook-create", lang="id")} type="submit" attrs="data-hook-create"/> }}
+  </footer>
+</form>
+{% </dialog> %}
+{%- if extra.secret %}
+{%- if extra.secret.created %}{% set s_title = t(key="api-hook-created", lang="id") %}{% else %}{% set s_title = t(key="api-hook-rotated", lang="id") %}{% endif %}
+{% <dialog id="hook-secret" title={s_title} description={t(key="api-secret-description", lang="id")} icon="circle-check" tone="success" open={true}> %}
+<section class="app-stack-v" data-hook-secret>
+  <p class="app-hint app-code">{{ extra.secret.url }}</p>
+  {{ <copy_value value={extra.secret.secret} label={t(key="api-copy-secret", lang="id")} attrs="data-raw-secret"/> }}
+  <div class="alert" data-variant="warn">{{ icon(name="alert-triangle") }}<span>{{ t(key="api-secret-warning", lang="id") }}</span></div>
+</section>
+<footer>{{ <button label={t(key="api-token-saved", lang="id")} attrs="data-dialog-close"/> }}</footer>
+{% </dialog> %}
+{%- endif %}
+{%- elif panel == "log" %}
+{% <card title={t(key="api-panel-log", lang="id")} description={t(key="api-log-description", lang="id")} flush={true} attrs="data-api-log"> %}
+  {% <datatable table={table} empty_title={t(key="api-log-empty", lang="id")} empty_description={t(key="api-log-empty-description", lang="id")} empty_icon="history"> %}
+  {%- for d in rows %}
+  <tr data-delivery="{{ d.id }}" data-result="{{ d.result }}">
+    <td><span class="app-code app-hint">{{ d.at }}</span></td>
+    <td><span class="app-code">{{ d.event }}</span></td>
+    <td data-hide="sm"><span class="app-hint">{{ d.host }}</span></td>
+    <td>{% if d.result == "pending" %}{{ <badge label={t(key="api-result-pending", lang="id")} variant="info"/> }}{% elif d.status %}{% if d.result == "ok" %}{{ <badge label={d.status ~ ""} variant="success" code={true}/> }}{% else %}{{ <badge label={d.status ~ ""} variant="destructive" code={true}/> }}{% endif %}{% else %}{{ <badge label={t(key="api-result-fail", lang="id")} variant="destructive"/> }}{% endif %}</td>
+    <td data-hide="sm" data-align="right"><span class="app-code app-hint">{% if d.duration_ms is not none %}{{ d.duration_ms }} ms{% else %}–{% endif %}</span></td>
+    <td data-align="right">
+      {{ <button label={t(key="api-view", lang="id")} variant="ghost" size="sm" dialog={"delivery-" ~ d.id} attrs="data-view"/> }}
+      {%- if d.result == "ok" %}{% set d_icon = "circle-check" %}{% set d_tone = "success" %}{% elif d.result == "fail" %}{% set d_icon = "circle-x" %}{% set d_tone = "danger" %}{% else %}{% set d_icon = "clock" %}{% set d_tone = "" %}{% endif %}
+      {% <dialog id={"delivery-" ~ d.id} title={d.title} description={d.url ~ " · " ~ d.at} icon={d_icon} tone={d_tone} size="lg"> %}
+      <section class="app-stack-v">
+        <div class="app-field"><span class="app-label">{{ t(key="api-payload", lang="id") }}</span><pre class="app-codeblock app-api-pre">{{ d.payload }}</pre></div>
+        <div class="app-field"><span class="app-label">{{ t(key="api-response", lang="id") }}</span><pre class="app-codeblock app-api-pre">{% if d.status %}HTTP {{ d.status }}
+{{ d.response }}{% elif d.error %}{{ t(key=d.error_key, lang="id") }}{% else %}{{ t(key="api-result-pending", lang="id") }}{% endif %}</pre></div>
+        <p class="app-hint">{{ t(key="api-attempts", lang="id", n=d.attempts) }}</p>
+        {%- if d.result != "ok" %}<div class="alert" data-variant="warn">{{ icon(name="alert-triangle") }}<span>{{ t(key="api-retry-note", lang="id") }}</span></div>{% endif %}
+      </section>
+      <footer>
+        <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-close", lang="id") }}</button>
+        {%- if d.result != "pending" %}<form method="post" action="{{ d.resend_action }}">{{ <button label={t(key="api-resend", lang="id")} type="submit" icon="refresh" attrs="data-resend"/> }}</form>{% endif %}
+      </footer>
+      {% </dialog> %}
+    </td>
+  </tr>
+  {%- endfor %}
+  {% </datatable> %}
+{% </card> %}
+{%- else %}
+{% <card title={t(key="api-panel-docs", lang="id")} description={t(key="api-docs-description", lang="id")} link_label={t(key="api-openapi", lang="id")} link_href="/api/v1/openapi.yaml" attrs="data-api-docs"> %}
+<div class="app-stack-v">
+  <div class="app-blk"><b class="app-blk-t">{{ t(key="api-endpoint", lang="id") }}</b></div>
+  <div class="app-scopes">
+    <div class="app-lrow"><span class="app-tile">{{ icon(name="api") }}</span><span class="app-lrow-main"><b>{{ t(key="api-base-url", lang="id") }}</b>{{ <copy_value value={api_base} label={t(key="api-copy-base", lang="id")} compact={true}/> }}</span></div>
+    <div class="app-lrow"><span class="app-tile">{{ icon(name="key") }}</span><span class="app-lrow-main"><b>{{ t(key="api-auth", lang="id") }}</b><small>{{ t(key="api-auth-hint", lang="id") }} <code>Authorization: Bearer &lt;token&gt;</code></small></span></div>
+    <div class="app-lrow"><span class="app-tile">{{ icon(name="gauge") }}</span><span class="app-lrow-main"><b>{{ t(key="api-limit", lang="id") }}</b><small>{{ t(key="api-limit-hint", lang="id", n=rate_limit) }} <code>X-RateLimit-Remaining</code></small></span></div>
+    <div class="app-lrow"><span class="app-tile">{{ icon(name="webhook") }}</span><span class="app-lrow-main"><b>{{ t(key="api-signature", lang="id") }}</b><small>{{ t(key="api-signature-hint", lang="id") }} <code>X-AgentGate-Signature: sha256=HMAC(secret, "{timestamp}.{body}")</code></small></span></div>
+    <div class="app-lrow"><span class="app-tile">{{ icon(name="plug-connected") }}</span><span class="app-lrow-main"><b>{{ t(key="api-clients", lang="id") }}</b><small>{{ t(key="api-clients-hint", lang="id") }}</small></span><a class="app-seeall" href="/account/connect">{{ t(key="api-clients-link", lang="id") }}{{ icon(name="arrow-right") }}</a></div>
+  </div>
+  <div class="app-blk"><b class="app-blk-t">{{ t(key="api-example", lang="id") }}</b></div>
+  <pre class="app-codeblock app-api-pre">curl -H "Authorization: Bearer ag_pat_…" \
+  "{{ api_base }}/tickets?project=KSR&amp;stage=review"</pre>
+</div>
+{% </card> %}
+{%- endif %}
+{% </subpage> %}
+{% endblock settings %}
