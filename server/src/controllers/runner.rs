@@ -586,6 +586,35 @@ async fn page(
                 })
                 .collect();
             data["checks"] = serde_json::Value::from(checks);
+            // Backup aturan lama dari `agentgate init` di project yang boleh dibuka.
+            let projects =
+                crate::models::projects::Model::accessible_for(db, &tenant.accessor()).await?;
+            let backups = crate::models::rule_backups::Entity::find()
+                .filter(crate::models::rule_backups::Column::WorkspaceId.eq(wid.get()))
+                .filter(
+                    crate::models::rule_backups::Column::ProjectId
+                        .is_in(projects.iter().map(|p| p.id).collect::<Vec<_>>()),
+                )
+                .all(db)
+                .await?;
+            let mut backups: Vec<serde_json::Value> = backups
+                .iter()
+                .rev()
+                .take(30)
+                .map(|b| {
+                    serde_json::json!({
+                        "archive": b.archive,
+                        "repo": b.repo,
+                        "project": projects.iter().find(|p| p.id == b.project_id).map(|p| p.name.clone()),
+                        "files": b.files,
+                        "kb": (b.size + 1023) / 1024,
+                        "at": views::time::wib_datetime(&b.created_at),
+                        "href": format!("/w/{}/backups/{}", tenant.workspace.slug, b.id),
+                    })
+                })
+                .collect();
+            backups.sort_by(|a, b| b["at"].as_str().cmp(&a["at"].as_str()));
+            data["backups"] = serde_json::Value::from(backups);
         }
         _ => {
             let base_url = Settings::from_ctx(&ctx)?.public_base_url;
@@ -880,6 +909,50 @@ async fn live(
 }
 
 #[debug_handler]
+async fn download_backup(
+    State(ctx): State<AppContext>,
+    tenant: Tenant,
+    id: IdOr404<crate::models::rule_backups::Entity>,
+) -> Result<Response> {
+    use crate::models::rule_backups;
+    let wid = tenant.workspace_id();
+    let row = rule_backups::Entity::find_by_id(id.id)
+        .filter(rule_backups::Column::WorkspaceId.eq(wid.get()))
+        .one(&ctx.db)
+        .await?
+        .ok_or(Error::NotFound)?;
+    let projects =
+        crate::models::projects::Model::accessible_for(&ctx.db, &tenant.accessor()).await?;
+    if !projects.iter().any(|p| p.id == row.project_id) {
+        return Err(Error::NotFound);
+    }
+    let data: Vec<u8> = ctx
+        .storage
+        .download(std::path::Path::new(&row.storage_key))
+        .await
+        .map_err(|e| {
+            tracing::error!(error = %e, "backup tidak ada di storage");
+            Error::NotFound
+        })?;
+    let mut res = Response::new(Body::from(data));
+    let headers = res.headers_mut();
+    headers.insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("application/gzip"),
+    );
+    headers.insert(
+        header::CONTENT_DISPOSITION,
+        HeaderValue::from_str(&format!("attachment; filename=\"{}\"", row.archive))
+            .unwrap_or(HeaderValue::from_static("attachment")),
+    );
+    headers.insert(
+        header::X_CONTENT_TYPE_OPTIONS,
+        HeaderValue::from_static("nosniff"),
+    );
+    Ok(res)
+}
+
+#[debug_handler]
 async fn download_evidence(
     State(ctx): State<AppContext>,
     tenant: Tenant,
@@ -960,4 +1033,5 @@ pub fn routes() -> Routes {
         .add("/w/{slug}/jobs/{id}/cancel", post(cancel))
         .add("/w/{slug}/jobs/{id}/quota", post(quota))
         .add("/w/{slug}/evidence/{id}", get(download_evidence))
+        .add("/w/{slug}/backups/{id}", get(download_backup))
 }

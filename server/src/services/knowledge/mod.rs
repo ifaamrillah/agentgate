@@ -20,6 +20,7 @@ pub mod proposals;
 pub mod runs;
 pub mod search;
 pub mod settings;
+pub mod sync;
 pub mod triggers;
 
 use sea_orm::{ConnectionTrait, DbErr};

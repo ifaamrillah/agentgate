@@ -546,3 +546,89 @@ async fn workspace_knowledge_settings_manage_docs_types_and_triggers() {
     })
     .await;
 }
+
+#[tokio::test]
+async fn cli_exports_imports_and_backs_up_rules() {
+    use super::runner::{get_json, post_json};
+    request::<App, _, _>(|request, ctx| async move {
+        let f = fixture(&request, &ctx).await;
+        let token =
+            crate::support::oauth_flow::device_login(&request, &f.cookie, &f.workspace.id.to_string())
+                .await;
+        post(&request, &f.cookie, &format!("{BASE}/new"), &[("type_key", "overview")]).await;
+
+        let (status, body) =
+            get_json(&request, &token, "/api/cli/knowledge/export?project=KSR").await;
+        assert_eq!(status, 200, "{body}");
+        assert_eq!(body["docs"][0]["slug"], "overview-project");
+        assert_eq!(body["docs"][0]["version"], 1);
+
+        // Versi dasar sama → versi baru; versi dasar lama yang isinya sama dengan versi itu
+        // → tertinggal; file baru → usulan.
+        let (status, body) = post_json(
+            &request,
+            &token,
+            None,
+            "/api/cli/knowledge/import",
+            &json!({ "project": "KSR", "docs": [
+                { "slug": "overview-project", "base_version": 1, "body": "# Overview\n\nDari repo" },
+                { "slug": "catatan-rilis", "title": "Catatan rilis", "type": "changelog", "base_version": 0, "body": "## v1" },
+            ]}),
+        )
+        .await;
+        assert_eq!(status, 200, "{body}");
+        assert_eq!(body["results"][0]["result"], "saved", "{body}");
+        assert_eq!(body["results"][0]["version"], 2);
+        assert_eq!(body["results"][1]["result"], "proposed", "{body}");
+        let v1 = agentgate_server::models::knowledge_versions::Model::number(
+            &ctx.db,
+            f.workspace.workspace_id(),
+            doc(&ctx, &f, "overview-project").await.id,
+            1,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        let (_, body) = post_json(
+            &request,
+            &token,
+            None,
+            "/api/cli/knowledge/import",
+            &json!({ "project": "KSR", "docs": [{ "slug": "overview-project", "base_version": 1, "body": v1.body }] }),
+        )
+        .await;
+        assert_eq!(body["results"][0]["result"], "behind", "{body}");
+
+        // Backup init → tersimpan + usulan Konvensi.
+        use base64::Engine;
+        let data = base64::engine::general_purpose::STANDARD.encode(b"arsip-tar-gz");
+        let (status, body) = post_json(
+            &request,
+            &token,
+            None,
+            "/api/cli/backups",
+            &json!({
+                "project": "KSR", "repo": "kasir-api", "archive": "20261113T010203Z.tar.gz",
+                "data": data, "manifest": { "files": [{ "path": "CLAUDE.md" }] },
+                "texts": [{ "path": "CLAUDE.md", "content": "Pakai camelCase." }],
+            }),
+        )
+        .await;
+        assert_eq!(status, 200, "{body}");
+        assert!(body["proposal"].is_string(), "{body}");
+        let p = proposals_of(&ctx, &f).await;
+        assert!(p.iter().any(|p| p.trigger == "init" && p.body.contains("Pakai camelCase.")));
+        let (_, list) = get_json(&request, &token, "/api/cli/backups?project=KSR").await;
+        assert_eq!(list["backups"][0]["files"], 1);
+
+        // Runner & CLI → Aturan & drift: daftar + unduh.
+        let res = get(&request, &f.cookie, "/w/acme/runner/drift").await;
+        assert_eq!(res.status_code(), 200);
+        assert_css_exists(&res.text(), "[data-backup='20261113T010203Z.tar.gz']");
+        let id = list["backups"][0]["id"].as_str().unwrap();
+        let res = get(&request, &f.cookie, &format!("/w/acme/backups/{id}")).await;
+        assert_eq!(res.status_code(), 200);
+        assert_eq!(res.as_bytes().as_ref(), b"arsip-tar-gz");
+    })
+    .await;
+}

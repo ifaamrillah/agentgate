@@ -123,6 +123,17 @@
   <div class="app-pad">{{ <empty_state title={t(key="runner-drift-empty", lang="id")} description={t(key="runner-drift-empty-description", lang="id")} icon="shield-check" variant="plain"/> }}</div>
   {%- endfor %}
 {% </card> %}
+{% <card title={t(key="runner-backups-title", lang="id")} description={t(key="runner-backups-description", lang="id")} count={backups | length ~ ""} flush={true} attrs="data-backups"> %}
+  {%- for b in backups %}
+  <a class="app-lrow" href="{{ b.href }}" download data-backup="{{ b.archive }}">
+    <span class="app-tile">{{ icon(name="archive") }}</span>
+    <span class="app-lrow-main"><b class="app-code">{{ b.archive }}</b><small>{% if b.project %}{{ b.project }} · {% endif %}{% if b.repo %}{{ b.repo }} · {% endif %}{{ t(key="runner-backup-meta", lang="id", files=b.files, kb=b.kb, at=b.at) }}</small></span>
+    {{ icon(name="download") }}
+  </a>
+  {%- else %}
+  <div class="app-pad">{{ <empty_state title={t(key="runner-backups-empty", lang="id")} description={t(key="runner-backups-empty-description", lang="id")} icon="archive" variant="plain"/> }}</div>
+  {%- endfor %}
+{% </card> %}
 {%- else %}
 {% <card title={t(key="runner-panel-cli", lang="id")} description={t(key="runner-cli-description", lang="id")} flush={true} attrs="data-cli"> %}
 <ol class="app-steps">

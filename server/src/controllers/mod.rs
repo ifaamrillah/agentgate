@@ -16,6 +16,7 @@ pub mod graph;
 pub mod graph_api;
 pub mod invitations;
 pub mod knowledge;
+pub mod knowledge_api;
 pub mod knowledge_settings;
 pub mod mcp;
 pub mod middleware;
@@ -45,6 +46,7 @@ pub fn routes(ctx: &AppContext) -> AppRoutes {
         .add_route(runner::routes())
         .add_route(runner_api::routes())
         .add_route(graph_api::routes())
+        .add_route(knowledge_api::routes())
         .add_route(git::routes())
         .add_route(graph::routes())
         .add_route(knowledge::routes())
