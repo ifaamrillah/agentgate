@@ -157,6 +157,9 @@ settings:
   app_name: Agent Gate
   # Basis link di email (verifikasi, reset, undangan), tanpa `/` di akhir.
   public_base_url: <%= get_env(name="APP_URL") %>
+  # Domain terpisah untuk pratinjau mockup HTML (iframe sandbox, tanpa cookie aplikasi).
+  # Host-nya harus berbeda dari public_base_url.
+  preview_base_url: <%= get_env(name="PREVIEW_URL") %>
   # Pengirim semua email aplikasi (header From), alamat yang diizinkan relay SMTP; tanpa default.
   mail_from: <%= get_env(name="MAIL_FROM") %>
   auth:

@@ -14,6 +14,7 @@ pub mod flash;
 pub mod git;
 pub mod graph;
 pub mod graph_api;
+pub mod graph_viewer;
 pub mod invitations;
 pub mod knowledge;
 pub mod knowledge_api;
@@ -21,6 +22,8 @@ pub mod knowledge_settings;
 pub mod mcp;
 pub mod middleware;
 pub mod oauth;
+pub mod office;
+pub mod preview;
 pub mod projects;
 pub mod public_routes;
 pub mod render;
@@ -28,6 +31,7 @@ pub mod runner;
 pub mod runner_api;
 pub mod shell;
 pub mod tickets;
+pub mod tokens;
 pub mod webhooks;
 pub mod workspaces;
 
@@ -51,6 +55,9 @@ pub fn routes(ctx: &AppContext) -> AppRoutes {
         .add_route(graph::routes())
         .add_route(knowledge::routes())
         .add_route(knowledge_settings::routes())
+        .add_route(tokens::routes())
+        .add_route(office::routes())
+        .add_route(preview::routes())
         .add_route(webhooks::routes())
         .add_route(mcp::routes(ctx));
     add_dev_routes(routes, &ctx.environment)

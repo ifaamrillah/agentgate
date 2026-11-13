@@ -76,6 +76,10 @@ async fn component_catalog_renders_shared_components() {
             &html,
             "[data-catalog-kb] .app-kb-donut circle[data-tone='warn']",
         );
+        // Visual (M10).
+        assert_css_exists(&html, "[data-catalog-visual] .app-tk-feat .app-switch");
+        assert_css_exists(&html, "[data-catalog-visual] .app-of-lb.dng .k");
+        assert_css_exists(&html, "[data-catalog-visual] .app-mk-frame .app-mk-url");
         assert!(!html.contains("<script>alert(1)"));
         assert_css_exists(&html, "[data-catalog-graph] .app-codelines .app-codeline-n");
         assert_css_exists(&html, ".app-topbar [data-crumbs] [aria-current=\"page\"]");

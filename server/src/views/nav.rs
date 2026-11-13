@@ -116,6 +116,7 @@ pub const PROJECT_SETTINGS_SECTIONS: &[&str] = &[
     "project_ticket_code",
     "project_git",
     "project_components",
+    "project_tokens",
 ];
 
 /// Menu kiri Pengaturan workspace: Umum selalu ada (indeks Pengaturan), sisanya menurut izin role.
@@ -236,6 +237,7 @@ pub fn project_settings_nav(paths: &ProjectPaths, current: &str) -> Vec<NavItem>
             ),
             NavItem::link("git", "project-git-title", "git-branch", &paths.git),
             NavItem::link("components", "component-title", "puzzle", &paths.components),
+            NavItem::link("tokens", "tokens-title", "coins", &paths.tokens),
         ],
         current,
     )
@@ -336,7 +338,13 @@ fn app_side(shell: &AppShell) -> Vec<SideGroup> {
         "search",
         &format!("{}/search", ws.href),
     );
-    let top = mark(vec![home, inbox, my, search], shell.section)
+    let office = NavItem::link(
+        "office",
+        "nav-ai-office",
+        "building",
+        &format!("{}/office", ws.href),
+    );
+    let top = mark(vec![home, inbox, my, search, office], shell.section)
         .into_iter()
         .map(|mut i| {
             i.current = i.current || (i.key == "home" && shell.area == "home");

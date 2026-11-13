@@ -380,6 +380,7 @@ pub fn routes() -> Routes {
             "/w/{slug}/t/{code}/artifacts/{id}/compare",
             get(artifact::compare),
         )
+        .add("/w/{slug}/t/{code}/mockup/{id}", get(artifact::mockup))
         .add("/w/{slug}/t/{code}/delete", post(ticket::trash))
         // Workspace
         .add("/w/{slug}/my", get(inbox::my))

@@ -1,0 +1,52 @@
+/* Pratinjau mockup HTML (M10): bingkai peramban (Web/Mobile) berisi iframe sandbox domain
+   pratinjau, bandingkan dengan screenshot QA, thumbnail screenshot, kartu samping keputusan.
+   Prototype: .mk-* di screens-m7-m8-m10.js. */
+@layer components {
+  .app-mk-head { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .app-mk-head .app-tabs { flex: 1; min-width: 0; }
+  .app-mk-back { display: inline-flex; align-items: center; gap: 6px; color: var(--ag-muted); font-weight: 500; font-size: 12.5px; }
+  .app-mk-back:hover { color: var(--ag-fg); }
+  .app-mk-back svg { width: 14px; height: 14px; }
+  .app-mk { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
+  .app-mk-main { display: flex; flex-direction: column; min-width: 0; }
+  .app-mk-tool { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--ag-line); flex-wrap: wrap; }
+  .app-mk-tool .app-seg svg { width: 14px; height: 14px; }
+  .app-mk-note { display: inline-flex; align-items: center; gap: 6px; }
+  .app-mk-note svg { width: 14px; height: 14px; }
+  .app-mk-stage { background: var(--ag-bg-sub); border-radius: 0 0 10px 10px; padding: 24px; display: grid; gap: 20px; align-content: start; justify-items: center; overflow: auto; }
+  .app-mk-stage > .alert { max-width: 804px; width: 100%; }
+  .app-mk-frame { width: 100%; max-width: 1100px; border: 1px solid var(--ag-line2); border-radius: 12px; overflow: hidden; background: var(--ag-raised); box-shadow: var(--ag-shadow-md); }
+  .app-mk-frame[data-dev='mobile'] { width: 390px; max-width: 100%; border-radius: 30px; border: 8px solid #1f1f26; }
+  .app-mk-bar { height: 38px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border-bottom: 1px solid var(--ag-line); background: var(--ag-muted-bg); }
+  .app-mk-dots { display: inline-flex; gap: 5px; }
+  .app-mk-dots i { width: 9px; height: 9px; border-radius: 50%; background: var(--ag-input); display: block; }
+  .app-mk-url { flex: 1; min-width: 0; height: 24px; border-radius: 6px; background: var(--ag-raised); border: 1px solid var(--ag-line); display: flex; align-items: center; gap: 6px; padding: 0 8px; font-family: var(--ag-mono); font-size: 11.5px; color: var(--ag-fg2); }
+  .app-mk-url svg { width: 12px; height: 12px; flex-shrink: 0; color: var(--ag-success); }
+  .app-mk-url span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .app-mk-frame iframe { display: block; width: 100%; height: 600px; border: 0; background: #fff; }
+  .app-mk-frame[data-dev='mobile'] iframe { height: 700px; }
+  .app-mk-shot { display: grid; place-items: center; min-height: 400px; background: var(--ag-raised); }
+  .app-mk-shot img { display: block; width: 100%; height: auto; }
+  .app-mk-cmp { display: grid; grid-template-columns: repeat(2, minmax(0, 390px)); gap: 24px; justify-content: center; width: 100%; }
+  .app-mk-cmp .app-mk-frame { width: 100%; }
+  .app-mk-cap { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ag-muted); margin-bottom: 8px; }
+  .app-mk-cap svg { width: 14px; height: 14px; }
+  .app-mk-shots { width: 100%; max-width: 1100px; }
+  .app-mk-thumbs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  .app-mk-th { border: 1px solid var(--ag-line2); border-radius: 8px; overflow: hidden; background: var(--ag-raised); color: inherit; }
+  .app-mk-th:hover { border-color: var(--ag-input); box-shadow: var(--ag-shadow-sm); }
+  .app-mk-th img { display: block; width: 100%; height: 74px; object-fit: cover; object-position: top; background: var(--ag-muted-bg); }
+  .app-mk-th span { display: block; padding: 6px 8px; font-size: 11.5px; color: var(--ag-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .app-mk-side { min-width: 0; position: sticky; top: 112px; }
+  .app-mk-sb { display: grid; gap: 14px; padding: 0 16px 16px; }
+  .app-mk-kv { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+  .app-mk-kv span { color: var(--ag-muted); }
+  .app-mk-foot { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; padding: 12px 16px; border-top: 1px solid var(--ag-line); }
+  @media (max-width: 1099px) { .app-mk { grid-template-columns: 1fr; } .app-mk-side { position: static; } }
+  @media (max-width: 899px) {
+    .app-mk-stage { padding: 12px; }
+    .app-mk-cmp { grid-template-columns: 1fr; }
+    .app-mk-frame iframe { height: 520px; }
+    .app-mk-thumbs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+}

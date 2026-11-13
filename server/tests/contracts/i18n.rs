@@ -146,12 +146,36 @@ fn every_auth_message_key_has_a_translation() {
         views::tickets::MESSAGE_KEYS,
         views::workflow::MESSAGE_KEYS,
         views::runner::MESSAGE_KEYS,
+        views::tokens::MESSAGE_KEYS,
+        views::office::MESSAGE_KEYS,
         oauth::ERROR_CODES,
     ]
     .concat()
     .into_iter()
     .filter(|k| !keys.contains(*k))
     .collect();
+    assert!(missing.is_empty(), "kunci tanpa terjemahan: {missing:?}");
+}
+
+#[test]
+fn every_office_status_accessory_and_style_has_a_label() {
+    use agentgate_server::models::office::CharStatus;
+    let keys = fluent_keys();
+    let mut want: Vec<String> = CharStatus::ALL
+        .iter()
+        .map(|s| format!("office-st-{}", s.as_str()))
+        .collect();
+    want.extend(
+        views::office::ACC_KEYS
+            .iter()
+            .map(|k| format!("office-acc-{k}")),
+    );
+    want.extend(
+        views::office::STYLE_KEYS
+            .iter()
+            .map(|k| format!("office-style-{k}")),
+    );
+    let missing: Vec<_> = want.iter().filter(|k| !keys.contains(k.as_str())).collect();
     assert!(missing.is_empty(), "kunci tanpa terjemahan: {missing:?}");
 }
 

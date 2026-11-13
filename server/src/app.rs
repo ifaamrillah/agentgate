@@ -141,13 +141,21 @@ impl Hooks for App {
         Ok(AxumRouter::new().fallback(controllers::middleware::html_errors::not_found))
     }
 
-    async fn after_routes(router: AxumRouter, _ctx: &AppContext) -> Result<AxumRouter> {
+    async fn after_routes(router: AxumRouter, ctx: &AppContext) -> Result<AxumRouter> {
         // CSRF membungkus semua route (di luar stack Loco, sehingga berjalan sebelum gate login
         // di `middlewares`); penolakannya dirender sebagai halaman HTML oleh layer html_errors
-        // yang dipasang view engine di luar layer ini.
-        Ok(router.layer(axum::middleware::from_fn(
-            controllers::middleware::csrf::layer,
-        )))
+        // yang dipasang view engine di luar layer ini. Pemisah domain pratinjau mockup (M10)
+        // paling luar: host pratinjau tidak pernah mencapai route aplikasi lain.
+        let preview_host =
+            std::sync::Arc::new(crate::common::settings::Settings::from_ctx(ctx)?.preview_host());
+        Ok(router
+            .layer(axum::middleware::from_fn(
+                controllers::middleware::csrf::layer,
+            ))
+            .layer(axum::middleware::from_fn_with_state(
+                preview_host,
+                controllers::middleware::preview_host::layer,
+            )))
     }
 
     async fn connect_workers(ctx: &AppContext, queue: &Queue) -> Result<()> {
@@ -221,9 +229,282 @@ impl Hooks for App {
         seed_git(ctx).await?;
         seed_graph(ctx, base).await?;
         seed_knowledge(ctx).await?;
-        seed_planning(ctx).await
+        seed_planning(ctx).await?;
+        seed_visual(ctx).await
     }
 }
+
+/// Data visual (M10) di KSR: riwayat job selesai 4 minggu terakhir dengan rincian token, biaya,
+/// dan file berubah (halaman Penghemat token, sorot tiket di graph viewer), baris penghematan
+/// per fitur, job terakhir tiket menunggu review (KSR-11) dan butuh keputusan (KSR-12) agar
+/// tampil di AI Office, dan mockup HTML `checkout-qris.html` di KSR-11. Dilewati bila workspace
+/// sudah punya data penghematan.
+async fn seed_visual(ctx: &AppContext) -> Result<()> {
+    use sea_orm::{ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter};
+
+    use crate::{
+        models::{jobs as job_model, tickets, token_savings},
+        services::{tickets::artifacts, workspaces::Acting},
+    };
+    let Some(workspace) = workspaces::Model::find_by_slug(&ctx.db, SEED_WORKSPACE_SLUG).await?
+    else {
+        return Ok(());
+    };
+    let wid = workspace.workspace_id();
+    let Some(project) = projects::Model::find_by_key(&ctx.db, wid, SEED_PROJECT.0).await? else {
+        return Ok(());
+    };
+    if token_savings::Entity::find()
+        .filter(token_savings::Column::WorkspaceId.eq(wid.get()))
+        .one(&ctx.db)
+        .await?
+        .is_some()
+    {
+        tracing::info!("seed visual dilewati: data penghematan sudah ada");
+        return Ok(());
+    }
+    let owner = users::Model::find_by_email(&ctx.db, SEED_MARKER_EMAIL)
+        .await?
+        .ok_or_else(|| loco_rs::Error::string("owner seed tidak ada"))?;
+    let runner = crate::services::jobs::runners_of(&ctx.db, wid, None)
+        .await?
+        .into_iter()
+        .find(|r| r.user_id == owner.id)
+        .map(|r| r.id);
+    let now = chrono::Utc::now();
+    // (tiket, persona, status, hari lalu, input, output, cache read, cache write, file berubah)
+    #[allow(clippy::type_complexity)]
+    let history: &[(&str, &str, &str, i64, i64, i64, i64, i64, &[(&str, &str)])] = &[
+        (
+            "KSR-3",
+            "dev",
+            "succeeded",
+            24,
+            182_000,
+            21_400,
+            96_000,
+            12_000,
+            &[
+                ("kasir-api", "src/orders/handlers.ts"),
+                ("kasir-api", "src/orders/repo.ts"),
+            ],
+        ),
+        (
+            "KSR-3",
+            "qa",
+            "succeeded",
+            23,
+            64_000,
+            8_200,
+            41_000,
+            6_000,
+            &[("kasir-api", "tests/orders.test.ts")],
+        ),
+        (
+            "KSR-10",
+            "dev",
+            "succeeded",
+            16,
+            240_500,
+            30_100,
+            120_000,
+            18_000,
+            &[
+                ("kasir-api", "src/payments/qris.ts"),
+                ("kasir-web", "src/pages/checkout.tsx"),
+                ("kasir-web", "src/api/client.ts"),
+            ],
+        ),
+        (
+            "KSR-10",
+            "reviewer",
+            "succeeded",
+            15,
+            51_000,
+            6_400,
+            22_000,
+            3_000,
+            &[],
+        ),
+        (
+            "KSR-6",
+            "dev",
+            "failed",
+            9,
+            98_000,
+            12_300,
+            40_000,
+            8_000,
+            &[("kasir-api", "src/stock/guard.ts")],
+        ),
+        (
+            "KSR-6",
+            "dev",
+            "succeeded",
+            8,
+            132_000,
+            17_800,
+            70_000,
+            9_500,
+            &[
+                ("kasir-api", "src/stock/guard.ts"),
+                ("kasir-web", "src/pages/refund.tsx"),
+            ],
+        ),
+        (
+            "KSR-1",
+            "uiux",
+            "succeeded",
+            3,
+            44_000,
+            9_900,
+            15_000,
+            4_000,
+            &[],
+        ),
+        (
+            "KSR-11",
+            "analyst",
+            "succeeded",
+            1,
+            38_000,
+            7_600,
+            12_000,
+            2_500,
+            &[],
+        ),
+        (
+            "KSR-12",
+            "architect",
+            "failed",
+            0,
+            71_000,
+            9_100,
+            30_000,
+            5_000,
+            &[],
+        ),
+    ];
+    let features = [
+        token_savings::SavingFeature::CodeGraph,
+        token_savings::SavingFeature::Layered,
+        token_savings::SavingFeature::McpRules,
+        token_savings::SavingFeature::Handoff,
+    ];
+    for (i, (code, persona, status, days, input, output, cache_read, cache_write, files)) in
+        history.iter().enumerate()
+    {
+        let Some((ticket, _)) = tickets::Model::find_by_code(&ctx.db, wid, code).await? else {
+            continue;
+        };
+        let at = now - chrono::Duration::days(*days) - chrono::Duration::minutes(40);
+        let total = input + output + cache_read + cache_write;
+        // Tarif kira-kira Sonnet: $3/juta input, $15/juta output, cache baca 10%, tulis 125%.
+        let cost = input * 3 + output * 15 + cache_read * 3 / 10 + cache_write * 15 / 4;
+        let job = job_model::ActiveModel {
+            workspace_id: Set(wid.get()),
+            project_id: Set(project.id),
+            ticket_id: Set(Some(ticket.id)),
+            kind: Set("stage".into()),
+            mode: Set("auto".into()),
+            stage_key: Set(ticket.stage_key.clone()),
+            persona: Set((*persona).into()),
+            status: Set((*status).into()),
+            requested_by: Set(Some(owner.id)),
+            claimed_by: Set(Some(owner.id)),
+            runner_id: Set(runner),
+            client: Set("claude".into()),
+            model: Set("claude-sonnet-4-5".into()),
+            summary: Set(if *status == "failed" {
+                "Gate tests_passed belum terpenuhi: 2 tes gagal di modul stok".into()
+            } else {
+                format!("{code} selesai: perubahan siap direview")
+            }),
+            tokens: Set(Some(total)),
+            tokens_input: Set(Some(*input)),
+            tokens_output: Set(Some(*output)),
+            tokens_cache_read: Set(Some(*cache_read)),
+            tokens_cache_write: Set(Some(*cache_write)),
+            cost_usd_micros: Set(Some(cost)),
+            changed_files: Set(serde_json::json!(
+                files
+                    .iter()
+                    .map(|(repo, path)| serde_json::json!({ "repo": repo, "path": path }))
+                    .collect::<Vec<_>>()
+            )),
+            claimed_at: Set(Some((at - chrono::Duration::minutes(25)).into())),
+            started_at: Set(Some((at - chrono::Duration::minutes(24)).into())),
+            finished_at: Set(Some(at.into())),
+            created_at: Set((at - chrono::Duration::minutes(30)).into()),
+            updated_at: Set(at.into()),
+            ..Default::default()
+        }
+        .insert(&ctx.db)
+        .await?;
+        for (k, feature) in features.iter().enumerate() {
+            #[allow(clippy::cast_possible_wrap)]
+            let tokens = total / (6 + (i as i64 + k as i64) % 5) / (k as i64 + 1);
+            token_savings::ActiveModel {
+                workspace_id: Set(wid.get()),
+                project_id: Set(project.id),
+                job_id: Set(Some(job.id)),
+                ticket_id: Set(Some(ticket.id)),
+                feature: Set(sea_orm::ActiveEnum::to_value(feature)),
+                tool: Set(["ag_snippet", "ag_context", "ag_rules", "ag_handoff"][k].into()),
+                tokens: Set(tokens),
+                created_at: Set(at.into()),
+                ..Default::default()
+            }
+            .insert(&ctx.db)
+            .await?;
+        }
+    }
+
+    // Mockup HTML di KSR-11 (stage menunggu review).
+    if let Some((ticket, _)) = tickets::Model::find_by_code(&ctx.db, wid, "KSR-11").await? {
+        let (_, role) = workspace_members::Model::find_with_role(&ctx.db, wid, owner.id)
+            .await?
+            .ok_or_else(|| loco_rs::Error::string("owner seed bukan anggota"))?;
+        let acting = Acting {
+            workspace: &workspace,
+            user: &owner,
+            role: &role,
+            request_id: None,
+        };
+        let fail = |e: &dyn std::fmt::Debug| loco_rs::Error::string(&format!("seed visual: {e:?}"));
+        let art = artifacts::create(&ctx.db, &acting, ticket.id, "checkout-qris.html")
+            .await
+            .map_err(|e| fail(&e))?;
+        artifacts::save(&ctx.db, &acting, ticket.id, art.id, SEED_MOCKUP)
+            .await
+            .map_err(|e| fail(&e))?;
+    }
+    Ok(())
+}
+
+const SEED_MOCKUP: &str = r#"<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Checkout QRIS</title>
+<style>
+body{margin:0;font:15px/1.5 system-ui,sans-serif;background:#f6f6f8;color:#17171c}
+.wrap{max-width:420px;margin:0 auto;padding:24px 16px}
+.card{background:#fff;border:1px solid #e1e1e8;border-radius:14px;padding:20px;box-shadow:0 8px 24px rgb(16 16 24/.08)}
+h1{font-size:20px;margin:0 0 4px}.muted{color:#63636f;font-size:13px}
+.row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #ebebef}
+.total{font-weight:700;font-size:18px;border:0}
+.qr{margin:18px auto;width:180px;height:180px;border-radius:12px;background:repeating-conic-gradient(#17171c 0 25%,#fff 0 50%) 0 0/20px 20px;border:10px solid #fff;outline:1px solid #e1e1e8}
+button{width:100%;height:44px;border:0;border-radius:10px;background:#5b5bd6;color:#fff;font-weight:600;font-size:15px}
+</style></head>
+<body><div class="wrap"><div class="card">
+<h1>Bayar dengan QRIS</h1><p class="muted">Pindai kode di bawah dengan aplikasi bank atau e-wallet Anda.</p>
+<div class="row"><span>Kopi susu gula aren × 2</span><span>Rp 44.000</span></div>
+<div class="row"><span>Diskon member</span><span>−Rp 4.400</span></div>
+<div class="row total"><span>Total</span><span>Rp 39.600</span></div>
+<div class="qr" role="img" aria-label="Kode QRIS"></div>
+<p class="muted" style="text-align:center">Berlaku 04:59</p>
+<button type="button">Saya sudah bayar</button>
+</div></div></body></html>
+"#;
 
 /// Knowledge contoh (M8) di KSR: dokumen terbaru, satu basi, usulan AI (perubahan + dokumen baru),
 /// pemilik knowledge, dan satu dokumen workspace. Dilewati bila project sudah punya dokumen.

@@ -70,29 +70,34 @@ fn symbol_base(p: &ProjectPaths) -> String {
     format!("{}/symbol", p.graph)
 }
 
-/// Tab Cari simbol / Status index / Viewer (M10, segera).
+/// Tab Cari simbol / Status index / Viewer (M10).
 fn graph_tabs(p: &ProjectPaths, current: &str) -> Vec<NavItem> {
     let mut search = NavItem::link("search", "graph-tab-search", "search", &p.graph);
     search.current = current == "search";
     let mut index = NavItem::link("index", "graph-tab-index", "database", &p.graph_index);
     index.current = current == "index";
-    vec![
-        search,
-        index,
-        NavItem::soon("viewer", "graph-tab-viewer", "topology-star-3"),
-    ]
+    vec![search, index, {
+        let mut viewer = NavItem::link(
+            "viewer",
+            "graph-tab-viewer",
+            "topology-star-3",
+            &format!("{}/viewer", p.graph),
+        );
+        viewer.current = current == "viewer";
+        viewer
+    }]
 }
 
 /// Data bersama semua halaman graph.
-struct Base {
-    paths: ProjectPaths,
-    repos: Vec<repos::Model>,
-    rows: Vec<graph_repos::Model>,
-    can_edit: bool,
+pub(super) struct Base {
+    pub(super) paths: ProjectPaths,
+    pub(super) repos: Vec<repos::Model>,
+    pub(super) rows: Vec<graph_repos::Model>,
+    pub(super) can_edit: bool,
 }
 
 impl Base {
-    async fn load(ctx: &AppContext, access: &ProjectAccess) -> Result<Self> {
+    pub(super) async fn load(ctx: &AppContext, access: &ProjectAccess) -> Result<Self> {
         let wid = access.tenant.workspace_id();
         Ok(Self {
             paths: paths(access),
@@ -113,7 +118,7 @@ impl Base {
             .collect()
     }
 
-    fn indexed(&self) -> bool {
+    pub(super) fn indexed(&self) -> bool {
         self.rows.iter().any(|r| r.indexed_at.is_some())
     }
 
@@ -151,7 +156,7 @@ impl Base {
     }
 }
 
-async fn render(
+pub(super) async fn render(
     ctx: &AppContext,
     v: &TeraView,
     access: &ProjectAccess,
@@ -773,6 +778,10 @@ pub fn routes() -> Routes {
     Routes::new()
         .add("/w/{slug}/p/{key}/graph", get(search))
         .add("/w/{slug}/p/{key}/graph/symbol/{id}", get(symbol))
+        .add(
+            "/w/{slug}/p/{key}/graph/viewer",
+            get(super::graph_viewer::page),
+        )
         .add("/w/{slug}/p/{key}/graph/index", get(index_root))
         .add("/w/{slug}/p/{key}/graph/index/{panel}", get(index_panel))
         .add("/w/{slug}/p/{key}/graph/reindex", post(reindex))

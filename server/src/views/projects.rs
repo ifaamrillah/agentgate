@@ -79,6 +79,8 @@ pub struct ProjectPaths {
     pub knowledge: String,
     /// Pengaturan project → Components (M9).
     pub components: String,
+    /// Pengaturan project → Penghemat token (M10).
+    pub tokens: String,
 }
 
 impl ProjectPaths {
@@ -107,6 +109,7 @@ impl ProjectPaths {
             graph_index: format!("{home}/graph/index"),
             knowledge: format!("{home}/knowledge"),
             components: format!("{home}/settings/components"),
+            tokens: format!("{home}/settings/tokens"),
             home,
         }
     }

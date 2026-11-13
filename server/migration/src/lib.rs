@@ -14,6 +14,7 @@ mod m20261117_000001_create_git_prs;
 mod m20261118_000001_create_code_graph;
 mod m20261119_000001_create_knowledge;
 mod m20261120_000001_create_planning;
+mod m20261121_000001_create_visual;
 
 pub struct Migrator;
 
@@ -34,6 +35,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20261118_000001_create_code_graph::Migration),
             Box::new(m20261119_000001_create_knowledge::Migration),
             Box::new(m20261120_000001_create_planning::Migration),
+            Box::new(m20261121_000001_create_visual::Migration),
             // inject-above (do not remove this comment)
         ]
     }

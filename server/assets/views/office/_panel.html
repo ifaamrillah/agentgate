@@ -1,0 +1,162 @@
+{#- Panel samping AI Office (dimuat bersama halaman, atau sendiri lewat HTMX
+    `GET /w/{slug}/office/panel?c=`). `panel.mode`:
+      overview  Perlu tindakan Anda, Runner, Aktivitas terbaru;
+      detail    satu karakter: status, tiket/stage/runner/progres, log job (bagian `#office-live`
+                dipolling 2 dtk selama karakter bekerja), aksi (Approve/Reject lewat endpoint stage
+                dengan `return_to` ke kantor), dan dialog Kustom karakter.
+    Variabel: panel (controllers::office::panel_data). -#}
+<div class="app-of-sp" data-office-panel="{{ panel.mode }}"{% if panel.mode == "detail" %} data-office-char="{{ panel.c.id }}"{% endif %}>
+{%- if panel.mode == "overview" %}
+  {% <card title={t(key="office-todo", lang="id")} description={t(key="office-todo-description", lang="id")} count={panel.todo | length ~ ""} link_label={t(key="action-see-all", lang="id")} link_href={panel.inbox_href} flush={true} attrs="data-office-todo"> %}
+  {%- if panel.todo %}
+  <div class="app-of-list">
+    {%- for x in panel.todo %}
+    <a class="app-of-todo" href="{{ panel.home }}?c={{ x.id }}" data-office-sel="{{ x.id }}">
+      {%- if x.bot %}<span class="app-pav" data-size="sm" style="--pc: {{ x.look.shirt }}" aria-hidden="true">{{ icon(name=x.icon) }}</span>{% endif %}
+      <span class="app-of-todo-m"><span class="app-of-todo-h"><code class="app-code">{{ x.tk }}</code>{{ <badge label={t(key=x.label_key, lang="id")} variant={x.variant}/> }}</span><span class="app-of-todo-t">{{ x.title }}</span></span>
+      {{ icon(name="chevron-right") }}
+    </a>
+    {%- endfor %}
+  </div>
+  {%- else %}
+  <p class="app-blk app-hint app-of-ok">{{ icon(name="circle-check") }}{{ t(key="office-todo-none", lang="id") }}</p>
+  {%- endif %}
+  {% </card> %}
+  {% <card title={t(key="office-runners", lang="id")} description={t(key="office-runners-online", lang="id", n=panel.runners_online, total=panel.runners | length)} link_label={t(key="office-runners-manage", lang="id")} link_href={panel.runner_href} flush={true} attrs="data-office-runners"> %}
+  {%- if panel.runners %}
+  <div class="app-of-list">
+    {%- for r in panel.runners %}
+    {%- if r.char_id %}<a class="app-of-run" href="{{ panel.home }}?c={{ r.char_id }}" data-office-sel="{{ r.char_id }}"{% if r.state == "offline" %} data-off{% endif %}>{% else %}<a class="app-of-run" href="{{ panel.runner_href }}"{% if r.state == "offline" %} data-off{% endif %}>{% endif %}
+      {%- if r.owner %}{{ <avatar initials={r.owner.initials} color={r.owner.color} size="md"/> }}{% endif %}
+      <span class="app-of-run-m"><span class="app-of-run-h">{{ <live_dot state={r.state}/> }}<b>{{ r.name }}</b><small>{{ r.client }}</small></span>
+        <small>{% if r.state == "offline" %}{{ t(key="office-runner-offline", lang="id") }}{% if r.last_seen %} · {{ t(key=r.last_seen.key, lang="id", n=r.last_seen.n) }}{% endif %}{% elif r.jobs %}{{ t(key="office-runner-jobs", lang="id", n=r.jobs | length) }} · {{ r.jobs | join(sep=", ") }}{% else %}{{ t(key="office-runner-idle", lang="id") }}{% endif %}</small></span>
+      {{ icon(name="chevron-right") }}
+    </a>
+    {%- endfor %}
+  </div>
+  {%- else %}
+  <p class="app-blk app-hint">{{ t(key="office-runners-none", lang="id") }}</p>
+  {%- endif %}
+  {% </card> %}
+  {% <card title={t(key="office-feed", lang="id")} description={t(key="office-feed-description", lang="id")} attrs="data-office-feed"> %}
+  {%- if panel.feed %}
+  <ul class="app-of-feed">
+    {%- for f in panel.feed %}
+    <li><span class="app-pav" data-size="sm" style="--pc: {{ f.persona.color }}" aria-hidden="true">{{ icon(name=f.persona.icon) }}</span><span>{{ t(key="job-agent", lang="id", persona=f.persona.name) }} {{ t(key=f.status_key, lang="id") }} <a class="app-code" href="{{ f.href }}">{{ f.code }}</a></span><small>{{ t(key=f.age.key, lang="id", n=f.age.n) }}</small></li>
+    {%- endfor %}
+  </ul>
+  {%- else %}
+  <p class="app-hint">{{ t(key="office-feed-none", lang="id") }}</p>
+  {%- endif %}
+  {% </card> %}
+{%- else %}
+  {%- set c = panel.c %}
+  <section class="app-card app-of-dcard" data-office-detail="{{ c.st }}">
+    <header class="app-card-h">
+      <div><h2>{% if c.bot %}{{ t(key="job-agent", lang="id", persona=c.name) }}{% else %}{{ c.name }}{% endif %}</h2><p>{% if c.bot %}{{ panel.summary }}{% else %}{{ t(key="office-human-sub", lang="id") }}{% endif %}</p></div>
+      <div class="app-card-a"><a class="btn" data-variant="ghost" data-size="icon" href="{{ panel.home }}" aria-label="{{ t(key="office-close-detail", lang="id") }}" title="{{ t(key="office-close-detail", lang="id") }}" data-office-sel="">{{ icon(name="x") }}</a></div>
+    </header>
+    <div class="app-of-db">
+      <div class="app-of-dh">
+        <canvas class="app-of-pv" width="104" height="116" aria-hidden="true" data-office-pv="{{ c.id }}"></canvas>
+        <div>{{ <badge label={t(key=c.label_key, lang="id")} variant={c.variant}/> }}<p class="app-hint">{% if c.room == "MEET" %}{{ t(key="office-room-meeting", lang="id") }}{% elif c.room == "PANTRY" %}{{ t(key="office-room-pantry", lang="id") }}{% else %}{{ panel.room_name }}{% endif %}{% if c.runner %} · {{ c.runner }}{% endif %}</p></div>
+      </div>
+      {%- if c.st == "decision" %}
+      <div class="alert" data-variant="destructive">{{ icon(name="alert-triangle") }}<span>{{ t(key="office-decision-note", lang="id", stage=panel.stage_name) }}{% if c.doing %} {{ c.doing }}{% endif %}</span></div>
+      {%- elif c.st == "review" and c.doing and not c.ticket_href %}
+      <div class="alert" data-variant="warn">{{ icon(name="hand-stop") }}<span>{{ t(key="office-permission-note", lang="id") }} <code class="app-code">{{ c.doing }}</code></span></div>
+      {%- elif c.st == "review" and panel.can_decide %}
+      <div class="alert" data-variant="warn">{{ icon(name="hand-stop") }}<span>{{ t(key="office-review-note", lang="id", stage=panel.stage_name) }}</span></div>
+      {%- elif c.st == "review" %}
+      <div class="alert" data-variant="warn">{{ icon(name="hand-stop") }}<span>{% if panel.live %}{{ t(key="office-permission-note", lang="id") }} <code class="app-code">{{ c.doing }}</code>{% else %}{{ t(key="office-review-other", lang="id", stage=panel.stage_name) }}{% endif %}</span></div>
+      {%- endif %}
+      <dl class="app-props">
+        {%- if c.tk %}
+        <dt>{{ t(key="office-ticket", lang="id") }}</dt><dd>{% if c.ticket_href %}<a class="app-code" href="{{ c.ticket_href }}">{{ c.tk }}</a>{% else %}<code class="app-code">{{ c.tk }}</code>{% endif %} {{ c.title }}</dd>
+        {%- if panel.stage_name %}<dt>{{ t(key="office-stage", lang="id") }}</dt><dd>{{ panel.stage_name }}</dd>{% endif %}
+        {%- elif not c.bot %}
+        <dt>{{ t(key="office-jobs", lang="id") }}</dt><dd>{% for j in c.jobs %}<code class="app-code">{{ j }}</code>{% if not loop.last %} {% endif %}{% else %}<span class="app-hint">–</span>{% endfor %}</dd>
+        {%- else %}
+        <dt>{{ t(key="office-ticket", lang="id") }}</dt><dd class="app-hint">{{ t(key="office-no-job", lang="id") }}</dd>
+        {%- endif %}
+        {%- if c.runner %}{% if c.st == "working" %}{% set ls = "busy" %}{% else %}{% set ls = "online" %}{% endif %}<dt>{{ t(key="job-runner", lang="id") }}</dt><dd>{{ <live_dot state={ls} label={c.runner}/> }}</dd>{% endif %}
+        {%- if c.since %}<dt>{{ t(key="office-since", lang="id") }}</dt><dd>{{ t(key=c.since.key, lang="id", n=c.since.n) }}</dd>{% endif %}
+      </dl>
+      <div id="office-live" data-office-live{% if panel.live %} hx-get="{{ panel.panel_href }}" hx-trigger="every 2s" hx-select="#office-live" hx-swap="outerMorph"{% endif %}>
+        {%- if c.steps > 0 %}
+        <div class="app-of-prog"><span>{{ t(key="office-progress", lang="id") }}</span><span class="app-bar"><i style="width: {{ c.percent }}%"></i></span><span class="app-num">{{ c.step }}/{{ c.steps }}</span></div>
+        {%- endif %}
+        {%- if c.job_href %}
+        <div class="app-of-logh">{{ icon(name="terminal-2") }}{{ t(key="office-log", lang="id") }}{% if panel.live %} {{ <badge label={t(key="office-live", lang="id")} variant="ai"/> }}{% endif %}</div>
+        {{ <log_view lines={panel.logs} live={panel.live} empty={t(key="job-log-empty", lang="id")} attrs="data-office-log"/> }}
+        {%- elif c.st == "idle" %}
+        {{ <empty_state title={t(key="office-idle-title", lang="id")} description={t(key="office-idle", lang="id")} icon="coffee" variant="plain"/> }}
+        {%- endif %}
+      </div>
+      <div class="app-of-links">
+        {%- if panel.can_customize %}<button type="button" class="app-of-link" data-dialog-open="office-look" data-office-custom>{{ icon(name="palette") }}{{ t(key="office-customize", lang="id") }}</button>{% endif %}
+        {%- if c.bot %}<a class="app-of-link" href="{{ panel.personas_href }}">{{ icon(name="robot") }}{{ t(key="office-persona-link", lang="id", persona=c.name) }}</a>{% endif %}
+      </div>
+    </div>
+    <footer class="app-of-acts">
+      {%- if c.st == "review" and panel.can_decide %}
+      <form method="post" action="{{ panel.approve }}" data-office-approve><input type="hidden" name="return_to" value="{{ panel.return_to }}">{{ <button label={t(key="office-approve", lang="id")} icon="check" type="submit"/> }}</form>
+      {{ <button label={t(key="office-reject", lang="id")} icon="x" variant="outline" dialog="office-reject"/> }}
+      {%- elif c.st == "decision" %}
+      {{ <button label={t(key="office-decide", lang="id")} icon="alert-triangle" href={c.ticket_href}/> }}
+      {%- elif c.st == "review" and panel.live %}
+      {{ <button label={t(key="office-answer", lang="id")} icon="hand-stop" href={c.job_href}/> }}
+      {%- elif c.job_href and c.st != "review" %}
+      {{ <button label={t(key="office-open-job", lang="id")} icon="terminal-2" variant="outline" href={c.job_href}/> }}
+      {%- elif not c.bot %}
+      {{ <button label={t(key="office-open-runner", lang="id")} icon="device-laptop" variant="outline" href={panel.runner_href}/> }}
+      {%- endif %}
+      {%- if c.ticket_href %}{{ <button label={t(key="office-open-ticket", lang="id")} icon="external-link" variant="ghost" href={c.ticket_href}/> }}{% endif %}
+    </footer>
+  </section>
+  {%- if c.st == "review" and panel.can_decide %}
+  {% <dialog id="office-reject" title={t(key="office-reject-title", lang="id", code=c.tk)} description={t(key="office-reject-description", lang="id")} icon="x" tone="danger"> %}
+  <form method="post" action="{{ panel.reject }}" data-office-reject>
+    <input type="hidden" name="return_to" value="{{ panel.return_to }}">
+    <section><div class="app-stack-v" data-gap="sm">
+      {{ <textarea_field id="office-reject-note" name="note" label={t(key="office-reject-note", lang="id")} rows={4} required={true} placeholder={t(key="office-reject-placeholder", lang="id")}/> }}
+    </div></section>
+    <footer>
+      <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+      {{ <button label={t(key="office-reject-send", lang="id")} type="submit" icon="x" variant="destructive"/> }}
+    </footer>
+  </form>
+  {% </dialog> %}
+  {%- endif %}
+  {%- if panel.can_customize %}
+  {% <dialog id="office-look" title={t(key="office-look-title", lang="id")} description={t(key="office-look-description", lang="id")} icon="palette" tone="accent" size="lg"> %}
+  <form method="post" action="{{ panel.look_action }}" data-office-look>
+    <input type="hidden" name="subject" value="{{ panel.subject }}">
+    <input type="hidden" name="key" value="{{ panel.subject_key }}">
+    <input type="hidden" name="c" value="{{ c.id }}">
+    <section><div class="app-of-look">
+      <div class="app-of-look-pv"><canvas width="400" height="440" aria-hidden="true" data-office-look-pv="{{ c.id }}"></canvas></div>
+      <div class="app-stack-v" data-gap="md">
+        {{ <field id="office-alias" name="alias" label={t(key="office-look-alias", lang="id")} value={c.look.alias} placeholder={c.short} maxlength="24" optional={t(key="field-optional", lang="id")} hint={t(key="office-look-alias-hint", lang="id")}/> }}
+        {{ <color_picker id="office-shirt" name="shirt" label={t(key="office-look-shirt", lang="id")} value={c.look.shirt}/> }}
+        <fieldset class="app-field"><legend class="app-label">{{ t(key="office-look-acc", lang="id") }}</legend>
+          <div class="app-of-chips" role="radiogroup">{% for a in panel.accs %}<label class="app-of-chip"><input type="radio" name="acc" value="{{ a.key }}"{% if a.on %} checked{% endif %} data-office-look-acc><span>{{ t(key=a.label_key, lang="id") }}</span></label>{% endfor %}</div>
+        </fieldset>
+        {%- if not c.bot %}
+        {{ <color_picker id="office-skin" name="skin" label={t(key="office-look-skin", lang="id")} value={c.look.skin}/> }}
+        {{ <color_picker id="office-hair" name="hair" label={t(key="office-look-hair", lang="id")} value={c.look.hair}/> }}
+        <fieldset class="app-field"><legend class="app-label">{{ t(key="office-look-style", lang="id") }}</legend>
+          <div class="app-of-chips" role="radiogroup">{% for a in panel.styles %}<label class="app-of-chip"><input type="radio" name="style" value="{{ a.key }}"{% if a.on %} checked{% endif %} data-office-look-style><span>{{ t(key=a.label_key, lang="id") }}</span></label>{% endfor %}</div>
+        </fieldset>
+        {%- endif %}
+      </div>
+    </div></section>
+    <footer>
+      <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+      {{ <button label={t(key="office-look-save", lang="id")} type="submit" icon="check"/> }}
+    </footer>
+  </form>
+  {% </dialog> %}
+  {%- endif %}
+{%- endif %}
+</div>

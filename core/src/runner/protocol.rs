@@ -353,7 +353,48 @@ pub struct FinishReport {
     /// Kuota habis: waktu reset (RFC 3339), bila client menyebutkannya.
     #[serde(default)]
     pub quota_reset_at: Option<String>,
+    /// Rincian pemakaian token dari client (M10, halaman Penghemat token).
+    #[serde(default)]
+    pub usage: Option<TokenUsage>,
+    /// File yang diubah job per repo (git diff base…HEAD), untuk sorot tiket di graph viewer.
+    #[serde(default)]
+    pub changed_files: Vec<ChangedFile>,
 }
+
+/// Pemakaian token satu job seperti dilaporkan client (Claude Code `result.usage`).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TokenUsage {
+    #[serde(default)]
+    pub input: u64,
+    #[serde(default)]
+    pub output: u64,
+    #[serde(default)]
+    pub cache_read: u64,
+    #[serde(default)]
+    pub cache_write: u64,
+}
+
+impl TokenUsage {
+    /// Total semua jenis token.
+    #[must_use]
+    pub fn total(&self) -> u64 {
+        self.input
+            .saturating_add(self.output)
+            .saturating_add(self.cache_read)
+            .saturating_add(self.cache_write)
+    }
+}
+
+/// Satu file yang diubah job.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ChangedFile {
+    /// Nama repo project (sama dengan [`JobSpec::repos`]).
+    pub repo: String,
+    pub path: String,
+}
+
+/// Batas jumlah file yang dilaporkan per job (sisanya dibuang runner).
+pub const CHANGED_FILES_MAX: usize = 2000;
 
 /// `POST /api/runner/jobs/{id}/pull-request`: branch tiket sudah di-push; server membuka PR
 /// lewat provider git (atau mengembalikan PR terbuka untuk branch itu).

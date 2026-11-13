@@ -182,6 +182,12 @@ pub enum AuditAction {
     /// PR di-merge Agent Gate (mode merge otomatis).
     #[sea_orm(string_value = "pull_request.merged")]
     PullRequestMerged,
+    /// Toggle penghemat token project diubah (M10).
+    #[sea_orm(string_value = "project.token_saver_updated")]
+    ProjectTokenSaverUpdated,
+    /// Tampilan karakter AI Office diubah (M10).
+    #[sea_orm(string_value = "office.look_updated")]
+    OfficeLookUpdated,
 }
 
 /// Kelompok aksi untuk filter halaman audit: awalan `<subjek>` dari aksi, kecuali jabatan
@@ -300,7 +306,8 @@ impl AuditAction {
             | Self::RunnerRevoked
             | Self::JobCancelled
             | Self::JobPermissionDecided => AuditGroup::Agent,
-            Self::ProjectGitUpdated => AuditGroup::Project,
+            Self::ProjectGitUpdated | Self::ProjectTokenSaverUpdated => AuditGroup::Project,
+            Self::OfficeLookUpdated => AuditGroup::Agent,
         }
     }
 }

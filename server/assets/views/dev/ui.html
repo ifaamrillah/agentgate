@@ -238,6 +238,20 @@
   </div>
   <div class="app-blk"><p class="app-jql-err">{{ icon(name="alert-circle") }}<span>Field “warna” tidak dikenal. Coba: project, stage, status, assignee, type, sprint.</span></p></div>
 {% </card> %}
+{% <card title="Visual (M10)" description="app-tk-feat: baris fitur penghemat token (wajib/opsional, hemat 30 hari, switch). app-mk-frame: bingkai peramban pratinjau mockup. app-of-*: label karakter (biasa, izin, keputusan, terpilih), label ruangan, ringkasan status, chip pilihan Kustom karakter di AI Office." flush={true} attrs="data-catalog-visual"> %}
+  <div class="app-tk-feat"><div><b>Code graph</b><small>Potongan simbol, bukan file utuh.</small></div><span data-col="kind"><span class="badge" data-variant="neutral">{{ icon(name="lock") }}Wajib</span></span><span data-col="saved">Hemat 30 hari <b class="app-num">412 rb</b></span><span><input type="checkbox" class="app-switch" role="switch" checked disabled aria-label="Code graph selalu aktif"></span></div>
+  <div class="app-tk-feat"><div><b>Gaya ringkas</b><small>Chat dan log ringkas; artifact tetap lengkap.</small></div><span data-col="kind">{{ <badge label="Opsional" variant="outline"/> }}</span><span data-col="saved"><span class="app-hint">Tidak terukur</span></span><span><input type="checkbox" class="app-switch" role="switch" checked aria-label="Gaya ringkas"></span></div>
+  <div class="app-blk"><div class="app-mk-frame"><div class="app-mk-bar"><span class="app-mk-dots"><i></i><i></i><i></i></span><span class="app-mk-url">{{ icon(name="lock") }}<span>preview.agentgate.test/checkout-qris.html</span></span></div><div class="app-mk-shot" style="min-height: 96px"><span class="app-hint">iframe sandbox di domain pratinjau</span></div></div></div>
+  <div class="app-blk"><div class="app-lrow" data-wrap>
+    <span class="app-of-lb" style="position: static"><span><i class="d" style="background: #5b5bd6"></i><span class="nm">Developer</span></span></span>
+    <span class="app-of-lb warn" style="position: static"><span><i class="d" style="background: #e3962b"></i><span class="nm">QA</span><span class="k">{{ icon(name="hand-stop") }}KSR-13</span></span></span>
+    <span class="app-of-lb dng" style="position: static"><span><i class="d" style="background: #e5484d"></i><span class="nm">Architect</span><span class="k">{{ icon(name="alert-triangle") }}KSR-12</span></span></span>
+    <span class="app-of-lb sel" style="position: static"><span><i class="d" style="background: #a1a7b5"></i><span class="nm">Analyst</span></span></span>
+    <span class="app-of-rl" style="position: static"><b><i style="background: #f59e0b"></i>Kasir Online</b><small>2 agent · 1 perlu tindakan</small></span>
+  </div></div>
+  <div class="app-blk"><div class="app-of-card app-of-sum" style="display: inline-flex"><span><i style="background: #5b5bd6"></i><b>3</b>bekerja</span><span><i style="background: #e3962b"></i><b>1</b>butuh approval</span><span><i style="background: #e5484d"></i><b>1</b>butuh keputusan</span></div></div>
+  <div class="app-blk"><div class="app-of-chips" role="radiogroup" aria-label="Aksesori">{% for a in ["Tidak ada", "Headset", "Kacamata", "Topi"] %}<label class="app-of-chip"><input type="radio" name="catalog-acc"{% if loop.first %} checked{% endif %}><span>{{ a }}</span></label>{% endfor %}</div></div>
+{% </card> %}
 </div>
 
 <div id="editor">

@@ -28,6 +28,9 @@ const PREFIXES: &[&str] = &[
     // Halaman undangan dibuka sebelum login; token di path (M1 Task 11).
     "/invitations",
     "/static",
+    // Pratinjau mockup (M10): hanya terjangkau di host pratinjau (layer `preview_host`), token
+    // bertanda tangan di path, tanpa sesi.
+    "/preview",
     // Katalog UI, hanya ada di build debug (development/test).
     "/_dev",
 ];

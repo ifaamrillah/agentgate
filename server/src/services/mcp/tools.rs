@@ -8,6 +8,7 @@ use serde_json::{Value, json};
 use uuid::Uuid;
 
 use super::{Session, ToolError};
+use crate::models::token_savings::SavingFeature;
 
 #[path = "graph_tools.rs"]
 mod graph;
@@ -477,7 +478,9 @@ async fn context(db: &DatabaseConnection, s: &Session, a: &Args) -> Result<Value
         .and_then(|st| st.persona.clone())
         .unwrap_or_default();
     let gates = stages::current_gates(db, wid, &ticket, &flow).await?;
-    let artifacts = artifact_list(db, s, &ticket).await?;
+    let (artifacts, artifact_bytes) = artifact_list(db, s, &ticket).await?;
+    let saver = crate::services::tokens::TokenSaver::of(&project);
+    let mut skill_bytes = 0_i64;
     let mut persona_json = Value::Null;
     if let Some(key) = stage.as_ref().and_then(|st| st.persona.clone())
         && let Some(p) = personas::Model::resolve(db, wid, &key).await?
@@ -491,13 +494,18 @@ async fn context(db: &DatabaseConnection, s: &Session, a: &Args) -> Result<Value
                 continue;
             }
             let mut skill = json!({ "name": pack.name, "description": pack.description, "version": pack.version });
+            let files = skill_files::Model::of_pack(db, pack.id).await?;
             if a.include.iter().any(|i| i == "skills") {
-                let files: Vec<Value> = skill_files::Model::of_pack(db, pack.id)
-                    .await?
+                let files: Vec<Value> = files
                     .into_iter()
                     .map(|f| json!({ "path": f.path, "body": f.body }))
                     .collect();
                 skill["files"] = json!(files);
+            } else {
+                skill_bytes += files
+                    .iter()
+                    .map(|f| i64::try_from(f.body.len()).unwrap_or(0))
+                    .sum::<i64>();
             }
             skills.push(skill);
         }
@@ -505,7 +513,8 @@ async fn context(db: &DatabaseConnection, s: &Session, a: &Args) -> Result<Value
             "key": p.key,
             "name": p.name,
             "instructions": p.instructions,
-            "concise": p.concise,
+            // Gaya ringkas bisa dimatikan per project (Penghemat token).
+            "concise": p.concise && saver.concise,
             "mcp_tools": p.mcp_tools,
             "client_tools": p.client_tools,
             "skills": skills,
@@ -518,7 +527,15 @@ async fn context(db: &DatabaseConnection, s: &Session, a: &Args) -> Result<Value
         .filter(|st| st.key != ticket.stage_key)
         .map(|st| json!({ "key": st.key, "name": st.name, "category": st.category }))
         .collect();
-    Ok(json!({
+    // Aturan lewat MCP: instruksi stage lain tidak dikirim.
+    let other_rules: i64 = flow
+        .current
+        .stages
+        .iter()
+        .filter(|st| st.key != ticket.stage_key)
+        .map(|st| i64::try_from(st.prompt.len() + st.output_template.len()).unwrap_or(0))
+        .sum();
+    let res = json!({
         "ticket": summary(&ticket, &project),
         "workflow": flow.workflow.name,
         "stage": stage.map(|st| json!({
@@ -537,7 +554,70 @@ async fn context(db: &DatabaseConnection, s: &Session, a: &Args) -> Result<Value
         "stages": next,
         "code_graph": graph::context_section(db, s, &project).await?,
         "knowledge": knowledge::context_section(db, s, &project, &stage_persona).await?,
-    }))
+    });
+    note_saving(
+        db,
+        s,
+        &ticket,
+        SavingFeature::McpRules,
+        "ag_context",
+        other_rules,
+        &Value::Null,
+    )
+    .await;
+    note_saving(
+        db,
+        s,
+        &ticket,
+        SavingFeature::Layered,
+        "ag_context",
+        skill_bytes,
+        &Value::Null,
+    )
+    .await;
+    note_saving(
+        db,
+        s,
+        &ticket,
+        SavingFeature::Handoff,
+        "ag_context",
+        artifact_bytes,
+        &Value::Null,
+    )
+    .await;
+    Ok(res)
+}
+
+/// Catat penghematan (byte tidak dikirim − ukuran respons) untuk tiket; gagal hanya dicatat log,
+/// tidak pernah menggagalkan tool.
+async fn note_saving(
+    db: &DatabaseConnection,
+    s: &Session,
+    ticket: &tickets::Model,
+    feature: SavingFeature,
+    tool: &str,
+    withheld: i64,
+    response: &Value,
+) {
+    let sent = if response.is_null() {
+        0
+    } else {
+        i64::try_from(response.to_string().len()).unwrap_or(0)
+    };
+    if let Err(e) = crate::services::tokens::record(
+        db,
+        s.workspace.workspace_id(),
+        ticket.project_id,
+        Some(ticket.id),
+        s.user.id,
+        feature,
+        tool,
+        withheld - sent,
+    )
+    .await
+    {
+        tracing::warn!(error = %e, tool, "gagal mencatat penghematan token");
+    }
 }
 
 fn summary(t: &tickets::Model, project: &projects::Model) -> Value {
@@ -660,15 +740,20 @@ async fn draft_tickets(db: &DatabaseConnection, s: &Session, a: &Args) -> Result
     }))
 }
 
+/// Daftar artifact (tanpa isi) + total byte isi versi terbaru yang tidak dikirim.
 async fn artifact_list(
     db: &DatabaseConnection,
     s: &Session,
     ticket: &tickets::Model,
-) -> Result<Vec<Value>, ToolError> {
+) -> Result<(Vec<Value>, i64), ToolError> {
     let wid = s.workspace.workspace_id();
     let mut out = Vec::new();
+    let mut withheld = 0_i64;
     for art in ticket_artifacts::Model::of_ticket(db, wid, ticket.id).await? {
         let latest = artifact_versions::Model::latest(db, wid, art.id).await?;
+        withheld += latest
+            .as_ref()
+            .map_or(0, |v| i64::try_from(v.body.len()).unwrap_or(0));
         out.push(json!({
             "name": art.name,
             "stage": art.stage_key,
@@ -676,13 +761,25 @@ async fn artifact_list(
             "status": latest.map(|v| v.status),
         }));
     }
-    Ok(out)
+    Ok((out, withheld))
 }
 
 async fn artifact_get(db: &DatabaseConnection, s: &Session, a: &Args) -> Result<Value, ToolError> {
     let (ticket, _) = find_ticket(db, s, a.ticket.trim()).await?;
     if a.name.trim().is_empty() {
-        return Ok(json!({ "artifacts": artifact_list(db, s, &ticket).await? }));
+        let (list, withheld) = artifact_list(db, s, &ticket).await?;
+        let res = json!({ "artifacts": list });
+        note_saving(
+            db,
+            s,
+            &ticket,
+            SavingFeature::Layered,
+            "ag_artifact",
+            withheld,
+            &res,
+        )
+        .await;
+        return Ok(res);
     }
     let wid = s.workspace.workspace_id();
     let art = ticket_artifacts::Model::find_named(db, wid, ticket.id, &a.name)

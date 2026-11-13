@@ -307,6 +307,30 @@ async fn done(
 pub struct NoteForm {
     #[serde(default)]
     note: String,
+    /// Halaman asal (mis. pratinjau mockup, AI Office) untuk redirect setelah sukses; hanya path
+    /// di workspace yang sama.
+    #[serde(default)]
+    return_to: String,
+}
+
+/// `return_to` aman: path lokal di workspace ini, bukan URL lain.
+#[must_use]
+pub fn safe_return(slug: &str, to: &str) -> bool {
+    to.starts_with(&format!("/w/{slug}/"))
+        && !to.contains("//")
+        && !to.contains('\\')
+        && !to.chars().any(char::is_control)
+}
+
+/// Ganti tujuan redirect sukses dengan `return_to` yang aman.
+fn back(mut res: Response, slug: &str, to: &str) -> Response {
+    if res.status() == axum::http::StatusCode::SEE_OTHER
+        && safe_return(slug, to)
+        && let Ok(v) = axum::http::HeaderValue::from_str(to)
+    {
+        res.headers_mut().insert(axum::http::header::LOCATION, v);
+    }
+    res
 }
 
 #[debug_handler]
@@ -359,7 +383,12 @@ pub(super) async fn approve(
             tracing::warn!(error = %e, "auto merge after approve failed");
         }
     }
-    done(&ctx, &access, session, r, "", &v, FLASH_APPROVED).await
+    let res = done(&ctx, &access, session, r, "", &v, FLASH_APPROVED).await?;
+    Ok(back(
+        res,
+        &access.access.tenant.workspace.slug,
+        &form.return_to,
+    ))
 }
 
 #[debug_handler]
@@ -378,7 +407,7 @@ pub(super) async fn reject(
         &form.note,
     )
     .await;
-    done(
+    let res = done(
         &ctx,
         &access,
         session,
@@ -387,7 +416,12 @@ pub(super) async fn reject(
         &v,
         FLASH_REJECTED,
     )
-    .await
+    .await?;
+    Ok(back(
+        res,
+        &access.access.tenant.workspace.slug,
+        &form.return_to,
+    ))
 }
 
 #[derive(Debug, Deserialize)]

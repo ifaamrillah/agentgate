@@ -2,4 +2,5 @@
 pub mod csrf;
 pub mod gate;
 pub mod html_errors;
+pub mod preview_host;
 pub mod request_log;

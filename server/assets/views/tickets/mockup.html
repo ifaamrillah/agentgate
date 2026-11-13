@@ -1,0 +1,102 @@
+{#- Tiket → Pratinjau mockup HTML (M10). Iframe `sandbox="allow-scripts"` ke domain pratinjau
+    terpisah (token bertanda tangan 1 jam, tanpa cookie aplikasi), Web/Mobile, versi, screenshot
+    evidence tiket, tab "Bandingkan dengan QA" (mockup vs screenshot QA terbaru), dan kartu samping
+    Approve/Minta revisi bila stage artifact sedang menunggu review (form ke endpoint stage,
+    `return_to` kembali ke halaman ini). Prototype: "Pratinjau mockup HTML" di screens-m7-m8-m10.js.
+    Variabel: lihat controllers::tickets::artifact::mockup. -#}
+{% extends "tickets/_layout.html" %}
+{% block page_attrs %}data-mockup-page="{{ tab }}"{% endblock page_attrs %}
+{% block main %}
+{{ <tabs label={t(key="ticket-tabs", lang="id")} items={tabs}/> }}
+<div class="app-mk-head">
+  <a class="app-mk-back" href="{{ artifacts_href }}">{{ icon(name="arrow-left") }}{{ t(key="mockup-back", lang="id") }}</a>
+  {{ <tabs label={t(key="mockup-modes", lang="id")} items={mockup_tabs}/> }}
+</div>
+<div class="app-mk">
+  <section class="app-card app-mk-main">
+    <div class="app-mk-tool">
+      {%- if tab == "compare" %}
+      <span class="app-hint app-mk-note">{{ icon(name="device-mobile") }}{{ t(key="mockup-compare-width", lang="id") }}</span>
+      {%- else %}
+      <nav class="app-seg" aria-label="{{ t(key="mockup-device", lang="id") }}">
+        <a href="{{ web_href }}"{% if dev == "web" %} aria-current="true"{% endif %} data-dev="web">{{ icon(name="device-desktop") }}{{ t(key="mockup-web", lang="id") }}</a>
+        <a href="{{ mobile_href }}"{% if dev == "mobile" %} aria-current="true"{% endif %} data-dev="mobile">{{ icon(name="device-mobile") }}{{ t(key="mockup-mobile", lang="id") }}</a>
+      </nav>
+      {%- endif %}
+      <nav class="app-seg" aria-label="{{ t(key="artifact-versions", lang="id") }}">
+        {%- for x in versions | reverse %}<a href="{{ x.href }}"{% if x.current %} aria-current="true"{% endif %} data-version="{{ x.number }}">v{{ x.number }}{% if x.latest %} · {{ t(key="mockup-latest", lang="id") }}{% endif %}</a>{% endfor %}
+      </nav>
+      <span class="app-grow"></span>
+      <a class="btn" data-variant="ghost" data-size="icon" href="{{ frame_src }}" target="_blank" rel="noopener noreferrer" aria-label="{{ t(key="mockup-new-tab", lang="id") }}" title="{{ t(key="mockup-new-tab", lang="id") }}" data-mockup-newtab>{{ icon(name="external-link") }}</a>
+    </div>
+    <div class="app-mk-stage">
+    {%- if tab == "compare" %}
+      <div class="alert" data-variant="neutral">{{ icon(name="info-circle") }}<span>{{ t(key="mockup-compare-hint", lang="id") }}</span></div>
+      <div class="app-mk-cmp">
+        <div><div class="app-mk-cap">{{ icon(name="layout-sidebar") }}{{ t(key="mockup-reference", lang="id", v=shown.number) }}</div>
+          <div class="app-mk-frame" data-dev="mobile">
+            <div class="app-mk-bar"><span class="app-mk-dots"><i></i><i></i><i></i></span><span class="app-mk-url">{{ icon(name="lock") }}<span>{{ preview_host }}</span></span></div>
+            <iframe title="{{ t(key="mockup-frame-title", lang="id", name=artifact.name, v=shown.number) }}" src="{{ frame_src }}" sandbox="allow-scripts" referrerpolicy="no-referrer" loading="lazy" data-mockup-frame></iframe>
+          </div>
+        </div>
+        <div><div class="app-mk-cap">{{ icon(name="test-pipe") }}{% if qa_shot %}{{ t(key="mockup-qa-shot", lang="id", name=qa_shot.name, at=qa_shot.at) }}{% else %}{{ t(key="mockup-qa-none-title", lang="id") }}{% endif %}</div>
+          <div class="app-mk-frame" data-dev="mobile">
+            <div class="app-mk-bar"><span class="app-mk-dots"><i></i><i></i><i></i></span><span class="app-mk-url">{{ icon(name="photo") }}<span>{% if qa_shot %}{{ qa_shot.name }}{% else %}–{% endif %}</span></span></div>
+            {%- if qa_shot %}<a href="{{ qa_shot.href }}" class="app-mk-shot"><img src="{{ qa_shot.href }}" alt="{{ qa_shot.name }}" loading="lazy"></a>
+            {%- else %}<div class="app-mk-shot">{{ <empty_state title={t(key="mockup-qa-none-title", lang="id")} description={t(key="mockup-qa-none", lang="id")} icon="photo" variant="plain"/> }}</div>{% endif %}
+          </div>
+        </div>
+      </div>
+    {%- else %}
+      <div class="app-mk-frame" data-dev="{{ dev }}">
+        <div class="app-mk-bar"><span class="app-mk-dots"><i></i><i></i><i></i></span><span class="app-mk-url">{{ icon(name="lock") }}<span>{{ preview_host }}/{{ artifact.name }}</span></span>{% if dev == "web" %}{{ <badge label={t(key="mockup-sandbox", lang="id")} variant="neutral"/> }}{% endif %}</div>
+        <iframe title="{{ t(key="mockup-frame-title", lang="id", name=artifact.name, v=shown.number) }}" src="{{ frame_src }}" sandbox="allow-scripts" referrerpolicy="no-referrer" data-mockup-frame></iframe>
+      </div>
+      <div class="app-mk-shots">
+        <div class="app-mk-cap">{{ icon(name="photo") }}{{ t(key="mockup-shots", lang="id") }}</div>
+        {%- if shots %}
+        <div class="app-mk-thumbs">
+          {%- for s in shots %}<a class="app-mk-th" href="{{ s.href }}" data-shot><img src="{{ s.href }}" alt="{{ s.name }}" loading="lazy"><span>{{ s.name }} · {{ s.at }}</span></a>{% endfor %}
+        </div>
+        {%- else %}<p class="app-hint">{{ t(key="mockup-shots-none", lang="id") }}</p>{% endif %}
+      </div>
+    {%- endif %}
+    </div>
+  </section>
+  <aside class="app-mk-side" aria-label="{{ t(key="mockup-info", lang="id") }}">
+    <section class="app-card" data-mockup-card>
+      <header class="app-card-h">
+        <div><h2>{{ t(key="mockup-version", lang="id", v=shown.number) }}</h2><p>{% if shown.author %}{{ shown.author.name }} · {% endif %}{{ shown.at }}</p></div>
+        <div class="app-card-a">{{ <badge label={t(key=shown.status_key, lang="id")} variant={shown.variant}/> }}</div>
+      </header>
+      <div class="app-mk-sb">
+        <div class="alert" data-variant="neutral">{{ icon(name="shield-lock") }}<span>{{ t(key="mockup-sandbox-note", lang="id", host=preview_host) }}</span></div>
+        <div class="app-mk-kv"><span>{{ t(key="mockup-artifact", lang="id") }}</span><b class="app-code">{{ artifact.name }}</b></div>
+        <div class="app-mk-kv"><span>{{ t(key="mockup-stage", lang="id") }}</span><b>{{ artifact.stage }}</b></div>
+        {%- if shown.note %}{{ <flash kind="neutral" title={t(key="artifact-decision-note", lang="id")} message={shown.note}/> }}{% endif %}
+        {%- if not in_review %}<p class="app-hint">{{ t(key="mockup-not-in-review", lang="id") }}</p>{% endif %}
+      </div>
+      {%- if in_review and stage.can_decide %}
+      <footer class="app-mk-foot">
+        {{ <button label={t(key="mockup-revise", lang="id")} icon="pencil" variant="outline" dialog="mockup-revise"/> }}
+        <form method="post" action="{{ paths.approve }}"><input type="hidden" name="return_to" value="{{ return_to }}">{{ <button label={t(key="mockup-approve", lang="id")} icon="check" type="submit" attrs="data-mockup-approve"/> }}</form>
+      </footer>
+      {%- endif %}
+    </section>
+  </aside>
+</div>
+{%- if in_review and stage.can_decide %}
+{% <dialog id="mockup-revise" title={t(key="mockup-revise-title", lang="id")} description={t(key="mockup-revise-description", lang="id")} icon="pencil" tone="accent"> %}
+<form method="post" action="{{ paths.reject }}" data-mockup-revise>
+  <input type="hidden" name="return_to" value="{{ return_to }}">
+  <section><div class="app-stack-v" data-gap="sm">
+    {{ <textarea_field id="mockup-note" name="note" label={t(key="mockup-revise-note", lang="id")} rows={4} required={true} placeholder={t(key="mockup-revise-placeholder", lang="id")}/> }}
+  </div></section>
+  <footer>
+    <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+    {{ <button label={t(key="mockup-revise-send", lang="id")} type="submit" icon="send"/> }}
+  </footer>
+</form>
+{% </dialog> %}
+{%- endif %}
+{% endblock main %}

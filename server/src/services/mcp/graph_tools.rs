@@ -8,9 +8,47 @@ use uuid::Uuid;
 
 use super::{Args, Session, ToolError, find_project, required};
 use crate::{
-    models::{graph_repos, permission::Permission, projects, repos},
-    services::graph::query::{self, Direction, SearchFilter, SymbolHit},
+    models::{graph_repos, permission::Permission, projects, repos, token_savings::SavingFeature},
+    services::{
+        graph::query::{self, Direction, SearchFilter, SymbolHit},
+        tokens,
+    },
 };
+
+/// Penghematan code graph: file utuh tempat simbol-simbol hasil berada (yang tanpa graph harus
+/// dibaca/di-grep AI) dikurangi ukuran respons. Gagal hanya dicatat log.
+async fn note_saving(
+    db: &DatabaseConnection,
+    s: &Session,
+    project: &projects::Model,
+    tool: &str,
+    ids: &[Uuid],
+    response: &Value,
+) {
+    let wid = s.workspace.workspace_id();
+    let sent = i64::try_from(response.to_string().len()).unwrap_or(0);
+    let res = async {
+        let bytes = tokens::file_bytes_of_symbols(db, wid, ids).await?;
+        tokens::record(
+            db,
+            wid,
+            project.id,
+            None,
+            s.user.id,
+            SavingFeature::CodeGraph,
+            tool,
+            bytes - sent,
+        )
+        .await
+    }
+    .await;
+    if let Err(e) = res {
+        tracing::warn!(error = %e, tool, "gagal mencatat penghematan token");
+    }
+}
+
+/// Berapa file teratas hasil cari/trace yang dianggap akan dibuka AI tanpa graph.
+const SAVING_TOP: usize = 5;
 
 /// Project tool: `project` atau satu-satunya project yang bisa Anda buka.
 pub(super) async fn project_of(
@@ -155,7 +193,7 @@ pub(super) async fn search(
         a.limit.unwrap_or(15).clamp(1, 50),
     )
     .await?;
-    Ok(json!({
+    let res = json!({
         "project": project.key,
         "results": hits.iter().map(SymbolHit::brief).collect::<Vec<_>>(),
         "knowledge": knowledge,
@@ -164,7 +202,10 @@ pub(super) async fn search(
         } else {
             "Pakai `id` di ag_trace, ag_snippet, atau ag_impact."
         },
-    }))
+    });
+    let ids: Vec<Uuid> = hits.iter().take(SAVING_TOP).map(|h| h.id).collect();
+    note_saving(db, s, &project, "ag_search", &ids, &res).await;
+    Ok(res)
 }
 
 pub(super) async fn trace(
@@ -195,7 +236,7 @@ pub(super) async fn trace(
         100,
     )
     .await?;
-    Ok(json!({
+    let res = json!({
         "symbol": start.brief(),
         "direction": dir,
         "results": hops.iter().map(|h| {
@@ -206,7 +247,13 @@ pub(super) async fn trace(
             v
         }).collect::<Vec<_>>(),
         "truncated": hops.len() >= 100,
-    }))
+    });
+    let ids: Vec<Uuid> = std::iter::once(start.id)
+        .chain(hops.iter().map(|h| h.symbol.id))
+        .take(SAVING_TOP * 2)
+        .collect();
+    note_saving(db, s, &project, "ag_trace", &ids, &res).await;
+    Ok(res)
 }
 
 pub(super) async fn snippet(
@@ -227,7 +274,7 @@ pub(super) async fn snippet(
     )
     .await?
     .ok_or_else(|| ToolError::new("Isi file tidak tersedia (file dilewati saat index)."))?;
-    Ok(json!({
+    let res = json!({
         "symbol": hit.brief(),
         "repo": snip.repo,
         "file": snip.path,
@@ -235,7 +282,9 @@ pub(super) async fn snippet(
         "lines": format!("{}-{}", snip.start, snip.end),
         "code": snip.code,
         "truncated": snip.truncated,
-    }))
+    });
+    note_saving(db, s, &project, "ag_snippet", &[hit.id], &res).await;
+    Ok(res)
 }
 
 pub(super) async fn impact(
@@ -254,7 +303,7 @@ pub(super) async fn impact(
         return Err(ToolError::new("Isi `symbol` atau `diff`."));
     };
     let report = query::impact(db, wid, project.id, changed, a.depth.unwrap_or(3)).await?;
-    Ok(json!({
+    let res = json!({
         "risk": report.risk,
         "changed": report.changed.iter().map(SymbolHit::brief).collect::<Vec<_>>(),
         "affected": report.affected.iter().take(60).map(|h| {
@@ -266,7 +315,16 @@ pub(super) async fn impact(
         "affected_total": report.affected.len(),
         "tests": report.tests.iter().map(SymbolHit::brief).collect::<Vec<_>>(),
         "other_repos": report.repos,
-    }))
+    });
+    let ids: Vec<Uuid> = report
+        .changed
+        .iter()
+        .map(|h| h.id)
+        .chain(report.affected.iter().map(|h| h.symbol.id))
+        .take(SAVING_TOP * 2)
+        .collect();
+    note_saving(db, s, &project, "ag_impact", &ids, &res).await;
+    Ok(res)
 }
 
 pub(super) async fn overview(

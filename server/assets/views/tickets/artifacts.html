@@ -33,6 +33,7 @@
     <div class="app-artifact-head">
       <div class="app-stage-title"><b class="app-code">{{ preview.name }}</b><small>{{ t(key="artifact-of-stage", lang="id", stage=preview.stage) }}</small></div>
       <div class="app-artifact-acts">
+        {%- if preview.mockup_href %}{{ <button label={t(key="mockup-open", lang="id")} icon="eye" size="sm" href={preview.mockup_href} attrs="data-open-mockup"/> }}{% endif %}
         {%- if preview.compare_href %}{{ <button label={t(key="artifact-compare", lang="id")} icon="arrows-diff" variant="outline" size="sm" href={preview.compare_href}/> }}{% endif %}
         {%- if can_edit %}{{ <button label={t(key="artifact-open-editor", lang="id")} icon="pencil" variant="outline" size="sm" href={preview.edit_href} attrs="data-open-editor"/> }}{% endif %}
       </div>

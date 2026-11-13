@@ -1,0 +1,81 @@
+{#- Pengaturan project → Penghemat token (M10, Admin project): subpage varian E dengan panel
+    Ringkasan (stats + tren 8 minggu), Fitur penghemat (wajib terkunci, opsional bisa dimatikan),
+    Per tiket (batang input/output/cache), Per job (tabel). Prototype: "Penghemat token" di
+    screens-m7-m8-m10.js. Variabel: project, paths, panel, subnav, action, personas_href, dan per
+    panel: stats, chart, top {key, value}, saved_total | features | tickets | jobs. -#}
+{% extends "layouts/settings.html" %}
+{% block title %}{{ t(key="tokens-title", lang="id") }} · {{ project.name }}{% endblock title %}
+{% block crumb_label %}{{ t(key="tokens-title", lang="id") }}{% endblock crumb_label %}
+{% block page_attrs %}data-tokens-page="{{ panel }}"{% endblock page_attrs %}
+{% block settings %}
+{% <subpage title={t(key="tokens-title", lang="id")} description={t(key="tokens-description", lang="id", project=project.name)} items={subnav}> %}
+{%- if panel == "ringkasan" %}
+{% <card title={t(key="tokens-panel-summary", lang="id")} description={t(key="tokens-summary-description", lang="id")} attrs="data-tokens-summary"> %}
+  <div class="app-stack-v">
+  {%- if top %}
+  <div class="alert" data-variant="success">{{ icon(name="topology-star-3") }}<span class="app-grow"><b>{{ t(key="tokens-top", lang="id", feature=t(key=top.key, lang="id")) }}</b> {{ t(key="tokens-top-detail", lang="id", value=top.value, total=saved_total) }}</span><a class="app-seeall" href="{{ action }}/fitur">{{ t(key="tokens-see-features", lang="id") }}{{ icon(name="arrow-right") }}</a></div>
+  {%- endif %}
+  {{ <stats items={stats}/> }}
+  {%- if chart %}
+  <div class="app-tk-ch">
+    <b>{{ t(key="tokens-week-title", lang="id") }}</b>
+    {{ chart | safe }}
+    <div class="app-leg"><span><i data-c="accent"></i>{{ t(key="tokens-legend-used", lang="id") }}</span><span><i data-c="accent" data-soft></i>{{ t(key="tokens-legend-saved", lang="id") }}</span></div>
+  </div>
+  {%- else %}
+  {{ <empty_state title={t(key="tokens-empty", lang="id")} description={t(key="tokens-empty-description", lang="id")} icon="chart-bar" variant="plain"/> }}
+  {%- endif %}
+  </div>
+{% </card> %}
+{%- elif panel == "fitur" %}
+{% <card title={t(key="tokens-panel-features", lang="id")} description={t(key="tokens-features-description", lang="id")} link_label={t(key="tokens-personas", lang="id")} link_href={personas_href} flush={true} form={action} cancel_href={action ~ "/fitur"} attrs="data-tokens-features"> %}
+  <div class="app-tk-note">{{ icon(name="info-circle") }}<span>{{ t(key="tokens-not-used", lang="id") }}</span></div>
+  {%- for f in features %}
+  <div class="app-tk-feat" data-feature="{{ f.key }}">
+    <div><b>{{ t(key=f.label_key, lang="id") }}</b><small>{{ t(key=f.desc_key, lang="id") }}</small></div>
+    <span data-col="kind">{% if f.required %}<span class="badge" data-variant="neutral">{{ icon(name="lock") }}{{ t(key="tokens-required", lang="id") }}</span>{% else %}{{ <badge label={t(key="tokens-optional", lang="id")} variant="outline"/> }}{% endif %}</span>
+    <span data-col="saved">{% if f.saved %}{{ t(key="tokens-saved-30", lang="id") }} <b class="app-num">{{ f.saved }}</b>{% else %}<span class="app-hint">{{ t(key="tokens-unmeasured", lang="id") }}</span>{% endif %}</span>
+    <span>{% if f.field %}<input type="checkbox" class="app-switch" role="switch" name="{{ f.field }}" value="1" aria-label="{{ t(key=f.label_key, lang="id") }}"{% if f.on %} checked{% endif %}>{% else %}<input type="checkbox" class="app-switch" role="switch" checked disabled aria-label="{{ t(key="tokens-required-on", lang="id", feature=t(key=f.label_key, lang="id")) }}" title="{{ t(key="tokens-required-on", lang="id", feature=t(key=f.label_key, lang="id")) }}">{% endif %}</span>
+  </div>
+  {%- endfor %}
+{% </card> %}
+{%- elif panel == "tiket" %}
+{% <card title={t(key="tokens-panel-tickets", lang="id")} description={t(key="tokens-tickets-description", lang="id")} attrs="data-tokens-tickets"> %}
+  {%- if tickets %}
+  <div class="app-leg" data-flush><span><i data-c="accent"></i>{{ t(key="tokens-input", lang="id") }}</span><span><i data-c="warn"></i>{{ t(key="tokens-output", lang="id") }}</span><span><i data-c="success"></i>{{ t(key="tokens-cache", lang="id") }}</span></div>
+  <div class="app-hbars" data-wide>
+  {%- for r in tickets %}
+    <div class="app-hbar" data-ticket="{{ r.code }}"><a href="{{ r.href }}" title="{{ r.title }}"><span class="app-code">{{ r.code }}</span> {{ r.title }}</a><div class="app-hbar-t" data-stack style="width: {{ r.width }}%" title="{{ t(key="tokens-ticket-tip", lang="id", code=r.code, input=r.input, output=r.output, cache=r.cache, cost=r.cost) }}"><i data-c="accent" style="width: {{ r.input_pct }}%"></i><i data-c="warn" style="width: {{ r.output_pct }}%"></i><i data-c="success" style="width: {{ r.cache_pct }}%"></i></div><span class="app-num">{{ r.total }}<small>{{ r.cost }}</small></span></div>
+  {%- endfor %}
+  </div>
+  {%- else %}
+  {{ <empty_state title={t(key="tokens-empty", lang="id")} description={t(key="tokens-empty-description", lang="id")} icon="ticket" variant="plain"/> }}
+  {%- endif %}
+{% </card> %}
+{%- else %}
+{% <card title={t(key="tokens-panel-jobs", lang="id")} description={t(key="tokens-jobs-description", lang="id")} count={jobs | length ~ ""} flush={true} attrs="data-tokens-jobs"> %}
+  {%- if jobs %}
+  <div class="table-container"><table class="table">
+    <thead><tr><th>{{ t(key="tokens-col-job", lang="id") }}</th><th>{{ t(key="tokens-col-ticket", lang="id") }}</th><th data-hide="sm">{{ t(key="tokens-col-client", lang="id") }}</th><th data-align="right">{{ t(key="tokens-input", lang="id") }}</th><th data-align="right" data-hide="sm">{{ t(key="tokens-output", lang="id") }}</th><th data-align="right" data-hide="sm">{{ t(key="tokens-cache", lang="id") }}</th><th data-align="right" data-hide="md">{{ t(key="tokens-col-saved", lang="id") }}</th><th data-align="right">{{ t(key="tokens-col-cost", lang="id") }}</th></tr></thead>
+    <tbody>
+    {%- for j in jobs %}
+    <tr data-job="{{ j.id }}">
+      <td><span class="app-who"><a class="app-code" href="{{ j.href }}">#{{ j.short_id }}</a>{% if j.running %}<span class="app-live" data-state="busy" title="{{ t(key="tokens-running", lang="id") }}"></span>{% elif j.failed %}{{ <badge label={t(key="tokens-failed", lang="id")} variant="destructive"/> }}{% endif %}</span></td>
+      <td>{% if j.code %}<a class="app-code" href="{{ j.ticket_href }}">{{ j.code }}</a>{% else %}<span class="app-hint">–</span>{% endif %}</td>
+      <td data-hide="sm"><span class="app-who"><span class="app-pav" data-size="sm" style="--pc: {{ j.persona.color }}" title="{{ j.persona.name }}" aria-hidden="true">{{ icon(name=j.persona.icon) }}</span><span class="app-hint">{{ j.client }}</span></span></td>
+      <td data-align="right"><span class="app-num">{{ j.input }}</span></td>
+      <td data-align="right" data-hide="sm"><span class="app-num">{{ j.output }}</span></td>
+      <td data-align="right" data-hide="sm"><span class="app-num">{{ j.cache }}</span></td>
+      <td data-align="right" data-hide="md"><span class="app-num">{{ j.saved }}</span></td>
+      <td data-align="right"><b class="app-num">{{ j.cost }}</b></td>
+    </tr>
+    {%- endfor %}
+    </tbody>
+  </table></div>
+  {%- else %}
+  {{ <empty_state title={t(key="tokens-empty", lang="id")} description={t(key="tokens-empty-description", lang="id")} icon="terminal-2" variant="plain"/> }}
+  {%- endif %}
+{% </card> %}
+{%- endif %}
+{% </subpage> %}
+{% endblock settings %}
