@@ -50,16 +50,7 @@ pub struct DraftInput {
     pub estimate: Option<DraftEstimate>,
 }
 
-/// Estimasi AI pada draft: jam per stage dan dasar estimasinya.
-#[derive(Debug, Clone, Default, PartialEq, serde::Deserialize, serde::Serialize)]
-pub struct DraftEstimate {
-    #[serde(default)]
-    pub stages: Vec<crate::models::ticket_estimates::StageHours>,
-    #[serde(default)]
-    pub basis: String,
-    #[serde(default)]
-    pub persona: String,
-}
+pub use crate::models::ticket_drafts::DraftEstimate;
 
 /// Isian ubah draft dari halaman review.
 #[derive(Debug, Clone, Default)]

@@ -8,9 +8,9 @@ use uuid::Uuid;
 use crate::{
     models::{
         sprints::{self, SprintState},
+        ticket_estimates::Latest,
         tickets,
     },
-    services::planning::{self, estimates::Latest},
     views::{
         tickets::{Lookup, TicketRow},
         ui::Stat,
@@ -224,18 +224,19 @@ fn pct(part: i32, whole: i32) -> u32 {
     }
 }
 
-/// Blok sprint.
+/// Blok sprint. `capacity` = kapasitas berlaku (diisi atau dari velocity), `workdays_left` = hari
+/// kerja tersisa dari `today`.
 #[must_use]
 pub fn sprint_block(
     sprint: &sprints::Model,
     rows: Vec<BacklogRow>,
-    avg_velocity: Option<f64>,
+    capacity: Option<i32>,
+    today: NaiveDate,
+    workdays_left: i64,
     base: &str,
 ) -> SprintBlock {
     let points: i32 = rows.iter().filter_map(|r| r.row.points).sum();
     let done_points: i32 = rows.iter().filter(|r| r.done).filter_map(|r| r.row.points).sum();
-    let capacity = planning::sprints::capacity(sprint, avg_velocity);
-    let today = planning::today();
     let state = match sprint.state() {
         SprintState::Planned => "planned",
         SprintState::Active => "active",
@@ -258,11 +259,7 @@ pub fn sprint_block(
         fill: capacity.map_or(0, |c| pct(points, c)),
         done_pct: pct(done_points, points),
         capacity,
-        workdays_left: if today > sprint.ends_on {
-            0
-        } else {
-            i64::try_from(planning::workdays(today.max(sprint.starts_on), sprint.ends_on).len()).unwrap_or(0)
-        },
+        workdays_left,
         days_left: (sprint.ends_on - today).num_days().max(0),
         rows,
         base: format!("{base}/{}", sprint.id),

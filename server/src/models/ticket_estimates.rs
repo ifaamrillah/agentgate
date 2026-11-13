@@ -87,3 +87,19 @@ impl Model {
             .await
     }
 }
+
+/// Estimasi terbaru per tiket: usulan AI terakhir dan estimasi yang berlaku (baris terakhir).
+#[derive(Debug, Clone, Default)]
+pub struct Latest {
+    pub ai: Option<Model>,
+    pub current: Option<Model>,
+}
+
+impl Latest {
+    /// Jam (AI, manusia) estimasi yang berlaku.
+    #[must_use]
+    pub fn hours(&self) -> Option<(f64, f64)> {
+        self.current.as_ref().map(Model::totals)
+    }
+}
+

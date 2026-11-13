@@ -134,7 +134,21 @@ async fn render(
             .cloned()
             .collect();
         let rows = pv::rows(&lookup, &mine, &stage_names, &estimates, &move_base);
-        let mut block = pv::sprint_block(s, rows, avg, &format!("{base}/sprints"));
+        let today = crate::services::planning::today();
+        let workdays_left = if today > s.ends_on {
+            0
+        } else {
+            i64::try_from(crate::services::planning::workdays(today.max(s.starts_on), s.ends_on).len())
+                .unwrap_or(0)
+        };
+        let mut block = pv::sprint_block(
+            s,
+            rows,
+            service::capacity(s, avg),
+            today,
+            workdays_left,
+            &format!("{base}/sprints"),
+        );
         // Angka kepala sprint dihitung dari semua tiketnya, bukan hanya yang lolos pencarian.
         let every: Vec<&tickets::Model> =
             all.iter().filter(|t| t.sprint_id == Some(s.id)).collect();

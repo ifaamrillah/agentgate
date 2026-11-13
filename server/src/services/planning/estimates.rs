@@ -179,20 +179,7 @@ pub async fn save(
     Ok(row)
 }
 
-/// Estimasi terbaru per tiket: usulan AI terakhir dan estimasi yang berlaku (baris terakhir).
-#[derive(Debug, Clone, Default)]
-pub struct Latest {
-    pub ai: Option<ticket_estimates::Model>,
-    pub current: Option<ticket_estimates::Model>,
-}
-
-impl Latest {
-    /// Jam (AI, manusia) estimasi yang berlaku.
-    #[must_use]
-    pub fn hours(&self) -> Option<(f64, f64)> {
-        self.current.as_ref().map(ticket_estimates::Model::totals)
-    }
-}
+pub use crate::models::ticket_estimates::Latest;
 
 /// Estimasi terbaru untuk tiket-tiket ini.
 ///

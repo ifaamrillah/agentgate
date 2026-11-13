@@ -21,11 +21,23 @@ impl TenantEntity for Entity {
 
 standard_behavior!(ActiveModel);
 
+/// Estimasi AI pada draft: jam per stage dan dasar estimasinya.
+#[derive(Debug, Clone, Default, PartialEq, serde::Deserialize, serde::Serialize)]
+pub struct DraftEstimate {
+    #[serde(default)]
+    pub stages: Vec<super::ticket_estimates::StageHours>,
+    #[serde(default)]
+    pub basis: String,
+    #[serde(default)]
+    pub persona: String,
+}
+
+
 impl Model {
     /// Estimasi AI draft (`None` = tanpa estimasi / tanpa jam per stage).
     #[must_use]
-    pub fn estimate(&self) -> Option<crate::services::drafts::DraftEstimate> {
-        serde_json::from_value::<crate::services::drafts::DraftEstimate>(self.estimate.clone())
+    pub fn estimate(&self) -> Option<DraftEstimate> {
+        serde_json::from_value::<DraftEstimate>(self.estimate.clone())
             .ok()
             .filter(|e| !e.stages.is_empty())
     }
