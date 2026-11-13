@@ -44,7 +44,12 @@ async fn rpc(request: &TestServer, token: &str, method: &str, params: Value) -> 
 }
 
 /// `tools/call`; kembalikan (isError, structuredContent atau teks).
-async fn call(request: &TestServer, token: &str, tool: &str, args: Value) -> (bool, Value) {
+pub(super) async fn call(
+    request: &TestServer,
+    token: &str,
+    tool: &str,
+    args: Value,
+) -> (bool, Value) {
     let (status, body) = rpc(
         request,
         token,

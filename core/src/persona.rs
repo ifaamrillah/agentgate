@@ -22,6 +22,20 @@ pub const MCP_TOOLS: &[&str] = &[
     "ag_transition",
     "ag_ask",
     "ag_comment",
+    "ag_search",
+    "ag_trace",
+    "ag_snippet",
+    "ag_impact",
+    "ag_graph",
+];
+
+/// Tool code graph (M7), dipakai semua persona bawaan yang menyentuh kode atau analisis.
+const GRAPH_TOOLS: [&str; 5] = [
+    "ag_search",
+    "ag_trace",
+    "ag_snippet",
+    "ag_impact",
+    "ag_graph",
 ];
 
 /// Tools client AI (kemampuan bawaan client) yang bisa diizinkan per persona.
@@ -177,6 +191,11 @@ const READ_TOOLS: &[&str] = &[
     "ag_artifact",
     "ag_comment",
     "ag_ask",
+    GRAPH_TOOLS[0],
+    GRAPH_TOOLS[1],
+    GRAPH_TOOLS[2],
+    GRAPH_TOOLS[3],
+    GRAPH_TOOLS[4],
 ];
 const WORK_TOOLS: &[&str] = &[
     "ag_context",
@@ -185,6 +204,11 @@ const WORK_TOOLS: &[&str] = &[
     "ag_transition",
     "ag_ask",
     "ag_comment",
+    GRAPH_TOOLS[0],
+    GRAPH_TOOLS[1],
+    GRAPH_TOOLS[2],
+    GRAPH_TOOLS[3],
+    GRAPH_TOOLS[4],
 ];
 
 /// 9 persona bawaan (tabel spec), warna dan ikon mengikuti prototype.
@@ -208,6 +232,9 @@ pub const BUILTINS: [Builtin; 9] = [
             "ag_artifact",
             "ag_ask",
             "ag_comment",
+            "ag_search",
+            "ag_trace",
+            "ag_snippet",
         ],
         client_tools: &["read", "web"],
         danger: &[],

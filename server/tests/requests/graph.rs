@@ -12,6 +12,7 @@ use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde_json::{Value, json};
 
 use super::{
+    mcp::call,
     runner::{get_json, post_json},
     tickets::{Fixture, fixture},
 };
@@ -257,6 +258,66 @@ async fn graph_queries_cover_search_trace_snippet_impact_and_cross_repo() {
             .unwrap();
         assert_eq!(row.languages()[0].0, "typescript");
         assert_eq!(row.surface().routes.len(), 1);
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn mcp_graph_tools_answer_from_the_index() {
+    request::<App, _, _>(|request, ctx| async move {
+        let f = fixture(&request, &ctx).await;
+        let token = device_login(&request, &f.cookie, &f.workspace.id.to_string()).await;
+        add_repo(&request, &f, "kasir-api").await;
+        let (_, mcp, _) =
+            crate::support::oauth_flow::connect(&request, &f.cookie, &f.workspace.id.to_string())
+                .await;
+
+        // Belum di-index → pesan cara meng-index.
+        let (err, msg) = call(&request, &mcp, "ag_search", json!({ "query": "reserve" })).await;
+        assert!(err && msg.as_str().unwrap().contains("agentgate graph index"), "{msg}");
+
+        index(
+            &request,
+            &token,
+            "kasir-api",
+            &[("src/api.ts", API_TS), ("src/stock.ts", STOCK_TS)],
+        )
+        .await;
+        let (err, found) =
+            call(&request, &mcp, "ag_search", json!({ "project": "KSR", "query": "reserve" })).await;
+        assert!(!err, "{found}");
+        assert_eq!(found["results"][0]["name"], "reserve");
+        let id = found["results"][0]["id"].as_str().unwrap().to_string();
+
+        let (err, callers) =
+            call(&request, &mcp, "ag_trace", json!({ "symbol": id, "direction": "callers" })).await;
+        assert!(!err, "{callers}");
+        assert_eq!(callers["results"][0]["name"], "checkout");
+        assert_eq!(callers["results"][0]["confidence"], "certain");
+
+        let (err, code) = call(&request, &mcp, "ag_snippet", json!({ "symbol": "lock" })).await;
+        assert!(!err, "{code}");
+        assert!(code["code"].as_str().unwrap().starts_with("function lock"), "{code}");
+
+        let (err, impact) = call(&request, &mcp, "ag_impact", json!({ "symbol": "lock" })).await;
+        assert!(!err, "{impact}");
+        assert_eq!(impact["risk"], "rendah");
+        assert_eq!(impact["affected_total"], 3, "{impact}");
+
+        let (err, overview) = call(&request, &mcp, "ag_graph", json!({ "action": "overview" })).await;
+        assert!(!err, "{overview}");
+        assert_eq!(overview["repos"][0]["repo"], "kasir-api");
+        let (err, q) = call(
+            &request,
+            &mcp,
+            "ag_graph",
+            json!({ "action": "query", "query": "MATCH (f:Function) WHERE f.dead = true RETURN f.name" }),
+        )
+        .await;
+        assert!(!err, "{q}");
+        assert!(q["rows"].to_string().contains("unusedHelper"), "{q}");
+        let (err, bad) = call(&request, &mcp, "ag_graph", json!({ "action": "query", "query": "MATCH" })).await;
+        assert!(err, "{bad}");
     })
     .await;
 }

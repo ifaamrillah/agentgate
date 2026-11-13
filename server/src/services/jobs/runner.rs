@@ -413,6 +413,22 @@ fn job_prompt(
     }
 }
 
+/// Petunjuk code graph (M7) bila ada repo project yang sudah di-index: AI menjelajah lewat
+/// tool graph, bukan grep atau membaca file utuh (spec "Code graph built-in").
+fn with_graph(prompt: String, project: &str, indexed: &[String]) -> String {
+    if indexed.is_empty() {
+        return prompt;
+    }
+    format!(
+        "{prompt}\n\nCode graph project {project} tersedia untuk repo {repos}. Sebelum grep atau \
+         membaca file utuh, pakai ag_search (cari simbol), ag_trace (pemanggil/yang dipanggil), \
+         ag_snippet (kode satu simbol), ag_impact (dampak perubahan, termasuk lintas repo), dan \
+         ag_graph (modul, kode mati, query ala Cypher). Sebelum selesai, cek ag_impact dengan diff \
+         Anda.",
+        repos = indexed.join(", "),
+    )
+}
+
 /// Konvensi git project untuk job stage (spec: "dipakai AI saat membuat branch, commit, dan PR").
 fn with_git(
     prompt: String,
@@ -603,6 +619,18 @@ pub async fn start(
     let persona_name = persona
         .as_ref()
         .map_or_else(|| job.persona.clone(), |p| p.name.clone());
+    let graph_repos: Vec<String> = {
+        let indexed = crate::models::graph_repos::Model::of_project(db, wid, project.id).await?;
+        project_repos
+            .iter()
+            .filter(|r| {
+                indexed
+                    .iter()
+                    .any(|g| g.repo_id == r.id && g.indexed_at.is_some())
+            })
+            .map(|r| r.name.clone())
+            .collect()
+    };
     Ok(JobSpec {
         id: job.id,
         kind: job.kind(),
@@ -622,12 +650,16 @@ pub async fn start(
         effort: choice.map(|c| c.effort).unwrap_or_default(),
         client,
         command: format!("/{}", prompts::stage_prompt_name(&job.stage_key)),
-        prompt: with_git(
-            job_prompt(&stage_name, &ticket, &persona_name, &job),
-            &job,
-            &git,
-            &branch,
-            &base_branch,
+        prompt: with_graph(
+            with_git(
+                job_prompt(&stage_name, &ticket, &persona_name, &job),
+                &job,
+                &git,
+                &branch,
+                &base_branch,
+            ),
+            &project.key,
+            &graph_repos,
         ),
         branch,
         base_branch,
