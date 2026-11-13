@@ -313,9 +313,8 @@ impl Graph {
 
     /// Buang node yang layer/bahasanya disembunyikan filter.
     pub fn filter(&mut self, hidden_layers: &[Layer], hidden_langs: &[String]) {
-        self.nodes.retain(|n| {
-            !hidden_layers.contains(&n.layer) && !hidden_langs.iter().any(|l| *l == n.lang)
-        });
+        self.nodes
+            .retain(|n| !hidden_layers.contains(&n.layer) && !hidden_langs.contains(&n.lang));
         let ids: HashSet<String> = self.nodes.iter().map(|n| n.id.clone()).collect();
         self.edges
             .retain(|e| ids.contains(&e.from) && ids.contains(&e.to));

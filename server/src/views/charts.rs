@@ -5,7 +5,8 @@
 use std::fmt::Write as _;
 
 const H: f64 = 250.0;
-const PL: f64 = 40.0;
+/// Ruang label sumbu Y (mis. "800 rb", "1,2 jt").
+const PL: f64 = 52.0;
 const PR: f64 = 14.0;
 const PT: f64 = 14.0;
 const PB: f64 = 28.0;

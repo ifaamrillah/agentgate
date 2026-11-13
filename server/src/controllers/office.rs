@@ -190,23 +190,23 @@ async fn panel_data(
     let mut stage_name = String::new();
     let mut can_decide = false;
     let mut summary = String::new();
-    if let Some(tid) = c.ticket_id {
-        if let Some(t) = tickets::Model::find_in(&ctx.db, wid, tid).await? {
-            if let Ok(flow) = stages::Flow::load(&ctx.db, wid, &t).await {
-                stage_name = flow
-                    .rule(&c.stage_key)
-                    .or_else(|| flow.current.stage(&c.stage_key))
-                    .map_or_else(|| c.stage_key.clone(), |s| s.name.clone());
-            }
-            if c.status == CharStatus::Review && c.permission_id.is_none() {
-                if let Some(role) =
-                    project_access::effective_role(&ctx.db, &tenant.accessor(), t.project_id)
-                        .await?
-                {
-                    can_decide =
-                        stages::can_decide(&ctx.db, wid, &t, tenant.user.id, &role).await?;
-                }
-            }
+    let ticket = match c.ticket_id {
+        Some(tid) => tickets::Model::find_in(&ctx.db, wid, tid).await?,
+        None => None,
+    };
+    if let Some(t) = &ticket {
+        if let Ok(flow) = stages::Flow::load(&ctx.db, wid, t).await {
+            stage_name = flow
+                .rule(&c.stage_key)
+                .or_else(|| flow.current.stage(&c.stage_key))
+                .map_or_else(|| c.stage_key.clone(), |s| s.name.clone());
+        }
+        if c.status == CharStatus::Review
+            && c.permission_id.is_none()
+            && let Some(role) =
+                project_access::effective_role(&ctx.db, &tenant.accessor(), t.project_id).await?
+        {
+            can_decide = stages::can_decide(&ctx.db, wid, t, tenant.user.id, &role).await?;
         }
     }
     if let Some(p) = c.persona_key() {

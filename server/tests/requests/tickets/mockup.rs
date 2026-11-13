@@ -143,7 +143,7 @@ async fn mockup_runs_only_on_the_preview_domain() {
         // Token dirusak, kedaluwarsa, atau di host aplikasi → 404.
         let key = mockups::signing_key(&s.auth.encryption_key_bytes().unwrap());
         let expired = mockups::sign(&key, latest.id, chrono::Utc::now().timestamp() - 5);
-        let forged = format!("{}x", &token_path);
+        let forged = format!("{token_path}x");
         for path in [format!("/preview/{expired}"), forged] {
             let res = request.get(&path).add_header("host", host.clone()).await;
             assert_eq!(res.status_code(), 404, "{path}");

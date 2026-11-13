@@ -49,6 +49,9 @@ fn steps_of(job: &jobs::Model) -> (String, usize, usize) {
     (now, step.min(steps.len()), steps.len())
 }
 
+/// Kumpulan sementara per pemilik runner: job per ruangan, kode tiket, ada job interaktif, runner.
+type HumanAcc = (HashMap<String, usize>, Vec<String>, bool, Uuid);
+
 /// Keadaan kantor untuk pelaku.
 ///
 /// # Errors
@@ -236,8 +239,7 @@ pub async fn state(db: &DatabaseConnection, acting: &Acting<'_>) -> Result<Offic
     }
 
     // Manusia: pemilik runner online yang memegang job terbuka.
-    let mut humans: HashMap<Uuid, (HashMap<String, usize>, Vec<String>, bool, Uuid)> =
-        HashMap::new();
+    let mut humans: HashMap<Uuid, HumanAcc> = HashMap::new();
     for job in &open {
         let Some(runner) = job.runner_id.and_then(|r| runner_map.get(&r)) else {
             continue;

@@ -256,11 +256,15 @@ pub fn char_view(office: &Office, c: &Char, ctx: &Ctx<'_>) -> CharView {
         doing: c.doing.clone(),
         step: c.step,
         steps: c.steps,
-        percent: if c.steps == 0 {
-            0
-        } else {
-            c.step * 100 / c.steps
-        },
+        // Langkah yang sedang berjalan belum selesai: bar tidak penuh selama agent bekerja.
+        percent: match c.status {
+            CharStatus::Working | CharStatus::Paused | CharStatus::Meeting => {
+                c.step.saturating_sub(1) * 100
+            }
+            _ => c.step * 100,
+        }
+        .checked_div(c.steps)
+        .unwrap_or(0),
         since: c.since.map(|t| age(&t.fixed_offset(), now)),
         jobs: c.jobs.clone(),
         look,

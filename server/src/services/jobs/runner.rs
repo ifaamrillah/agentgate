@@ -998,7 +998,9 @@ pub async fn permission(
 /// Biaya USD dari client → mikro-dolar (bilangan bulat); nilai negatif/tak hingga dibuang.
 #[allow(clippy::cast_possible_truncation)]
 fn usd_micros(usd: f64) -> Option<i64> {
-    (usd.is_finite() && usd >= 0.0 && usd < 1e9).then(|| (usd * 1_000_000.0).round() as i64)
+    (0.0..1e9)
+        .contains(&usd)
+        .then(|| (usd * 1_000_000.0).round() as i64)
 }
 
 /// Batas panjang nama repo / path file yang disimpan dari laporan runner.

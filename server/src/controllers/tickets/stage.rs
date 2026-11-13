@@ -324,10 +324,11 @@ pub fn safe_return(slug: &str, to: &str) -> bool {
 
 /// Ganti tujuan redirect sukses dengan `return_to` yang aman.
 fn back(mut res: Response, slug: &str, to: &str) -> Response {
-    if res.status() == axum::http::StatusCode::SEE_OTHER && safe_return(slug, to) {
-        if let Ok(v) = axum::http::HeaderValue::from_str(to) {
-            res.headers_mut().insert(axum::http::header::LOCATION, v);
-        }
+    if res.status() == axum::http::StatusCode::SEE_OTHER
+        && safe_return(slug, to)
+        && let Ok(v) = axum::http::HeaderValue::from_str(to)
+    {
+        res.headers_mut().insert(axum::http::header::LOCATION, v);
     }
     res
 }

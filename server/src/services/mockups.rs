@@ -29,15 +29,21 @@ pub fn is_mockup(name: &str) -> bool {
 /// apa adanya untuk tujuan lain).
 #[must_use]
 pub fn signing_key(encryption_key: &[u8; 32]) -> [u8; 32] {
-    let mut mac = HmacSha256::new_from_slice(encryption_key).expect("HMAC menerima kunci apa pun");
-    mac.update(b"agentgate/mockup-preview/v1");
+    hmac(encryption_key, b"agentgate/mockup-preview/v1")
+}
+
+/// HMAC-SHA256. `new_from_slice` menerima kunci panjang berapa pun, jadi cabang gagal tidak
+/// pernah terjadi; bila terjadi, hasil nol tidak cocok dengan tanda tangan mana pun yang valid.
+fn hmac(key: &[u8], data: &[u8]) -> [u8; 32] {
+    let Ok(mut mac) = HmacSha256::new_from_slice(key) else {
+        return [0; 32];
+    };
+    mac.update(data);
     mac.finalize().into_bytes().into()
 }
 
 fn mac_of(key: &[u8; 32], payload: &str) -> Vec<u8> {
-    let mut mac = HmacSha256::new_from_slice(key).expect("HMAC menerima kunci apa pun");
-    mac.update(payload.as_bytes());
-    mac.finalize().into_bytes().to_vec()
+    hmac(key, payload.as_bytes()).to_vec()
 }
 
 /// Token pratinjau versi `version_id` yang berlaku sampai `expires_at` (detik unix).

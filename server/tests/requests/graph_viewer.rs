@@ -178,7 +178,7 @@ async fn ticket_highlight_uses_changed_files_and_access_is_isolated() {
         let (_, html) = get(
             &request,
             &f,
-            &format!("repo=kasir-api&module=src&sel=f%3Asrc%2Fstock.ts"),
+            "repo=kasir-api&module=src&sel=f%3Asrc%2Fstock.ts",
         )
         .await;
         assert!(html.contains("Kunci stok"));
