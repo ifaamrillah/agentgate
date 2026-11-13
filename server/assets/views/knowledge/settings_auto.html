@@ -1,0 +1,30 @@
+{#- Pengaturan → Knowledge workspace → Update otomatis: pemicu Done/merge, audit mingguan,
+    kedalaman bawaan, sinkron repo. Variabel: base, subnav, settings, days, depths, flash. -#}
+{% extends "layouts/settings.html" %}
+{% block title %}{{ t(key="kb-ws-auto", lang="id") }} · {{ t(key="settings-knowledge-title", lang="id") }}{% endblock title %}
+{% block crumb_label %}{{ t(key="settings-knowledge-title", lang="id") }}{% endblock crumb_label %}
+{% block page_attrs %}data-kb-settings="auto"{% endblock page_attrs %}
+{% block settings %}
+{% <subpage title={t(key="settings-knowledge-title", lang="id")} description={t(key="kb-settings-description", lang="id")} items={subnav}> %}
+{{ <flash kind="neutral" message={t(key="kb-auto-note", lang="id")}/> }}
+{% <card title={t(key="kb-ws-auto", lang="id")} description={t(key="kb-auto-description", lang="id")} flush={true} form={base ~ "/auto"} cancel_href={base ~ "/auto"} attrs="data-kb-auto"> %}
+  {% <setting_row title={t(key="kb-auto-done", lang="id")} description={t(key="kb-auto-done-hint", lang="id")}> %}
+    <input type="checkbox" class="app-switch" role="switch" name="on_done" aria-label="{{ t(key="kb-auto-done", lang="id") }}"{% if settings.on_done %} checked{% endif %}>
+  {% </setting_row> %}
+  {% <setting_row title={t(key="kb-auto-merge", lang="id")} description={t(key="kb-auto-merge-hint", lang="id")}> %}
+    <input type="checkbox" class="app-switch" role="switch" name="on_merge" aria-label="{{ t(key="kb-auto-merge", lang="id") }}"{% if settings.on_merge %} checked{% endif %}>
+  {% </setting_row> %}
+  {%- if settings.last_audit %}{% set audit_hint = t(key="kb-auto-audit-last", lang="id", when=settings.last_audit) %}{% else %}{% set audit_hint = t(key="kb-auto-audit-hint", lang="id") %}{% endif %}
+  {% <setting_row title={t(key="kb-auto-audit", lang="id")} description={audit_hint}> %}
+    {{ <select_field id="kb-audit-day" name="audit_day" label={t(key="kb-auto-audit-day", lang="id")} hide_label={true} options={days} translate={true} value={settings.audit_day}/> }}
+    <input type="checkbox" class="app-switch" role="switch" name="audit" aria-label="{{ t(key="kb-auto-audit", lang="id") }}"{% if settings.audit %} checked{% endif %}>
+  {% </setting_row> %}
+  {% <setting_row title={t(key="kb-auto-depth", lang="id")} description={t(key="kb-auto-depth-hint", lang="id")}> %}
+    {{ <select_field id="kb-default-depth" name="default_depth" label={t(key="kb-auto-depth", lang="id")} hide_label={true} options={depths} translate={true} value={settings.default_depth}/> }}
+  {% </setting_row> %}
+  {% <setting_row title={t(key="kb-auto-repo", lang="id")} description={t(key="kb-auto-repo-hint", lang="id")}> %}
+    <input type="checkbox" class="app-switch" role="switch" name="repo_sync" aria-label="{{ t(key="kb-auto-repo", lang="id") }}"{% if settings.repo_sync %} checked{% endif %}>
+  {% </setting_row> %}
+{% </card> %}
+{% </subpage> %}
+{% endblock settings %}

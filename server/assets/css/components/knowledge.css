@@ -58,6 +58,7 @@
   .app-kb-note svg { width: 14px; height: 14px; }
 
   /* Hasil pencarian. */
+  .app-lrow-main > small.app-kb-wrap { white-space: normal; }
   .app-kb-hit mark { background: var(--ag-warn-soft); color: inherit; border-radius: 2px; }
 
   /* Mode tinjau berdampingan. */

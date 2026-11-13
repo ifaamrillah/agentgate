@@ -1,0 +1,44 @@
+{#- Pengaturan → Knowledge workspace → dokumen workspace (baru/ubah): editor + pengaturan berlaku
+    untuk project, persona pembaca, pemilik; arsipkan. Variabel: base, is_new, doc (opsional
+    {slug, path, version, applies_to, personas, owner, updated}), doc_title, body, base_version,
+    error, action, project_options, persona_options, people, versions, flash. -#}
+{% extends "layouts/settings.html" %}
+{% block title %}{%- if is_new %}{% set heading = t(key="kb-ws-doc-new", lang="id") %}{% else %}{% set heading = doc_title %}{% endif %}{{ heading }} · {{ t(key="settings-knowledge-title", lang="id") }}{% endblock title %}
+{% block width %}wide{% endblock width %}
+{% block crumb %}{%- if is_new %}{% set heading = t(key="kb-ws-doc-new", lang="id") %}{% else %}{% set heading = doc_title %}{% endif %}{{ <crumb label={t(key="nav-settings", lang="id")}/> }}{{ <crumb label={t(key="settings-knowledge-title", lang="id")} href={base ~ "/docs"}/> }}{{ <crumb label={heading}/> }}{% endblock crumb %}
+{% block page_attrs %}data-kb-ws-doc="{% if doc %}{{ doc.slug }}{% endif %}"{% endblock page_attrs %}
+{% block settings %}{%- if is_new %}{% set heading = t(key="kb-ws-doc-new", lang="id") %}{% else %}{% set heading = doc_title %}{% endif %}
+<header class="app-page-head"><div class="app-page-title"><h1>{{ heading }}</h1><p>{{ t(key="kb-ws-doc-description", lang="id") }}</p></div></header>
+{%- if error == "knowledge-conflict" %}{{ <flash kind="error" title={t(key="kb-conflict-title", lang="id")} message={t(key="knowledge-conflict", lang="id")}/> }}
+{%- elif error %}{{ <flash kind="error" message={t(key=error, lang="id")}/> }}{% endif %}
+<form method="post" action="{{ action }}" class="app-kb-doc" data-kb-editor>
+  <div class="card app-blk">
+    <input type="hidden" name="base_version" value="{{ base_version }}">
+    <label class="sr-only" for="kb-title">{{ t(key="kb-doc-title", lang="id") }}</label>
+    <input id="kb-title" class="app-kb-title" name="title" value="{{ doc_title }}" maxlength="160" required placeholder="{{ t(key="kb-ws-doc-title-placeholder", lang="id") }}">
+    {%- if not is_new %}{{ <field id="kb-message" name="message" label={t(key="kb-save-message", lang="id")} optional={t(key="field-optional", lang="id")}/> }}{% endif %}
+    {%- if is_new %}{% set save_label = t(key="kb-new-create", lang="id") %}{% else %}{% set save_label = t(key="kb-save", lang="id") %}{% endif %}
+    {{ <md_editor id="kb-body" name="body" label={t(key="kb-doc-body", lang="id")} value={body} hide_label={true} rows={22} save_label={save_label} cancel_href={base ~ "/docs"}/> }}
+  </div>
+  <aside class="app-kb-side">
+    {%- if doc %}
+    {% <card title={t(key="kb-ws-doc-settings", lang="id")} attrs="data-kb-meta"> %}
+      <div class="app-stack-v">
+        {{ <combo id="kb-applies" name="applies_to" label={t(key="kb-ws-applies", lang="id")} options={project_options} values={doc.applies_to} multiple={true} placeholder={t(key="kb-applies-all", lang="id")} hint={t(key="kb-ws-applies-hint", lang="id")}/> }}
+        {{ <combo id="kb-personas" name="personas" label={t(key="kb-ws-personas", lang="id")} options={persona_options} values={doc.personas} multiple={true} placeholder={t(key="kb-ws-personas-all", lang="id")} hint={t(key="kb-ws-personas-hint", lang="id")}/> }}
+        {{ <combo id="kb-ws-owner" name="owner" label={t(key="kb-prop-owner", lang="id")} options={people} value={doc.owner} placeholder={t(key="kb-owner-none", lang="id")}/> }}
+      </div>
+    {% </card> %}
+    {% <card title={t(key="kb-history", lang="id")} count={versions | length ~ ""} flush={true}> %}
+      <dl class="app-props"><dt>{{ t(key="kb-prop-path", lang="id") }}</dt><dd><span class="app-code app-hint">{{ doc.path }}</span></dd><dt>{{ t(key="kb-prop-updated", lang="id") }}</dt><dd>{{ doc.updated }}</dd></dl>
+      {%- for v in versions %}<div class="app-lrow"><span class="app-code app-hint">v{{ v.number }}</span><span class="app-lrow-main"><b>{% if v.message %}{{ v.message }}{% else %}{% set sk = v.source_key %}{{ t(key=sk, lang="id") }}{% endif %}</b><small>{% if v.author %}{{ v.author.name }}{% else %}{{ v.persona }}{% endif %} · {{ v.created }}</small></span></div>{% endfor %}
+    {% </card> %}
+    {%- endif %}
+  </aside>
+</form>
+{%- if doc %}
+{% <card title={t(key="kb-danger", lang="id")} description={t(key="kb-ws-archive-description", lang="id")} variant="danger"> %}
+  <form method="post" action="{{ action }}/archive">{{ <button label={t(key="kb-archive", lang="id")} icon="archive" variant="destructive" type="submit"/> }}</form>
+{% </card> %}
+{%- endif %}
+{% endblock settings %}

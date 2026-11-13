@@ -197,6 +197,8 @@ fn every_ticket_enum_and_view_key_has_a_translation() {
     used.extend(views::oauth::label_keys());
     used.extend(views::drafts::label_keys());
     used.extend(views::knowledge::label_keys());
+    used.extend(agentgate_server::controllers::knowledge_settings::label_keys());
+    used.extend(["knowledge-audit-day-invalid".to_string()]);
     used.extend(
         agentgate_server::services::mcp::prompts::UTILITIES
             .iter()

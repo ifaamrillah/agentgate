@@ -16,6 +16,7 @@ pub mod graph;
 pub mod graph_api;
 pub mod invitations;
 pub mod knowledge;
+pub mod knowledge_settings;
 pub mod mcp;
 pub mod middleware;
 pub mod oauth;
@@ -47,6 +48,7 @@ pub fn routes(ctx: &AppContext) -> AppRoutes {
         .add_route(git::routes())
         .add_route(graph::routes())
         .add_route(knowledge::routes())
+        .add_route(knowledge_settings::routes())
         .add_route(webhooks::routes())
         .add_route(mcp::routes(ctx));
     add_dev_routes(routes, &ctx.environment)

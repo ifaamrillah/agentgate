@@ -1,0 +1,37 @@
+{#- Pengaturan → Knowledge workspace → jenis dokumen custom (baru/ubah): nama, kelompok, project,
+    template, instruksi AI, pembuatan; arsipkan. Variabel: base, is_new, type, used, form, errors,
+    action, groups, project_options. -#}
+{% extends "layouts/settings.html" %}
+{% block title %}{%- if is_new %}{% set heading = t(key="kb-type-new", lang="id") %}{% else %}{% set heading = type.name %}{% endif %}{{ heading }} · {{ t(key="settings-knowledge-title", lang="id") }}{% endblock title %}
+{% block crumb %}{%- if is_new %}{% set heading = t(key="kb-type-new", lang="id") %}{% else %}{% set heading = type.name %}{% endif %}{{ <crumb label={t(key="nav-settings", lang="id")}/> }}{{ <crumb label={t(key="kb-ws-types", lang="id")} href={base ~ "/types"}/> }}{{ <crumb label={heading}/> }}{% endblock crumb %}
+{% block page_attrs %}data-kb-type-edit{% endblock page_attrs %}
+{% block settings %}{%- if is_new %}{% set heading = t(key="kb-type-new", lang="id") %}{% else %}{% set heading = type.name %}{% endif %}
+<header class="app-page-head"><div class="app-page-title"><h1>{{ heading }}</h1><p>{{ t(key="kb-type-description", lang="id") }}</p></div></header>
+{%- if is_new %}{% set save = t(key="kb-type-create", lang="id") %}{% set used_note = "" %}{% else %}{% set save = t(key="action-save", lang="id") %}{% set used_note = t(key="kb-type-used", lang="id", n=used) %}{% endif %}
+{% <card title={t(key="kb-type-card", lang="id")} description={t(key="kb-type-card-description", lang="id")} flush={true} form={action} cancel_href={base ~ "/types"} save_label={save} note={used_note}> %}
+  {% <setting_row title={t(key="kb-type-name", lang="id")} wide={true}> %}
+    {{ <field id="kb-type-name" name="name" label={t(key="kb-type-name", lang="id")} hide_label={true} value={form.name} error={errors.name.code} required={true} maxlength="80"/> }}
+  {% </setting_row> %}
+  {% <setting_row title={t(key="kb-type-group", lang="id")} wide={true}> %}
+    {{ <combo id="kb-type-group" name="group_key" label={t(key="kb-type-group", lang="id")} hide_label={true} options={groups} value={form.group_key} error={errors.group_key.code}/> }}
+  {% </setting_row> %}
+  {% <setting_row title={t(key="kb-type-projects", lang="id")} description={t(key="kb-type-projects-hint", lang="id")} wide={true}> %}
+    {{ <combo id="kb-type-projects" name="projects" label={t(key="kb-type-projects", lang="id")} hide_label={true} options={project_options} values={form.projects} multiple={true} placeholder={t(key="kb-applies-all", lang="id")}/> }}
+  {% </setting_row> %}
+  {% <setting_row title={t(key="kb-type-ai-scan", lang="id")} description={t(key="kb-type-ai-scan-hint", lang="id")}> %}
+    <input type="checkbox" class="app-switch" role="switch" name="ai_scan" aria-label="{{ t(key="kb-type-ai-scan", lang="id") }}"{% if form.ai_scan %} checked{% endif %}>
+  {% </setting_row> %}
+  {% <setting_row title={t(key="kb-type-on-done", lang="id")} description={t(key="kb-type-on-done-hint", lang="id")}> %}
+    <input type="checkbox" class="app-switch" role="switch" name="on_done" aria-label="{{ t(key="kb-type-on-done", lang="id") }}"{% if form.on_done %} checked{% endif %}>
+  {% </setting_row> %}
+  <div class="app-form">
+    {{ <md_editor id="kb-type-template" name="template" label={t(key="kb-type-template", lang="id")} value={form.template} rows={12}/> }}
+    {{ <md_editor id="kb-type-instructions" name="instructions" label={t(key="kb-type-instructions", lang="id")} value={form.instructions} rows={6}/> }}
+  </div>
+{% </card> %}
+{%- if not is_new %}
+{% <card title={t(key="kb-danger", lang="id")} description={t(key="kb-type-archive-description", lang="id")} variant="danger"> %}
+  <form method="post" action="{{ action }}/archive">{{ <button label={t(key="kb-archive", lang="id")} icon="archive" variant="destructive" type="submit"/> }}</form>
+{% </card> %}
+{%- endif %}
+{% endblock settings %}

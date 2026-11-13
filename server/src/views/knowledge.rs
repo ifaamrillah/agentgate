@@ -467,8 +467,23 @@ pub fn label_keys() -> Vec<String> {
         keys.push(format!("kb-status-{s}"));
     }
     for f in [
-        "approved", "rejected", "undone", "scan", "update", "draft", "created", "owner", "saved",
-        "fresh", "archived", "restored", "invalid",
+        "approved",
+        "rejected",
+        "undone",
+        "scan",
+        "update",
+        "draft",
+        "created",
+        "owner",
+        "saved",
+        "fresh",
+        "archived",
+        "restored",
+        "invalid",
+        "type-created",
+        "type-saved",
+        "type-archived",
+        "settings",
     ] {
         keys.push(format!("kb-flash-{f}"));
     }

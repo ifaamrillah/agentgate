@@ -422,3 +422,108 @@ async fn ticket_done_requests_a_knowledge_update() {
     })
     .await;
 }
+
+#[tokio::test]
+async fn workspace_knowledge_settings_manage_docs_types_and_triggers() {
+    request::<App, _, _>(|request, ctx| async move {
+        let f = fixture(&request, &ctx).await;
+        let ws = "/w/acme/settings/knowledge";
+        let res = get(&request, &f.cookie, ws).await;
+        assert_eq!(res.status_code(), 303);
+        for page in ["docs", "types", "auto", "docs/new", "types/new"] {
+            let res = get(&request, &f.cookie, &format!("{ws}/{page}")).await;
+            assert_eq!(res.status_code(), 200, "{page}: {}", res.text());
+        }
+
+        // Dokumen workspace: buat → ubah meta (persona qa saja).
+        let res = post(
+            &request,
+            &f.cookie,
+            &format!("{ws}/docs/new"),
+            &[("title", "Standar coding"), ("body", "## Penamaan\n\ncamelCase")],
+        )
+        .await;
+        assert_eq!(res.status_code(), 303, "{}", res.text());
+        assert_eq!(res.header("location"), "/w/acme/settings/knowledge/docs/standar-coding");
+        let res = post(
+            &request,
+            &f.cookie,
+            &format!("{ws}/docs/standar-coding"),
+            &[
+                ("title", "Standar coding"),
+                ("body", "## Penamaan\n\ncamelCase"),
+                ("base_version", "1"),
+                ("personas", "qa"),
+            ],
+        )
+        .await;
+        assert_eq!(res.status_code(), 303, "{}", res.text());
+        let d = doc(&ctx, &f, "standar-coding").await;
+        assert!(d.project_id.is_none());
+        assert_eq!(d.personas, vec!["qa".to_string()]);
+        let res = get(&request, &f.cookie, &format!("{ws}/docs/standar-coding")).await;
+        assert_eq!(res.status_code(), 200, "{}", res.text());
+
+        // Agent: dev tidak membaca dokumen untuk qa.
+        let (_, mcp, _) =
+            oauth_flow::connect(&request, &f.cookie, &f.workspace.id.to_string()).await;
+        let (err, _) = call(
+            &request,
+            &mcp,
+            "ag_knowledge",
+            json!({ "action": "read", "project": "KSR", "slug": "standar-coding", "persona": "dev" }),
+        )
+        .await;
+        assert!(err);
+        let (err, value) = call(
+            &request,
+            &mcp,
+            "ag_knowledge",
+            json!({ "action": "read", "project": "KSR", "slug": "standar-coding", "persona": "qa" }),
+        )
+        .await;
+        assert!(!err, "{value}");
+
+        // Jenis custom → muncul di katalog project.
+        let res = post(
+            &request,
+            &f.cookie,
+            &format!("{ws}/types/new"),
+            &[("name", "SOP tutup kasir"), ("group_key", "operasional"), ("template", "## Langkah"), ("ai_scan", "on")],
+        )
+        .await;
+        assert_eq!(res.status_code(), 303, "{}", res.text());
+        let res = post(&request, &f.cookie, &format!("{ws}/types/new"), &[("name", ""), ("group_key", "operasional")]).await;
+        assert_eq!(res.status_code(), 422);
+        let res = post(
+            &request,
+            &f.cookie,
+            &format!("{BASE}/new"),
+            &[("type_key", "x-sop-tutup-kasir")],
+        )
+        .await;
+        assert_eq!(res.status_code(), 303, "{}", res.text());
+        assert!(res.header("location").to_str().unwrap().contains("/knowledge/sop-tutup-kasir"));
+
+        // Update otomatis: matikan Done.
+        let res = post(
+            &request,
+            &f.cookie,
+            &format!("{ws}/auto"),
+            &[("on_merge", "on"), ("audit", "on"), ("audit_day", "1"), ("default_depth", "cepat")],
+        )
+        .await;
+        assert_eq!(res.status_code(), 303);
+        let s = agentgate_server::models::knowledge_settings::Model::of(&ctx.db, f.workspace.workspace_id())
+            .await
+            .unwrap();
+        assert!(!s.on_done && s.audit);
+        assert_eq!(s.default_depth, "cepat");
+
+        // Member tanpa izin: 404.
+        let (_, rina_cookie) = member(&request, &ctx, &f, "Rina").await;
+        let res = get(&request, &rina_cookie, &format!("{ws}/docs")).await;
+        assert_eq!(res.status_code(), 404);
+    })
+    .await;
+}
