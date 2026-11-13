@@ -13,6 +13,8 @@ use super::{Session, ToolError};
 mod graph;
 #[path = "knowledge_tools.rs"]
 mod knowledge;
+#[path = "planning_tools.rs"]
+mod planning;
 use crate::{
     models::{
         artifact_versions,
@@ -86,7 +88,7 @@ pub fn definitions() -> Vec<ToolDef> {
         },
         ToolDef {
             name: "ag_draft_tickets",
-            description: "Simpan draft tiket hasil brainstorming untuk direview manusia di halaman Draft tiket project. Draft BUKAN tiket: manusia memilih mana yang dibuat. Pakai `ref` dan `parent` untuk hierarki epic → story → subtask.",
+            description: "Simpan draft tiket hasil brainstorming untuk direview manusia di halaman Draft tiket project. Draft BUKAN tiket: manusia memilih mana yang dibuat. Pakai `ref` dan `parent` untuk hierarki epic → story → subtask. Sertakan `story_points` dan `estimate` (jam AI + manusia per stage) bila bisa.",
             schema: schema(
                 json!({
                     "project": { "type": "string", "description": "Kunci project" },
@@ -102,6 +104,15 @@ pub fn definitions() -> Vec<ToolDef> {
                                 "title": { "type": "string" },
                                 "description": { "type": "string" },
                                 "story_points": { "type": "integer" },
+                                "estimate": {
+                                    "type": "object",
+                                    "description": "Estimasi AI: jam AI dan manusia per kunci stage workflow + dasar estimasi",
+                                    "properties": {
+                                        "stages": { "type": "array", "items": { "type": "object", "properties": { "stage": { "type": "string" }, "ai_hours": { "type": "number" }, "human_hours": { "type": "number" } }, "required": ["stage"] } },
+                                        "basis": { "type": "string" },
+                                        "persona": { "type": "string" },
+                                    },
+                                },
                             },
                             "required": ["title"],
                         },
@@ -243,6 +254,36 @@ pub fn definitions() -> Vec<ToolDef> {
             ),
             read_only: false,
         },
+        ToolDef {
+            name: "ag_planning",
+            description: "Planning project. action=estimate: simpan usulan estimasi tiket (`ticket`, `points` story point, `stages` = jam AI dan jam manusia per kunci stage workflow, `basis` = dasar estimasi, mis. tiket mirip). action=sprint: sprint aktif/rencana project, tiketnya, kapasitas, velocity. action=release_notes: tanpa `body` membaca rilis (`release` = nama, mis. v1.4) beserta tiketnya; dengan `body` (Markdown) menyimpan versi baru release notes.",
+            schema: schema(
+                json!({
+                    "action": { "type": "string", "enum": ["estimate", "sprint", "release_notes"] },
+                    "project": project,
+                    "ticket": ticket,
+                    "points": { "type": "integer", "minimum": 0, "maximum": 1000 },
+                    "stages": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "stage": { "type": "string", "description": "Kunci stage workflow, mis. development" },
+                                "ai_hours": { "type": "number" },
+                                "human_hours": { "type": "number" },
+                            },
+                            "required": ["stage"],
+                        },
+                    },
+                    "basis": { "type": "string", "description": "Dasar estimasi (maks. 2000 karakter)" },
+                    "release": { "type": "string", "description": "Nama rilis, mis. v1.4" },
+                    "body": { "type": "string", "description": "Release notes Markdown" },
+                    "persona": { "type": "string", "description": "Kunci persona Anda" },
+                }),
+                &["action"],
+            ),
+            read_only: false,
+        },
     ]
 }
 
@@ -308,6 +349,14 @@ struct Args {
     persona: String,
     #[serde(default)]
     sources: Vec<crate::services::knowledge::docs::SourceRef>,
+    #[serde(default)]
+    points: Option<i32>,
+    #[serde(default)]
+    stages: Vec<crate::models::ticket_estimates::StageHours>,
+    #[serde(default)]
+    basis: String,
+    #[serde(default)]
+    release: String,
 }
 
 fn required<'a>(value: &'a str, field: &str) -> Result<&'a str, ToolError> {
@@ -355,6 +404,7 @@ pub async fn call(
         "ag_impact" => graph::impact(db, s, &a).await,
         "ag_graph" => graph::overview(db, s, &a).await,
         "ag_knowledge" => knowledge::call(db, s, &a).await,
+        "ag_planning" => planning::call(db, s, &a).await,
         _ => Err(ToolError::new(format!("Tool tidak dikenal: {name}"))),
     }
 }
