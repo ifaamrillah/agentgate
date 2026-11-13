@@ -16,7 +16,7 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 | M6 Git & PR | selesai (2026-11-13) | Abstraksi provider git + klien GitHub/GHES (PAT terenkripsi, validasi token, daftar repo, webhook dipasang otomatis); Pengaturan → Git provider (Cloud/Enterprise/Repo tertaut); Konvensi git per project (branch, commit, PR, base, hasil kode, CI wajib); runner: worktree dari base branch, branch per tiket, push + PR otomatis; webhook bertanda tangan HMAC melacak PR/merge/CI dan memenuhi gate `pr_open`/`prs_merged`/`ci_green`; merge otomatis (squash) saat stage reviewer di-approve dan CI hijau; daftar PR project, tab "PR & CI" tiket, badge PR di header tiket dan kartu board; sinkron aturan lewat PR (`agentgate sync`); batas job paralel ditegakkan; 558 tes |
 | M7 Code graph | selesai (2026-11-13) | Crate `graph`: tree-sitter 10 bahasa, fakta per file, build graph (call/import/inherit/route, keyakinan pasti/dugaan), modul + node pusat, kode mati, kompleksitas, trace/dampak dari diff, kueri Cypher-subset, SCIP (`agentgate graph scip`), riwayat git (hotspot/coupling/pemilik), relasi lintas repo HTTP/event/package; index inkremental dari CLI (`agentgate graph index|scip|status`, file rahasia tidak pernah dibaca) dan dari server (arsip tarball provider, tombol Index ulang, otomatis setelah PR di-merge ke branch utama); MCP `ag_search`/`ag_trace`/`ag_snippet`/`ag_impact`/`ag_graph` + bagian `code_graph` di `ag_context` dan prompt job; UI Cari simbol, detail simbol, Status index (repo, lintas repo, git, kualitas, benchmark); benchmark vs codebase-memory di `docs/benchmarks/2026-11-13-code-graph.md` (recall/presisi 100%/100% vs codebase-memory 89,9%/93,7% pada 149 pasangan pemanggil); 601 tes |
 | M8 Knowledge base | selesai (2026-11-13) | Dokumen project per kelompok/jenis (bawaan + custom), versi + diff + pulihkan, editor md per dokumen, cari; usulan AI (scan ulang, minta AI perbarui, tiket Done, graph di-index ulang, audit mingguan, repo) dengan Tinjau usulan side-by-side (A/R/J/K) dan batalkan; pemilik knowledge + notifikasi kotak masuk; dokumen workspace (berlaku per project/persona), jenis custom, update otomatis; MCP `ag_knowledge` + konteks job + knowledge per persona; CLI `agentgate knowledge pull|status|sync`, backup `init` diunggah ke server (panel drift); komponen `diff_sbs` dan `donut`; 626 tes |
-| M9 Planning & laporan | belum mulai | |
+| M9 Planning & laporan | selesai (2026-11-13) | Backlog & sprint (rencana/mulai/selesaikan dengan pemindahan sisa, kapasitas dari velocity, seret-lepas, log scope per tiket), story point + estimasi AI per stage (draft → tiket, MCP `ag_planning`, minta estimasi, kalibrasi), laporan burndown/burnup/velocity/sprint report/CFD/kalibrasi/cycle time (SVG server-side, cetak/PDF), Roadmap (Gantt sprint/progres/estimasi/rilis/blocks) dan Kalender (tenggat, perkiraan selesai AI, rilis), Rilis + release notes berversi (susun AI, terbitkan, pulihkan, rilis sekarang), Components (modul code graph, pemilik, penerima default), board Scrum (sprint aktif, swimlane penerima/epic, batas WIP), pencarian lanjutan ala JQL + saved filter (pribadi/tim/workspace) + edit massal; 656 tes |
 | M10 Visual | belum mulai | |
 | M11 Multi-client & integrasi | belum mulai | |
 | M12 Rilis | belum mulai | |
@@ -182,6 +182,14 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
   atau jenis dengan pemicu Done aktif (belum menelusuri dampak lewat code graph).
   Event knowledge belum masuk audit log. Estimasi biaya scan hanya token (tanpa Rupiah).
 
+- **M9 Planning & laporan (2026-11-13)**: teks tooltip grafik, roadmap, dan kalender serta pesan error JQL ditulis
+  bahasa Indonesia langsung di Rust (belum Fluent). Query JQL hanya `AND` (tanpa `OR`/kurung) dan tanpa autocomplete
+  di kotak query (prototype punya saran field/nilai); evaluasi di memori atas maks. 5.000 tiket terbaru, tampil 200.
+  Edit massal belum bisa memindah stage, menghapus, atau menaruh di menu per kolom seperti prototype (satu dialog).
+  Batas WIP hanya ditandai (kolom merah + `n / wip`), tidak ditegakkan. Label kode di batang roadmap yang sangat
+  pendek terpotong. Event planning (sprint, rilis, component, saved filter) belum masuk audit log. Burnup memakai
+  poin tiket saat ini, bukan poin historis. Komitmen sprint menghitung poin tiket yang sudah selesai sebelum mulai.
+
 ## Keputusan sementara (dipakai sampai review akhir pemilik produk)
 
 - Sapaan UI memakai "Anda" (mengikuti prototype).
@@ -275,7 +283,24 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 - M8: Tinjau usulan memakai varian B prototype (Beranda + kartu kelompok, fokus side-by-side); di layar < 640px
   diff tampil satu kolom (hanya sisi sesudah + baris dihapus).
 
+- M9: estimasi AI diminta lewat komentar `@agent` (job estimasi persona) atau MCP `ag_planning estimate`; estimasi
+  draft disalin ke tiket saat draft dibuat. Kalibrasi = rasio aktual/estimasi per stage dari tiket selesai.
+- M9: release notes disusun job knowledge tanpa tiket (stage `release_notes`); rilis tidak membuat git tag; "Rilis
+  sekarang" memindah tiket belum selesai ke versi lain atau melepasnya (tanpa opsi "tetap di versi ini").
+- M9: satu component per tiket; aturan penerima default = pemilik component (bila aktif dan masih punya akses).
+- M9: roadmap dikelompokkan per sprint (lalu "Tanpa sprint"), bukan per epic; mulai batang tiket yang sudah jalan =
+  mulai sprint atau tanggal dibuat, selesai = tenggat atau perkiraan dari sisa estimasi.
+- M9: board Scrum default menampilkan sprint aktif; sprint selesai tidak muncul di chip.
+- M9: saved filter dibagikan ke satu tim (pemilik harus anggota) atau seluruh workspace; hanya pemilik yang menghapus.
+  Pencarian lanjutan lintas semua project yang boleh dibuka; edit massal lewat jalur ubah tiket biasa (izin per
+  tiket, sprint/versi harus milik project tiketnya, yang gagal dilewati dan dilaporkan).
+- M9: burndown sprint yang dimulai setelah tanggal mulainya memakai keadaan saat mulai untuk hari-hari sebelumnya.
+
 ## Perlu dari user (dikumpulkan untuk akhir)
+
+- M9: konfirmasi apakah JQL perlu `OR`/kurung dan autocomplete sebelum rilis; apakah batas WIP perlu ditegakkan
+  (menolak pindah kartu) atau cukup penanda; apakah rilis perlu membuat git tag lewat provider git; apakah roadmap
+  perlu pengelompokan per epic selain per sprint.
 
 - M8: konfirmasi apakah perlu izin terpisah `manage_knowledge` (sekarang ikut `manage_ticket_settings`); tarif token → Rupiah
   bila estimasi biaya scan perlu tampil dalam Rupiah; apakah server boleh membuat commit + PR knowledge sendiri lewat
@@ -310,6 +335,10 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
   allowlist nama client).
 
 ## Catatan untuk sesi berikutnya
+
+- Seed dev M9 (`seed_planning`): Sprint 4 aktif (5 tiket berpoin, Fix version v1.4, component Pembayaran), Sprint 5
+  (rencana), component "Struk & printer". Dilewati bila KSR sudah punya sprint. Buka `/w/pt-contoh/p/KSR/backlog`,
+  `/reports`, `/roadmap`, `/calendar`, `/releases`, dan `/w/pt-contoh/search/advanced`.
 
 - Fork/subagen yang men-stub template sementara untuk menjalankan tes **tidak boleh** me-restore file milik orang
   lain yang belum di-commit (katalog `/_dev/ui` sempat hilang karena ini). Commit dulu sebelum men-stub.
