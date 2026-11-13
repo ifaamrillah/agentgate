@@ -12,7 +12,7 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 | M2 Tiket & board | selesai (2026-11-12) | Tipe + field custom, template kode (alias), board/daftar, detail, komentar + @mention, kotak masuk, lampiran S3, relasi (blocks ditegakkan), riwayat, sampah 30 hari, pencarian; 396 tes |
 | M3 Workflow & gate | selesai (2026-11-12) | Builder workflow + YAML impor/ekspor, 9 template, versi + migrasi tiket, workflow per tipe/project, stage per tiket (stepper, gate, approve/reject, batas gagal → Butuh keputusan, 5 keputusan, lompat/paksa Admin, penugasan), artifact + versi + diff, tab kotak masuk "Butuh keputusan", board per stage; 430 tes |
 | M4 MCP & persona | selesai (2026-11-13) | OAuth 2.1 (DCR, PKCE S256, consent pilih workspace, refresh rotasi, revoke) untuk `/mcp`; server MCP rmcp (7 tool, slash command = prompt MCP per stage + utilitas); persona DB (CRUD, warna/ikon, instruksi, skill, tools, model per client); skill pack (impor GitHub + pemindaian statis + review manusia); review draft tiket brainstorming; Akun → Hubungkan client AI; 467 tes |
-| M5 CLI & runner | belum mulai | |
+| M5 CLI & runner | selesai (2026-11-13) | Crate `cli` (`agentgate`): login device flow, `init`/`uninstall`, aturan + hook Claude Code, `jobs`, `runner start` (WS kontrol + fallback polling, worktree per job, headless/terminal, laporan langkah/log), `doctor`; server: job + klaim/lock, API runner (bearer CLI + header runner), evidence bertanda tangan Ed25519 memenuhi gate `tests_passed`/`screenshot_exists`, izin aksi berbahaya; UI Runner & CLI (izin, antrean, runner saya/tim, pengaturan, drift, instal), halaman job + log live, job + evidence di kartu stage, job dari komentar `@agent`; 533 tes |
 | M6 Git & PR | belum mulai | |
 | M7 Code graph | belum mulai | |
 | M8 Knowledge base | belum mulai | |
@@ -136,6 +136,18 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
   pecah/gabung draft, chip repo, dan panel estimasi AI seperti prototype. "File aturan di repo" dan Knowledge
   persona tampil "segera" (M5/M8). Tool `ag_ask` hanya menulis komentar + notifikasi in-app (belum menunggu
   jawaban secara sinkron).
+- **M5 CLI & runner (2026-11-13)**: runner menerima event lewat `/api/runner/events` yang bisa mengulang event
+  yang sama (runner harus idempoten; belum ada cursor). WebSocket hanya kanal kontrol; server mem-polling DB tiap
+  2 detik (ganti ke LISTEN/NOTIFY di M12). Runner tidak mencoba WebSocket lagi setelah jatuh ke polling.
+  `RunnerInfo` belum membawa preferensi terminal dari server (sementara env `AGENTGATE_TERMINAL`); `terminal-failed`
+  hanya bisa dilaporkan setelah `start`. `JobSpec` belum membawa base branch (worktree dari HEAD default).
+  Backup `.agentgate/backup` belum diunggah ke server (M8). Sinkron aturan lewat PR belum ada (M6); halaman
+  "Aturan & drift" hanya membandingkan checksum yang dilaporkan runner. Antrean job difilter di memori (cukup
+  untuk ratusan job; pindah ke query SQL bila besar). Log live lewat polling HTMX 2 detik (belum SSE). Tabel
+  antrean di 390px digulir horizontal (badge status terpotong di tepi). Kredensial CLI disimpan di file 0600,
+  belum keychain OS. Install CLI masih `cargo install --git` (belum ada binary rilis/skrip install).
+  Pengaturan "Job paralel maksimal" (`runner_prefs.max_parallel`) disimpan tetapi belum ditegakkan: runner
+  menjalankan semua job siap secara paralel. Auto-ambil hanya berlaku saat runner menyala.
 - Role custom tidak pernah menjadi "admin di semua project": hanya Owner/Admin bawaan yang boleh menugaskan
   role Admin bawaan (termasuk di grant project) dan mengubah izin role yang dipakai grant project.
 
@@ -171,12 +183,33 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 - M4: draft dari `ag_draft_tickets` tercentang secara default; halaman draft dibuka dari tautan di board
   (bukan menu sendiri). Membuat tiket mengikuti urutan induk → anak dalam satu transaksi.
 
+- M5: login CLI memakai device flow RFC 8628 dengan client bawaan `agentgate-cli`; halaman `/device` memakai satu
+  field kode (format `ABCD-EFGH`), bukan 8 kotak seperti prototype. Token CLI tampil dan bisa dicabut di Akun →
+  Hubungkan client AI.
+- M5: kredensial CLI di `~/.config/agentgate/credentials.json` (mode 0600), bukan keychain.
+- M5: evidence ditandatangani Ed25519 dengan kunci per runner (didaftarkan saat `runner start`); gate
+  `tests_passed` dipenuhi hasil `[test] command` di `.agentgate/project.toml` (JUnit/exit code), `screenshot_exists`
+  dipenuhi berkas di `.agentgate/evidence/`. Evidence tanpa tanda tangan valid ditolak.
+- M5: job selesai sukses memanggil `stages::complete` sebagai executor; job sukses walau tes gagal, gate yang
+  menentukan lolos/tidak. Runner tidak pernah menyala otomatis dan tidak pernah mengambil job tanpa auto-ambil.
+- M5: halaman Runner & CLI di `/w/{slug}/runner/{panel}`, masuk menu Pengaturan untuk semua anggota (bukan hanya
+  Admin). Tanda "menunggu runner" di komentar `@agent` hanya tampil untuk penulis komentar.
+- M5: job dari komentar `@agent` diklaim untuk penulis komentar dan membalas sebagai komentar persona; judul
+  job memakai nama persona (job stage memakai nama stage).
+- M5: `agentgate init` meng-commit backup `.agentgate/backup` dan hanya meng-gitignore `.agentgate/evidence/`;
+  commit CLI memakai `--no-verify`. Hook PreToolUse di luar job tidak memutuskan apa pun (timeout 1800 detik saat
+  menunggu izin). RTK hanya dicek di `doctor` dan hook rewrite.
+
 ## Perlu dari user (dikumpulkan untuk akhir)
 
 - Remote GitHub untuk repo ini (CI GitHub Actions baru jalan setelah di-push).
 - OAuth app **Google** dan **GitHub** (client ID/secret, callback `{APP_URL}/auth/google/callback` dan
   `{APP_URL}/auth/github/callback`). Selama M1 login sosial hanya diuji dengan provider palsu.
 - Server SMTP untuk staging/production (`MAIL_FROM`, `SMTP_*`).
+- M5: distribusi CLI (binary rilis per OS, Homebrew/skrip install, signing macOS) dan URL repo publik untuk
+  `cargo install --git`.
+- M5: konfirmasi kebijakan: apakah runner boleh auto-ambil job default-nya mati (sekarang mati), batas job paralel
+  default (sekarang tanpa batas), dan apakah halaman Runner perlu dibatasi ke role tertentu.
 - M3: konfirmasi apakah gate evidence boleh dipenuhi manual (centang + unggah bukti) sebelum runner/git
   tersedia, atau tetap hanya lewat lompat/paksa Admin seperti sekarang.
 - M4: URL publik produksi (`APP_URL` → `settings.public_base_url`) dipakai sebagai issuer OAuth dan resource MCP; harus https
@@ -202,3 +235,9 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 - Seed dev M4 (`seed_agents`): skill pack "Konvensi kasir" (disetujui, terpasang di persona Developer) dan 6 draft
   tiket di KSR (`/w/pt-contoh/p/KSR/drafts`). Uji MCP manual: `claude mcp add --transport http agentgate
   http://localhost:5150/mcp`, lalu `/mcp` → Authenticate.
+- Seed dev M5 (`seed_runner`): runner "MacBook Olivia" (owner) dan "ThinkPad Dewi" (dev, offline), KSR-13 di
+  stage Eksekusi dengan job berjalan + log + 2 evidence bertanda tangan, job komentar `@agent-qa` yang menunggu
+  izin, dan KSR-14 "Struk digital via WhatsApp" dengan job antre. Dilewati bila workspace sudah punya runner.
+  Status online runner dihitung dari `last_seen_at`, jadi beberapa menit setelah seed semuanya tampil offline.
+- Uji CLI manual: `cargo run -p agentgate-cli -- login --server http://127.0.0.1:5150`, lalu `init` di repo
+  contoh dan `runner start`.
