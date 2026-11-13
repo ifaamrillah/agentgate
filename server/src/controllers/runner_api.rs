@@ -397,7 +397,8 @@ async fn ask_permission(
     Json(ask): Json<PermissionAsk>,
 ) -> Result<Response> {
     let (_, job) = tri!(held(&ctx, &auth.session, &headers, id).await);
-    let info = tri!(svc::ask_permission(&ctx.db, &auth.session, &job, &ask).await);
+    let info =
+        tri!(svc::ask_permission(&ctx.db, auth.session.workspace.workspace_id(), &job, &ask).await);
     Ok(Json(info).into_response())
 }
 

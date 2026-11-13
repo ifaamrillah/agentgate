@@ -211,7 +211,8 @@ impl Hooks for App {
         seed_workspace(ctx).await?;
         seed_tickets(ctx).await?;
         seed_workflows(ctx).await?;
-        seed_agents(ctx).await
+        seed_agents(ctx).await?;
+        seed_runner(ctx).await
     }
 }
 
@@ -855,5 +856,284 @@ async fn seed_agents(ctx: &AppContext) -> Result<()> {
     )
     .await
     .map_err(|e| fail(&e))?;
+    Ok(())
+}
+
+/// Runner & job contoh (M5): runner owner online + runner Dev offline; story di Eksekusi dengan
+/// job berjalan (log, langkah, evidence bertanda tangan); story baru yang job-nya antre; komentar
+/// `@agent-qa` yang job-nya menunggu izin aksi. Dilewati bila workspace sudah punya runner.
+async fn seed_runner(ctx: &AppContext) -> Result<()> {
+    use agentgate_core::runner::{
+        protocol::{
+            EvidenceKind, EvidenceSummary, JobStatus, LogStream, PermissionAsk, Step, StepState,
+        },
+        sha256_hex,
+        signing::{evidence_payload, public_key_b64, sign},
+    };
+    use sea_orm::{
+        ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, IntoActiveModel, QueryFilter,
+    };
+
+    use crate::{
+        models::{job_evidence, jobs as job_model, runners, tickets},
+        services::{
+            jobs,
+            tickets::{self as ticket_service, stages::Flow},
+            workspaces::Acting,
+        },
+    };
+    const SECRET: [u8; 32] = [11; 32];
+    let Some(workspace) = workspaces::Model::find_by_slug(&ctx.db, SEED_WORKSPACE_SLUG).await?
+    else {
+        return Ok(());
+    };
+    let wid = workspace.workspace_id();
+    let Some(project) = projects::Model::find_by_key(&ctx.db, wid, SEED_PROJECT.0).await? else {
+        return Ok(());
+    };
+    if !jobs::runners_of(&ctx.db, wid, None).await?.is_empty() {
+        tracing::info!("seed runner dilewati: runner sudah ada");
+        return Ok(());
+    }
+    let owner = users::Model::find_by_email(&ctx.db, SEED_MARKER_EMAIL)
+        .await?
+        .ok_or_else(|| loco_rs::Error::string("owner seed tidak ada"))?;
+    let (_, role) = workspace_members::Model::find_with_role(&ctx.db, wid, owner.id)
+        .await?
+        .ok_or_else(|| loco_rs::Error::string("owner seed bukan anggota"))?;
+    let acting = Acting {
+        workspace: &workspace,
+        user: &owner,
+        role: &role,
+        request_id: None,
+    };
+    let fail = |e: &dyn std::fmt::Debug| loco_rs::Error::string(&format!("seed runner: {e:?}"));
+    let now = chrono::Utc::now();
+    let runner = runners::ActiveModel {
+        workspace_id: Set(wid.get()),
+        user_id: Set(owner.id),
+        name: Set("MacBook Olivia".into()),
+        os: Set("macOS 15".into()),
+        client: Set("claude".into()),
+        version: Set(agentgate_core::VERSION.into()),
+        public_key: Set(public_key_b64(&SECRET)),
+        connected_at: Set(Some(now.into())),
+        last_seen_at: Set(Some(now.into())),
+        ..Default::default()
+    }
+    .insert(&ctx.db)
+    .await?;
+    if let Some(dev) = users::Model::find_by_email(&ctx.db, "dev@agentgate.test").await? {
+        runners::ActiveModel {
+            workspace_id: Set(wid.get()),
+            user_id: Set(dev.id),
+            name: Set("ThinkPad Dewi".into()),
+            os: Set("Ubuntu 24.04".into()),
+            client: Set("claude".into()),
+            version: Set(agentgate_core::VERSION.into()),
+            public_key: Set(public_key_b64(&[12; 32])),
+            last_seen_at: Set(Some((now - chrono::Duration::hours(3)).into())),
+            ..Default::default()
+        }
+        .insert(&ctx.db)
+        .await?;
+    }
+
+    // Story di Eksekusi (seed M3, sebelum ada job): job berjalan di runner owner.
+    let in_execute = tickets::Entity::find()
+        .filter(tickets::Column::WorkspaceId.eq(wid.get()))
+        .filter(tickets::Column::ProjectId.eq(project.id))
+        .filter(tickets::Column::StageKey.eq("execute"))
+        .one(&ctx.db)
+        .await?;
+    if let Some(ticket) = in_execute {
+        let flow = Flow::load(&ctx.db, wid, &ticket).await?;
+        if let Some(stage) = flow.rule("execute").cloned()
+            && let Some(job) = jobs::on_stage_entered(&ctx.db, wid, &ticket, &stage).await?
+        {
+            jobs::claim(&ctx.db, &acting, job.id, Some(runner.id))
+                .await
+                .map_err(|e| fail(&e))?;
+            let steps = [
+                ("Baca konteks dan rencana", StepState::Ok, Some(88)),
+                (
+                    "Tes gagal untuk diskon bertingkat",
+                    StepState::Ok,
+                    Some(101),
+                ),
+                ("Implementasi aturan diskon", StepState::Ok, Some(456)),
+                ("Menulis tes kasus tepi", StepState::Now, None),
+                ("Commit di branch", StepState::Wait, None),
+                ("Ajukan review", StepState::Wait, None),
+            ]
+            .map(|(name, state, seconds)| Step {
+                name: name.into(),
+                state,
+                seconds,
+            });
+            let branch = agentgate_core::runner::branch_name(&ticket.code, &ticket.title);
+            let mut m = job_model::Entity::find_by_id(job.id)
+                .one(&ctx.db)
+                .await?
+                .ok_or_else(|| loco_rs::Error::string("job seed hilang"))?
+                .into_active_model();
+            m.status = Set(JobStatus::Running.as_str().into());
+            m.client = Set("claude".into());
+            m.model = Set("claude-sonnet-4-5".into());
+            m.branch = Set(branch.clone());
+            m.started_at = Set(Some((now - chrono::Duration::minutes(19)).into()));
+            m.tokens = Set(Some(48_200));
+            m.steps = Set(serde_json::to_value(steps).unwrap_or_default());
+            m.update(&ctx.db).await?;
+            for (stream, text) in [
+                (LogStream::Info, format!("Job {} · stage Eksekusi + TDD · runner MacBook Olivia", ticket.code)),
+                (LogStream::Info, format!("worktree ~/.local/state/agentgate/wt/kasir-api/{branch}")),
+                (LogStream::Ok, "✓ aturan ditulis dari server".to_string()),
+                (LogStream::Out, "claude -p --setting-sources project --strict-mcp-config --model claude-sonnet-4-5".to_string()),
+                (LogStream::Tool, format!("→ ag_context {} · rencana v1 · 3 kriteria", ticket.code)),
+                (LogStream::Ok, "✓ langkah 1 Baca konteks dan rencana".to_string()),
+                (LogStream::Ok, "✓ langkah 2 Tes gagal untuk diskon bertingkat".to_string()),
+                (LogStream::Ok, "✓ langkah 3 Implementasi aturan diskon".to_string()),
+                (LogStream::Out, "$ cargo test -p kasir-api diskon::".to_string()),
+                (LogStream::Ok, "  test diskon::member_gold_10_persen ... ok".to_string()),
+                (LogStream::Fail, "  test diskon::member_bertumpuk_promo ... FAILED".to_string()),
+                (LogStream::Tool, "→ ag_search \"diskon bertumpuk promo\" · 2 hasil".to_string()),
+                (LogStream::Out, "  edit src/diskon/member.rs +14 −3".to_string()),
+                (LogStream::Ok, "  test result: ok. 9 passed; 0 failed".to_string()),
+            ] {
+                jobs::log(&ctx.db, wid, job.id, stream, &text).await?;
+            }
+            let files: [(EvidenceKind, &str, &str, Vec<u8>, EvidenceSummary); 2] = [
+                (
+                    EvidenceKind::TestReport,
+                    "test-diskon.xml",
+                    "application/xml",
+                    b"<testsuite name=\"diskon\" tests=\"9\" failures=\"0\"/>".to_vec(),
+                    EvidenceSummary {
+                        passed: Some(true),
+                        total: Some(9),
+                        failed: Some(0),
+                        note: "cargo test -p kasir-api diskon::".into(),
+                    },
+                ),
+                (
+                    EvidenceKind::Screenshot,
+                    "checkout-diskon.png",
+                    "image/png",
+                    include_bytes!("fixtures/evidence-checkout.png").to_vec(),
+                    EvidenceSummary::default(),
+                ),
+            ];
+            for (kind, name, content_type, data, summary) in files {
+                let id = uuid::Uuid::now_v7();
+                let key = format!("evidence/{}/{id}", job.id);
+                ctx.storage
+                    .upload(Path::new(&key), &axum::body::Bytes::from(data.clone()))
+                    .await
+                    .map_err(|e| fail(&e))?;
+                let sha = sha256_hex(&data);
+                let signature = sign(
+                    &SECRET,
+                    &evidence_payload(job.id, kind, name, &sha, &summary),
+                );
+                job_evidence::ActiveModel {
+                    id: Set(id),
+                    workspace_id: Set(wid.get()),
+                    job_id: Set(job.id),
+                    ticket_id: Set(ticket.id),
+                    stage_key: Set(ticket.stage_key.clone()),
+                    runner_id: Set(Some(runner.id)),
+                    kind: Set(kind.as_str().into()),
+                    name: Set(name.into()),
+                    content_type: Set(content_type.into()),
+                    size_bytes: Set(i32::try_from(data.len()).unwrap_or(i32::MAX)),
+                    sha256: Set(sha),
+                    storage_key: Set(key),
+                    passed: Set(summary.passed),
+                    total: Set(summary.total.and_then(|n| i32::try_from(n).ok())),
+                    failed: Set(summary.failed.and_then(|n| i32::try_from(n).ok())),
+                    note: Set(summary.note.clone()),
+                    signature: Set(signature),
+                    ..Default::default()
+                }
+                .insert(&ctx.db)
+                .await?;
+            }
+
+            // @agent-qa di komentar tiket ini: job komentar menunggu izin aksi.
+            ticket_service::comments::post(
+                &ctx.db,
+                &acting,
+                ticket.id,
+                "@agent-qa tolong jalankan tes end-to-end checkout dengan diskon member.",
+            )
+            .await
+            .map_err(|e| fail(&e))?;
+            if let Some(cjob) = jobs::of_comments(&ctx.db, wid, ticket.id).await?.pop() {
+                let mut m = cjob.clone().into_active_model();
+                m.status = Set(JobStatus::Running.as_str().into());
+                m.runner_id = Set(Some(runner.id));
+                m.client = Set("claude".into());
+                let cjob = m.update(&ctx.db).await?;
+                jobs::log(
+                    &ctx.db,
+                    wid,
+                    cjob.id,
+                    LogStream::Info,
+                    "Job komentar · Agent QA · runner MacBook Olivia",
+                )
+                .await?;
+                let session_less = PermissionAsk {
+                    command: "npx playwright install chromium".into(),
+                    action: "install_package".into(),
+                    reason: "Browser Playwright belum terpasang; dibutuhkan untuk tes end-to-end checkout.".into(),
+                };
+                jobs::runner::ask_permission(&ctx.db, wid, &cjob, &session_less)
+                    .await
+                    .map_err(|e| fail(&e))?;
+            }
+        }
+    }
+
+    // Story baru melewati Brainstorming dan Rencana: job Eksekusi antre untuk diambil.
+    let types = crate::models::ticket_types::Model::all_in(&ctx.db, wid).await?;
+    if let Some(story) = types.iter().find(|t| t.key == "story") {
+        let form = ticket_service::create::TicketForm {
+            input: crate::models::tickets::TicketInput {
+                title: "Struk digital via WhatsApp".into(),
+                description: "Kirim struk ke nomor WhatsApp pelanggan setelah transaksi.".into(),
+                status: "in_progress".into(),
+                priority: "urgent".into(),
+                labels: "struk".into(),
+                due_on: String::new(),
+                story_points: "3".into(),
+            },
+            type_id: story.id.to_string(),
+            assignee: String::new(),
+            parent: String::new(),
+            custom: std::collections::BTreeMap::new(),
+            stage: "brainstorm".into(),
+        };
+        let t = ticket_service::create::run(&ctx.db, &acting, project.id, &form)
+            .await
+            .map_err(|e| fail(&e))?;
+        for body in [
+            "# Brainstorm\n\nStruk dikirim lewat WhatsApp Business API.",
+            "# Rencana implementasi\n\n- [ ] Template pesan\n- [ ] Kirim setelah lunas",
+        ] {
+            let a = ticket_service::artifacts::create(&ctx.db, &acting, t.id, "")
+                .await
+                .map_err(|e| fail(&e))?;
+            ticket_service::artifacts::save(&ctx.db, &acting, t.id, a.id, body)
+                .await
+                .map_err(|e| fail(&e))?;
+            ticket_service::stages::complete(&ctx.db, &acting, t.id)
+                .await
+                .map_err(|e| fail(&e))?;
+            ticket_service::stages::approve(&ctx.db, &acting, t.id, "")
+                .await
+                .map_err(|e| fail(&e))?;
+        }
+    }
     Ok(())
 }

@@ -623,11 +623,10 @@ pub async fn set_steps(
 /// Error database.
 pub async fn ask_permission(
     db: &DatabaseConnection,
-    session: &Session,
+    wid: WorkspaceId,
     job: &jobs::Model,
     ask: &PermissionAsk,
 ) -> Result<PermissionInfo, TicketFailure> {
-    let wid = session.workspace.workspace_id();
     let action = clip(&ask.action, 60);
     if persona::ALWAYS_BLOCKED.contains(&action.as_str()) {
         return Err(TicketFailure::field("action", super::ACTION_BLOCKED));
