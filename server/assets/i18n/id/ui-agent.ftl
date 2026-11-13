@@ -158,6 +158,11 @@ mcp-tool-ag-artifact = Baca dan simpan artifact stage
 mcp-tool-ag-transition = Selesaikan stage atau pindah stage (gate dicek server)
 mcp-tool-ag-ask = Tanya executor atau approver stage
 mcp-tool-ag-comment = Tulis komentar di tiket
+mcp-tool-ag-search = Cari simbol di code graph project
+mcp-tool-ag-trace = Telusuri pemanggil dan yang dipanggil sebuah simbol
+mcp-tool-ag-snippet = Ambil kode sumber simbol
+mcp-tool-ag-impact = Analisis dampak perubahan simbol atau diff
+mcp-tool-ag-graph = Ringkasan graph, kode mati, relasi lintas repo, kueri Cypher
 
 ## Pengaturan → Skill pack
 settings-skills-description = Impor skill dari repo GitHub (format SKILL.md) atau buat sendiri. Setiap skill pack dipindai server, lalu wajib disetujui manusia sebelum bisa dipasang ke persona.

@@ -142,6 +142,19 @@ impl Model {
             .await
     }
 
+    /// Repo `id` di workspace.
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn find_in<C: ConnectionTrait>(
+        db: &C,
+        workspace_id: WorkspaceId,
+        id: Uuid,
+    ) -> Result<Option<Self>, DbErr> {
+        Entity::find_by_id(id).in_tenant(workspace_id).one(db).await
+    }
+
     /// Repo `id` milik project `project_id`, dikunci (`FOR UPDATE`) sampai transaksi `txn`
     /// selesai; repo project lain tidak ditemukan.
     ///

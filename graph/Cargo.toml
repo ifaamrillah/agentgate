@@ -12,3 +12,40 @@ doctest = false
 
 [lints]
 workspace = true
+
+[features]
+default = []
+# Pembaca index SCIP (protobuf); hanya dipakai CLI.
+scip = ["dep:scip", "dep:protobuf"]
+
+[dependencies]
+# Parser inkremental + grammar resmi per bahasa prioritas spec (semua MIT).
+tree-sitter = "0.27"
+tree-sitter-typescript = "0.23"
+tree-sitter-javascript = "0.25"
+tree-sitter-python = "0.25"
+tree-sitter-go = "0.25"
+tree-sitter-rust = "0.24"
+tree-sitter-java = "0.23"
+tree-sitter-php = "0.25"
+tree-sitter-c-sharp = "0.23"
+tree-sitter-kotlin-ng = "1.1"
+tree-sitter-dart = "0.3"
+# Facts per file disimpan server sebagai jsonb.
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Walk repo dengan aturan .gitignore.
+ignore = "0.4"
+# Checksum isi file (manifest inkremental).
+sha2 = "0.10"
+hex = "0.4"
+thiserror = "2"
+# Pola route, HTTP call, dan event di teks call/anotasi.
+regex = "1"
+# Iterator hasil query tree-sitter (API 0.25+).
+streaming-iterator = "0.1"
+scip = { version = "0.10", optional = true }
+protobuf = { version = "3", optional = true }
+
+[dev-dependencies]
+tempfile = "3"

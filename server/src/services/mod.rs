@@ -5,6 +5,7 @@ pub mod cleanup;
 pub mod device;
 pub mod drafts;
 pub mod git;
+pub mod graph;
 pub mod jobs;
 pub mod mcp;
 pub mod oauth;

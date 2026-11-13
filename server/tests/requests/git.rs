@@ -693,3 +693,132 @@ async fn project_git_conventions_are_validated_and_audited() {
     )
     .await;
 }
+
+#[tokio::test]
+async fn server_reindexes_code_graph_on_demand_and_after_merge() {
+    use agentgate_server::models::graph_repos;
+
+    use super::graph::{API_TS, STOCK_TS};
+    let gh = fake_github::start().await;
+    request_with_settings(
+        settings_for(gh.base_url.clone()),
+        |request, ctx| async move {
+            let f = fixture(&request, &ctx).await;
+            gh.set_files(
+                REPO,
+                &[
+                    ("src/api.ts", API_TS.as_bytes()),
+                    ("src/stock.ts", STOCK_TS.as_bytes()),
+                    ("config/.env", b"SECRET=1"),
+                    ("src/credentials.ts", b"export const k = 1;"),
+                ],
+            );
+            let (conn, secret) = connected(&request, &ctx, &f, &gh).await;
+
+            // Halaman sebelum index: ajakan menjalankan CLI.
+            let page = request
+                .get("/w/acme/p/KSR/graph")
+                .add_cookie(f.cookie.clone())
+                .await;
+            assert_eq!(page.status_code(), 200, "{}", page.text());
+            assert!(
+                page.text().contains("data-graph-not-indexed"),
+                "{}",
+                page.text()
+            );
+
+            let res = request
+                .post("/w/acme/p/KSR/graph/reindex")
+                .add_cookie(f.cookie.clone())
+                .form(&[("scope", "all"), ("mode", "incremental")])
+                .await;
+            assert_eq!(res.status_code(), 303, "{}", res.text());
+            let row = graph_repos::Entity::find()
+                .one(&ctx.db)
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!(
+                (row.status.as_str(), row.source.as_str()),
+                ("ready", "server"),
+                "{}",
+                row.error
+            );
+            assert_eq!(row.commit_sha, crate::support::fake_codeload::SHA);
+            assert_eq!(row.files_indexed, 2);
+            assert_eq!(
+                row.files_skipped, 1,
+                "credentials.ts dilewati, .env bukan kode"
+            );
+
+            // PR di-merge ke main → index ulang (file baru ikut).
+            gh.set_files(
+                REPO,
+                &[
+                    ("src/api.ts", API_TS.as_bytes()),
+                    ("src/stock.ts", STOCK_TS.as_bytes()),
+                    ("src/refund.ts", b"export function refundOrder() {}\n"),
+                ],
+            );
+            let merged = pull_payload(90, "feature/refund", "m1", "closed", true);
+            assert_eq!(
+                webhook(
+                    &request,
+                    &conn.id.to_string(),
+                    "pull_request",
+                    &secret,
+                    &merged
+                )
+                .await,
+                204
+            );
+            let row = graph_repos::Entity::find()
+                .one(&ctx.db)
+                .await
+                .unwrap()
+                .unwrap();
+            assert_eq!(
+                (row.status.as_str(), row.files_indexed, row.files_skipped),
+                ("ready", 3, 0)
+            );
+
+            // Halaman UI.
+            let page = request
+                .get("/w/acme/p/KSR/graph?q=refund")
+                .add_cookie(f.cookie.clone())
+                .await;
+            assert_eq!(page.status_code(), 200, "{}", page.text());
+            let html = page.text();
+            assert!(html.contains("data-symbol=\"refundOrder\""), "{html}");
+            let href = html
+                .split("href=\"/w/acme/p/KSR/graph/symbol/")
+                .nth(1)
+                .and_then(|s| s.split('"').next())
+                .unwrap()
+                .to_string();
+            let detail = request
+                .get(&format!("/w/acme/p/KSR/graph/symbol/{href}"))
+                .add_cookie(f.cookie.clone())
+                .await;
+            assert_eq!(detail.status_code(), 200, "{}", detail.text());
+            assert!(detail.text().contains("export function refundOrder"));
+            for panel in ["repo", "cross", "git", "quality", "bench"] {
+                let res = request
+                    .get(&format!("/w/acme/p/KSR/graph/index/{panel}"))
+                    .add_cookie(f.cookie.clone())
+                    .await;
+                assert_eq!(res.status_code(), 200, "{panel}: {}", res.text());
+                assert!(
+                    res.text()
+                        .contains(&format!("data-graph-index=\"{panel}\""))
+                );
+            }
+            let res = request
+                .get("/w/acme/p/KSR/graph/index/nope")
+                .add_cookie(f.cookie.clone())
+                .await;
+            assert_eq!(res.status_code(), 404);
+        },
+    )
+    .await;
+}

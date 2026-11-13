@@ -1,0 +1,28 @@
+{#- Dialog "Index ulang code graph" (M7, EditProject). Prototype: dialog `gi-reindex` di
+    screens-m7-m8-m10.js. Server mengunduh arsip repo lewat koneksi git lalu tree-sitter; SCIP
+    dan riwayat git hanya dari CLI (ditampilkan sebagai perintah). Embedding = segera.
+    Variabel: reindex_action, repos ([RepoIndexView]). -#}
+{% <dialog id="graph-reindex" title={t(key="graph-reindex-title", lang="id")} description={t(key="graph-reindex-description", lang="id")} icon="refresh" tone="accent"> %}
+<form method="post" action="{{ reindex_action }}" data-graph-reindex>
+  <section class="app-stack-v">
+    <div class="app-choices" data-cols="one" role="radiogroup" aria-label="{{ t(key="graph-reindex-scope", lang="id") }}">
+      <label class="app-choice"><input type="radio" class="app-radio" name="scope" value="all" checked> <span><b>{{ t(key="graph-reindex-all", lang="id") }}</b><small class="app-hint">{% for r in repos %}{{ r.name }}{% if not loop.last %}, {% endif %}{% endfor %}</small></span></label>
+      {%- for r in repos %}
+      <label class="app-choice"><input type="radio" class="app-radio" name="scope" value="{{ r.id }}"> <span><b>{{ r.name }}</b><small class="app-hint">{% if r.connected %}{{ t(key="graph-reindex-repo-hint", lang="id", files=r.files) }}{% else %}{{ t(key="graph-reindex-no-connection", lang="id") }}{% endif %}</small></span></label>
+      {%- endfor %}
+    </div>
+    <div class="app-choices" role="radiogroup" aria-label="{{ t(key="graph-reindex-mode", lang="id") }}">
+      <label class="app-choice"><input type="radio" class="app-radio" name="mode" value="incremental" checked> <span><b>{{ t(key="graph-mode-incremental", lang="id") }}</b><small class="app-hint">{{ t(key="graph-mode-incremental-hint", lang="id") }}</small></span></label>
+      <label class="app-choice"><input type="radio" class="app-radio" name="mode" value="full"> <span><b>{{ t(key="graph-mode-full", lang="id") }}</b><small class="app-hint">{{ t(key="graph-mode-full-hint", lang="id") }}</small></span></label>
+    </div>
+    <div class="app-box">
+      <div class="app-srow"><div><div class="app-srow-t">{{ t(key="graph-reindex-scip", lang="id") }}</div><div class="app-srow-d">{{ t(key="graph-reindex-scip-hint", lang="id") }}</div></div><div class="app-srow-c"><code class="app-code">agentgate graph scip</code></div></div>
+      <div class="app-srow"><div><div class="app-srow-t">{{ t(key="graph-reindex-embedding", lang="id") }} {{ <badge label={t(key="nav-soon", lang="id")} variant="neutral"/> }}</div><div class="app-srow-d">{{ t(key="graph-reindex-embedding-hint", lang="id") }}</div></div><div class="app-srow-c"><input type="checkbox" class="app-switch" role="switch" disabled aria-label="{{ t(key="graph-reindex-embedding", lang="id") }}"></div></div>
+    </div>
+  </section>
+  <footer>
+    <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+    {{ <button label={t(key="graph-reindex-start", lang="id")} icon="refresh" variant="primary" type="submit"/> }}
+  </footer>
+</form>
+{% </dialog> %}

@@ -1,0 +1,72 @@
+{#- Project → Code graph → Cari simbol (M7). Stat index, tab Cari simbol / Status index / Viewer
+    (M10, segera), form cari (kueri + jenis + repo), hasil, atau modul + node pusat bila kueri
+    kosong. Prototype: "Status index code graph" + "Graph viewer" di screens-m7-m8-m10.js (viewer
+    visual menyusul di M10). Variabel: project, views, views_action, return_to, paths,
+    graph_tabs, can_edit, repos, indexed, reindex_action, stats, q, kind, repo_filter, kinds,
+    results ([SymbolRow]), modules, flash. -#}
+{% extends "layouts/project.html" %}
+{% block title %}{{ t(key="project-view-graph", lang="id") }} · {{ project.name }}{% endblock title %}
+{% block width %}wide{% endblock width %}
+{% block crumb %}{{ <crumb label={t(key="project-view-graph", lang="id")}/> }}{% endblock crumb %}
+{% block actions %}
+  {%- if can_edit and repos | length > 0 %}{{ <button label={t(key="graph-reindex", lang="id")} icon="refresh" variant="primary" size="sm" dialog="graph-reindex" attrs="data-open-reindex"/> }}{% endif -%}
+{% endblock actions %}
+{% block page_attrs %}data-graph-search{% endblock page_attrs %}
+{% block description %}{{ t(key="graph-description", lang="id") }}{% endblock description %}
+{% block main %}
+{{ <tabs label={t(key="project-view-graph", lang="id")} items={graph_tabs}/> }}
+{%- if repos | length == 0 %}
+{{ <empty_state title={t(key="graph-no-repos", lang="id")} description={t(key="graph-no-repos-description", lang="id")} icon="git-branch" attrs="data-graph-empty"/> }}
+{%- elif not indexed %}
+{% <card title={t(key="graph-not-indexed", lang="id")} description={t(key="graph-not-indexed-description", lang="id")} attrs="data-graph-not-indexed"> %}
+  <pre class="app-codeblock">agentgate graph index</pre>
+{% </card> %}
+{%- else %}
+{{ <stats items={stats}/> }}
+{% <card flush={true} attrs="data-graph-results"> %}
+  <form class="app-graph-search" method="get" action="{{ paths.graph }}" role="search">
+    <input class="app-input" type="search" name="q" value="{{ q }}" placeholder="{{ t(key="graph-search-placeholder", lang="id") }}" aria-label="{{ t(key="graph-search-label", lang="id") }}" autocomplete="off">
+    <select class="app-input" name="kind" aria-label="{{ t(key="graph-filter-kind", lang="id") }}">
+      <option value="">{{ t(key="graph-filter-kind-all", lang="id") }}</option>
+      {%- for k in kinds %}<option value="{{ k.value }}"{% if kind == k.value %} selected{% endif %}>{{ t(key=k.label_key, lang="id") }}</option>{% endfor %}
+    </select>
+    {%- if repos | length > 1 %}
+    <select class="app-input" name="repo" aria-label="{{ t(key="graph-filter-repo", lang="id") }}">
+      <option value="">{{ t(key="graph-filter-repo-all", lang="id") }}</option>
+      {%- for r in repos %}<option value="{{ r.name }}"{% if repo_filter == r.name %} selected{% endif %}>{{ r.name }}</option>{% endfor %}
+    </select>
+    {%- endif %}
+    {{ <button label={t(key="graph-search", lang="id")} icon="search" type="submit"/> }}
+  </form>
+  {%- if q %}
+  {%- for s in results %}
+  <a class="app-lrow app-sym" href="{{ s.href }}" data-symbol="{{ s.qualified }}">
+    <span class="app-tile">{{ icon(name=s.icon) }}</span>
+    <span class="app-lrow-main">
+      <b>{{ s.qualified }}</b>
+      <small><span class="app-code">{{ s.repo }}/{{ s.path }}:{{ s.line }}</span> · {{ t(key=s.kind_key, lang="id") }}{% if s.doc %} · {{ s.doc }}{% endif %}</small>
+      {%- if s.signature %}<span class="app-sym-sig">{{ s.signature }}</span>{% endif %}
+    </span>
+    <span class="app-sym-meta">
+      {%- if s.dead %}{{ <badge label={t(key="graph-dead", lang="id")} variant="gate"/> }}{% endif %}
+      {%- if s.test %}{{ <badge label={t(key="graph-test", lang="id")} variant="neutral"/> }}{% endif %}
+      <span title="{{ t(key="graph-callers", lang="id") }}">{{ icon(name="arrow-down-left") }} {{ s.callers }}</span>
+      <span title="{{ t(key="graph-callees", lang="id") }}">{{ icon(name="arrow-up-right") }} {{ s.callees }}</span>
+    </span>
+  </a>
+  {%- else %}
+  {{ <empty_state title={t(key="graph-search-empty", lang="id", q=q)} description={t(key="graph-search-empty-description", lang="id")} icon="search" variant="plain"/> }}
+  {%- endfor %}
+  {%- else %}
+  {%- for m in modules %}
+  {%- if m.href %}<a class="app-lrow" href="{{ m.href }}" data-module="{{ m.name }}">{% else %}<div class="app-lrow" data-module="{{ m.name }}">{% endif %}
+    <span class="app-tile">{{ icon(name="folder") }}</span>
+    <span class="app-lrow-main"><b>{{ m.name }}</b><small>{{ m.repo }} · {{ t(key="graph-module-size", lang="id", files=m.files, symbols=m.symbols) }}{% if m.central %} · {{ t(key="graph-module-central", lang="id") }} <span class="app-code">{{ m.central }}</span>{% endif %}</small></span>
+    {%- if m.href %}{{ icon(name="chevron-right") }}{% endif %}
+  {%- if m.href %}</a>{% else %}</div>{% endif %}
+  {%- endfor %}
+  {%- endif %}
+{% </card> %}
+{%- endif %}
+{%- if can_edit and repos | length > 0 %}{% include "graph/_reindex.html" %}{% endif %}
+{% endblock main %}

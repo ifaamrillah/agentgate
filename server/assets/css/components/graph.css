@@ -1,0 +1,66 @@
+/* Code graph (M7): keyakinan relasi (`confidence`), bar bahasa (`lang_bar`), kode bernomor
+   (`code_view`), hasil cari simbol, status index repo, riwayat git. Prototype:
+   docs/reference/ui-prototype/screens-m7-m8-m10.js (.gi-*). */
+@layer components {
+  .app-conf { gap: 4px; white-space: nowrap; }
+  .app-conf svg { width: 12px; height: 12px; }
+
+  .app-langbar { display: grid; gap: 4px; min-width: 96px; max-width: 160px; }
+  .app-langbar-bar { display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: var(--ag-hover); }
+  .app-langbar-bar > i { display: block; width: var(--w); background: var(--c); }
+  .app-langbar-bar > i + i { border-left: 1px solid var(--ag-bg); }
+  .app-langbar small { color: var(--ag-muted); font-size: 11.5px; white-space: nowrap; }
+
+  .app-codelines { border: 1px solid var(--ag-line); border-radius: 8px; background: var(--ag-muted-bg); max-height: 560px; overflow: auto; }
+  .app-codelines pre { margin: 0; padding: 10px 0; font-family: var(--ag-mono); font-size: 12px; line-height: 1.65; color: var(--ag-fg); }
+  .app-codelines code { display: block; padding: 0; border: 0; background: none; font-size: inherit; color: inherit; }
+  .app-codeline { display: block; padding-right: 14px; white-space: pre; }
+  .app-codeline-n { display: inline-block; width: 52px; padding-right: 14px; text-align: right; color: var(--ag-faint); user-select: none; }
+  .app-codelines:focus-visible { outline: 2px solid var(--ag-accent); outline-offset: 2px; }
+
+  /* Form cari simbol: kueri lebar, filter jenis + repo, tombol. */
+  .app-graph-search { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 16px; border-bottom: 1px solid var(--ag-line); }
+  .app-graph-search > input.app-input { flex: 1 1 260px; }
+  .app-graph-search > select.app-input { flex: 0 1 170px; width: auto; }
+
+  /* Baris simbol: ikon jenis, nama + lokasi, signature, angka pemanggil. */
+  .app-sym { align-items: flex-start; }
+  .app-sym .app-lrow-main > b { font-family: var(--ag-mono); font-weight: 500; font-size: 12.5px; white-space: normal; overflow-wrap: anywhere; }
+  .app-sym .app-lrow-main > small { white-space: normal; overflow-wrap: anywhere; }
+  .app-sym-sig { font-family: var(--ag-mono); font-size: 11.5px; color: var(--ag-fg2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .app-sym-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: flex-end; flex-shrink: 0; color: var(--ag-muted); font-size: 12px; }
+  .app-sym-meta > span[title] { display: inline-flex; align-items: center; gap: 3px; font-variant-numeric: tabular-nums; }
+  .app-sym-meta > span[title] svg { width: 14px; height: 14px; }
+  .app-sym-depth { font-family: var(--ag-mono); font-size: 11px; color: var(--ag-faint); min-width: 22px; }
+  @media (max-width: 639px) { .app-sym { flex-wrap: wrap; } .app-sym-meta { width: 100%; justify-content: flex-start; padding-left: 40px; } }
+
+  /* Sel repo/endpoint di tabel status index dan lintas repo. */
+  [data-graph-repos] .table td { white-space: normal; }
+  [data-graph-repos] .app-langbar { min-width: 90px; }
+  [data-graph-repos] td:first-child .app-gi-cell > :is(b, small) { white-space: nowrap; }
+  .app-gi-cell { display: grid; gap: 2px; min-width: 0; }
+  .app-gi-cell > b { font-weight: 500; overflow-wrap: anywhere; }
+  .app-gi-cell > small { color: var(--ag-muted); font-size: 12px; overflow-wrap: anywhere; }
+  .app-gi-cell > small[data-tone='danger'] { color: var(--ag-danger); }
+  .app-gi-cell > small[data-tone='warn'] { color: var(--ag-warn); }
+  .app-gi-cov { display: grid; gap: 4px; min-width: 70px; }
+
+  /* Riwayat git: tiga kolom (hotspot, coupling, pemilik) menumpuk di layar sempit. */
+  .app-gi-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .app-gi-col { min-width: 0; padding: 14px 16px; display: grid; gap: 12px; align-content: start; }
+  .app-gi-col + .app-gi-col { border-left: 1px solid var(--ag-line); }
+  .app-gi-col > header { display: grid; gap: 2px; }
+  .app-gi-col > header b { font-weight: 600; }
+  .app-gi-col > header span { color: var(--ag-muted); font-size: 12px; }
+  .app-gi-r { display: grid; gap: 4px; min-width: 0; }
+  .app-gi-r > span { display: flex; gap: 8px; align-items: center; min-width: 0; }
+  .app-gi-r .app-code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+  .app-gi-r small { color: var(--ag-muted); font-size: 11.5px; white-space: nowrap; }
+  .app-gi-r .app-bar { flex: 1; }
+  @media (max-width: 899px) { .app-gi-cols { grid-template-columns: 1fr; } .app-gi-col + .app-gi-col { border-left: 0; border-top: 1px solid var(--ag-line); } }
+
+  /* Detail simbol: kode | samping (properti, dampak). */
+  .app-symbol { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
+  .app-symbol > * { min-width: 0; display: grid; gap: 16px; }
+  @media (max-width: 999px) { .app-symbol { grid-template-columns: 1fr; } }
+}

@@ -770,3 +770,152 @@ async fn git_enum_checks_match_enums() {
     }
     assert!(!update_ok(db, "pull_requests", "ci_state", pr_id, "bogus").await);
 }
+
+#[tokio::test]
+async fn code_graph_checks_match_enums() {
+    use agentgate_graph::{
+        SymbolKind,
+        build::{Confidence, EdgeKind},
+        cross::{LinkConfidence, LinkKind},
+        walk::SkipReason,
+    };
+    use agentgate_server::models::graph_repos::{IndexMode, IndexSource, IndexStatus};
+
+    let boot = boot_test::<App>().await.unwrap();
+    let db = &boot.app_context.db;
+    let workspace_id = bare_workspace(db).await;
+    let project_id = Uuid::now_v7();
+    let repo_id = Uuid::now_v7();
+    let exec = |sql: &'static str, vals: Vec<Value>| async move {
+        db.execute_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            sql,
+            vals,
+        ))
+        .await
+        .unwrap();
+    };
+    exec(
+        "INSERT INTO projects (id, workspace_id, key, name) VALUES ($1, $2, 'GRF', 'Graph')",
+        vec![Value::from(project_id), Value::from(workspace_id)],
+    )
+    .await;
+    exec(
+        "INSERT INTO repos (id, workspace_id, project_id, name, provider, url, default_branch) \
+         VALUES ($1, $2, $3, 'web', 'github', 'https://github.com/a/w', 'main')",
+        vec![
+            Value::from(repo_id),
+            Value::from(workspace_id),
+            Value::from(project_id),
+        ],
+    )
+    .await;
+    exec(
+        "INSERT INTO graph_repos (repo_id, workspace_id, project_id) VALUES ($1, $2, $3)",
+        vec![
+            Value::from(repo_id),
+            Value::from(workspace_id),
+            Value::from(project_id),
+        ],
+    )
+    .await;
+    let update_repo = |col: &'static str, v: String| async move {
+        db.execute_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            format!("UPDATE graph_repos SET {col} = $1 WHERE repo_id = $2"),
+            [Value::from(v), Value::from(repo_id)],
+        ))
+        .await
+        .is_ok()
+    };
+    for s in IndexStatus::iter() {
+        assert!(update_repo("status", s.to_value()).await, "{s:?}");
+    }
+    for s in IndexSource::iter() {
+        assert!(update_repo("source", s.to_value()).await, "{s:?}");
+    }
+    for s in IndexMode::iter() {
+        assert!(update_repo("mode", s.to_value()).await, "{s:?}");
+    }
+    for col in ["status", "source", "mode"] {
+        assert!(!update_repo(col, "bogus".into()).await, "{col}");
+    }
+    let file_id = Uuid::now_v7();
+    exec(
+        "INSERT INTO graph_files (id, workspace_id, repo_id, path, lang) VALUES ($1, $2, $3, 'a.ts', 'typescript')",
+        vec![Value::from(file_id), Value::from(workspace_id), Value::from(repo_id)],
+    )
+    .await;
+    for r in SkipReason::ALL {
+        assert!(
+            update_ok(db, "graph_files", "skip_reason", file_id, r.as_str()).await,
+            "{r:?}"
+        );
+    }
+    assert!(!update_ok(db, "graph_files", "skip_reason", file_id, "bogus").await);
+    let sym = |id: Uuid| {
+        exec(
+            "INSERT INTO graph_symbols (id, workspace_id, repo_id, file_id, name, qualified, kind, start_line, end_line) \
+             VALUES ($1, $2, $3, $4, 'a', 'a', 'function', 1, 1)",
+            vec![
+                Value::from(id),
+                Value::from(workspace_id),
+                Value::from(repo_id),
+                Value::from(file_id),
+            ],
+        )
+    };
+    let (a, b) = (Uuid::now_v7(), Uuid::now_v7());
+    sym(a).await;
+    sym(b).await;
+    for k in SymbolKind::ALL {
+        assert!(
+            update_ok(db, "graph_symbols", "kind", a, k.as_str()).await,
+            "{k:?}"
+        );
+    }
+    assert!(!update_ok(db, "graph_symbols", "kind", a, "bogus").await);
+    for c in [Confidence::Certain, Confidence::Inferred] {
+        assert!(update_ok(db, "graph_symbols", "dead", a, c.as_str()).await);
+    }
+    let edge = Uuid::now_v7();
+    exec(
+        "INSERT INTO graph_edges (id, workspace_id, repo_id, from_id, to_id, kind, confidence, source) \
+         VALUES ($1, $2, $3, $4, $5, 'calls', 'certain', 'tree_sitter')",
+        vec![Value::from(edge), Value::from(workspace_id), Value::from(repo_id), Value::from(a), Value::from(b)],
+    )
+    .await;
+    for k in EdgeKind::ALL {
+        assert!(
+            update_ok(db, "graph_edges", "kind", edge, k.as_str()).await,
+            "{k:?}"
+        );
+    }
+    assert!(update_ok(db, "graph_edges", "source", edge, "scip").await);
+    assert!(!update_ok(db, "graph_edges", "kind", edge, "bogus").await);
+    let link = Uuid::now_v7();
+    exec(
+        "INSERT INTO graph_links (id, workspace_id, project_id, kind, confidence, from_repo_id) \
+         VALUES ($1, $2, $3, 'http', 'certain', $4)",
+        vec![
+            Value::from(link),
+            Value::from(workspace_id),
+            Value::from(project_id),
+            Value::from(repo_id),
+        ],
+    )
+    .await;
+    for k in LinkKind::ALL {
+        assert!(
+            update_ok(db, "graph_links", "kind", link, k.as_str()).await,
+            "{k:?}"
+        );
+    }
+    for c in LinkConfidence::ALL {
+        assert!(
+            update_ok(db, "graph_links", "confidence", link, c.as_str()).await,
+            "{c:?}"
+        );
+    }
+    assert!(!update_ok(db, "graph_links", "confidence", link, "bogus").await);
+}

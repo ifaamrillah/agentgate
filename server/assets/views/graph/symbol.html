@@ -1,0 +1,73 @@
+{#- Project → Code graph → detail simbol (M7): lokasi, signature, kode (`ag_snippet`), pemanggil
+    dan yang dipanggil (2 tingkat, dengan keyakinan), relasi lintas repo, dan dampak bila simbol
+    diubah. Prototype: panel samping "Graph viewer" + dialog `gv-snippet` di screens-m7-m8-m10.js.
+    Variabel: project, views, views_action, return_to, paths, graph_tabs, can_edit, repos,
+    indexed, reindex_action, symbol (SymbolRow), snippet ({path, start, end, truncated, lines}?),
+    callers/callees ([HopRow]), links ([LinkView]), impact ({risk, affected, tests, repos}). -#}
+{% extends "layouts/project.html" %}
+{% block title %}{{ symbol.name }} · {{ t(key="project-view-graph", lang="id") }} · {{ project.name }}{% endblock title %}
+{% block width %}wide{% endblock width %}
+{% block crumb %}{{ <crumb label={t(key="project-view-graph", lang="id")} href={paths.graph}/> }}{{ <crumb label={symbol.name}/> }}{% endblock crumb %}
+{% block page_attrs %}data-graph-symbol="{{ symbol.qualified }}"{% endblock page_attrs %}
+{% block description %}{{ t(key="graph-description", lang="id") }}{% endblock description %}
+{% block main %}
+{{ <tabs label={t(key="project-view-graph", lang="id")} items={graph_tabs}/> }}
+<div class="app-symbol">
+  <div>
+    {% <card title={symbol.qualified} description={t(key=symbol.kind_key, lang="id") ~ " · " ~ symbol.repo ~ "/" ~ symbol.path ~ ":" ~ symbol.line ~ "–" ~ symbol.end} attrs="data-symbol-code"> %}
+      {%- if symbol.signature %}<p class="app-sym-sig" data-signature>{{ symbol.signature }}</p>{% endif %}
+      {%- if snippet %}
+      {{ <code_view lines={snippet.lines} label={snippet.path}/> }}
+      {%- if snippet.truncated %}<p class="app-hint">{{ t(key="graph-snippet-truncated", lang="id") }}</p>{% endif %}
+      {%- else %}
+      {{ <empty_state title={t(key="graph-snippet-missing", lang="id")} icon="file-off" variant="plain"/> }}
+      {%- endif %}
+    {% </card> %}
+    {%- for dir in ["callers", "callees"] %}
+    {%- if dir == "callers" %}{% set hops = callers %}{% set dir_icon = "arrow-down-left" %}{% set dir_title = "graph-callers" %}{% set dir_desc = "graph-callers-description" %}{% else %}{% set hops = callees %}{% set dir_icon = "arrow-up-right" %}{% set dir_title = "graph-callees" %}{% set dir_desc = "graph-callees-description" %}{% endif %}
+    {% <card title={t(key=dir_title, lang="id")} description={t(key=dir_desc, lang="id")} count={hops | length ~ ""} flush={true} attrs={"data-trace=" ~ dir}> %}
+      {%- for h in hops %}
+      <a class="app-lrow app-sym" href="{{ h.symbol.href }}" data-hop="{{ h.symbol.qualified }}">
+        <span class="app-sym-depth" title="{{ t(key="graph-depth", lang="id") }}">{{ h.depth }}×</span>
+        <span class="app-lrow-main">
+          <b>{{ h.symbol.qualified }}</b>
+          <small><span class="app-code">{{ h.symbol.repo }}/{{ h.symbol.path }}:{{ h.symbol.line }}</span>{% if h.via != "calls" %} · {{ t(key=h.via_key, lang="id") }}{% endif %}</small>
+        </span>
+        <span class="app-sym-meta">{{ <confidence level={h.confidence}/> }}</span>
+      </a>
+      {%- else %}
+      {{ <empty_state title={t(key="graph-trace-empty", lang="id")} icon={dir_icon} variant="plain"/> }}
+      {%- endfor %}
+    {% </card> %}
+    {%- endfor %}
+  </div>
+  <div>
+    {% <card title={t(key="graph-symbol-props", lang="id")} flush={true}> %}
+      <dl class="app-props app-blk">
+        <dt>{{ t(key="graph-col-kind", lang="id") }}</dt><dd>{{ t(key=symbol.kind_key, lang="id") }}</dd>
+        <dt>{{ t(key="graph-col-repo", lang="id") }}</dt><dd><span class="app-code">{{ symbol.repo }}</span></dd>
+        <dt>{{ t(key="graph-module", lang="id") }}</dt><dd><span class="app-code">{{ symbol.module }}</span></dd>
+        <dt>{{ t(key="graph-lang", lang="id") }}</dt><dd>{{ symbol.lang }}</dd>
+        <dt>{{ t(key="graph-exported", lang="id") }}</dt><dd>{% if symbol.exported %}{{ t(key="graph-yes", lang="id") }}{% else %}{{ t(key="graph-no", lang="id") }}{% endif %}</dd>
+        {%- if symbol.complexity > 0 %}<dt>{{ t(key="graph-complexity", lang="id") }}</dt><dd>{{ symbol.complexity }}</dd>{% endif %}
+        {%- if symbol.dead %}<dt>{{ t(key="graph-dead", lang="id") }}</dt><dd>{{ <confidence level={symbol.dead}/> }}</dd>{% endif %}
+      </dl>
+    {% </card> %}
+    {% <card title={t(key="graph-impact", lang="id")} description={t(key="graph-impact-description", lang="id")} attrs="data-impact"> %}
+      <p>{{ <badge label={t(key=impact.risk_key, lang="id")} variant={impact.variant}/> }} <span class="app-hint">{{ t(key="graph-impact-summary", lang="id", affected=impact.affected, tests=impact.test_count) }}</span></p>
+      {%- if impact.repos %}<p class="app-hint">{{ t(key="graph-impact-repos", lang="id", repos=impact.repos) }}</p>{% endif %}
+      {%- for tt in impact.tests %}<p><a class="app-link app-code" href="{{ tt.href }}">{{ tt.qualified }}</a></p>{% endfor %}
+    {% </card> %}
+    {%- if links | length > 0 %}
+    {% <card title={t(key="graph-panel-cross", lang="id")} count={links | length ~ ""} flush={true} attrs="data-symbol-links"> %}
+      {%- for l in links %}
+      <div class="app-lrow">
+        <span class="app-lrow-main"><b>{{ l.to_name }}</b><small>{{ t(key=l.kind_key, lang="id") }} · {{ l.from_repo }} → {% if l.to_repo %}{{ l.to_repo }}{% else %}{{ t(key=l.confidence_key, lang="id") }}{% endif %}</small></span>
+        {{ <confidence level={l.confidence}/> }}
+      </div>
+      {%- endfor %}
+    {% </card> %}
+    {%- endif %}
+  </div>
+</div>
+{% endblock main %}

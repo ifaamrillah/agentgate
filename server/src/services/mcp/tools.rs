@@ -8,6 +8,9 @@ use serde_json::{Value, json};
 use uuid::Uuid;
 
 use super::{Session, ToolError};
+
+#[path = "graph_tools.rs"]
+mod graph;
 use crate::{
     models::{
         artifact_versions,
@@ -45,6 +48,8 @@ fn schema(properties: Value, required: &[&str]) -> Value {
 #[must_use]
 pub fn definitions() -> Vec<ToolDef> {
     let ticket = json!({ "type": "string", "description": "Kode tiket, mis. KSR-31" });
+    let project = json!({ "type": "string", "description": "Kode project, mis. KSR (boleh kosong bila Anda hanya punya satu project)" });
+    let symbol = json!({ "type": "string", "description": "Id simbol dari ag_search, atau nama (mis. StockService.reserve)" });
     vec![
         ToolDef {
             name: "ag_context",
@@ -145,6 +150,77 @@ pub fn definitions() -> Vec<ToolDef> {
             ),
             read_only: false,
         },
+        ToolDef {
+            name: "ag_search",
+            description: "Cari simbol kode (fungsi, method, kelas, route) di code graph project. Cocok dengan pecahan nama (\"reserve stock\" → reserveStock) dan doc comment. Hasil: id, nama, file, baris, signature. Pakai sebelum grep.",
+            schema: schema(
+                json!({
+                    "project": project,
+                    "query": { "type": "string" },
+                    "kind": { "type": "string", "enum": ["function", "method", "class", "interface", "struct", "enum", "trait", "type", "module", "route"] },
+                    "repo": { "type": "string", "description": "Nama repo (opsional)" },
+                    "include_tests": { "type": "boolean" },
+                    "limit": { "type": "integer", "minimum": 1, "maximum": 50 },
+                }),
+                &["query"],
+            ),
+            read_only: true,
+        },
+        ToolDef {
+            name: "ag_trace",
+            description: "Telusuri pemanggil (`callers`) atau yang dipanggil (`callees`) sebuah simbol sampai kedalaman 1–5, termasuk lintas repo lewat HTTP/event. Setiap langkah bertanda certain (hasil parsing/SCIP) atau inferred (dugaan).",
+            schema: schema(
+                json!({
+                    "project": project,
+                    "symbol": symbol,
+                    "direction": { "type": "string", "enum": ["callers", "callees"] },
+                    "depth": { "type": "integer", "minimum": 1, "maximum": 5 },
+                }),
+                &["symbol"],
+            ),
+            read_only: true,
+        },
+        ToolDef {
+            name: "ag_snippet",
+            description: "Kode satu simbol (maks. 200 baris) tanpa membaca file utuh. `context` menambah baris di sekitarnya.",
+            schema: schema(
+                json!({
+                    "project": project,
+                    "symbol": symbol,
+                    "context": { "type": "integer", "minimum": 0, "maximum": 20 },
+                }),
+                &["symbol"],
+            ),
+            read_only: true,
+        },
+        ToolDef {
+            name: "ag_impact",
+            description: "Analisis dampak dari sebuah simbol atau dari unified diff (`git diff`): fungsi yang berubah, pemanggil terdampak, tes terkait, repo lain yang ikut terdampak, dan risiko (rendah/sedang/tinggi).",
+            schema: schema(
+                json!({
+                    "project": project,
+                    "symbol": symbol,
+                    "diff": { "type": "string", "description": "Output git diff" },
+                    "depth": { "type": "integer", "minimum": 1, "maximum": 5 },
+                }),
+                &[],
+            ),
+            read_only: true,
+        },
+        ToolDef {
+            name: "ag_graph",
+            description: "Gambaran code graph project. action=overview: status index per repo, bahasa, modul + node pusat, hotspot git. action=dead: kandidat kode mati. action=links: relasi lintas repo (HTTP, event, package). action=query: query ala Cypher, mis. `MATCH (a:Function {name: 'calcPromo'})<-[:CALLS*1..2]-(b) RETURN b.name, b.file LIMIT 20`.",
+            schema: schema(
+                json!({
+                    "project": project,
+                    "action": { "type": "string", "enum": ["overview", "dead", "links", "query"] },
+                    "query": { "type": "string" },
+                    "repo": { "type": "string" },
+                }),
+                &["action"],
+            ),
+            read_only: true,
+        },
     ]
 }
 
@@ -182,6 +258,24 @@ struct Args {
     source_ticket: String,
     #[serde(default)]
     drafts: Vec<DraftInput>,
+    #[serde(default)]
+    symbol: String,
+    #[serde(default)]
+    kind: String,
+    #[serde(default)]
+    repo: String,
+    #[serde(default)]
+    direction: String,
+    #[serde(default)]
+    depth: Option<u8>,
+    #[serde(default)]
+    limit: Option<u64>,
+    #[serde(default)]
+    context: Option<u32>,
+    #[serde(default)]
+    diff: String,
+    #[serde(default)]
+    include_tests: bool,
 }
 
 fn required<'a>(value: &'a str, field: &str) -> Result<&'a str, ToolError> {
@@ -223,6 +317,11 @@ pub async fn call(
         "ag_transition" => transition(db, s, &a).await,
         "ag_ask" => ask(db, s, &a).await,
         "ag_comment" => comment(db, s, &a).await,
+        "ag_search" => graph::search(db, s, &a).await,
+        "ag_trace" => graph::trace(db, s, &a).await,
+        "ag_snippet" => graph::snippet(db, s, &a).await,
+        "ag_impact" => graph::impact(db, s, &a).await,
+        "ag_graph" => graph::overview(db, s, &a).await,
         _ => Err(ToolError::new(format!("Tool tidak dikenal: {name}"))),
     }
 }
@@ -349,6 +448,7 @@ async fn context(db: &DatabaseConnection, s: &Session, a: &Args) -> Result<Value
         "persona": persona_json,
         "artifacts": artifacts,
         "stages": next,
+        "code_graph": graph::context_section(db, s, &project).await?,
     }))
 }
 

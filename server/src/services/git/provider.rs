@@ -82,6 +82,33 @@ pub trait GitProvider: Send + Sync {
         url: &str,
         secret: &str,
     ) -> Result<i64, ProviderError>;
+    /// Arsip `.tar.gz` isi repo di `git_ref` (index code graph oleh server, M7), maks.
+    /// `max_bytes`.
+    async fn tarball(
+        &self,
+        full_name: &str,
+        git_ref: &str,
+        max_bytes: usize,
+    ) -> Result<Vec<u8>, ProviderError>;
+}
+
+/// Baca body respons dengan batas ukuran.
+async fn read_limited(
+    mut res: reqwest::Response,
+    max_bytes: usize,
+) -> Result<Vec<u8>, ProviderError> {
+    let mut out = Vec::new();
+    while let Some(chunk) = res
+        .chunk()
+        .await
+        .map_err(|e| ProviderError::Network(e.without_url().to_string()))?
+    {
+        if out.len() + chunk.len() > max_bytes {
+            return Err(ProviderError::Rejected("archive-too-large".into()));
+        }
+        out.extend_from_slice(&chunk);
+    }
+    Ok(out)
 }
 
 /// GitHub REST v3.
@@ -334,6 +361,48 @@ impl GitProvider for GithubProvider {
             )
             .await?;
         Ok(())
+    }
+
+    async fn tarball(
+        &self,
+        full_name: &str,
+        git_ref: &str,
+        max_bytes: usize,
+    ) -> Result<Vec<u8>, ProviderError> {
+        let (o, r) = split(full_name)?;
+        let res = self
+            .req(
+                reqwest::Method::GET,
+                &format!("/repos/{o}/{r}/tarball/{git_ref}"),
+            )
+            .send()
+            .await
+            .map_err(|e| ProviderError::Network(e.without_url().to_string()))?;
+        // GitHub mengalihkan ke codeload (URL bertanda tangan, tanpa header token).
+        let res = if res.status().is_redirection() {
+            let location = res
+                .headers()
+                .get("location")
+                .and_then(|v| v.to_str().ok())
+                .ok_or_else(|| ProviderError::Decode("redirect tanpa location".into()))?
+                .to_string();
+            if !location.starts_with("https://") && !location.starts_with(&self.api_base) {
+                return Err(ProviderError::Decode("redirect tidak aman".into()));
+            }
+            self.http
+                .get(location)
+                .send()
+                .await
+                .map_err(|e| ProviderError::Network(e.without_url().to_string()))?
+        } else {
+            res
+        };
+        match res.status().as_u16() {
+            200 => read_limited(res, max_bytes).await,
+            401 | 403 => Err(ProviderError::Unauthorized),
+            404 => Err(ProviderError::NotFound),
+            s => Err(ProviderError::Rejected(format!("HTTP {s}"))),
+        }
     }
 
     async fn create_webhook(

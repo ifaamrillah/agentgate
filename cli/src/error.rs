@@ -45,6 +45,8 @@ pub enum Error {
     RepoNotFound(String),
     #[error("archive error: {0}")]
     Archive(String),
+    #[error("code graph error: {0}")]
+    Graph(String),
     #[error("failed to start {program}: {source}")]
     Spawn { program: String, source: io::Error },
     #[error("rules drift detected")]
@@ -116,6 +118,7 @@ impl Error {
                  --project {project}` di repo tersebut."
             ),
             Self::Archive(e) => format!("Arsip backup tidak bisa diproses: {e}"),
+            Self::Graph(e) => format!("Code graph tidak bisa diproses: {e}"),
             Self::Spawn { program, source } => {
                 format!("{program} tidak bisa dijalankan: {source}")
             }

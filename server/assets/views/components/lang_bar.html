@@ -1,0 +1,13 @@
+{#- Komposisi bahasa repo (M7): bar bertumpuk per bahasa (lebar = porsi baris kode) + label
+    bahasa terbesar. Warna dari data (`views::graph::lang_color`), bukan dari template.
+    Parameter:
+      parts: array              [views::graph::LangPart {label, percent, color}]
+      label: bool               tampilkan bahasa terbesar di bawah bar (default true) -#}
+{% component lang_bar(parts: array, label: bool = true) %}
+{%- if parts | length > 0 %}
+<span class="app-langbar" title="{% for p in parts %}{{ p.label }} {{ p.percent }}%{% if not loop.last %}, {% endif %}{% endfor %}">
+  <span class="app-langbar-bar" aria-hidden="true">{% for p in parts %}<i style="--w:{{ p.percent }}%;--c:{{ p.color }}"></i>{% endfor %}</span>
+  {%- if label %}<small>{{ parts[0].label }} {{ parts[0].percent }}%{% if parts | length > 1 %} · +{{ parts | length - 1 }}{% endif %}</small>{% endif %}
+</span>
+{%- else %}<span class="app-hint">—</span>{% endif %}
+{%- endcomponent lang_bar %}

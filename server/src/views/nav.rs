@@ -377,11 +377,18 @@ fn project_side_views(home: &str, section: &str) -> Vec<NavItem> {
     board.current = matches!(section, "project_board" | "project_ticket");
     let mut list = NavItem::link("list", "nav-list", "list", &format!("{home}/list"));
     list.current = section == "project_list";
+    let mut graph = NavItem::link(
+        "code_graph",
+        "nav-code-graph",
+        "topology-star-3",
+        &format!("{home}/graph"),
+    );
+    graph.current = section == "project_graph";
     vec![
         board,
         list,
         NavItem::soon("knowledge", "nav-knowledge", "book"),
-        NavItem::soon("code_graph", "nav-code-graph", "topology-star-3"),
+        graph,
     ]
 }
 
@@ -465,6 +472,7 @@ pub const PROJECT_VIEWS: &[(&str, &str, &str)] = &[
     ("roadmap", "project-view-roadmap", "timeline"),
     ("calendar", "project-view-calendar", "calendar"),
     ("prs", "project-view-prs", "git-pull-request"),
+    ("graph", "project-view-graph", "topology-star-3"),
     ("releases", "project-view-releases", "rocket"),
     ("reports", "project-view-reports", "chart-line"),
 ];
@@ -517,7 +525,7 @@ pub fn project_views(home_href: &str, pinned: &[String], current: &str) -> Proje
             .unwrap_or(PROJECT_VIEWS[0]);
         let mut nav = match key {
             "overview" => NavItem::link(key, label, icon, home_href),
-            "board" | "list" | "prs" => {
+            "board" | "list" | "prs" | "graph" => {
                 NavItem::link(key, label, icon, &format!("{home_href}/{key}"))
             }
             _ => NavItem::soon(key, label, icon),

@@ -135,9 +135,29 @@ pub fn ui(v: &impl ViewRenderer, query: &[(String, String)]) -> Result<Response>
                 "rows": page_rows,
                 "runner": runner_samples(),
                 "git": git_samples(),
+                "graph": graph_samples(),
             }),
         ),
     )
+}
+
+/// Contoh komponen code graph (M7) untuk katalog.
+fn graph_samples() -> serde_json::Value {
+    use crate::views::graph::{CodeLine, LangPart, code_lines, lang_color};
+    let part = |label: &str, lang: &str, percent: u32| LangPart {
+        label: label.into(),
+        percent,
+        color: lang_color(lang),
+    };
+    let lines: Vec<CodeLine> = code_lines(
+        "export function refundOrder(id: string) {\n\tconst order = findOrder(id);\n\treturn restock(order);\n}",
+        42,
+    );
+    serde_json::json!({
+        "levels": ["certain", "inferred", "unmatched", "external"],
+        "langs": [part("TypeScript", "typescript", 78), part("Go", "go", 18), part("Python", "python", 4)],
+        "lines": lines,
+    })
 }
 
 /// Contoh status PR dan CI (M6) untuk katalog.

@@ -26,6 +26,8 @@ loco-rs = { workspace = true, features = ["cli", "with-db", "cache_inmem", "work
 migration = { path = "migration" }
 # Type dan versi bersama dengan CLI.
 agentgate-core = { path = "../core" }
+# Parser tree-sitter + pembangun code graph (M7).
+agentgate-graph = { path = "../graph" }
 # ORM (entity, query) untuk Postgres. postgres-array: kolom `text[]` (`roles.permissions`).
 sea-orm = { version = "2.0", default-features = false, features = ["sqlx-postgres", "runtime-tokio-rustls", "macros", "with-uuid", "with-chrono", "with-json", "postgres-array"] }
 # Serialisasi config, form, dan data view.
