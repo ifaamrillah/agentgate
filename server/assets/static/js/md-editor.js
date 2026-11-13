@@ -172,6 +172,9 @@
     const boxes = scope.matches?.("[data-md-editor]") ? [scope] : scope.querySelectorAll("[data-md-editor]");
     boxes.forEach((box) => upgrade(box));
   };
+  // htmx bisa sudah memproses <body> sebelum skrip ini terdaftar (htmx:load awal terlewat): pindai
+  // dokumen sendiri saat siap, lalu onLoad untuk swap berikutnya. Upgrade idempoten.
   if (window.htmx?.onLoad) htmx.onLoad(scan);
-  else document.addEventListener("DOMContentLoaded", () => scan(document));
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => scan(document));
+  else scan(document);
 })();

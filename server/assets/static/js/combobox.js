@@ -117,9 +117,13 @@
     label();
   };
 
-  htmx.onLoad((root) => {
-    if (!(root instanceof Element)) return;
-    if (root.matches("[data-combo]")) init(root);
-    root.querySelectorAll("[data-combo]").forEach(init);
-  });
+  const scan = (root) => {
+    if (root instanceof Element && root.matches("[data-combo]")) init(root);
+    root.querySelectorAll?.("[data-combo]").forEach(init);
+  };
+  // htmx bisa sudah memproses <body> sebelum skrip ini terdaftar (htmx:load awal terlewat): pindai
+  // dokumen sendiri saat siap, lalu onLoad untuk swap berikutnya. Upgrade idempoten.
+  if (window.htmx?.onLoad) htmx.onLoad(scan);
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => scan(document));
+  else scan(document);
 })();
