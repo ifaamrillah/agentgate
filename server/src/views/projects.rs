@@ -72,6 +72,9 @@ pub struct ProjectPaths {
     pub git: String,
     /// Tab project → Pull request (M6).
     pub prs: String,
+    /// Tab project → Code graph (M7): cari simbol; `graph_index` = status index.
+    pub graph: String,
+    pub graph_index: String,
 }
 
 impl ProjectPaths {
@@ -96,6 +99,8 @@ impl ProjectPaths {
             workflow: format!("{home}/settings/workflow"),
             git: format!("{home}/settings/git"),
             prs: format!("{home}/prs"),
+            graph: format!("{home}/graph"),
+            graph_index: format!("{home}/graph/index"),
             home,
         }
     }

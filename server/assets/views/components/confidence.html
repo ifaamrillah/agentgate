@@ -1,0 +1,15 @@
+{#- Keyakinan relasi code graph (M7, spec "Keyakinan relasi"): pasti = hasil parsing tree-sitter
+    atau SCIP, dugaan = hasil inferensi; untuk relasi lintas repo juga "tidak cocok" (route tidak
+    ditemukan) dan "eksternal" (layanan di luar project). Prototype: `conf()` di
+    screens-m7-m8-m10.js.
+    Parameter:
+      level: certain|inferred|unmatched|external
+      attrs: string             penanda tes tanpa kutip (default "") -#}
+{% component confidence(level: string, attrs: string = "") %}
+{%- if level == "certain" %}{% set v = "success" %}{% set i = "circle-check" %}
+{%- elif level == "inferred" %}{% set v = "gate" %}{% set i = "help-circle" %}
+{%- elif level == "unmatched" %}{% set v = "destructive" %}{% set i = "alert-triangle" %}
+{%- elif level == "external" %}{% set v = "neutral" %}{% set i = "world" %}
+{%- else %}{{ throw(message="confidence: level tidak dikenal: " ~ level) }}{% endif -%}
+<span class="badge app-conf" data-variant="{{ v }}" data-confidence="{{ level }}" {{ attrs }}>{{ icon(name=i) }}{{ t(key="graph-conf-" ~ level, lang="id") }}</span>
+{%- endcomponent confidence %}

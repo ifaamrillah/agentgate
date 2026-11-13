@@ -79,7 +79,11 @@ pub fn sign(secret: &str, body: &[u8]) -> String {
 /// Hasil penanganan: event dipakai atau diabaikan.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Handled {
-    Applied,
+    /// Dipakai; `reindex` = repo yang code graph-nya perlu di-index ulang (PR di-merge ke
+    /// branch utama, M7), di-enqueue controller.
+    Applied {
+        reindex: Vec<repos::Model>,
+    },
     Ignored,
 }
 
@@ -155,8 +159,13 @@ pub async fn handle(
         .ok_or(WebhookError::UnknownConnection)?
         .workspace_id();
     let mut touched: Vec<Uuid> = Vec::new();
+    let mut reindex: Vec<repos::Model> = Vec::new();
     match event {
-        "ping" => return Ok(Handled::Applied),
+        "ping" => {
+            return Ok(Handled::Applied {
+                reindex: Vec::new(),
+            });
+        }
         "pull_request" => {
             let info = github_pull_from_json(&payload["pull_request"])
                 .map_err(|_| WebhookError::BadPayload)?;
@@ -164,6 +173,16 @@ pub async fn handle(
                 let before = pull_requests::Model::by_number(db, repo.id, info.number).await?;
                 let (pr, _) = pulls::upsert(db, wid, repo, &info, None, None).await?;
                 let was_merged = before.is_some_and(|b| b.state() == PrState::Merged);
+                if pr.state() == PrState::Merged
+                    && !was_merged
+                    && info.base_branch == repo.default_branch
+                    && crate::models::graph_repos::Model::of_repo(db, wid, repo.id)
+                        .await?
+                        .is_some_and(|g| g.indexed_at.is_some())
+                {
+                    crate::services::graph::ingest::queue(db, wid, repo, None).await?;
+                    reindex.push(repo.clone());
+                }
                 if let Some(t) = pr.ticket_id {
                     if pr.state() == PrState::Merged && !was_merged {
                         pulls::notify_ticket(db, wid, None, t, NotificationKind::PrMerged).await?;
@@ -216,7 +235,7 @@ pub async fn handle(
             tracing::warn!(error = %e, ticket = %t, "auto advance after webhook failed");
         }
     }
-    Ok(Handled::Applied)
+    Ok(Handled::Applied { reindex })
 }
 
 async fn apply(

@@ -18,10 +18,10 @@ use super::{
 };
 use crate::support::oauth_flow::device_login;
 
-const API_TS: &str = "import { reserve } from './stock';\n\
+pub(super) const API_TS: &str = "import { reserve } from './stock';\n\
 export function checkout(id: string) {\n  return reserve(id);\n}\n\
 app.post('/v1/orders/:id', checkout);\n";
-const STOCK_TS: &str = "export function reserve(id: string) {\n  return lock(id);\n}\n\
+pub(super) const STOCK_TS: &str = "export function reserve(id: string) {\n  return lock(id);\n}\n\
 function lock(id: string) {\n  return id;\n}\nexport function unusedHelper() {}\n";
 const WEB_TS: &str = "export async function placeOrder(id: string) {\n\
   return fetch(`/v1/orders/${id}`, { method: 'POST' });\n}\n";

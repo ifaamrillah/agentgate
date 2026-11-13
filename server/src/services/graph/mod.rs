@@ -6,6 +6,7 @@
 //!   lintas repo project.
 //! - [`query`]: cari simbol, trace, snippet, dampak, kode mati, query Cypher.
 pub mod build;
+pub mod fetch;
 pub mod ingest;
 pub mod query;
 
@@ -197,4 +198,29 @@ pub fn empty_row() -> graph_repos::Model {
         created_at: t,
         updated_at: t,
     }
+}
+
+/// Antrekan index server untuk repo (status `queued`, lalu `GraphIndexWorker`).
+///
+/// # Errors
+///
+/// Error database atau antrean.
+pub async fn enqueue(
+    ctx: &loco_rs::app::AppContext,
+    repo: &repos::Model,
+    by: Option<Uuid>,
+    full: bool,
+) -> loco_rs::Result<()> {
+    use loco_rs::bgworker::BackgroundWorker;
+    crate::workers::graph_index::GraphIndexWorker::perform_later(
+        ctx,
+        crate::workers::graph_index::GraphIndexArgs {
+            workspace_id: repo.workspace_id,
+            repo_id: repo.id,
+            requested_by: by,
+            full,
+        },
+    )
+    .await
+    .map(|_| ())
 }

@@ -46,7 +46,12 @@ async fn github(
     )
     .await
     {
-        Ok(Handled::Applied) => Ok(StatusCode::NO_CONTENT.into_response()),
+        Ok(Handled::Applied { reindex }) => {
+            for repo in reindex {
+                crate::services::graph::enqueue(&ctx, &repo, None, false).await?;
+            }
+            Ok(StatusCode::NO_CONTENT.into_response())
+        }
         Ok(Handled::Ignored) => Ok(StatusCode::ACCEPTED.into_response()),
         Err(WebhookError::UnknownConnection) => Ok(json_error(StatusCode::NOT_FOUND, "not_found")),
         Err(WebhookError::BadSignature) => {

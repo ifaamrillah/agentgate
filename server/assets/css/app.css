@@ -34,6 +34,7 @@
 @import "./components/auth.css";
 @import "./components/runner.css";
 @import "./components/git.css";
+@import "./components/graph.css";
 
 @source "../views";
 @source "../../src";

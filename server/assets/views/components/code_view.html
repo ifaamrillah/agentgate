@@ -1,0 +1,12 @@
+{#- Potongan kode bernomor baris (M7: kode simbol dari `ag_snippet`). Gulir horizontal untuk
+    baris panjang, tinggi maksimum dengan gulir vertikal. Tanpa pewarnaan sintaks.
+    Parameter:
+      lines: array              [views::graph::CodeLine {n, text}]
+      label: string             aria-label (mis. path file) (default "")
+      attrs: string             penanda tes tanpa kutip (default "") -#}
+{% component code_view(lines: array, label: string = "", attrs: string = "") %}
+<div class="app-codelines" role="region" tabindex="0"{% if label %} aria-label="{{ label }}"{% endif %} {{ attrs }}>
+  <pre><code>{% for l in lines %}<span class="app-codeline"><span class="app-codeline-n" aria-hidden="true">{{ l.n }}</span>{{ l.text }}
+</span>{% endfor %}</code></pre>
+</div>
+{%- endcomponent code_view %}

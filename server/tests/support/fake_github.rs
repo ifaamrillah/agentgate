@@ -63,6 +63,8 @@ pub struct Inner {
     /// Merge berikutnya ditolak 405.
     pub refuse_merge: bool,
     pub requests: Vec<String>,
+    /// Arsip `.tar.gz` per repo (`/repos/{o}/{r}/tarball/{ref}` → redirect → `/codeload/...`).
+    pub tarballs: std::collections::HashMap<String, Vec<u8>>,
 }
 
 type Shared = Arc<Mutex<Inner>>;
@@ -75,6 +77,15 @@ pub struct FakeGithub {
 impl FakeGithub {
     pub fn add_repo(&self, full_name: &str) {
         self.state.lock().unwrap().repos.push(full_name.into());
+    }
+
+    /// Isi repo untuk unduhan tarball (index code graph oleh server).
+    pub fn set_files(&self, full_name: &str, files: &[(&str, &[u8])]) {
+        let top = full_name.replace('/', "-");
+        self.state.lock().unwrap().tarballs.insert(
+            full_name.into(),
+            super::fake_codeload::tarball(&format!("{top}-abc"), files),
+        );
     }
 
     pub fn hooks(&self) -> Vec<Hook> {
@@ -271,6 +282,40 @@ async fn merge_pull(
     Json(json!({ "merged": true, "sha": "mergedsha" })).into_response()
 }
 
+async fn tarball_redirect(
+    State(state): State<Shared>,
+    headers: HeaderMap,
+    Path((o, r, _git_ref)): Path<(String, String, String)>,
+) -> Response {
+    let st = state.lock().unwrap();
+    let authed = headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|v| v == format!("Bearer {TOKEN}"));
+    if !authed {
+        return StatusCode::UNAUTHORIZED.into_response();
+    }
+    if !st.tarballs.contains_key(&format!("{o}/{r}")) {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let host = headers
+        .get("host")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default();
+    (
+        StatusCode::FOUND,
+        [("location", format!("http://{host}/codeload/{o}/{r}"))],
+    )
+        .into_response()
+}
+
+async fn codeload(State(state): State<Shared>, Path((o, r)): Path<(String, String)>) -> Response {
+    match state.lock().unwrap().tarballs.get(&format!("{o}/{r}")) {
+        Some(b) => (StatusCode::OK, b.clone()).into_response(),
+        None => StatusCode::NOT_FOUND.into_response(),
+    }
+}
+
 fn api(state: Shared) -> Router {
     Router::new()
         .route("/user", get(user))
@@ -279,6 +324,8 @@ fn api(state: Shared) -> Router {
         .route("/repos/{o}/{r}/pulls", get(list_pulls).post(create_pull))
         .route("/repos/{o}/{r}/pulls/{n}", get(get_pull))
         .route("/repos/{o}/{r}/pulls/{n}/merge", put(merge_pull))
+        .route("/repos/{o}/{r}/tarball/{git_ref}", get(tarball_redirect))
+        .route("/codeload/{o}/{r}", get(codeload))
         .with_state(state)
 }
 

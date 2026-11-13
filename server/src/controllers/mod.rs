@@ -12,6 +12,7 @@ pub mod device;
 pub mod extractors;
 pub mod flash;
 pub mod git;
+pub mod graph;
 pub mod graph_api;
 pub mod invitations;
 pub mod mcp;
@@ -43,6 +44,7 @@ pub fn routes(ctx: &AppContext) -> AppRoutes {
         .add_route(runner_api::routes())
         .add_route(graph_api::routes())
         .add_route(git::routes())
+        .add_route(graph::routes())
         .add_route(webhooks::routes())
         .add_route(mcp::routes(ctx));
     add_dev_routes(routes, &ctx.environment)

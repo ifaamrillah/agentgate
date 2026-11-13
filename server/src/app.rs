@@ -155,6 +155,10 @@ impl Hooks for App {
         queue
             .register(crate::workers::cleanup::CleanupWorker::build(ctx))
             .await?;
+        // Index code graph oleh server (M7).
+        queue
+            .register(crate::workers::graph_index::GraphIndexWorker::build(ctx))
+            .await?;
         Ok(())
     }
 

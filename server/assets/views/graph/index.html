@@ -1,0 +1,145 @@
+{#- Project → Code graph → Status index (M7): subpage varian E dengan panel Repo & index, Lintas
+    repo, Riwayat git, Kualitas kode, Benchmark. Prototype: "Status index code graph" di
+    screens-m7-m8-m10.js. Variabel: project, views, views_action, return_to, paths, graph_tabs,
+    can_edit, repos ([RepoIndexView]), indexed, reindex_action, panel, subnav, stats, flash;
+    per panel: repo → skipped, languages, scip_repos, failed, stale_scip; cross → link_stats,
+    table, links; git → git; quality → quality_stats, table, dead, complex; bench → bench. -#}
+{% extends "layouts/project.html" %}
+{% block title %}{{ t(key="graph-tab-index", lang="id") }} · {{ project.name }}{% endblock title %}
+{% block width %}wide{% endblock width %}
+{% block crumb %}{{ <crumb label={t(key="project-view-graph", lang="id")} href={paths.graph}/> }}{{ <crumb label={t(key="graph-tab-index", lang="id")}/> }}{% endblock crumb %}
+{% block actions %}
+  {%- if can_edit and repos | length > 0 %}{{ <button label={t(key="graph-reindex", lang="id")} icon="refresh" variant="primary" size="sm" dialog="graph-reindex" attrs="data-open-reindex"/> }}{% endif -%}
+{% endblock actions %}
+{% block page_attrs %}data-graph-index="{{ panel }}"{% endblock page_attrs %}
+{% block description %}{{ t(key="graph-description", lang="id") }}{% endblock description %}
+{% block main %}
+{{ <tabs label={t(key="project-view-graph", lang="id")} items={graph_tabs}/> }}
+{% <subpage title={t(key="graph-tab-index", lang="id")} description={t(key="graph-index-description", lang="id")} items={subnav}> %}
+{%- if panel == "repo" %}
+{% <card title={t(key="graph-panel-repo", lang="id")} description={t(key="graph-repo-description", lang="id")} attrs="data-panel=repo"> %}
+  {%- for f in failed %}{{ <flash kind="error" title={f.name} message={f.error}/> }}{% endfor %}
+  {%- for name in stale_scip %}{{ <flash kind="warn" message={t(key="graph-scip-stale", lang="id", repo=name)}/> }}{% endfor %}
+  {{ <stats items={stats}/> }}
+{% </card> %}
+{% <card flush={true} attrs="data-graph-repos"> %}
+  {%- if repos | length == 0 %}
+  {{ <empty_state title={t(key="graph-no-repos", lang="id")} description={t(key="graph-no-repos-description", lang="id")} icon="git-branch" variant="plain"/> }}
+  {%- else %}
+  <div class="table-container"><table class="table">
+    <thead><tr>
+      <th>{{ t(key="graph-col-repo", lang="id") }}</th>
+      <th data-hide="sm">{{ t(key="graph-col-lang", lang="id") }}</th>
+      <th>{{ t(key="graph-col-treesitter", lang="id") }}</th>
+      <th data-hide="sm">{{ t(key="graph-col-scip", lang="id") }}</th>
+      <th data-hide="sm" data-align="right">{{ t(key="graph-stat-symbols", lang="id") }}</th>
+      <th>{{ t(key="graph-col-coverage", lang="id") }}</th>
+    </tr></thead>
+    <tbody>
+    {%- for r in repos %}
+    <tr data-repo="{{ r.name }}" data-status="{{ r.status }}">
+      <td><span class="app-gi-cell"><b>{{ r.name }}</b><small>{{ t(key="graph-repo-files", lang="id", files=r.files, branch=r.branch) }}</small></span></td>
+      <td data-hide="sm">{{ <lang_bar parts={r.langs}/> }}</td>
+      <td><span class="app-gi-cell">{{ <badge label={t(key=r.status_key, lang="id")} variant={r.status_variant}/> }}
+        {%- if r.indexed %}<small>{% if r.commit %}<span class="app-code">{{ r.commit }}</span> · {% endif %}{{ t(key=r.indexed.key, lang="id", n=r.indexed.n) }}{% if r.source_key %} · {{ t(key=r.source_key, lang="id") }}{% endif %}</small>
+        {%- elif r.status == "none" %}<small>{{ t(key="graph-never-indexed", lang="id") }}</small>{% endif %}</span></td>
+      <td data-hide="sm">{% if r.scip %}<span class="app-gi-cell"><b>{{ r.scip.indexer }}</b><small{% if r.scip.stale %} data-tone="warn"{% endif %}>{% if r.scip.by %}{{ r.scip.by }} · {% endif %}{% if r.scip.age %}{{ t(key=r.scip.age.key, lang="id", n=r.scip.age.n) }}{% endif %}</small></span>{% else %}<span class="app-gi-cell"><small>{{ t(key="graph-scip-none", lang="id") }}</small></span>{% endif %}</td>
+      <td data-hide="sm" data-align="right"><span class="app-gi-cell"><b>{{ r.symbols }}</b><small>{{ t(key="graph-repo-edges", lang="id", edges=r.edges, pct=r.certain_pct) }}</small></span></td>
+      <td><span class="app-gi-cov"><span>{{ r.coverage }}%</span><span class="app-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ r.coverage_width }}"><i style="width: {{ r.coverage_width }}%"></i></span></span></td>
+    </tr>
+    {%- endfor %}
+    </tbody>
+  </table></div>
+  {%- endif %}
+{% </card> %}
+<div class="app-grid" data-cols="two">
+{% <card title={t(key="graph-coverage-title", lang="id")} description={t(key="graph-coverage-description", lang="id")} flush={true} attrs="data-graph-skipped"> %}
+  {%- for s in skipped %}
+  <div class="app-lrow"><span class="app-tile">{{ icon(name="file-off") }}</span><span class="app-lrow-main"><b>{{ t(key=s.key, lang="id") }}</b><small class="app-code">{{ s.examples }}</small></span><b>{{ s.count }}</b></div>
+  {%- else %}
+  {{ <empty_state title={t(key="graph-skipped-none", lang="id")} icon="circle-check" variant="plain"/> }}
+  {%- endfor %}
+{% </card> %}
+{% <card title={t(key="graph-engine-title", lang="id")} description={t(key="graph-engine-description", lang="id")} flush={true} link_label={t(key="graph-panel-bench", lang="id")} link_href={paths.graph_index ~ "/bench"}> %}
+  <div class="app-lrow"><span class="app-tile" data-tone="accent">{{ icon(name="binary-tree") }}</span><span class="app-lrow-main"><b>Tree-sitter</b><small>{{ t(key="graph-engine-treesitter", lang="id", langs=languages) }}</small></span></div>
+  <div class="app-lrow"><span class="app-tile" data-tone="accent">{{ icon(name="terminal-2") }}</span><span class="app-lrow-main"><b>SCIP</b><small>{{ t(key="graph-engine-scip", lang="id", n=scip_repos) }}</small></span></div>
+  <div class="app-lrow"><span class="app-tile">{{ icon(name="sparkles") }}</span><span class="app-lrow-main"><b>{{ t(key="graph-reindex-embedding", lang="id") }}</b><small>{{ t(key="graph-engine-embedding", lang="id") }}</small></span>{{ <badge label={t(key="nav-soon", lang="id")} variant="neutral"/> }}</div>
+  <div class="app-lrow"><span class="app-tile" data-tone="accent">{{ icon(name="plug-connected") }}</span><span class="app-lrow-main"><b>{{ t(key="graph-engine-mcp", lang="id") }}</b><small class="app-code">ag_search · ag_trace · ag_snippet · ag_impact · ag_graph</small></span></div>
+{% </card> %}
+</div>
+{%- elif panel == "cross" %}
+{% <card title={t(key="graph-panel-cross", lang="id")} description={t(key="graph-cross-description", lang="id")} attrs="data-panel=cross"> %}
+  {{ <stats items={link_stats}/> }}
+{% </card> %}
+{% <card flush={true}> %}
+  {% <datatable table={table} empty_title={t(key="graph-links-empty", lang="id")} empty_description={t(key="graph-links-empty-description", lang="id")} empty_icon="arrows-exchange"> %}
+  {%- for l in links %}
+  <tr data-link="{{ l.kind }}" data-confidence="{{ l.confidence }}">
+    <td><span class="app-gi-cell"><b>{% if l.from_href %}<a class="app-link" href="{{ l.from_href }}">{{ l.from_name }}</a>{% else %}{{ l.from_name }}{% endif %}</b><small>{{ l.from_repo }}</small></span></td>
+    <td data-hide="sm"><span class="app-hint">{{ icon(name="arrow-right") }}</span></td>
+    <td><span class="app-gi-cell"><b>{% if l.to_href %}<a class="app-link" href="{{ l.to_href }}">{{ l.to_name }}</a>{% else %}{{ l.to_name }}{% endif %}</b><small>{% if l.to_repo %}{{ l.to_repo }}{% else %}—{% endif %}</small></span></td>
+    <td data-hide="sm"><span class="app-hint">{{ t(key=l.kind_key, lang="id") }}</span></td>
+    <td>{{ <confidence level={l.confidence}/> }}</td>
+  </tr>
+  {%- endfor %}
+  {% </datatable> %}
+{% </card> %}
+{%- elif panel == "git" %}
+{% <card title={t(key="graph-panel-git", lang="id")} description={t(key="graph-git-description", lang="id", days=git.window, commits=git.commits)} flush={true} attrs="data-panel=git"> %}
+  {%- if git.commits == 0 %}
+  {{ <empty_state title={t(key="graph-git-empty", lang="id")} description={t(key="graph-git-empty-description", lang="id")} icon="history" variant="plain"/> }}
+  {%- else %}
+  <div class="app-gi-cols">
+    <section class="app-gi-col" data-git="hotspots"><header><b>{{ t(key="graph-git-hotspots", lang="id") }}</b><span>{{ t(key="graph-git-hotspots-hint", lang="id") }}</span></header>
+      {%- for h in git.hotspots %}<div class="app-gi-r"><span><span class="app-code" title="{{ h.repo }}/{{ h.path }}">{{ h.path }}</span></span><span><span class="app-bar"><i style="width: {{ h.width }}%"></i></span><small>{{ t(key="graph-git-commits", lang="id", n=h.commits) }}</small></span></div>{% endfor %}
+    </section>
+    <section class="app-gi-col" data-git="coupling"><header><b>{{ t(key="graph-git-coupling", lang="id") }}</b><span>{{ t(key="graph-git-coupling-hint", lang="id") }}</span></header>
+      {%- for c in git.coupling %}<div class="app-gi-r"><span><span class="app-code" title="{{ c.a }}">{{ c.a }}</span><b>{{ c.percent }}%</b></span><span><span class="app-code app-hint" title="{{ c.b }}">↔ {{ c.b }}</span></span></div>{% else %}<span class="app-hint">{{ t(key="graph-git-none", lang="id") }}</span>{% endfor %}
+    </section>
+    <section class="app-gi-col" data-git="owners"><header><b>{{ t(key="graph-git-owners", lang="id") }}</b><span>{{ t(key="graph-git-owners-hint", lang="id") }}</span></header>
+      {%- for o in git.owners %}<div class="app-gi-r"><span><span class="app-code">{{ o.module }}</span><small>{{ o.author }}</small></span><span><span class="app-bar"><i style="width: {{ o.percent }}%"></i></span><small>{{ o.percent }}% · {{ o.commits }}</small></span></div>{% endfor %}
+    </section>
+  </div>
+  {%- endif %}
+{% </card> %}
+{%- elif panel == "quality" %}
+{% <card title={t(key="graph-panel-quality", lang="id")} description={t(key="graph-quality-description", lang="id")} attrs="data-panel=quality"> %}
+  {{ <stats items={quality_stats}/> }}
+{% </card> %}
+{% <card flush={true}> %}
+  {% <datatable table={table} empty_title={t(key="graph-dead-empty", lang="id")} empty_description={t(key="graph-dead-empty-description", lang="id")} empty_icon="trash"> %}
+  {%- for d in dead %}
+  <tr data-dead="{{ d.qualified }}">
+    <td><span class="app-gi-cell"><b class="app-code">{{ d.qualified }}</b><small class="app-code">{{ d.path }}:{{ d.line }}</small></span></td>
+    <td data-hide="sm">{{ d.repo }}</td>
+    <td>{{ <confidence level={d.dead}/> }}</td>
+    <td data-align="right">{{ <button icon="arrow-right" size="icon-sm" variant="ghost" href={d.href} aria_label={t(key="graph-open-symbol", lang="id", name=d.name)}/> }}</td>
+  </tr>
+  {%- endfor %}
+  {% </datatable> %}
+{% </card> %}
+{%- if complex | length > 0 %}
+{% <card title={t(key="graph-complex-title", lang="id")} description={t(key="graph-complex-description", lang="id")} flush={true} attrs="data-graph-complex"> %}
+  {%- for c in complex %}<a class="app-lrow" href="{{ c.href }}"><span class="app-lrow-main"><b class="app-code">{{ c.qualified }}</b><small class="app-code">{{ c.repo }}/{{ c.path }}:{{ c.line }}</small></span>{{ <badge label={c.complexity ~ ""} variant="destructive"/> }}</a>{% endfor %}
+{% </card> %}
+{%- endif %}
+{%- else %}
+{% <card title={t(key="graph-panel-bench", lang="id")} description={t(key="graph-bench-description", lang="id")} flush={true} attrs="data-panel=bench"> %}
+  <div class="app-blk">
+  {%- if bench.pass %}{{ <flash kind="success" title={t(key="graph-bench-pass", lang="id")} message={t(key="graph-bench-summary", lang="id", recall=bench.recall, precision=bench.precision, files=bench.files, ms=bench.millis)}/> }}
+  {%- else %}{{ <flash kind="error" title={t(key="graph-bench-fail", lang="id")} message={t(key="graph-bench-summary", lang="id", recall=bench.recall, precision=bench.precision, files=bench.files, ms=bench.millis)}/> }}{% endif %}
+  </div>
+  <div class="table-container"><table class="table">
+    <thead><tr><th>{{ t(key="graph-col-lang", lang="id") }}</th><th data-align="right">{{ t(key="graph-bench-calls", lang="id") }}</th><th>{{ t(key="graph-bench-recall", lang="id") }}</th><th data-align="right">{{ t(key="graph-bench-precision", lang="id") }}</th></tr></thead>
+    <tbody>
+    {%- for l in bench.langs %}
+    <tr data-bench="{{ l.lang }}"><td><b>{{ l.lang }}</b>{% if l.missed %}<br><small class="app-hint app-code">{{ l.missed }}</small>{% endif %}</td><td data-align="right">{{ l.expected }}</td><td><span class="app-gi-cov"><span>{{ l.recall }}%</span><span class="app-bar"><i style="width: {{ l.recall_width }}%"></i></span></span></td><td data-align="right">{{ l.precision }}%</td></tr>
+    {%- endfor %}
+    </tbody>
+  </table></div>
+  <div class="app-blk"><p class="app-hint">{{ t(key="graph-bench-note", lang="id") }}</p></div>
+{% </card> %}
+{%- endif %}
+{% </subpage> %}
+{%- if can_edit and repos | length > 0 %}{% include "graph/_reindex.html" %}{% endif %}
+{% endblock main %}

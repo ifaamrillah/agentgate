@@ -465,6 +465,7 @@ pub const PROJECT_VIEWS: &[(&str, &str, &str)] = &[
     ("roadmap", "project-view-roadmap", "timeline"),
     ("calendar", "project-view-calendar", "calendar"),
     ("prs", "project-view-prs", "git-pull-request"),
+    ("graph", "project-view-graph", "topology-star-3"),
     ("releases", "project-view-releases", "rocket"),
     ("reports", "project-view-reports", "chart-line"),
 ];
@@ -517,7 +518,7 @@ pub fn project_views(home_href: &str, pinned: &[String], current: &str) -> Proje
             .unwrap_or(PROJECT_VIEWS[0]);
         let mut nav = match key {
             "overview" => NavItem::link(key, label, icon, home_href),
-            "board" | "list" | "prs" => {
+            "board" | "list" | "prs" | "graph" => {
                 NavItem::link(key, label, icon, &format!("{home_href}/{key}"))
             }
             _ => NavItem::soon(key, label, icon),
