@@ -125,3 +125,44 @@ fn percent_decode(s: &str) -> String {
     }
     String::from_utf8_lossy(&out).into_owned()
 }
+
+/// Login CLI lewat device code flow untuk user `cookie` di workspace `workspace_id`.
+/// Kembalikan access token.
+pub async fn device_login(
+    request: &TestServer,
+    cookie: &Cookie<'static>,
+    workspace_id: &str,
+) -> String {
+    let start = request
+        .post("/oauth/device_authorization")
+        .form(&[
+            ("client_id", "agentgate-cli"),
+            ("device_name", "Laptop Uji"),
+        ])
+        .await;
+    assert_eq!(start.status_code(), 200, "{}", start.text());
+    let start: serde_json::Value = start.json();
+    let res = request
+        .post("/device/decide")
+        .add_cookie(cookie.clone())
+        .form(&[
+            ("user_code", start["user_code"].as_str().unwrap()),
+            ("workspace", workspace_id),
+            ("decision", "allow"),
+        ])
+        .await;
+    assert_eq!(res.status_code(), 303, "{}", res.text());
+    let token = request
+        .post("/oauth/token")
+        .form(&[
+            ("grant_type", "urn:ietf:params:oauth:grant-type:device_code"),
+            ("client_id", "agentgate-cli"),
+            ("device_code", start["device_code"].as_str().unwrap()),
+        ])
+        .await;
+    assert_eq!(token.status_code(), 200, "{}", token.text());
+    token.json::<serde_json::Value>()["access_token"]
+        .as_str()
+        .unwrap()
+        .to_string()
+}

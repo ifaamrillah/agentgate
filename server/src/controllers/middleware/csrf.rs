@@ -24,6 +24,7 @@ pub const EXEMPT_PATHS: &[&str] = &[
     "/oauth/token",
     "/oauth/register",
     "/oauth/revoke",
+    "/oauth/device_authorization",
 ];
 
 pub async fn layer(req: Request, next: Next) -> Response {

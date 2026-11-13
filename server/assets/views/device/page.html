@@ -1,0 +1,78 @@
+{#- Login perangkat (`/device`, login wajib): halaman solo tiga langkah (prototype "Login
+    perangkat (device code)"). Variabel: page (views::device::DevicePage). Navigasi penuh. -#}
+{% extends "layouts/public.html" %}
+{% block title %}{{ t(key="device-title", lang="id") }}{% endblock title %}
+{% block content %}
+<ol class="app-device-steps" aria-label="{{ t(key="device-steps", lang="id") }}">
+  {%- for i in [0, 1, 2] %}
+  <li{% if i < page.step %} data-state="done"{% elif i == page.step %} aria-current="step"{% endif %}><span>{% if i < page.step %}{{ icon(name="check") }}{% else %}{{ i + 1 }}{% endif %}</span></li>
+  {%- endfor %}
+</ol>
+{%- if page.step == 0 %}
+<form method="post" action="/device" class="app-card app-device" hx-boost="false" data-device="enter">
+  <div class="app-device-head">
+    <h1>{{ t(key="device-enter-title", lang="id") }}</h1>
+    <p>{{ t(key="device-enter-description", lang="id") }}</p>
+  </div>
+  <div class="app-device-body">
+    {{ <field id="device-code" name="user_code" label={t(key="device-code", lang="id")} value={page.code} placeholder="WDJB-MJHT" autocomplete="off" maxlength="12" required={true} autofocus={true} mono={true} error={page.error} class="app-device-code" hide_label={true}/> }}
+    {{ <button label={t(key="device-continue", lang="id")} type="submit" attrs="data-device-continue"/> }}
+    <pre class="app-codeblock app-device-term"><span>$</span> agentgate login
+{{ t(key="device-term-open", lang="id") }}
+{{ t(key="device-term-wait", lang="id") }}</pre>
+  </div>
+</form>
+{%- elif page.step == 1 %}
+<form method="post" action="/device/decide" class="app-card app-device" hx-boost="false" data-device="confirm">
+  <input type="hidden" name="user_code" value="{{ page.code }}">
+  <div class="app-device-head">
+    <span class="app-tile" data-tone="accent" data-size="lg">{{ icon(name="device-laptop") }}</span>
+    <h1>{{ t(key="device-confirm-title", lang="id") }}</h1>
+    <p>{{ t(key="device-confirm-description", lang="id") }} <span class="app-code" data-device-code>{{ page.code }}</span></p>
+  </div>
+  <div class="app-device-body">
+    {{ <flash kind="warn" message={t(key="device-confirm-warn", lang="id")}/> }}
+    {%- if page.error %}{{ <flash kind="error" message={t(key=page.error, lang="id")}/> }}{% endif %}
+    <dl class="app-props">
+      <dt>{{ t(key="device-account", lang="id") }}</dt>
+      <dd class="app-who">{{ <avatar initials={page.user_initials} color={page.user_color} size="sm"/> }}<span>{{ page.user_email }}</span></dd>
+      <dt>{{ t(key="device-name", lang="id") }}</dt><dd>{{ page.device_name | default(value="—") }}</dd>
+      <dt>{{ t(key="device-requested", lang="id") }}</dt><dd>{{ page.requested_at }}</dd>
+    </dl>
+    {%- if page.workspaces %}
+    {{ <combo id="device-workspace" name="workspace" label={t(key="oauth-workspace", lang="id")} options={page.workspaces} value={page.selected} required={true} hint={t(key="device-workspace-hint", lang="id")}/> }}
+    {%- else %}
+    {{ <flash kind="warn" message={t(key="oauth-no-workspace", lang="id")}/> }}
+    {%- endif %}
+  </div>
+  <footer class="app-consent-foot">
+    {{ <button label={t(key="device-deny", lang="id")} type="submit" variant="outline" name="decision" value="deny" attrs="data-deny formnovalidate"/> }}
+    {{ <button label={t(key="device-approve", lang="id")} type="submit" icon="check" name="decision" value="allow" disabled={page.locked} attrs="data-allow"/> }}
+  </footer>
+</form>
+{%- else %}
+<div class="app-card app-device" data-device="done">
+  <div class="app-device-head">
+    {%- if page.approved %}
+    <span class="app-tile" data-tone="success" data-size="lg">{{ icon(name="circle-check") }}</span>
+    <h1>{{ t(key="device-done-title", lang="id") }}</h1>
+    <p>{{ t(key="device-done-description", lang="id") }}</p>
+    {%- else %}
+    <span class="app-tile" data-tone="danger" data-size="lg">{{ icon(name="circle-x") }}</span>
+    <h1>{{ t(key="device-denied-title", lang="id") }}</h1>
+    <p>{{ t(key="device-denied-description", lang="id") }}</p>
+    {%- endif %}
+  </div>
+  <div class="app-device-body">
+    {%- if page.approved %}
+    <pre class="app-codeblock app-device-term"><span data-ok>✓</span> {{ t(key="device-term-done", lang="id", email=page.user_email) }}</pre>
+    {%- endif %}
+    <div class="app-device-acts">
+      {{ <button label={t(key="device-goto-runner", lang="id")} href="/runner"/> }}
+      {{ <button label={t(key="device-another", lang="id")} href="/device" variant="outline"/> }}
+    </div>
+  </div>
+</div>
+{%- endif %}
+{% endblock content %}
+{% block foot %}{{ t(key="device-foot", lang="id") }}{% endblock foot %}

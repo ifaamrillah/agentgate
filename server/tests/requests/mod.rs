@@ -3,6 +3,7 @@ mod agents;
 mod auth;
 mod csrf;
 mod dev_ui;
+mod device;
 mod errors;
 mod health;
 mod home;

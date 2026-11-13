@@ -5,7 +5,13 @@
 //! `/oauth/authorize` sengaja tidak di sini: itu halaman consent di browser.
 
 /// Path yang cocok persis.
-const EXACT: &[&str] = &["/mcp", "/oauth/token", "/oauth/register", "/oauth/revoke"];
+const EXACT: &[&str] = &[
+    "/mcp",
+    "/oauth/token",
+    "/oauth/register",
+    "/oauth/revoke",
+    "/oauth/device_authorization",
+];
 
 /// Prefix (tanpa `/` akhir): path itu sendiri dan semua path di bawahnya.
 const PREFIXES: &[&str] = &[
@@ -13,6 +19,7 @@ const PREFIXES: &[&str] = &[
     "/oauth/token",
     "/oauth/register",
     "/oauth/revoke",
+    "/oauth/device_authorization",
     // Metadata OAuth (RFC 8414, RFC 9728).
     "/.well-known",
     // API publik (M11).
@@ -39,12 +46,21 @@ mod tests {
             "/oauth/token",
             "/oauth/register",
             "/oauth/revoke",
+            "/oauth/device_authorization",
+            "/api/runner/ws",
             "/.well-known/oauth-authorization-server",
             "/api/v1/tickets",
         ] {
             assert!(is_api(path), "{path}");
         }
-        for path in ["/oauth/authorize", "/mcpx", "/apis", "/", "/w/acme"] {
+        for path in [
+            "/oauth/authorize",
+            "/device",
+            "/mcpx",
+            "/apis",
+            "/",
+            "/w/acme",
+        ] {
             assert!(!is_api(path), "{path}");
         }
     }

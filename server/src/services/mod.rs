@@ -2,6 +2,7 @@
 pub mod audit;
 pub mod auth;
 pub mod cleanup;
+pub mod device;
 pub mod drafts;
 pub mod mcp;
 pub mod oauth;
