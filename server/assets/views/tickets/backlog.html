@@ -27,17 +27,17 @@
 <div class="app-stack-v" data-gap="md"{% if can_edit %} data-backlog-dnd{% endif %}>
 {%- for b in blocks %}
 {%- set target = b.id | default(value="") %}
-<section class="app-sp" data-sprint="{% if b.id %}{{ b.id }}{% else %}backlog{% endif %}" data-drop-target="{% if b.id %}{{ b.id }}{% else %}backlog{% endif %}" aria-label="{% if b.id %}{{ b.name }}{% else %}{{ t(key="backlog-title", lang="id") }}{% endif %}">
-  <header class="app-sp-h">
+<section class="app-spr" data-sprint="{% if b.id %}{{ b.id }}{% else %}backlog{% endif %}" data-drop-target="{% if b.id %}{{ b.id }}{% else %}backlog{% endif %}" aria-label="{% if b.id %}{{ b.name }}{% else %}{{ t(key="backlog-title", lang="id") }}{% endif %}">
+  <header class="app-spr-h">
     {%- if b.id %}
-    <div class="app-sp-t">
+    <div class="app-spr-t">
       <div><h2>{{ b.name }}</h2>
         {%- if b.state == "active" %}{{ <badge label={t(key="sprint-state-active", lang="id")} variant="info"/> }}{% else %}{{ <badge label={t(key="sprint-state-planned", lang="id")} variant="neutral"/> }}{% endif %}
         <span class="app-hint">{{ b.range }}</span>
         {%- if b.state == "active" %}<span class="app-hint">· {{ t(key="sprint-days-left", lang="id", days=b.days_left, workdays=b.workdays_left) }}</span>{% endif %}</div>
-      {%- if b.goal %}<span class="app-sp-goal">{{ icon(name="target") }}{{ b.goal }}</span>{% endif %}
+      {%- if b.goal %}<span class="app-spr-goal">{{ icon(name="target") }}{{ b.goal }}</span>{% endif %}
     </div>
-    <div class="app-sp-cap" data-sprint-capacity>
+    <div class="app-spr-cap" data-sprint-capacity>
       <div><span class="app-hint">{{ t(key="sprint-ticket-count", lang="id", count=b.count) }}</span>
         <span class="tabular-nums"{% if b.over %} data-over{% endif %}>{% if b.capacity is not none %}{{ t(key="sprint-points-of", lang="id", points=b.points, capacity=b.capacity) }}{% else %}{{ t(key="sprint-points", lang="id", points=b.points) }}{% endif %}</span></div>
       {%- if b.state == "active" %}<div class="app-bar" title="{{ t(key="sprint-done-points", lang="id", done=b.done_points, points=b.points) }}"><i style="width: {{ b.done_pct }}%; --c: var(--ag-success)"></i></div>
@@ -58,7 +58,7 @@
     {% </action_menu> %}
     {%- endif %}
     {%- else %}
-    <div class="app-sp-t"><div><h2>{{ t(key="backlog-title", lang="id") }}</h2><span class="app-hint">{{ t(key="backlog-summary", lang="id", count=b.count, points=b.points) }}</span></div></div>
+    <div class="app-spr-t"><div><h2>{{ t(key="backlog-title", lang="id") }}</h2><span class="app-hint">{{ t(key="backlog-summary", lang="id", count=b.count, points=b.points) }}</span></div></div>
     {%- endif %}
   </header>
   {%- if b.over %}<div class="alert" data-variant="warn">{{ icon(name="alert-triangle") }}<span>{{ t(key="sprint-over-capacity", lang="id", over=b.points - b.capacity) }}</span></div>{% endif %}
@@ -102,14 +102,14 @@
     {%- else %}<span></span>{% endif %}
   </div>
   {%- else %}
-  <div class="app-sp-empty">
+  <div class="app-spr-empty">
     {%- if q %}{{ <empty_state title={t(key="backlog-no-match", lang="id")} description={t(key="backlog-no-match-description", lang="id")} icon="filter" variant="plain"/> }}
     {%- elif b.id %}{{ <empty_state title={t(key="sprint-empty", lang="id")} description={t(key="sprint-empty-description", lang="id")} icon="stack-2" variant="plain"/> }}
     {%- else %}{{ <empty_state title={t(key="backlog-empty", lang="id")} description={t(key="backlog-empty-description", lang="id")} icon="stack-2" variant="plain"/> }}{% endif %}
   </div>
   {%- endfor %}
   </div>
-  {%- if can_edit %}<a class="app-sp-add" href="{{ new_ticket }}{% if b.id %}?sprint={{ b.id }}{% endif %}">{{ icon(name="plus") }}{{ t(key="ticket-new", lang="id") }}</a>{% endif %}
+  {%- if can_edit %}<a class="app-spr-add" href="{{ new_ticket }}{% if b.id %}?sprint={{ b.id }}{% endif %}">{{ icon(name="plus") }}{{ t(key="ticket-new", lang="id") }}</a>{% endif %}
 </section>
 {%- endfor %}
 </div>
@@ -174,7 +174,7 @@
       {{ <field id={did ~ "-end"} name="ends_on" type="date" label={t(key="sprint-field-end", lang="id")} value={v.ends_on} error={e.ends_on.code} required={true}/> }}
     </div>
     <input type="hidden" name="capacity" value="{{ b.capacity_input }}">
-    {%- if b.rows %}<div class="app-box">{% for r in b.rows %}<div class="app-lrow">{{ <prio rank={r.priority.rank} label={t(key=r.priority.label_key, lang="id")}/> }}{{ <type_icon icon={r.ticket_type.icon} color={r.ticket_type.color} label={r.ticket_type.name}/> }}<span class="app-code">{{ r.code }}</span><span class="app-lrow-main"><b>{{ r.title }}</b></span><span class="app-pts"{% if r.points is none %} data-none{% endif %}>{% if r.points is not none %}{{ r.points }}{% else %}?{% endif %}</span></div>{% endfor %}</div>{% endif %}
+    {%- if b.rows %}<div class="app-boxlist">{% for r in b.rows %}<div class="app-lrow">{{ <prio rank={r.priority.rank} label={t(key=r.priority.label_key, lang="id")}/> }}{{ <type_icon icon={r.ticket_type.icon} color={r.ticket_type.color} label={r.ticket_type.name}/> }}<span class="app-code">{{ r.code }}</span><span class="app-lrow-main"><b>{{ r.title }}</b></span><span class="app-pts"{% if r.points is none %} data-none{% endif %}>{% if r.points is not none %}{{ r.points }}{% else %}?{% endif %}</span></div>{% endfor %}</div>{% endif %}
     {%- if b.unestimated %}<div class="alert" data-variant="neutral">{{ icon(name="sparkles") }}<span>{{ t(key="sprint-start-unestimated", lang="id", count=b.unestimated) }}</span></div>{% endif %}
   </div></section>
   <footer>
@@ -193,12 +193,12 @@
     {{ <stats items={b.complete_stats}/> }}
     <fieldset class="app-stack-v" data-gap="sm"><legend class="app-blk-t">{{ t(key="sprint-complete-target", lang="id") }}</legend>
       {%- for o in b.targets %}
-      <label class="app-opt"><input type="radio" name="target" value="{{ o.id }}"{% if loop.first %} checked{% endif %}><span><b>{{ o.name }}</b><small>{{ o.range }} · {{ t(key="sprint-points", lang="id", points=o.points) }}</small></span></label>
+      <label class="app-choice"><input type="radio" name="target" value="{{ o.id }}"{% if loop.first %} checked{% endif %}><span><b>{{ o.name }}</b><small>{{ o.range }} · {{ t(key="sprint-points", lang="id", points=o.points) }}</small></span></label>
       {%- endfor %}
-      <label class="app-opt"><input type="radio" name="target" value="new"{% if not b.targets %} checked{% endif %}><span><b>{{ t(key="sprint-complete-new", lang="id") }}</b><small>{{ t(key="sprint-complete-new-hint", lang="id") }}</small></span></label>
-      <label class="app-opt"><input type="radio" name="target" value="backlog"><span><b>{{ t(key="backlog-title", lang="id") }}</b><small>{{ t(key="sprint-complete-backlog-hint", lang="id") }}</small></span></label>
+      <label class="app-choice"><input type="radio" name="target" value="new"{% if not b.targets %} checked{% endif %}><span><b>{{ t(key="sprint-complete-new", lang="id") }}</b><small>{{ t(key="sprint-complete-new-hint", lang="id") }}</small></span></label>
+      <label class="app-choice"><input type="radio" name="target" value="backlog"><span><b>{{ t(key="backlog-title", lang="id") }}</b><small>{{ t(key="sprint-complete-backlog-hint", lang="id") }}</small></span></label>
     </fieldset>
-    {%- if b.left_count %}<div class="app-box">{% for r in b.rows %}{% if not r.done %}<div class="app-lrow">{{ <type_icon icon={r.ticket_type.icon} color={r.ticket_type.color} label={r.ticket_type.name}/> }}<span class="app-code">{{ r.code }}</span><span class="app-lrow-main"><b>{{ r.title }}</b></span><span class="app-hint">{{ r.stage }}</span></div>{% endif %}{% endfor %}</div>{% endif %}
+    {%- if b.left_count %}<div class="app-boxlist">{% for r in b.rows %}{% if not r.done %}<div class="app-lrow">{{ <type_icon icon={r.ticket_type.icon} color={r.ticket_type.color} label={r.ticket_type.name}/> }}<span class="app-code">{{ r.code }}</span><span class="app-lrow-main"><b>{{ r.title }}</b></span><span class="app-hint">{{ r.stage }}</span></div>{% endif %}{% endfor %}</div>{% endif %}
     <div class="alert" data-variant="neutral">{{ icon(name="info-circle") }}<span>{{ t(key="sprint-complete-note", lang="id") }}</span></div>
   </div></section>
   <footer>

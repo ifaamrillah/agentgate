@@ -101,13 +101,13 @@
     <div class="alert" data-variant="warn">{{ icon(name="alert-triangle") }}<span>{{ t(key="release-left", lang="id", count=left) }}</span></div>
     <fieldset class="app-stack-v" data-gap="sm"><legend class="app-blk-t">{{ t(key="release-now-target", lang="id") }}</legend>
       {%- for x in targets %}
-      <label class="app-opt"><input type="radio" name="target" value="{{ x.id }}"{% if loop.first %} checked{% endif %}><span><b>{{ t(key="release-now-move", lang="id", name=x.name) }}</b></span></label>
+      <label class="app-choice"><input type="radio" name="target" value="{{ x.id }}"{% if loop.first %} checked{% endif %}><span><b>{{ t(key="release-now-move", lang="id", name=x.name) }}</b></span></label>
       {%- endfor %}
-      <label class="app-opt"><input type="radio" name="target" value="none"{% if not targets %} checked{% endif %}><span><b>{{ t(key="release-now-detach", lang="id") }}</b><small>{{ t(key="release-now-detach-hint", lang="id") }}</small></span></label>
+      <label class="app-choice"><input type="radio" name="target" value="none"{% if not targets %} checked{% endif %}><span><b>{{ t(key="release-now-detach", lang="id") }}</b><small>{{ t(key="release-now-detach-hint", lang="id") }}</small></span></label>
     </fieldset>
     {%- endif %}
     {%- if notes %}
-    <label class="app-opt"><input type="checkbox" class="app-check" name="publish" value="1" checked><span><b>{{ t(key="release-now-publish", lang="id") }}</b><small>{{ t(key="release-now-publish-hint", lang="id") }}</small></span></label>
+    <label class="app-choice"><input type="checkbox" class="app-check" name="publish" value="1" checked><span><b>{{ t(key="release-now-publish", lang="id") }}</b><small>{{ t(key="release-now-publish-hint", lang="id") }}</small></span></label>
     {%- else %}
     <p class="app-hint">{{ t(key="release-now-no-notes", lang="id") }}</p>
     {%- endif %}
