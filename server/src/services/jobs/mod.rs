@@ -92,7 +92,7 @@ pub async fn log<C: ConnectionTrait>(
     Ok(())
 }
 
-async fn notify_users<C: ConnectionTrait>(
+pub(crate) async fn notify_users<C: ConnectionTrait>(
     db: &C,
     wid: WorkspaceId,
     actor: Option<Uuid>,

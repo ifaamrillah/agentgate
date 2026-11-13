@@ -19,6 +19,30 @@ pub struct Settings {
     /// Impor skill pack (opsional di config; tes mengarahkan ke server palsu).
     #[serde(default)]
     pub skills: SkillSettings,
+    /// Provider git (opsional di config; tes mengarahkan ke GitHub palsu).
+    #[serde(default)]
+    pub git: GitSettings,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GitSettings {
+    /// Basis REST API github.com.
+    pub github_api_base: String,
+    /// Basis web github.com (tautan repo/PR).
+    pub github_web_base: String,
+    /// Batas waktu satu panggilan API provider (detik).
+    pub timeout_seconds: u64,
+}
+
+impl Default for GitSettings {
+    fn default() -> Self {
+        Self {
+            github_api_base: "https://api.github.com".to_string(),
+            github_web_base: "https://github.com".to_string(),
+            timeout_seconds: 15,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]

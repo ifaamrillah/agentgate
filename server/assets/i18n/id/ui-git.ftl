@@ -19,3 +19,7 @@ notification-merge_failed = Merge otomatis gagal. Merge PR secara manual di prov
 ## Validasi
 git-branch-pattern-invalid = Pola wajib memuat {"{"}kode{"}"} dan hanya huruf, angka, / - _ . serta variabel {"{"}kode{"}"} {"{"}slug{"}"} {"{"}tipe{"}"}.
 git-check-invalid = Maksimal 20 nama check, masing-masing maksimal 100 karakter.
+
+## Izin
+permission-manage-integrations = Atur integrasi
+permission-manage-integrations-desc = Menghubungkan provider git dan integrasi luar ke workspace.

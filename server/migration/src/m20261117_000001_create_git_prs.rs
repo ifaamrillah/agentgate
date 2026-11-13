@@ -12,6 +12,9 @@ use sea_orm_migration::prelude::*;
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
+const PERMISSIONS_M5: &str = "'manage_workspace', 'manage_members', 'manage_roles',
+    'manage_teams', 'create_projects', 'view_audit_log', 'administer_project', 'edit_project',
+    'view_project', 'manage_ticket_settings'";
 const AUDIT_ACTIONS_M5: &str =
     "'workspace.created', 'workspace.updated', 'workspace.require_2fa_changed',
         'workspace.deletion_scheduled', 'workspace.deletion_cancelled',
@@ -45,6 +48,15 @@ const NOTIFICATION_KINDS_M5: &str = "'mentioned', 'assigned', 'commented',
 fn up() -> Vec<String> {
     vec![
         "SET lock_timeout = '5s'".into(),
+        "ALTER TABLE roles DROP CONSTRAINT roles_permissions_check".into(),
+        format!(
+            "ALTER TABLE roles ADD CONSTRAINT roles_permissions_check \
+             CHECK (permissions <@ ARRAY[{PERMISSIONS_M5}, 'manage_integrations']::text[])"
+        ),
+        // Owner dan Admin bawaan mengelola provider git (models::permission).
+        "UPDATE roles SET permissions = permissions || ARRAY['manage_integrations']::text[]
+         WHERE key IN ('owner', 'admin') AND NOT ('manage_integrations' = ANY (permissions))"
+            .into(),
         "ALTER TABLE audit_events DROP CONSTRAINT audit_events_action_check".into(),
         format!(
             "ALTER TABLE audit_events ADD CONSTRAINT audit_events_action_check CHECK (action IN (
@@ -138,6 +150,12 @@ fn down() -> Vec<String> {
             DROP COLUMN IF EXISTS last_event_at"
             .into(),
         "DROP TABLE IF EXISTS git_connections".into(),
+        "UPDATE roles SET permissions = array_remove(permissions, 'manage_integrations')".into(),
+        "ALTER TABLE roles DROP CONSTRAINT roles_permissions_check".into(),
+        format!(
+            "ALTER TABLE roles ADD CONSTRAINT roles_permissions_check \
+             CHECK (permissions <@ ARRAY[{PERMISSIONS_M5}]::text[])"
+        ),
         format!("DELETE FROM notifications WHERE kind NOT IN ({NOTIFICATION_KINDS_M5})"),
         "ALTER TABLE notifications DROP CONSTRAINT notifications_kind_check".into(),
         format!(

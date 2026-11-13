@@ -40,6 +40,9 @@ pub enum Permission {
     /// Tipe tiket, field custom, dan template kode tiket workspace (M2).
     #[sea_orm(string_value = "manage_ticket_settings")]
     ManageTicketSettings,
+    /// Provider git dan integrasi luar workspace (M6).
+    #[sea_orm(string_value = "manage_integrations")]
+    ManageIntegrations,
 }
 
 impl std::fmt::Display for Permission {
@@ -57,6 +60,7 @@ pub const SETTINGS_PERMISSIONS: &[Permission] = &[
     Permission::ManageTeams,
     Permission::ViewAuditLog,
     Permission::ManageTicketSettings,
+    Permission::ManageIntegrations,
 ];
 
 /// Satu role bawaan: key-nya dan izinnya.
@@ -81,6 +85,7 @@ pub const BUILTIN_ROLES: &[BuiltinRole] = &[
             Permission::EditProject,
             Permission::ViewProject,
             Permission::ManageTicketSettings,
+            Permission::ManageIntegrations,
         ],
     },
     // Semua kecuali ManageWorkspace (hapus, 2FA wajib, transfer tetap milik Owner).
@@ -96,6 +101,7 @@ pub const BUILTIN_ROLES: &[BuiltinRole] = &[
             Permission::EditProject,
             Permission::ViewProject,
             Permission::ManageTicketSettings,
+            Permission::ManageIntegrations,
         ],
     },
     BuiltinRole {

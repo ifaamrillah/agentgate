@@ -52,6 +52,8 @@ thiserror = "2"
 argon2 = { version = "0.5", features = ["std"] }
 # Digest SHA-256 untuk token email yang disimpan di database.
 sha2 = "0.10"
+# Tanda tangan webhook provider git (HMAC-SHA256 heksadesimal).
+hex = "0.4"
 # Server MCP (Streamable HTTP) untuk client AI (M4).
 rmcp = { version = "=3.9.0", default-features = false, features = ["server", "transport-streamable-http-server"] }
 # Perbandingan rahasia constant-time.
@@ -79,8 +81,9 @@ serde_urlencoded = "0.7"
 # Timestamp (timestamptz) dan perhitungan umur token/sesi.
 chrono = "0.4"
 
-# Unduh tarball repo skill pack (GitHub codeload) lalu buka isinya (tar.gz) di memori.
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+# Unduh tarball repo skill pack (GitHub codeload) lalu buka isinya (tar.gz) di memori; API REST
+# provider git (M6, JSON).
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 flate2 = "1"
 tar = "0.4"
 

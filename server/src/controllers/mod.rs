@@ -22,6 +22,7 @@ pub mod runner;
 pub mod runner_api;
 pub mod shell;
 pub mod tickets;
+pub mod webhooks;
 pub mod workspaces;
 
 pub fn routes(ctx: &AppContext) -> AppRoutes {
@@ -38,6 +39,7 @@ pub fn routes(ctx: &AppContext) -> AppRoutes {
         .add_route(device::routes())
         .add_route(runner::routes())
         .add_route(runner_api::routes())
+        .add_route(webhooks::routes())
         .add_route(mcp::routes(ctx));
     add_dev_routes(routes, &ctx.environment)
 }

@@ -7,7 +7,9 @@
 //!   `GET /api/runner/events?runner=…` (event yang sama tanpa WebSocket);
 //! - `POST /api/runner/jobs/{id}/start|logs|steps|evidence|permissions|finish|terminal-failed`,
 //!   `GET /api/runner/jobs/{id}/permissions/{pid}` (header `x-agentgate-runner`);
-//! - `POST /api/runner/drift`.
+//! - `POST /api/runner/drift`;
+//! - `POST /api/runner/jobs/{id}/pull-request` (buka PR branch tiket, M6),
+//!   `POST /api/cli/rules/pull-request` (PR sinkronisasi aturan, M6).
 //!
 //! Logika di `services::jobs`; error domain → 404/422 `{"error": "<kode>"}`.
 use std::time::Duration;
@@ -15,7 +17,8 @@ use std::time::Duration;
 use agentgate_core::runner::{
     protocol::{
         ClientMsg, DriftReport, EvidenceUpload, FinishReport, LogBatch, PermissionAsk,
-        PermissionStatus, RegisterRunner, RunnerInfo, ServerMsg, StepsUpdate,
+        PermissionStatus, PullRequestOpen, RegisterRunner, RulesPullRequest, RunnerInfo, ServerMsg,
+        StepsUpdate,
     },
     rules,
 };
@@ -36,6 +39,7 @@ use crate::{
     controllers::extractors::BearerSession,
     models::{runner_prefs, runners},
     services::{
+        git,
         jobs::{self, evidence, runner as svc},
         mcp::Session,
         oauth::Principal,
@@ -427,6 +431,51 @@ async fn finish(
     Ok(Json(serde_json::json!({ "id": job.id, "status": job.status })).into_response())
 }
 
+/// Branch tiket sudah di-push runner: buka (atau temukan) PR lewat provider git.
+#[debug_handler]
+async fn pull_request(
+    State(ctx): State<AppContext>,
+    auth: BearerSession,
+    headers: HeaderMap,
+    Path(id): Path<Uuid>,
+    Json(req): Json<PullRequestOpen>,
+) -> Result<Response> {
+    let (_, job) = tri!(held(&ctx, &auth.session, &headers, id).await);
+    let settings = Settings::from_ctx(&ctx)?;
+    let info = tri!(
+        git::pulls::open_for_job(
+            &ctx.db,
+            &settings,
+            auth.session.workspace.workspace_id(),
+            &job,
+            &req,
+        )
+        .await
+    );
+    Ok(Json(info).into_response())
+}
+
+/// `agentgate rules sync` sudah mem-push branch `agentgate/sync-rules`: buka PR aturan.
+#[debug_handler]
+async fn rules_pull_request(
+    State(ctx): State<AppContext>,
+    auth: BearerSession,
+    Json(req): Json<RulesPullRequest>,
+) -> Result<Response> {
+    let settings = Settings::from_ctx(&ctx)?;
+    let info = tri!(
+        git::pulls::open_rules_pr(
+            &ctx.db,
+            &settings,
+            &auth.session.acting(),
+            &req.project,
+            &req.repo,
+        )
+        .await
+    );
+    Ok(Json(info).into_response())
+}
+
 #[debug_handler]
 async fn terminal_failed(
     State(ctx): State<AppContext>,
@@ -453,6 +502,7 @@ pub fn routes() -> Routes {
     Routes::new()
         .add("/api/cli/me", get(me))
         .add("/api/cli/rules", get(rules_files))
+        .add("/api/cli/rules/pull-request", post(rules_pull_request))
         .add("/api/cli/jobs", get(list_jobs))
         .add("/api/cli/jobs/{id}/claim", post(claim))
         .add("/api/cli/jobs/{id}/release", post(release))
@@ -471,6 +521,7 @@ pub fn routes() -> Routes {
             get(permission_status),
         )
         .add("/api/runner/jobs/{id}/finish", post(finish))
+        .add("/api/runner/jobs/{id}/pull-request", post(pull_request))
         .add(
             "/api/runner/jobs/{id}/terminal-failed",
             post(terminal_failed),

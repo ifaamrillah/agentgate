@@ -66,6 +66,10 @@ pub fn permission_keys(permission: Permission) -> (&'static str, &'static str) {
             "permission-manage-ticket-settings",
             "permission-manage-ticket-settings-desc",
         ),
+        Permission::ManageIntegrations => (
+            "permission-manage-integrations",
+            "permission-manage-integrations-desc",
+        ),
     }
 }
 

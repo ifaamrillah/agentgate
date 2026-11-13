@@ -101,6 +101,7 @@ dependencies = [
  "flate2",
  "fluent-templates",
  "futures",
+ "hex",
  "hmac 0.12.1",
  "loco-rs",
  "migration",
