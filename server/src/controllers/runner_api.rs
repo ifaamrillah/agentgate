@@ -52,11 +52,11 @@ pub const RUNNER_HEADER: &str = "x-agentgate-runner";
 /// Interval server menilai event per koneksi WebSocket.
 const WS_TICK: Duration = Duration::from_secs(2);
 
-fn json_error(status: StatusCode, code: &str) -> Response {
+pub(crate) fn json_error(status: StatusCode, code: &str) -> Response {
     (status, Json(serde_json::json!({ "error": code }))).into_response()
 }
 
-fn failure(e: TicketFailure) -> Result<Response> {
+pub(crate) fn failure(e: TicketFailure) -> Result<Response> {
     match e {
         TicketFailure::NotFound => Ok(json_error(StatusCode::NOT_FOUND, "not_found")),
         TicketFailure::Invalid(errors) => {

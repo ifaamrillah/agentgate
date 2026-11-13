@@ -8,7 +8,7 @@
 //!
 //! Satu pola: satu node, atau node–relasi–node. Label = jenis simbol (`Function`, `Method`,
 //! `Class`, …, `File`, `Route`, `Symbol` = apa saja). Relasi `CALLS`, `INHERITS`, `IMPORTS`,
-//! `HANDLES` (kosong = apa saja), panjang variabel `*min..max` (maks. 5). Properti: `name`,
+//! `HANDLES`, lintas repo `HTTP` dan `EVENT` (kosong = apa saja), panjang variabel `*min..max` (maks. 5). Properti: `name`,
 //! `qualified`, `kind`, `file`, `line`, `repo`, `module`, `exported`, `dead`, `test`. Operator
 //! `=`, `<>`, `CONTAINS`, `STARTS WITH`, `ENDS WITH`, `=~` (regex), digabung `AND`/`OR`/`NOT`.
 //! `RETURN` berisi `var`, `var.prop`, atau `count(*)`, opsional `LIMIT n` (maks. 200).
@@ -289,7 +289,10 @@ impl P {
         if self.sym("[") {
             if self.sym(":") {
                 let k = self.word()?.to_ascii_lowercase();
-                if !matches!(k.as_str(), "calls" | "inherits" | "imports" | "handles") {
+                if !matches!(
+                    k.as_str(),
+                    "calls" | "inherits" | "imports" | "handles" | "http" | "event"
+                ) {
                     return err(format!("Relasi tidak dikenal: {k}"));
                 }
                 kind = Some(k);
