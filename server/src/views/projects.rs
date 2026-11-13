@@ -75,6 +75,8 @@ pub struct ProjectPaths {
     /// Tab project → Code graph (M7): cari simbol; `graph_index` = status index.
     pub graph: String,
     pub graph_index: String,
+    /// Tab project → Knowledge (M8).
+    pub knowledge: String,
 }
 
 impl ProjectPaths {
@@ -101,6 +103,7 @@ impl ProjectPaths {
             prs: format!("{home}/prs"),
             graph: format!("{home}/graph"),
             graph_index: format!("{home}/graph/index"),
+            knowledge: format!("{home}/knowledge"),
             home,
         }
     }

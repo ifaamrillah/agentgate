@@ -218,6 +218,7 @@ pub async fn enter_stage<C: ConnectionTrait>(
     to: &Stage,
 ) -> Result<tickets::Model, DbErr> {
     let status = TicketStatus::parse(to.category.as_str()).unwrap_or(TicketStatus::Todo);
+    let was_done = ticket.status == TicketStatus::Done.to_value();
     let ticket = ticket
         .set_status(db, status, tickets::bottom_position())
         .await?;
@@ -229,6 +230,9 @@ pub async fn enter_stage<C: ConnectionTrait>(
     let ticket = model.update(db).await?;
     seed_people(db, wid, ticket.id, to).await?;
     crate::services::jobs::on_stage_entered(db, wid, &ticket, to).await?;
+    if status == TicketStatus::Done && !was_done {
+        crate::services::knowledge::triggers::on_ticket_done(db, wid, &ticket).await?;
+    }
     Ok(ticket)
 }
 

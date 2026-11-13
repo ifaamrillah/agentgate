@@ -1,0 +1,35 @@
+{#- Project → Knowledge → dokumen → Riwayat versi (M8): daftar versi + diff versi terpilih vs
+    sekarang, pulihkan (membuat versi baru). Variabel: project, views, views_action, return_to,
+    paths, base, kb_tabs, can_edit, doc (DocRow), versions ([VersionRow]), diff (opsional
+    {number, current, sbs, added, removed, restore_action}), flash. -#}
+{% extends "layouts/project.html" %}
+{% block title %}{{ t(key="kb-history", lang="id") }} · {{ doc.title }} · {{ project.name }}{% endblock title %}
+{% block width %}wide{% endblock width %}
+{% block crumb %}{{ <crumb label={t(key="project-view-knowledge", lang="id")} href={base}/> }}{{ <crumb label={doc.title} href={doc.href}/> }}{{ <crumb label={t(key="kb-history", lang="id")}/> }}{% endblock crumb %}
+{% block page_attrs %}data-kb-versions="{{ doc.slug }}"{% endblock page_attrs %}
+{% block description %}{{ t(key="kb-description", lang="id") }}{% endblock description %}
+{% block main %}
+{{ <tabs label={t(key="project-view-knowledge", lang="id")} items={kb_tabs}/> }}
+<div class="app-kb-rvgrid">
+  {% <card title={t(key="kb-history", lang="id")} count={versions | length ~ ""} flush={true}> %}
+    {%- for v in versions %}
+    <a class="app-lrow" href="{{ v.href }}"{% if diff and diff.number == v.number %} aria-current="true"{% endif %} data-version="{{ v.number }}">
+      <span class="app-code app-hint">v{{ v.number }}</span>
+      <span class="app-lrow-main"><b>{% if v.message %}{{ v.message }}{% else %}{{ t(key=v.source_key, lang="id") }}{% endif %}</b><small>{% if v.author %}{{ v.author.name }}{% else %}{{ v.persona }}{% endif %} · {{ v.created }}</small></span>
+      {%- if v.current %}{{ <badge label={t(key="kb-version-current", lang="id")} variant="success"/> }}{% endif %}
+    </a>
+    {%- endfor %}
+  {% </card> %}
+  {%- if diff %}
+  <div class="card" data-kb-diff>
+    <div class="app-lrow">
+      <span class="app-lrow-main"><b>{% if diff.current %}{{ t(key="kb-version-is-current", lang="id", n=diff.number) }}{% else %}{{ t(key="kb-version-vs", lang="id", n=diff.number, now=doc.version) }}{% endif %}</b></span>
+      <span class="app-diffstat"><span data-tone="add">+{{ diff.added }}</span><span data-tone="del">−{{ diff.removed }}</span></span>
+      {%- if can_edit and not diff.current %}<form method="post" action="{{ diff.restore_action }}">{{ <button label={t(key="kb-restore", lang="id", n=diff.number)} icon="arrow-back-up" size="sm" variant="outline" type="submit"/> }}</form>{% endif %}
+    </div>
+    {%- set sbs = diff.sbs %}{% set left_label = t(key="kb-version-label", lang="id", n=diff.number) %}{% set right_label = t(key="kb-version-now", lang="id", n=doc.version) %}{% set right_icon = "file-text" %}
+    {% include "knowledge/_sbs.html" %}
+  </div>
+  {%- endif %}
+</div>
+{% endblock main %}

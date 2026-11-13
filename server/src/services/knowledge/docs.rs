@@ -38,6 +38,7 @@ pub struct NewDoc {
 /// Satu sumber dokumen (repo + path/prefix) dari agent.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct SourceRef {
+    #[serde(default)]
     pub repo: String,
     pub path: String,
 }

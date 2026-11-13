@@ -13,7 +13,7 @@ use crate::{
 };
 
 /// Project tool: `project` atau satu-satunya project yang bisa Anda buka.
-async fn project_of(
+pub(super) async fn project_of(
     db: &DatabaseConnection,
     s: &Session,
     a: &Args,
@@ -121,7 +121,18 @@ pub(super) async fn search(
 ) -> Result<Value, ToolError> {
     let q = required(&a.query, "query")?;
     let project = project_of(db, s, a).await?;
-    ensure_indexed(db, s, &project).await?;
+    let knowledge = super::knowledge::search_section(db, s, &project, q).await?;
+    if let Err(e) = ensure_indexed(db, s, &project).await {
+        if knowledge.is_empty() {
+            return Err(e);
+        }
+        return Ok(json!({
+            "project": project.key,
+            "results": [],
+            "knowledge": knowledge,
+            "hint": "Code graph belum di-index; hanya dokumen knowledge yang dicari. Baca dengan ag_knowledge action=read.",
+        }));
+    }
     let kind = if a.kind.trim().is_empty() {
         None
     } else {
@@ -147,6 +158,7 @@ pub(super) async fn search(
     Ok(json!({
         "project": project.key,
         "results": hits.iter().map(SymbolHit::brief).collect::<Vec<_>>(),
+        "knowledge": knowledge,
         "hint": if hits.is_empty() {
             "Tidak ada yang cocok. Coba kata lain atau pecahan nama (\"reserve stock\")."
         } else {

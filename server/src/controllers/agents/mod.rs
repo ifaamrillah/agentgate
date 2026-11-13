@@ -33,6 +33,10 @@ pub fn routes() -> Routes {
             post(personas::save_skills),
         )
         .add(
+            "/w/{slug}/settings/personas/{id}/knowledge",
+            post(personas::save_knowledge),
+        )
+        .add(
             "/w/{slug}/settings/personas/{id}/delete",
             post(personas::delete),
         )

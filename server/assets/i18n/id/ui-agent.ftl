@@ -80,6 +80,13 @@ persona-section-skills-desc = Skill pack terpasang
 persona-section-tools = Tools & izin
 persona-section-tools-desc = Tools dan aksi berbahaya
 persona-section-knowledge = Knowledge
+persona-section-knowledge-desc = Dokumen yang boleh dibaca
+persona-knowledge-title = Dokumen knowledge
+persona-knowledge-description = Jenis dokumen yang boleh dibaca persona lewat ag_knowledge dan konteks job. Dokumen workspace mengikuti pengaturan pembaca di dokumen itu.
+persona-knowledge-manage = Kelola knowledge
+persona-knowledge-all = Baca semua jenis dokumen
+persona-knowledge-all-hint = Matikan untuk memilih jenis dokumen tertentu di bawah.
+persona-knowledge-unknown = Jenis dokumen tidak dikenal. Muat ulang halaman lalu pilih lagi.
 persona-section-models = Model per client
 persona-section-models-desc = Model dan effort
 persona-section-danger = Zona bahaya
@@ -163,6 +170,7 @@ mcp-tool-ag-trace = Telusuri pemanggil dan yang dipanggil sebuah simbol
 mcp-tool-ag-snippet = Ambil kode sumber simbol
 mcp-tool-ag-impact = Analisis dampak perubahan simbol atau diff
 mcp-tool-ag-graph = Ringkasan graph, kode mati, relasi lintas repo, kueri Cypher
+mcp-tool-ag-knowledge = Baca, cari, dan usulkan perubahan dokumen knowledge project
 
 ## Pengaturan → Skill pack
 settings-skills-description = Impor skill dari repo GitHub (format SKILL.md) atau buat sendiri. Setiap skill pack dipindai server, lalu wajib disetujui manusia sebelum bisa dipasang ke persona.

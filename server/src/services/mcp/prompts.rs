@@ -16,8 +16,8 @@ pub const UTILITIES: &[(&str, &str, bool)] = &[
     ("ag-status", "slash-status", true),
     ("ag-ticket", "slash-ticket", true),
     ("ag-next", "slash-next", false),
-    ("ag-search", "slash-search", false),
-    ("ag-knowledge-sync", "slash-knowledge-sync", false),
+    ("ag-search", "slash-search", true),
+    ("ag-knowledge-sync", "slash-knowledge-sync", true),
 ];
 
 /// Satu prompt stage.
@@ -158,6 +158,18 @@ pub async fn list<C: ConnectionTrait>(db: &C, s: &super::Session) -> Result<Vec<
         description: "Muat konteks satu tiket.".into(),
         takes_ticket: true,
     });
+    out.push(PromptDef {
+        name: "ag-search".into(),
+        title: "Cari".into(),
+        description: "Cari di knowledge dan code graph project.".into(),
+        takes_ticket: false,
+    });
+    out.push(PromptDef {
+        name: "ag-knowledge-sync".into(),
+        title: "Sinkronkan knowledge".into(),
+        description: "Periksa knowledge project terhadap kode dan usulkan perbaikan.".into(),
+        takes_ticket: false,
+    });
     Ok(out)
 }
 
@@ -221,6 +233,14 @@ pub async fn render(
             format!(
                 "Muat konteks {target} di Agent Gate: panggil ag_context dengan ticket tersebut, lalu ringkas tujuan, stage sekarang, gate yang belum terpenuhi, dan artifact yang ada."
             ),
+        ))),
+        "ag-search" => Ok(Some((
+            "Cari knowledge dan kode".into(),
+            "Cari jawaban pertanyaan saya di Agent Gate: panggil ag_search dengan kata kunci (hasilnya berisi simbol kode dan dokumen knowledge), baca dokumen yang cocok dengan ag_knowledge action=read dan kode dengan ag_snippet, lalu jawab ringkas dengan menyebut sumbernya.".into(),
+        ))),
+        "ag-knowledge-sync" => Ok(Some((
+            "Sinkronkan knowledge".into(),
+            "Sinkronkan knowledge project di Agent Gate dengan kode sekarang:\n\n             1. Panggil ag_knowledge action=list (tanyakan kode project bila Anda punya lebih dari satu).\n             2. Untuk dokumen yang basi atau terkait kode yang berubah, baca isinya (action=read) lalu periksa kodenya lewat ag_search, ag_trace, dan ag_snippet.\n             3. Usulkan perbaikan lewat ag_knowledge action=propose (isi Markdown lengkap, `reason`, `sources`). Dokumen yang masih benar tidak perlu diusulkan.\n             4. Bila jenis dokumen penting belum ada, usulkan dokumen baru dengan `title` + `type`.\n\n             Semua usulan menunggu persetujuan pemilik knowledge; jangan mengubah file repo.".into(),
         ))),
         _ => {
             let Some(p) = stage_prompts(db, &s.workspace)

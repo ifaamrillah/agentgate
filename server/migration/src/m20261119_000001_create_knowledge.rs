@@ -222,6 +222,10 @@ fn up() -> Vec<String> {
             REFERENCES users (id) ON DELETE SET NULL"
             .into(),
         "ALTER TABLE personas ADD COLUMN knowledge_types text[] NOT NULL DEFAULT '{}'".into(),
+        // Persona bawaan mendapat tool baru `ag_knowledge` (core persona::MCP_TOOLS).
+        "UPDATE personas SET mcp_tools = array_append(mcp_tools, 'ag_knowledge') \
+         WHERE builtin AND NOT ('ag_knowledge' = ANY (mcp_tools))"
+            .into(),
         // Job knowledge: tanpa tiket, menaut ke run.
         "ALTER TABLE jobs ALTER COLUMN ticket_id DROP NOT NULL".into(),
         "ALTER TABLE job_permissions ALTER COLUMN ticket_id DROP NOT NULL".into(),
@@ -268,6 +272,7 @@ fn down() -> Vec<String> {
         "ALTER TABLE job_permissions ALTER COLUMN ticket_id SET NOT NULL".into(),
         "ALTER TABLE jobs ALTER COLUMN ticket_id SET NOT NULL".into(),
         "ALTER TABLE personas DROP COLUMN IF EXISTS knowledge_types".into(),
+        "UPDATE personas SET mcp_tools = array_remove(mcp_tools, 'ag_knowledge')".into(),
         "ALTER TABLE projects DROP COLUMN IF EXISTS knowledge_owner_id".into(),
         "DROP TABLE IF EXISTS rule_backups".into(),
         "DROP TABLE IF EXISTS knowledge_settings".into(),

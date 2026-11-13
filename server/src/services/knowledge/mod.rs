@@ -14,11 +14,13 @@
 //! AI tidak pernah menimpa dokumen langsung: semua hasilnya masuk sebagai usulan.
 
 pub mod catalog;
+pub mod context;
 pub mod docs;
 pub mod proposals;
 pub mod runs;
 pub mod search;
 pub mod settings;
+pub mod triggers;
 
 use sea_orm::{ConnectionTrait, DbErr};
 use uuid::Uuid;

@@ -1,0 +1,80 @@
+{#- Project → Knowledge → dokumen (M8): halaman editor sendiri (dokumen panjang). Editor
+    md_editor (Milkdown) di form judul + versi dasar + catatan; pembaca tanpa EditProject melihat
+    md_view. Panel samping: properti, outline, sumber kode, tiket, versi, aksi. Prototype: kBDoc.
+    Variabel: project, views, views_action, return_to, paths, base, kb_tabs, can_edit, doc (DocRow),
+    doc_title, body, base_version, error (kode; knowledge-conflict = 409), type_name, group,
+    outline, sources, tickets, versions ([VersionRow]), version_count, proposal (href),
+    editing (opsional {id, action, review}: "Edit dulu" usulan), save_action, href, flash. -#}
+{% extends "layouts/project.html" %}
+{% block title %}{{ doc.title }} · {{ t(key="project-view-knowledge", lang="id") }} · {{ project.name }}{% endblock title %}
+{% block width %}wide{% endblock width %}
+{% block crumb %}{{ <crumb label={t(key="project-view-knowledge", lang="id")} href={base}/> }}{% if group %}{{ <crumb label={group.name} href={group.href}/> }}{% endif %}{{ <crumb label={doc.title}/> }}{% endblock crumb %}
+{% block actions %}
+  {{ <button label={t(key="kb-versions", lang="id", n=version_count)} icon="history" variant="outline" size="sm" href={href ~ "/versions"}/> }}
+  {%- if can_edit %}
+  {% <action_menu id="kb-doc-menu" label={t(key="kb-doc-actions", lang="id", title=doc.title)}> %}
+    <a class="app-menu-item" href="{{ href }}/raw" download>{{ icon(name="download") }}{{ t(key="kb-download", lang="id") }}</a>
+    <form method="post" action="{{ href }}/archive"><button type="submit" class="app-menu-item" data-variant="destructive">{{ icon(name="archive") }}{{ t(key="kb-archive", lang="id") }}</button></form>
+  {% </action_menu> %}
+  {%- endif %}
+{% endblock actions %}
+{% block page_attrs %}data-kb-doc="{{ doc.slug }}" data-version="{{ doc.version }}"{% endblock page_attrs %}
+{% block description %}{{ t(key="kb-description", lang="id") }}{% endblock description %}
+{% block main %}
+{{ <tabs label={t(key="project-view-knowledge", lang="id")} items={kb_tabs}/> }}
+<div class="app-kb-doc">
+  <div class="app-stack-v">
+    {%- if error == "knowledge-conflict" %}{{ <flash kind="error" title={t(key="kb-conflict-title", lang="id")} message={t(key="knowledge-conflict", lang="id")}/> }}
+    {%- elif error %}{{ <flash kind="error" message={t(key=error, lang="id")}/> }}{% endif %}
+    {%- if editing %}{{ <flash kind="info" title={t(key="kb-editing-title", lang="id")} message={t(key="kb-editing-description", lang="id")}/> }}
+    {%- elif proposal %}
+    {% <flash kind="info" title={t(key="kb-has-proposal", lang="id")} message={t(key="kb-has-proposal-description", lang="id")}> %}<div class="app-lrow-acts">{{ <button label={t(key="kb-review", lang="id")} size="sm" href={proposal}/> }}</div>{% </flash> %}
+    {%- endif %}
+    {%- if doc.state == "stale" %}
+    {% <flash kind="warn" title={t(key="kb-state-stale", lang="id")} message={doc.stale_reason}> %}
+      {%- if can_edit %}<div class="app-lrow-acts" data-kb-stale>
+        <form method="post" action="{{ href }}/fresh"><input type="hidden" name="next" value="{{ href }}">{{ <button label={t(key="kb-still-true", lang="id")} size="sm" variant="ghost" type="submit"/> }}</form>
+        <form method="post" action="{{ base }}/scan"><input type="hidden" name="doc" value="{{ doc.slug }}"><input type="hidden" name="next" value="{{ href }}">{{ <button label={t(key="kb-ask-ai", lang="id")} icon="sparkles" size="sm" variant="outline" type="submit"/> }}</form>
+      </div>{% endif %}
+    {% </flash> %}
+    {%- endif %}
+    {%- if can_edit %}
+    <form method="post" action="{% if editing %}{{ editing.action }}{% else %}{{ save_action }}{% endif %}" class="card app-blk" data-kb-editor>
+      <input type="hidden" name="base_version" value="{{ base_version }}">
+      <label class="sr-only" for="kb-title">{{ t(key="kb-doc-title", lang="id") }}</label>
+      <input id="kb-title" class="app-kb-title" name="title" value="{{ doc_title }}" maxlength="160" required{% if editing %} readonly{% endif %}>
+      {%- if not editing %}{{ <field id="kb-message" name="message" label={t(key="kb-save-message", lang="id")} optional={t(key="field-optional", lang="id")} placeholder={t(key="kb-save-message-placeholder", lang="id")}/> }}{% endif %}
+      {%- if editing %}{% set save_label = t(key="kb-approve-edited", lang="id") %}{% set cancel = editing.review %}{% else %}{% set save_label = t(key="kb-save", lang="id") %}{% set cancel = href %}{% endif %}
+      {{ <md_editor id="kb-body" name="body" label={t(key="kb-doc-body", lang="id")} value={body} hide_label={true} rows={24} save_label={save_label} cancel_href={cancel}/> }}
+    </form>
+    {%- else %}
+    <div class="card app-blk"><h2 class="app-kb-title">{{ doc.title }}</h2>{{ <md_view text={body} size="doc" empty={t(key="kb-doc-empty", lang="id")}/> }}</div>
+    {%- endif %}
+  </div>
+  <aside class="app-kb-side">
+    {% <card flush={true} attrs="data-kb-props"> %}
+      <dl class="app-props">
+        <dt>{{ t(key="kb-prop-status", lang="id") }}</dt><dd>{{ <badge label={t(key=doc.state_key, lang="id")} variant={doc.state_variant}/> }}</dd>
+        <dt>{{ t(key="kb-prop-type", lang="id") }}</dt><dd>{{ type_name }}</dd>
+        <dt>{{ t(key="kb-prop-owner", lang="id") }}</dt><dd>{% if doc.owner %}{{ <avatar initials={doc.owner.initials} color={doc.owner.color} size="sm"/> }}{{ doc.owner.name }}{% else %}<span class="app-hint">—</span>{% endif %}</dd>
+        <dt>{{ t(key="kb-prop-updated", lang="id") }}</dt><dd>{{ doc.updated }}</dd>
+        <dt>{{ t(key="kb-prop-version", lang="id") }}</dt><dd>v{{ doc.version }}</dd>
+        <dt>{{ t(key="kb-prop-path", lang="id") }}</dt><dd><span class="app-code app-hint">{{ doc.path }}</span></dd>
+      </dl>
+    {% </card> %}
+    {%- if outline | length > 0 %}
+    {% <card title={t(key="kb-outline", lang="id")} flush={true}> %}
+      <nav class="app-kb-outline" aria-label="{{ t(key="kb-outline", lang="id") }}">{% for h in outline %}<a href="#{{ h.id }}" data-level="{{ h.level }}">{{ h.text }}</a>{% endfor %}</nav>
+    {% </card> %}
+    {%- endif %}
+    {% <card title={t(key="kb-sources", lang="id")} description={t(key="kb-sources-description", lang="id")} flush={true} attrs="data-kb-sources"> %}
+      {%- for s in sources %}<div class="app-lrow"><span class="app-tile">{{ icon(name="file-code") }}</span><span class="app-lrow-main"><b class="app-code">{% if s.path %}{{ s.path }}{% else %}/{% endif %}</b><small>{{ s.repo }}</small></span></div>
+      {%- else %}<div class="app-blk"><span class="app-hint">{{ t(key="kb-sources-none", lang="id") }}</span></div>{% endfor %}
+      {%- for tk in tickets %}<a class="app-lrow" href="{{ tk.href }}"><span class="app-code app-hint">{{ tk.code }}</span><span class="app-lrow-main"><b>{{ tk.title }}</b></span></a>{% endfor %}
+    {% </card> %}
+    {% <card title={t(key="kb-history", lang="id")} count={version_count ~ ""} flush={true} link_label={t(key="kb-history-all", lang="id")} link_href={href ~ "/versions"} attrs="data-kb-history"> %}
+      {%- for v in versions %}<a class="app-lrow" href="{{ v.href }}"><span class="app-code app-hint">v{{ v.number }}</span><span class="app-lrow-main"><b>{% if v.message %}{{ v.message }}{% else %}{{ t(key=v.source_key, lang="id") }}{% endif %}</b><small>{% if v.author %}{{ v.author.name }}{% else %}{{ v.persona }}{% endif %} · {{ v.created }}</small></span></a>{% endfor %}
+    {% </card> %}
+  </aside>
+</div>
+{% endblock main %}

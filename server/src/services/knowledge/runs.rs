@@ -446,6 +446,23 @@ pub async fn prompt<C: ConnectionTrait>(
             if let Some(r) = run.as_ref().filter(|r| !r.trigger_ref.is_empty()) {
                 p.push_str(&format!("Pemicu: {}\n\n", r.trigger_ref));
             }
+            if let Some(tid) = run.as_ref().and_then(|r| r.ticket_id)
+                && let Some(t) = crate::models::tickets::Model::find_in(db, wid, tid).await?
+            {
+                p.push_str(&format!(
+                    "Tiket {} sudah Done. Baca tiket (`ag_context` dengan `ticket: \"{}\"`) dan \
+                     perubahan kodenya. Ringkasan: {}\n\n",
+                    t.code,
+                    t.code,
+                    crate::common::markdown::plain(&t.description, 600)
+                ));
+                if ids.is_empty() {
+                    p.push_str(
+                        "Tentukan sendiri dokumen mana yang terdampak tiket ini; dokumen yang tidak \
+                         terdampak tidak perlu diusulkan.\n\n",
+                    );
+                }
+            }
             for d in targets {
                 p.push_str(&format!("- `{}` · {} (v{})", d.slug, d.title, d.version));
                 if d.is_stale() {

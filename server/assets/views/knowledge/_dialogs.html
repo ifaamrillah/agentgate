@@ -1,0 +1,49 @@
+{#- Dialog Scan ulang + Dokumen baru (EditProject). Variabel: base, estimates ([Estimate]),
+    default_depth, type_options ([ComboOption]), my_runners, repo_names, return_to,
+    scan_doc (opsional: slug, dialog jadi "Minta AI perbarui dokumen ini"). -#}
+{% <dialog id="kb-scan" title={t(key="kb-scan-title", lang="id")} description={t(key="kb-scan-description", lang="id")} icon="refresh" tone="accent" size="lg"> %}
+<form method="post" action="{{ base }}/scan" data-kb-scan>
+  <input type="hidden" name="next" value="{{ return_to }}">
+  <section class="app-stack-v">
+    <div class="app-choices" role="radiogroup" aria-label="{{ t(key="kb-scan-depth", lang="id") }}">
+      {%- for e in estimates %}
+      <label class="app-choice"><input type="radio" class="app-radio" name="depth" value="{{ e.depth }}"{% if e.depth == default_depth %} checked{% endif %}> <span>{%- set depth_key = "kb-depth-" ~ e.depth %}{% set depth_hint = depth_key ~ "-hint" %}<b>{{ t(key=depth_key, lang="id") }}</b><small class="app-hint">{{ t(key=depth_hint, lang="id") }}</small><small class="app-hint">{{ t(key="kb-estimate", lang="id", docs=e.docs, tokens=e.tokens, minutes=e.minutes) }}</small></span></label>
+      {%- endfor %}
+    </div>
+    <label class="app-field"><span class="app-label">{{ t(key="kb-scan-scope", lang="id") }}</span>
+      <select class="app-input" name="scope">
+        <option value="">{{ t(key="kb-scan-scope-all", lang="id") }}</option>
+        {%- for r in repo_names %}<option value="{{ r }}">{{ r }}</option>{% endfor %}
+      </select>
+    </label>
+    {%- if my_runners | length > 0 %}
+    <label class="app-field"><span class="app-label">{{ t(key="kb-scan-runner", lang="id") }}</span>
+      <select class="app-input" name="runner">
+        <option value="">{{ t(key="kb-scan-runner-any", lang="id") }}</option>
+        {%- for r in my_runners %}<option value="{{ r.id }}">{{ r.name }} · {{ t(key=r.state_key, lang="id") }}</option>{% endfor %}
+      </select>
+      <small class="app-hint">{{ t(key="kb-scan-runner-hint", lang="id") }}</small>
+    </label>
+    {%- else %}
+    {{ <flash kind="neutral" message={t(key="kb-scan-no-runner", lang="id")}/> }}
+    {%- endif %}
+  </section>
+  <footer>
+    <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+    {{ <button label={t(key="kb-scan-start", lang="id")} icon="refresh" variant="primary" type="submit"/> }}
+  </footer>
+</form>
+{% </dialog> %}
+{% <dialog id="kb-new" title={t(key="kb-new-title", lang="id")} description={t(key="kb-new-description", lang="id")} icon="file-plus" tone="accent"> %}
+<form method="post" action="{{ base }}/new" data-kb-new>
+  <section class="app-stack-v">
+    {{ <combo id="kb-new-type" name="type_key" label={t(key="kb-new-type", lang="id")} options={type_options} required={true}/> }}
+    {{ <field id="kb-new-title" name="title" label={t(key="kb-new-doc-title", lang="id")} optional={t(key="field-optional", lang="id")} hint={t(key="kb-new-doc-title-hint", lang="id")}/> }}
+    <label class="app-choice"><input type="checkbox" class="app-check" name="ai_draft"> <span><b>{{ t(key="kb-new-ai", lang="id") }}</b><small class="app-hint">{{ t(key="kb-new-ai-hint", lang="id") }}</small></span></label>
+  </section>
+  <footer>
+    <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+    {{ <button label={t(key="kb-new-create", lang="id")} icon="plus" variant="primary" type="submit"/> }}
+  </footer>
+</form>
+{% </dialog> %}

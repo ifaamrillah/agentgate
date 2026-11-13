@@ -292,6 +292,7 @@ pub async fn rebuild(
     am.indexed_at = Set(Some(now()));
     let row = am.update(&txn).await?;
     relink(&txn, wid, repo.project_id).await?;
+    crate::services::knowledge::triggers::on_graph_rebuilt(&txn, wid, repo).await?;
     txn.commit().await?;
     Ok(row)
 }

@@ -223,6 +223,9 @@ pub(crate) fn links(tenant: &Tenant) -> SettingsLinks {
         ticket_code: tenant
             .can(crate::models::permission::Permission::ManageTicketSettings)
             .then(|| format!("/w/{}/settings/ticket-code", tenant.workspace.slug)),
+        knowledge: tenant
+            .can(crate::models::permission::Permission::ManageTicketSettings)
+            .then(|| format!("/w/{}/settings/knowledge", tenant.workspace.slug)),
     }
 }
 

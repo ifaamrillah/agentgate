@@ -78,6 +78,12 @@ scheduler:
       # Format Loco: detik menit jam tanggal bulan hari, selalu UTC.
       schedule: "0 0 3 * * *"
       tags: ["maintenance"]
+    # Audit knowledge mingguan (task `knowledge_audit`): dijalankan tiap hari 02:00 UTC (09:00 WIB);
+    # hanya workspace yang hari auditnya hari ini mendapat run audit (Pengaturan → Knowledge).
+    knowledge_audit:
+      run: knowledge_audit
+      schedule: "0 0 2 * * *"
+      tags: ["knowledge"]
 
 mailer:
   smtp:

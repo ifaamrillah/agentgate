@@ -432,6 +432,10 @@ fn job_prompt(
     }
 }
 
+fn with_knowledge(prompt: String, section: &str) -> String {
+    format!("{prompt}{section}")
+}
+
 /// Petunjuk code graph (M7) bila ada repo project yang sudah di-index: AI menjelajah lewat
 /// tool graph, bukan grep atau membaca file utuh (spec "Code graph built-in").
 fn with_graph(prompt: String, project: &str, indexed: &[String]) -> String {
@@ -653,6 +657,10 @@ pub async fn start(
             .map(|r| r.name.clone())
             .collect()
     };
+    let knowledge = crate::services::knowledge::context::prompt_section(
+        &crate::services::knowledge::context::briefs(db, wid, project.id, &job.persona).await?,
+        &project.key,
+    );
     Ok(JobSpec {
         id: job.id,
         kind: job.kind(),
@@ -672,16 +680,19 @@ pub async fn start(
         effort: choice.map(|c| c.effort).unwrap_or_default(),
         client,
         command: format!("/{}", prompts::stage_prompt_name(&job.stage_key)),
-        prompt: with_graph(
-            with_git(
-                job_prompt(&stage_name, &ticket, &persona_name, &job),
-                &job,
-                &git,
-                &branch,
-                &base_branch,
+        prompt: with_knowledge(
+            with_graph(
+                with_git(
+                    job_prompt(&stage_name, &ticket, &persona_name, &job),
+                    &job,
+                    &git,
+                    &branch,
+                    &base_branch,
+                ),
+                &project.key,
+                &graph_repos,
             ),
-            &project.key,
-            &graph_repos,
+            &knowledge,
         ),
         branch,
         base_branch,
