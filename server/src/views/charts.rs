@@ -94,11 +94,18 @@ impl Frame {
             );
             v += step;
         }
+        let last = labels.len().saturating_sub(1);
         for (i, l) in labels.iter().enumerate() {
             if !l.is_empty() {
+                // Label pertama/terakhir rata ke dalam agar tidak terpotong tepi SVG.
+                let anchor = match i {
+                    0 => "start",
+                    _ if i == last => "end",
+                    _ => "middle",
+                };
                 let _ = write!(
                     out,
-                    r#"<text x="{x:.1}" y="{y}" text-anchor="middle">{l}</text>"#,
+                    r#"<text x="{x:.1}" y="{y}" text-anchor="{anchor}">{l}</text>"#,
                     x = self.x(i),
                     y = H - 8.0,
                     l = esc(l),
