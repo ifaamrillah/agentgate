@@ -134,9 +134,20 @@ pub fn ui(v: &impl ViewRenderer, query: &[(String, String)]) -> Result<Response>
                 "table": table,
                 "rows": page_rows,
                 "runner": runner_samples(),
+                "git": git_samples(),
             }),
         ),
     )
+}
+
+/// Contoh status PR dan CI (M6) untuk katalog.
+fn git_samples() -> serde_json::Value {
+    use agentgate_core::git::{CiState, PrState};
+    use crate::views::git::StateView;
+    serde_json::json!({
+        "prs": PrState::ALL.iter().map(|s| StateView::pr(*s)).collect::<Vec<_>>(),
+        "ci": CiState::ALL.iter().map(|s| StateView::ci(*s)).collect::<Vec<_>>(),
+    })
 }
 
 /// Contoh komponen runner & job (M5) untuk katalog.

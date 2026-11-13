@@ -212,7 +212,8 @@ impl Hooks for App {
         seed_tickets(ctx).await?;
         seed_workflows(ctx).await?;
         seed_agents(ctx).await?;
-        seed_runner(ctx).await
+        seed_runner(ctx).await?;
+        seed_git(ctx).await
     }
 }
 
@@ -862,6 +863,144 @@ async fn seed_agents(ctx: &AppContext) -> Result<()> {
 /// Runner & job contoh (M5): runner owner online + runner Dev offline; story di Eksekusi dengan
 /// job berjalan (log, langkah, evidence bertanda tangan); story baru yang job-nya antre; komentar
 /// `@agent-qa` yang job-nya menunggu izin aksi. Dilewati bila workspace sudah punya runner.
+/// Git & PR contoh (M6, sekali): koneksi GitHub (token palsu, tidak dipakai memanggil API), repo
+/// KSR `kasir-api` dan `kasir-web` tertaut + webhook, dan tiga PR tiket (CI lulus, CI gagal,
+/// merged). Merge otomatis dan pembukaan PR baru butuh token asli.
+async fn seed_git(ctx: &AppContext) -> Result<()> {
+    use sea_orm::{ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
+
+    use crate::{
+        common::{crypto, settings::Settings},
+        models::{git_connections, pull_requests, repos, tickets},
+    };
+    let Some(workspace) = workspaces::Model::find_by_slug(&ctx.db, SEED_WORKSPACE_SLUG).await?
+    else {
+        return Ok(());
+    };
+    let wid = workspace.workspace_id();
+    let Some(project) = projects::Model::find_by_key(&ctx.db, wid, SEED_PROJECT.0).await? else {
+        return Ok(());
+    };
+    if !git_connections::Model::of_workspace(&ctx.db, wid).await?.is_empty() {
+        tracing::info!("seed git dilewati: koneksi sudah ada");
+        return Ok(());
+    }
+    let settings = Settings::from_ctx(ctx)?;
+    let key = settings
+        .auth
+        .encryption_key_bytes()
+        .map_err(|e| loco_rs::Error::string(&format!("seed git: {e:?}")))?;
+    let enc = |v: &str| {
+        crypto::encrypt(&key, v.as_bytes())
+            .map_err(|e| loco_rs::Error::string(&format!("seed git: {e:?}")))
+    };
+    let owner = users::Model::find_by_email(&ctx.db, SEED_MARKER_EMAIL).await?;
+    let now = chrono::Utc::now();
+    let ago = |m: i64| -> chrono::DateTime<chrono::FixedOffset> {
+        (now - chrono::Duration::minutes(m)).into()
+    };
+    let conn = git_connections::ActiveModel {
+        workspace_id: Set(wid.get()),
+        provider: Set("github".into()),
+        host: Set("github.com".into()),
+        api_base: Set(settings.git.github_api_base.clone()),
+        web_base: Set(settings.git.github_web_base.clone()),
+        account: Set("pt-contoh-bot".into()),
+        token_encrypted: Set(enc("ghp_seed_token_tidak_berlaku")?),
+        webhook_secret_encrypted: Set(enc(&crypto::random_token())?),
+        created_by: Set(owner.map(|o| o.id)),
+        last_event_at: Set(Some(ago(2))),
+        ..Default::default()
+    }
+    .insert(&ctx.db)
+    .await?;
+    let mut linked = Vec::new();
+    for (i, name) in ["kasir-api", "kasir-web"].into_iter().enumerate() {
+        let existing = repos::Model::of_project(&ctx.db, wid, project.id)
+            .await?
+            .into_iter()
+            .find(|r| r.name == name);
+        let repo = match existing {
+            Some(r) => r,
+            None => {
+                repos::ActiveModel {
+                    workspace_id: Set(wid.get()),
+                    project_id: Set(project.id),
+                    name: Set(name.into()),
+                    provider: Set("github".into()),
+                    url: Set(format!("https://github.com/pt-contoh/{name}")),
+                    default_branch: Set("main".into()),
+                    ..Default::default()
+                }
+                .insert(&ctx.db)
+                .await?
+            }
+        };
+        let mut m: repos::ActiveModel = repo.into();
+        m.connection_id = Set(Some(conn.id));
+        m.full_name = Set(format!("pt-contoh/{name}"));
+        m.webhook_id = Set(Some(9001 + i64::try_from(i).unwrap_or(0)));
+        m.last_event_at = Set(Some(ago(2 + 2 * i64::try_from(i).unwrap_or(0))));
+        linked.push(m.update(&ctx.db).await?);
+    }
+    let ticket_rows = tickets::Entity::find()
+        .filter(tickets::Column::WorkspaceId.eq(wid.get()))
+        .filter(tickets::Column::ProjectId.eq(project.id))
+        .filter(tickets::Column::DeletedAt.is_null())
+        .order_by_asc(tickets::Column::Number)
+        .all(&ctx.db)
+        .await?;
+    let checks = |states: &[(&str, &str)]| {
+        serde_json::Value::from(
+            states
+                .iter()
+                .map(|(n, s)| serde_json::json!({ "name": n, "state": s, "url": "" }))
+                .collect::<Vec<_>>(),
+        )
+    };
+    let samples = [
+        (0usize, 142, "feat(pembayaran): integrasi QRIS", "open", "success", checks(&[("build", "success"), ("cargo test", "success"), ("clippy", "success")]), 302, 41, 40),
+        (1, 87, "feat(bayar): panel QRIS di layar kasir", "open", "failure", checks(&[("build", "success"), ("e2e playwright", "failure")]), 120, 18, 25),
+        (0, 131, "feat(auth): login kasir dengan PIN 6 digit", "merged", "success", checks(&[("build", "success"), ("cargo test", "success")]), 210, 33, 4300),
+    ];
+    for (n, (repo_i, number, title, state, ci, checks, add, del, mins)) in samples.into_iter().enumerate() {
+        let Some(ticket) = ticket_rows.get(n + 1) else { break };
+        let repo = &linked[repo_i];
+        let branch = agentgate_core::git::render_branch(
+            agentgate_core::git::DEFAULT_BRANCH_PATTERN,
+            &ticket.code,
+            &ticket.title,
+            "feature",
+        );
+        pull_requests::ActiveModel {
+            workspace_id: Set(wid.get()),
+            project_id: Set(project.id),
+            repo_id: Set(repo.id),
+            ticket_id: Set(Some(ticket.id)),
+            number: Set(number),
+            title: Set(title.into()),
+            url: Set(format!("https://github.com/{}/pull/{number}", repo.full_name)),
+            head_branch: Set(branch),
+            base_branch: Set("main".into()),
+            head_sha: Set(format!("{:07x}{number}", number * 7919)),
+            state: Set(state.into()),
+            ci_state: Set(ci.into()),
+            checks: Set(checks),
+            additions: Set(add),
+            deletions: Set(del),
+            author: Set("pt-contoh-bot".into()),
+            merged_at: Set((state == "merged").then(|| ago(mins))),
+            closed_at: Set((state == "merged").then(|| ago(mins))),
+            created_at: Set(ago(mins + 60)),
+            updated_at: Set(ago(mins)),
+            ..Default::default()
+        }
+        .insert(&ctx.db)
+        .await?;
+    }
+    Ok(())
+}
+
 async fn seed_runner(ctx: &AppContext) -> Result<()> {
     use agentgate_core::runner::{
         protocol::{

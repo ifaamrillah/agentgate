@@ -64,6 +64,9 @@ async fn component_catalog_renders_shared_components() {
             &html,
             "[data-catalog-runner] [data-evidence=\"test_report\"]",
         );
+        // Git & PR (M6).
+        assert_css_exists(&html, "[data-catalog-git] [data-pr-state=\"merged\"]");
+        assert_css_exists(&html, "[data-catalog-git] .app-ci[data-state=\"failure\"]");
         assert_css_exists(&html, ".app-topbar [data-crumbs] [aria-current=\"page\"]");
         assert_css_eq(&html, ".app-page-head h1", "Katalog UI");
         assert_css_exists(&html, ".app-page-acts .btn");
