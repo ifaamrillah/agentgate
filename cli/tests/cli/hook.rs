@@ -129,3 +129,71 @@ async fn ask_waits_for_the_executor_and_block_is_denied_locally() {
     assert!(out.status.success());
     assert!(out.stdout.is_empty(), "{}", text(&out));
 }
+
+/// `--client`: payload dan jawaban dalam dialek client; hook client lain diam saat job berjalan
+/// dengan client tertentu (Copilot juga menjalankan hook `.claude/settings.json`).
+#[tokio::test(flavor = "multi_thread")]
+async fn each_client_gets_its_own_decision_format() {
+    let env = Env::new("hook-clients");
+    write_job_state(&env);
+    let cases = [
+        (
+            "gemini",
+            json!({"hook_event_name":"BeforeTool","tool_name":"run_shell_command","tool_input":{"command":"vercel --prod"}}),
+            "/decision",
+        ),
+        (
+            "cursor",
+            json!({"hook_event_name":"preToolUse","tool_name":"Shell","tool_input":{"command":"vercel --prod"}}),
+            "/permission",
+        ),
+        (
+            "copilot",
+            json!({"toolName":"bash","toolArgs":"{\"command\":\"vercel --prod\"}"}),
+            "/permissionDecision",
+        ),
+        (
+            "codex",
+            json!({"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"vercel --prod"}}),
+            "/hookSpecificOutput/permissionDecision",
+        ),
+        (
+            "opencode",
+            json!({"tool_name":"bash","tool_input":{"command":"vercel --prod"}}),
+            "/decision",
+        ),
+    ];
+    for (client, payload, pointer) in cases {
+        let vars = [
+            ("AGENTGATE_JOB_ID", JOB),
+            ("AGENTGATE_JOB_CLIENT", client),
+            ("PATH", "/usr/bin:/bin"),
+        ];
+        let out = env
+            .run_with(
+                &env.root,
+                &["hook", "pre-tool", "--client", client],
+                &vars,
+                Some(&payload.to_string()),
+            )
+            .await;
+        assert!(out.status.success(), "{client}: {}", text(&out));
+        assert_eq!(
+            decision(&out).pointer(pointer).and_then(Value::as_str),
+            Some("deny"),
+            "{client}: {}",
+            text(&out)
+        );
+        // Hook Claude yang ikut dijalankan client ini tidak memutuskan apa-apa.
+        let out = env
+            .run_with(
+                &env.root,
+                &["hook", "pre-tool", "--client", "claude"],
+                &vars,
+                Some(&input("vercel --prod")),
+            )
+            .await;
+        assert!(out.status.success());
+        assert!(out.stdout.is_empty(), "{client}: {}", text(&out));
+    }
+}
