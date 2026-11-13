@@ -696,3 +696,77 @@ async fn runner_job_enum_checks_match_enums() {
         );
     }
 }
+
+#[tokio::test]
+async fn git_enum_checks_match_enums() {
+    use agentgate_core::git::{CiState, PrState};
+    use agentgate_server::models::git_connections::GitProviderKind;
+
+    let boot = boot_test::<App>().await.unwrap();
+    let db = &boot.app_context.db;
+    let workspace_id = bare_workspace(db).await;
+    let insert_conn = |provider: String| async move {
+        db.execute_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "INSERT INTO git_connections (workspace_id, provider, host, api_base, web_base, \
+             token_encrypted, webhook_secret_encrypted) VALUES ($1, $2, $3, 'a', 'w', '\\x00', \
+             '\\x00')",
+            [
+                Value::from(workspace_id),
+                Value::from(provider),
+                Value::from(Uuid::now_v7().to_string()),
+            ],
+        ))
+        .await
+        .is_ok()
+    };
+    for kind in GitProviderKind::iter() {
+        assert!(insert_conn(kind.to_value()).await, "{kind:?}");
+    }
+    assert!(!insert_conn("gitlab".to_string()).await);
+
+    let project_id = Uuid::now_v7();
+    let repo_id = Uuid::now_v7();
+    db.execute_raw(Statement::from_sql_and_values(
+        DbBackend::Postgres,
+        "INSERT INTO projects (id, workspace_id, key, name) VALUES ($1, $2, 'GIT', 'Git')",
+        [Value::from(project_id), Value::from(workspace_id)],
+    ))
+    .await
+    .unwrap();
+    db.execute_raw(Statement::from_sql_and_values(
+        DbBackend::Postgres,
+        "INSERT INTO repos (id, workspace_id, project_id, name, provider, url, default_branch) \
+         VALUES ($1, $2, $3, 'api', 'github', 'https://github.com/a/b', 'main')",
+        [
+            Value::from(repo_id),
+            Value::from(workspace_id),
+            Value::from(project_id),
+        ],
+    ))
+    .await
+    .unwrap();
+    let pr_id = Uuid::now_v7();
+    db.execute_raw(Statement::from_sql_and_values(
+        DbBackend::Postgres,
+        "INSERT INTO pull_requests (id, workspace_id, project_id, repo_id, number, title, url, \
+         head_branch, base_branch, state) VALUES ($1, $2, $3, $4, 1, 't', 'u', 'h', 'main', \
+         'open')",
+        [
+            Value::from(pr_id),
+            Value::from(workspace_id),
+            Value::from(project_id),
+            Value::from(repo_id),
+        ],
+    ))
+    .await
+    .unwrap();
+    for s in PrState::ALL {
+        assert!(update_ok(db, "pull_requests", "state", pr_id, s.as_str()).await);
+    }
+    assert!(!update_ok(db, "pull_requests", "state", pr_id, "bogus").await);
+    for s in CiState::ALL {
+        assert!(update_ok(db, "pull_requests", "ci_state", pr_id, s.as_str()).await);
+    }
+    assert!(!update_ok(db, "pull_requests", "ci_state", pr_id, "bogus").await);
+}

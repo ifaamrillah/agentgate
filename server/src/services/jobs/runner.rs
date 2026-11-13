@@ -10,7 +10,6 @@ use std::collections::HashSet;
 use agentgate_core::{
     persona::{self, Level},
     runner::{
-        branch_name,
         protocol::{
             DangerRule, DriftReport, FinishReport, JobKind, JobMode, JobSpec, JobStatus,
             JobSummary, LogBatch, LogStream, Outcome, PermissionAsk, PermissionInfo,
@@ -486,7 +485,21 @@ pub async fn start(
         .rule(&job.stage_key)
         .or_else(|| flow.current.stage(&job.stage_key))
         .map_or_else(|| job.stage_key.clone(), |s| s.name.clone());
-    let branch = branch_name(&ticket.code, &ticket.title);
+    let git = project.git_settings();
+    let kind = crate::models::ticket_types::Model::find_in(db, wid, ticket.type_id)
+        .await?
+        .map(|t| t.key)
+        .unwrap_or_default();
+    let branch = if job.branch.is_empty() || job.status() == JobStatus::Claimed {
+        agentgate_core::git::render_branch(&git.branch_pattern, &ticket.code, &ticket.title, &kind)
+    } else {
+        job.branch.clone()
+    };
+    let project_repos = repos::Model::of_project(db, wid, project.id).await?;
+    let base_branch = project_repos
+        .first()
+        .map(|r| r.default_branch.clone())
+        .unwrap_or_default();
     let txn = db.begin().await?;
     let updated = jobs::Entity::update_many()
         .col_expr(jobs::Column::RunnerId, Expr::value(runner.id))
@@ -557,11 +570,7 @@ pub async fn start(
         title: ticket.title.clone(),
         url: format!("{base_url}/w/{}/t/{}", session.workspace.slug, ticket.code),
         project: project.key.clone(),
-        repos: repos::Model::of_project(db, wid, project.id)
-            .await?
-            .into_iter()
-            .map(|r| r.name)
-            .collect(),
+        repos: project_repos.into_iter().map(|r| r.name).collect(),
         stage: job.stage_key.clone(),
         stage_name: stage_name.clone(),
         persona: persona
@@ -574,6 +583,8 @@ pub async fn start(
         command: format!("/{}", prompts::stage_prompt_name(&job.stage_key)),
         prompt: job_prompt(&stage_name, &ticket, &persona_name, &job),
         branch,
+        base_branch,
+        git: git.spec(),
         mcp_url: format!("{base_url}/mcp"),
         rules: rule_files(base_url, &project.key),
         danger: danger

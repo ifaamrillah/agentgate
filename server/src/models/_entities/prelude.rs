@@ -3,6 +3,7 @@
 pub use super::artifact_versions::Entity as ArtifactVersions;
 pub use super::audit_events::Entity as AuditEvents;
 pub use super::custom_fields::Entity as CustomFields;
+pub use super::git_connections::Entity as GitConnections;
 pub use super::identities::Entity as Identities;
 pub use super::invitations::Entity as Invitations;
 pub use super::job_evidence::Entity as JobEvidence;
@@ -22,6 +23,7 @@ pub use super::personas::Entity as Personas;
 pub use super::project_grants::Entity as ProjectGrants;
 pub use super::project_workflows::Entity as ProjectWorkflows;
 pub use super::projects::Entity as Projects;
+pub use super::pull_requests::Entity as PullRequests;
 pub use super::recovery_codes::Entity as RecoveryCodes;
 pub use super::repos::Entity as Repos;
 pub use super::roles::Entity as Roles;
