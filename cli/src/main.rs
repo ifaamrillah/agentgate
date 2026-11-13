@@ -77,7 +77,7 @@ enum Cmd {
         #[command(subcommand)]
         action: RunnerCmd,
     },
-    /// Hook client AI (dipanggil dari .claude/settings.json).
+    /// Hook client AI (dipanggil dari file hook client di repo, mis. .claude/settings.json).
     Hook {
         #[command(subcommand)]
         event: HookCmd,
@@ -181,15 +181,25 @@ enum RunnerCmd {
         /// Berhenti setelah satu job selesai.
         #[arg(long)]
         once: bool,
+        /// Client AI default runner ini (bawaan: Client default di pengaturan runner web).
+        #[arg(long, env = "AGENTGATE_CLIENT", value_enum)]
+        client: Option<runner::clients::ClientKind>,
     },
 }
 
 #[derive(Subcommand)]
 enum HookCmd {
     /// PreToolUse: izin aksi berbahaya dan RTK.
-    PreTool,
+    PreTool {
+        /// Client yang memanggil hook (format payload dan jawaban).
+        #[arg(long, value_enum, default_value = "claude")]
+        client: runner::clients::ClientKind,
+    },
     /// SessionStart: konteks job/project.
-    SessionStart,
+    SessionStart {
+        #[arg(long, value_enum, default_value = "claude")]
+        client: runner::clients::ClientKind,
+    },
 }
 
 async fn run(cmd: Cmd, paths: &Paths) -> Result<ExitCode> {
@@ -262,18 +272,21 @@ async fn run(cmd: Cmd, paths: &Paths) -> Result<ExitCode> {
                     jobs::act(paths, &api, &id, jobs::Action::Cancel, &mut out).await?;
                 }
                 JobCmd::Attach { id } => {
-                    let ctx = runner::registered(paths, &api)?;
+                    let fallback = std::env::var("AGENTGATE_CLIENT")
+                        .ok()
+                        .and_then(|c| runner::clients::ClientKind::parse(&c));
+                    let ctx = runner::registered(paths, &api, fallback)?;
                     let id = jobs::resolve(&api, &id).await?;
                     runner::job::attach(&ctx, id, &mut out).await?;
                 }
             }
         }
         Cmd::Runner {
-            action: RunnerCmd::Start { yes, once },
-        } => runner::start(paths, yes, once, &mut out).await?,
+            action: RunnerCmd::Start { yes, once, client },
+        } => runner::start(paths, yes, once, client, &mut out).await?,
         Cmd::Hook { event } => match event {
-            HookCmd::PreTool => hook::pre_tool(paths).await,
-            HookCmd::SessionStart => hook::session_start(paths),
+            HookCmd::PreTool { client } => hook::pre_tool(paths, client).await,
+            HookCmd::SessionStart { client } => hook::session_start(paths, client),
         },
         Cmd::Knowledge { action } => {
             let (api, _) = auth::session(paths).await?;

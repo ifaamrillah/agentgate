@@ -77,8 +77,16 @@ pub async fn register(
     if !signing::public_key_valid(&req.public_key) {
         return Err(TicketFailure::field("public_key", KEY_INVALID));
     }
-    let client = persona::client(req.client.trim()).map_or("claude", |c| c.key);
     let wid = session.workspace.workspace_id();
+    // Runner tanpa `--client`: "Client default" di pengaturan runner web pemiliknya.
+    let client = match persona::client(req.client.trim()) {
+        Some(c) => c.key.to_string(),
+        None => {
+            runner_prefs::Model::of(db, wid, session.user.id)
+                .await?
+                .default_client
+        }
+    };
     let txn = db.begin().await?;
     let existing = match req.runner_id {
         Some(id) => {
@@ -103,7 +111,7 @@ pub async fn register(
     m.grant_id = Set(grant_id);
     m.name = Set(name.clone());
     m.os = Set(clip(&req.os, NAME_MAX));
-    m.client = Set(client.to_string());
+    m.client = Set(client.clone());
     m.version = Set(clip(&req.version, 40));
     m.public_key = Set(req.public_key.trim().to_string());
     m.last_seen_at = Set(Some(now()));

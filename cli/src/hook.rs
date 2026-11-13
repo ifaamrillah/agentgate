@@ -1,4 +1,20 @@
-//! Hook Claude Code (`.claude/settings.json` memanggil `agentgate hook <event>`).
+//! Hook client AI: file hook di repo (aturan v2) memanggil `agentgate hook <event> --client <c>`.
+//!
+//! Logika keputusan sama untuk semua client ([`plan`], [`session_context`]); yang berbeda per
+//! client hanya adapter I/O: bentuk payload stdin ([`HookInput::parse`]) dan bentuk jawaban
+//! ([`output`], [`session_output`]):
+//!
+//! | Client | Payload tool | Jawaban `pre-tool` |
+//! | --- | --- | --- |
+//! | Claude Code, Codex | `tool_name` `Bash`, `tool_input` | `hookSpecificOutput.permissionDecision` + `updatedInput` |
+//! | Gemini CLI | `tool_name` `run_shell_command` | `decision` + `hookSpecificOutput.tool_input` |
+//! | Cursor | `tool_name` `Shell` | `permission` + `updated_input` |
+//! | Copilot CLI | `toolName` `bash`/`powershell`, `toolArgs` (string JSON) | `permissionDecision` + `modifiedArgs` |
+//! | OpenCode (plugin) | `tool_name` `bash`, `tool_input` | `decision`, `reason`, `command` |
+//!
+//! **Pemanggilan ganda.** Copilot (dan Cursor) juga menjalankan hook `.claude/settings.json`.
+//! Runner memberi env [`JOB_CLIENT_ENV`] ke proses client job; hook dengan `--client` lain diam,
+//! jadi satu perintah hanya diputuskan (dan ditanyakan ke executor) sekali.
 //!
 //! - **`pre-tool`** (`PreToolUse`, matcher `Bash`): perintah diklasifikasi
 //!   ([`agentgate_core::runner::danger::decide`]) dengan tingkat izin persona job. `block` →
@@ -32,14 +48,25 @@ use uuid::Uuid;
 use crate::{
     auth,
     config::{self, JobState, Paths, ProjectFile},
+    runner::clients::ClientKind,
 };
 
 /// Batas tunggu jawaban izin (detik); `AGENTGATE_PERMISSION_TIMEOUT` menggantinya.
 const PERMISSION_TIMEOUT: u64 = 30 * 60;
 /// Interval cek status izin (detik).
 const PERMISSION_POLL: u64 = 3;
+/// Env client job yang diberi runner ke proses client (`claude`, `codex`, …).
+pub const JOB_CLIENT_ENV: &str = "AGENTGATE_JOB_CLIENT";
+/// Nama tool shell di semua client (dibandingkan tanpa beda huruf besar/kecil).
+const SHELL_TOOLS: &[&str] = &[
+    "bash",
+    "shell",
+    "run_shell_command",
+    "powershell",
+    "run_terminal_cmd",
+];
 
-/// Input hook dari Claude Code (stdin).
+/// Input hook (stdin), dinormalkan ke bentuk Claude Code.
 #[derive(Debug, Default, Deserialize)]
 pub struct HookInput {
     #[serde(default)]
@@ -51,8 +78,35 @@ pub struct HookInput {
 }
 
 impl HookInput {
+    /// Payload `raw` dari `client`. Rusak/kosong → input kosong (hook tidak memutuskan).
+    #[must_use]
+    pub fn parse(client: ClientKind, raw: &str) -> Self {
+        let v: Value = serde_json::from_str(raw).unwrap_or(Value::Null);
+        let text = |k: &str| v.get(k).and_then(Value::as_str).unwrap_or_default();
+        let mut input: Self = serde_json::from_value(v.clone()).unwrap_or_default();
+        if client == ClientKind::Copilot && input.tool_name.is_empty() {
+            input.tool_name = text("toolName").to_string();
+            input.tool_input = match v.get("toolArgs").cloned().unwrap_or(Value::Null) {
+                Value::String(s) => serde_json::from_str(&s).unwrap_or(Value::String(s)),
+                other => other,
+            };
+        }
+        if input.cwd.is_empty() {
+            // Cursor: `workspace_roots`; Gemini/Copilot kadang tanpa `cwd`.
+            input.cwd = v
+                .pointer("/workspace_roots/0")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string();
+        }
+        input
+    }
+
     fn command(&self) -> Option<&str> {
-        (self.tool_name == "Bash")
+        let shell = SHELL_TOOLS
+            .iter()
+            .any(|t| t.eq_ignore_ascii_case(&self.tool_name));
+        shell
             .then(|| self.tool_input.get("command").and_then(Value::as_str))
             .flatten()
             .filter(|c| !c.trim().is_empty())
@@ -124,22 +178,79 @@ pub fn plan(
     }
 }
 
-/// JSON output hook `PreToolUse` untuk keputusan `decision` (`allow`/`deny`/`ask`).
+/// Jawaban `pre-tool` untuk `client`: `decision` `allow`/`deny`, alasan, dan perintah hasil tulis
+/// ulang RTK (dikirim sebagai input tool baru dalam dialek client).
 #[must_use]
-pub fn output(input: &HookInput, decision: &str, reason: &str, rewritten: Option<&str>) -> Value {
-    let mut specific = json!({
-        "hookEventName": "PreToolUse",
-        "permissionDecision": decision,
-        "permissionDecisionReason": reason,
-    });
-    if let Some(cmd) = rewritten {
+pub fn output(
+    client: ClientKind,
+    input: &HookInput,
+    decision: &str,
+    reason: &str,
+    rewritten: Option<&str>,
+) -> Value {
+    let updated = rewritten.and_then(|cmd| {
         let mut updated = input.tool_input.clone();
-        if let Some(obj) = updated.as_object_mut() {
-            obj.insert("command".into(), Value::String(cmd.to_string()));
-            specific["updatedInput"] = updated;
+        let obj = updated.as_object_mut()?;
+        obj.insert("command".into(), Value::String(cmd.to_string()));
+        Some(updated)
+    });
+    let mut v = match client {
+        ClientKind::Claude | ClientKind::Codex => json!({ "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": decision,
+            "permissionDecisionReason": reason,
+        }}),
+        ClientKind::Gemini => json!({ "decision": decision, "reason": reason }),
+        ClientKind::Cursor => json!({
+            "permission": decision,
+            "user_message": reason,
+            "agent_message": reason,
+        }),
+        ClientKind::Copilot => json!({
+            "permissionDecision": decision,
+            "permissionDecisionReason": reason,
+        }),
+        ClientKind::Opencode => json!({ "decision": decision, "reason": reason }),
+    };
+    if let Some(updated) = updated {
+        match client {
+            ClientKind::Claude | ClientKind::Codex => {
+                v["hookSpecificOutput"]["updatedInput"] = updated;
+            }
+            ClientKind::Gemini => {
+                v["hookSpecificOutput"] =
+                    json!({ "hookEventName": "BeforeTool", "tool_input": updated });
+            }
+            ClientKind::Cursor => v["updated_input"] = updated,
+            ClientKind::Copilot => v["modifiedArgs"] = updated,
+            ClientKind::Opencode => v["command"] = Value::from(rewritten),
         }
     }
-    json!({ "hookSpecificOutput": specific })
+    v
+}
+
+/// Teks stdout `session-start` untuk `client`: Claude Code/OpenCode teks biasa, lainnya JSON
+/// konteks tambahan dalam dialek client.
+#[must_use]
+pub fn session_output(client: ClientKind, text: &str) -> String {
+    let v = match client {
+        ClientKind::Claude | ClientKind::Opencode => return text.to_string(),
+        ClientKind::Codex | ClientKind::Gemini => json!({ "hookSpecificOutput": {
+            "hookEventName": "SessionStart",
+            "additionalContext": text,
+        }}),
+        ClientKind::Cursor => json!({ "additional_context": text }),
+        ClientKind::Copilot => json!({ "additionalContext": text }),
+    };
+    v.to_string()
+}
+
+/// Hook dipanggil client lain dari client job (mis. Copilot menjalankan hook Claude): diam.
+fn foreign(client: ClientKind) -> bool {
+    std::env::var(JOB_CLIENT_ENV)
+        .ok()
+        .and_then(|c| ClientKind::parse(&c))
+        .is_some_and(|job| job != client)
 }
 
 /// Cari program di PATH.
@@ -179,10 +290,10 @@ fn job_from_env(paths: &Paths) -> Option<JobState> {
     JobState::load(paths, id).ok().flatten()
 }
 
-fn read_input() -> HookInput {
+fn read_input(client: ClientKind) -> HookInput {
     let mut raw = String::new();
     let _ = std::io::stdin().read_to_string(&mut raw);
-    serde_json::from_str(&raw).unwrap_or_default()
+    HookInput::parse(client, &raw)
 }
 
 fn emit(value: &Value) {
@@ -233,10 +344,17 @@ async fn ask(paths: &Paths, job: &JobState, action: &str, command: &str) -> Resu
     }
 }
 
-/// `agentgate hook pre-tool`. Tidak pernah gagal: di dalam job, error = tolak (fail closed).
-pub async fn pre_tool(paths: &Paths) {
-    let input = read_input();
+/// `agentgate hook pre-tool --client <c>`. Tidak pernah gagal: di dalam job, error = tolak
+/// (fail closed).
+pub async fn pre_tool(paths: &Paths, client: ClientKind) {
+    if foreign(client) {
+        return;
+    }
+    let input = read_input(client);
     let job = job_from_env(paths);
+    let output = |input: &HookInput, decision: &str, reason: &str, rewritten: Option<&str>| {
+        output(client, input, decision, reason, rewritten)
+    };
     match plan(&input, job.as_ref(), rtk_rewrite) {
         Plan::Pass => {}
         Plan::Allow { rewritten } => emit(&output(
@@ -289,9 +407,12 @@ pub fn session_context(job: Option<&JobState>, project: Option<&ProjectFile>) ->
     })
 }
 
-/// `agentgate hook session-start`.
-pub fn session_start(paths: &Paths) {
-    let input = read_input();
+/// `agentgate hook session-start --client <c>`.
+pub fn session_start(paths: &Paths, client: ClientKind) {
+    if foreign(client) {
+        return;
+    }
+    let input = read_input(client);
     let job = job_from_env(paths);
     let dir = if input.cwd.is_empty() {
         std::env::current_dir().unwrap_or_default()
@@ -302,7 +423,7 @@ pub fn session_start(paths: &Paths) {
     let project = ProjectFile::load(Path::new(&root)).ok().flatten();
     if let Some(text) = session_context(job.as_ref(), project.as_ref()) {
         let mut stdout = std::io::stdout();
-        let _ = writeln!(stdout, "{text}");
+        let _ = writeln!(stdout, "{}", session_output(client, &text));
     }
 }
 
@@ -404,16 +525,142 @@ mod tests {
     #[test]
     fn output_matches_claude_code_hook_schema() {
         let i = input("git status");
-        let v = output(&i, "allow", "ok", Some("rtk git status"));
+        let v = output(
+            ClientKind::Claude,
+            &i,
+            "allow",
+            "ok",
+            Some("rtk git status"),
+        );
         let s = &v["hookSpecificOutput"];
         assert_eq!(s["hookEventName"], "PreToolUse");
         assert_eq!(s["permissionDecision"], "allow");
         assert_eq!(s["permissionDecisionReason"], "ok");
         assert_eq!(s["updatedInput"]["command"], "rtk git status");
         assert_eq!(s["updatedInput"]["description"], "x");
-        let v = output(&i, "deny", "tidak", None);
+        let v = output(ClientKind::Claude, &i, "deny", "tidak", None);
         assert_eq!(v["hookSpecificOutput"]["permissionDecision"], "deny");
         assert!(v["hookSpecificOutput"].get("updatedInput").is_none());
+        // Codex memakai bentuk yang sama.
+        assert_eq!(
+            output(ClientKind::Codex, &i, "allow", "ok", Some("rtk git status")),
+            output(
+                ClientKind::Claude,
+                &i,
+                "allow",
+                "ok",
+                Some("rtk git status")
+            )
+        );
+    }
+
+    #[test]
+    fn payloads_are_normalised_per_client() {
+        let parse = |c, v: Value| HookInput::parse(c, &v.to_string());
+        let cases = [
+            (
+                ClientKind::Codex,
+                json!({"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"curl x"},"cwd":"/wt"}),
+            ),
+            (
+                ClientKind::Gemini,
+                json!({"hook_event_name":"BeforeTool","tool_name":"run_shell_command","tool_input":{"command":"curl x","description":"d"},"cwd":"/wt"}),
+            ),
+            (
+                ClientKind::Cursor,
+                json!({"hook_event_name":"preToolUse","tool_name":"Shell","tool_input":{"command":"curl x"},"workspace_roots":["/wt"]}),
+            ),
+            (
+                ClientKind::Copilot,
+                json!({"timestamp":1,"cwd":"/wt","toolName":"bash","toolArgs":"{\"command\":\"curl x\"}"}),
+            ),
+            (
+                ClientKind::Opencode,
+                json!({"tool_name":"bash","tool_input":{"command":"curl x"},"cwd":"/wt"}),
+            ),
+        ];
+        for (client, payload) in cases {
+            let i = parse(client, payload);
+            assert_eq!(i.command(), Some("curl x"), "{client:?}");
+            assert_eq!(i.cwd, "/wt", "{client:?}");
+            assert_eq!(
+                plan(&i, Some(&job()), no_rtk),
+                Plan::Ask {
+                    action: "network".into(),
+                    command: "curl x".into()
+                },
+                "{client:?}"
+            );
+        }
+        let edit = parse(
+            ClientKind::Copilot,
+            json!({"toolName":"edit","toolArgs":"{}"}),
+        );
+        assert_eq!(edit.command(), None);
+        assert_eq!(
+            HookInput::parse(ClientKind::Gemini, "rusak").command(),
+            None
+        );
+    }
+
+    #[test]
+    fn decisions_use_each_client_dialect() {
+        let i = HookInput::parse(
+            ClientKind::Gemini,
+            &json!({"tool_name":"run_shell_command","tool_input":{"command":"git status","description":"d"}}).to_string(),
+        );
+        let rtk = Some("rtk git status");
+        let g = output(ClientKind::Gemini, &i, "allow", "ok", rtk);
+        assert_eq!(g["decision"], "allow");
+        assert_eq!(
+            g["hookSpecificOutput"]["tool_input"]["command"],
+            "rtk git status"
+        );
+        assert_eq!(g["hookSpecificOutput"]["tool_input"]["description"], "d");
+        let g = output(ClientKind::Gemini, &i, "deny", "tidak", None);
+        assert_eq!(
+            (g["decision"].as_str(), g["reason"].as_str()),
+            (Some("deny"), Some("tidak"))
+        );
+        assert!(g.get("hookSpecificOutput").is_none());
+
+        let c = output(ClientKind::Cursor, &i, "deny", "tidak", None);
+        assert_eq!(c["permission"], "deny");
+        assert_eq!(c["agent_message"], "tidak");
+        let c = output(ClientKind::Cursor, &i, "allow", "ok", rtk);
+        assert_eq!(c["updated_input"]["command"], "rtk git status");
+
+        let p = output(ClientKind::Copilot, &i, "deny", "tidak", None);
+        assert_eq!(p["permissionDecision"], "deny");
+        assert_eq!(p["permissionDecisionReason"], "tidak");
+        let p = output(ClientKind::Copilot, &i, "allow", "ok", rtk);
+        assert_eq!(p["modifiedArgs"]["command"], "rtk git status");
+
+        let o = output(ClientKind::Opencode, &i, "allow", "ok", rtk);
+        assert_eq!(
+            (o["decision"].as_str(), o["command"].as_str()),
+            (Some("allow"), rtk)
+        );
+        assert!(
+            output(ClientKind::Opencode, &i, "deny", "x", None)
+                .get("command")
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn session_context_uses_each_client_dialect() {
+        assert_eq!(session_output(ClientKind::Claude, "halo"), "halo");
+        assert_eq!(session_output(ClientKind::Opencode, "halo"), "halo");
+        for c in [ClientKind::Codex, ClientKind::Gemini] {
+            let v: Value = serde_json::from_str(&session_output(c, "halo")).unwrap();
+            assert_eq!(v["hookSpecificOutput"]["hookEventName"], "SessionStart");
+            assert_eq!(v["hookSpecificOutput"]["additionalContext"], "halo");
+        }
+        let v: Value = serde_json::from_str(&session_output(ClientKind::Cursor, "halo")).unwrap();
+        assert_eq!(v["additional_context"], "halo");
+        let v: Value = serde_json::from_str(&session_output(ClientKind::Copilot, "halo")).unwrap();
+        assert_eq!(v["additionalContext"], "halo");
     }
 
     #[test]

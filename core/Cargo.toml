@@ -29,3 +29,7 @@ base64 = "0.22"
 # Checksum file aturan dan isi evidence.
 sha2 = "0.10"
 hex = "0.4"
+
+[dev-dependencies]
+# Tes: file aturan `.codex/config.toml` harus TOML valid. Versi yang sama dengan CLI.
+toml = "1"

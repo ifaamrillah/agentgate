@@ -50,6 +50,10 @@ fn job_summary() -> Value {
 }
 
 fn job_spec(base: &str) -> Value {
+    job_spec_for(base, "claude", "claude-test-model")
+}
+
+fn job_spec_for(base: &str, client: &str, model: &str) -> Value {
     json!({
         "id": JOB, "kind": "stage", "mode": "auto",
         "ticket": "KSR-26", "title": "Validasi stok",
@@ -57,7 +61,7 @@ fn job_spec(base: &str) -> Value {
         "project": "KSR", "repos": ["kasir"],
         "stage": "dev", "stage_name": "Development",
         "persona": "dev", "persona_name": "Dev",
-        "model": "claude-test-model", "effort": "", "client": "claude",
+        "model": model, "effort": "high", "client": client,
         "command": "/ag-dev", "prompt": PROMPT, "branch": BRANCH, "base_branch": "main",
         "git": { "code_output": "pr", "commit_style": "conventional", "commit_language": "en",
                  "pr_language": "id", "code_language": "en" },
@@ -162,7 +166,8 @@ async fn runner_once_runs_a_job_and_reports_signed_evidence() {
     assert_eq!(register.len(), 1);
     let reg: RegisterRunner = serde_json::from_str(&register[0].body).unwrap();
     assert!(reg.runner_id.is_none());
-    assert_eq!(reg.client, "claude");
+    // Tanpa `--client`: server memilih dari "Client default" pengaturan runner web.
+    assert_eq!(reg.client, "");
     let identity: Value =
         serde_json::from_str(&fs::read_to_string(env.config.join("runner.json")).unwrap()).unwrap();
     assert_eq!(identity["runner_id"], RUNNER);
@@ -205,6 +210,7 @@ async fn runner_once_runs_a_job_and_reports_signed_evidence() {
     let args: Vec<&str> = args.lines().collect();
     assert_eq!(args[0], "-p");
     assert_eq!(args[1], PROMPT);
+    assert!(args.windows(2).any(|w| w == ["--effort", "high"]));
     for flag in [
         "--strict-mcp-config",
         "--verbose",
@@ -315,4 +321,273 @@ async fn runner_once_runs_a_job_and_reports_signed_evidence() {
     assert!(order_pr < order_finish);
     // State hook dibersihkan setelah job selesai.
     assert!(!env.state.join(format!("jobs/{JOB}.json")).exists());
+}
+
+/// Awal skrip client palsu: argumen, stdin (prompt), env job, dan perubahan kode.
+const FAKE_PRELUDE: &str = r#"#!/bin/sh
+for a in "$@"; do printf '%s\n' "$a"; done > "$AGENTGATE_STATE_DIR/client-args.txt"
+printf '%s|%s|%s|%s' "$AGENTGATE_JOB_ID" "$AGENTGATE_JOB_CLIENT" "$GEMINI_CLI_TRUST_WORKSPACE" "$GITHUB_COPILOT_PROMPT_MODE_WORKSPACE_MCP" > "$AGENTGATE_STATE_DIR/client-env.txt"
+if [ "$1" = "exec" ]; then cat > "$AGENTGATE_STATE_DIR/client-stdin.txt"; fi
+echo 'pub fn stok() {}' > stok.rs
+"#;
+
+/// Output JSONL tiap client (bentuk fixture parser), plus teks yang diharapkan di log/hasil.
+const CLIENT_STREAMS: &[(&str, &str, &str)] = &[
+    (
+        "codex",
+        r#"{"type":"thread.started","thread_id":"t"}
+{"type":"item.started","item":{"id":"i1","type":"command_execution","command":"cargo test -p kasir","status":"in_progress"}}
+{"type":"item.started","item":{"id":"i2","type":"todo_list","items":[{"text":"Tambah validasi","completed":true}]}}
+{"type":"item.completed","item":{"id":"i3","type":"agent_message","text":"Validasi stok selesai."}}
+{"type":"turn.completed","usage":{"input_tokens":120,"cached_input_tokens":20,"output_tokens":30}}"#,
+        "shell: cargo test -p kasir",
+    ),
+    (
+        "gemini",
+        r#"{"type":"init","model":"gemini-test"}
+{"type":"tool_use","tool_name":"write_todos","tool_id":"t0","parameters":{"todos":[{"description":"Tambah validasi","status":"completed"}]}}
+{"type":"tool_use","tool_name":"run_shell_command","tool_id":"t1","parameters":{"command":"cargo test -p kasir"}}
+{"type":"message","role":"assistant","content":"Validasi stok selesai.","delta":true}
+{"type":"result","status":"success","stats":{"input_tokens":120,"output_tokens":30,"cached":20}}"#,
+        "run_shell_command: cargo test -p kasir",
+    ),
+    (
+        "cursor",
+        r#"{"type":"system","subtype":"init","model":"cursor-test"}
+{"type":"tool_call","subtype":"started","call_id":"0","tool_call":{"updateTodosToolCall":{"args":{"todos":[{"content":"Tambah validasi","status":"TODO_STATUS_COMPLETED"}]}}}}
+{"type":"tool_call","subtype":"started","call_id":"1","tool_call":{"shellToolCall":{"args":{"command":"cargo test -p kasir"}}}}
+{"type":"result","subtype":"success","is_error":false,"result":"Validasi stok selesai.","usage":{"inputTokens":100,"outputTokens":30,"cacheReadTokens":20}}"#,
+        "shell: cargo test -p kasir",
+    ),
+    (
+        "opencode",
+        r#"{"type":"tool_use","sessionID":"s","part":{"type":"tool","tool":"todowrite","state":{"status":"completed","input":{"todos":[{"content":"Tambah validasi","status":"completed"}]}}}}
+{"type":"tool_use","sessionID":"s","part":{"type":"tool","tool":"bash","state":{"status":"completed","input":{"command":"cargo test -p kasir"}}}}
+{"type":"text","sessionID":"s","part":{"type":"text","text":"Validasi stok selesai."}}
+{"type":"step_finish","sessionID":"s","part":{"type":"step-finish","reason":"stop","cost":0.02,"tokens":{"input":100,"output":30,"cache":{"read":20,"write":0}}}}"#,
+        "bash: cargo test -p kasir",
+    ),
+    (
+        "copilot",
+        r#"{"type":"session.start","data":{"selectedModel":"copilot-test"}}
+{"type":"tool.execution_start","data":{"toolName":"update_todo","arguments":{"todos":[{"content":"Tambah validasi","status":"completed"}]}}}
+{"type":"tool.execution_start","data":{"toolName":"bash","arguments":"{\"command\":\"cargo test -p kasir\"}"}}
+{"type":"assistant.usage","data":{"inputTokens":100,"outputTokens":30,"cacheReadTokens":20}}
+{"type":"assistant.message","data":{"content":"Validasi stok selesai."}}"#,
+        "bash: cargo test -p kasir",
+    ),
+];
+
+/// Alur M5 (start → client headless → log/langkah → tes → commit → finish) untuk tiap client
+/// selain Claude Code, dengan binary palsu lewat `AGENTGATE_<CLIENT>_BIN`.
+#[tokio::test(flavor = "multi_thread")]
+async fn runner_runs_jobs_with_every_client() {
+    for (client, stream, tool) in CLIENT_STREAMS {
+        let started = Arc::new(AtomicBool::new(false));
+        let flag = started.clone();
+        let spec_client = (*client).to_string();
+        let fake = serve(Arc::new(move |fake, req| {
+            let job = format!("/api/runner/jobs/{JOB}/");
+            match (req.method.as_str(), req.path.as_str()) {
+                ("GET", "/api/cli/rules") => rules_response(&fake.base, req),
+                ("POST", "/api/runner/register") => (
+                    200,
+                    json!({
+                        "id": RUNNER, "name": "laptop", "workspace": "Kasir",
+                        "user_email": "ani@example.com", "auto_claim": false,
+                        "max_parallel": null, "client": "claude"
+                    }),
+                ),
+                ("GET", "/api/runner/events") if !flag.load(Ordering::SeqCst) => {
+                    (200, json!([{ "type": "job_ready", "job": job_summary() }]))
+                }
+                ("GET", "/api/runner/events") => (200, json!([])),
+                ("POST", p) if p == format!("{job}start") => {
+                    flag.store(true, Ordering::SeqCst);
+                    let mut spec = job_spec_for(&fake.base, &spec_client, "model-x");
+                    spec["git"]["code_output"] = json!("manual");
+                    (200, spec)
+                }
+                ("POST", p) if p == format!("{job}logs") || p == format!("{job}steps") => {
+                    (204, Value::Null)
+                }
+                ("POST", p) if p == format!("{job}evidence") => {
+                    (201, json!({ "id": RUNNER, "kind": "test_report" }))
+                }
+                ("POST", p) if p == format!("{job}finish") => {
+                    (200, json!({ "id": JOB, "status": "succeeded" }))
+                }
+                _ => (404, json!({ "error": "not_found" })),
+            }
+        }))
+        .await;
+
+        let env = Env::new(&format!("runner-{client}"));
+        env.login(&fake.base);
+        let repo = env.root.join("kasir");
+        git_repo(&repo);
+        let out = env.run(&repo, &["init", "--project", "KSR", "--yes"]).await;
+        assert!(out.status.success(), "{client}: {}", text(&out));
+        let bin = env.root.join(format!("fake-{client}"));
+        fs::write(
+            &bin,
+            format!("{FAKE_PRELUDE}cat <<'JSONL'\n{stream}\nJSONL\n"),
+        )
+        .unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&bin, fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        let var = format!("AGENTGATE_{}_BIN", client.to_ascii_uppercase());
+        let out = env
+            .run_with(
+                &repo,
+                &["runner", "start", "--yes", "--once"],
+                &[(var.as_str(), bin.to_str().unwrap())],
+                None,
+            )
+            .await;
+        assert!(out.status.success(), "{client}: {}", text(&out));
+
+        // Client job dari JobSpec.client (bukan client default runner).
+        let args = fs::read_to_string(env.state.join("client-args.txt"))
+            .unwrap_or_else(|_| panic!("{client}: client tidak dijalankan\n{}", text(&out)));
+        let args: Vec<&str> = args.lines().collect();
+        let env_seen = fs::read_to_string(env.state.join("client-env.txt")).unwrap();
+        assert!(
+            env_seen.starts_with(&format!("{JOB}|{client}|")),
+            "{client}: {env_seen}"
+        );
+        // Prompt utuh sebagai satu argumen atau stdin, tidak lewat shell.
+        let stdin = fs::read_to_string(env.state.join("client-stdin.txt")).unwrap_or_default();
+        assert!(
+            args.contains(&PROMPT) || stdin == PROMPT,
+            "{client}: {args:?}"
+        );
+        assert!(!env.root.join("pwned").exists());
+        let has_arg = |a: &str| args.contains(&a);
+        match *client {
+            "codex" => {
+                assert_eq!(args[0], "exec");
+                assert!(
+                    has_arg("--ignore-user-config") && has_arg("--dangerously-bypass-hook-trust")
+                );
+                assert!(has_arg("model_reasoning_effort=\"high\""), "{args:?}");
+            }
+            "gemini" => {
+                assert!(has_arg("--skip-trust") && has_arg("yolo"));
+                assert!(env_seen.ends_with("|true|"), "{env_seen}");
+            }
+            "cursor" => {
+                assert!(has_arg("--trust") && has_arg("--force") && has_arg("--approve-mcps"))
+            }
+            "opencode" => {
+                assert!(has_arg("--standalone") && has_arg("--auto"));
+                assert!(has_arg("model-x#high"), "{args:?}");
+            }
+            "copilot" => {
+                assert!(has_arg("--trust-folder") && has_arg("--allow-all-tools"));
+                assert!(env_seen.ends_with("|true"), "{env_seen}");
+            }
+            _ => unreachable!(),
+        }
+
+        let lines: Vec<Value> = fake
+            .find("POST", "/logs")
+            .iter()
+            .flat_map(|r| r.json()["lines"].as_array().cloned().unwrap_or_default())
+            .collect();
+        let has = |stream: &str, t: &str| {
+            lines
+                .iter()
+                .any(|l| l["stream"] == stream && l["text"].as_str().unwrap_or("").contains(t))
+        };
+        assert!(has("tool", tool), "{client}: {lines:?}");
+        assert!(has("ok", "Agent selesai"), "{client}: {lines:?}");
+        assert!(
+            fake.find("POST", "/steps").iter().any(|r| {
+                r.json()["steps"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|s| s["name"] == "Tambah validasi" && s["state"] == "ok")
+            }),
+            "{client}"
+        );
+        let finish = fake.find("POST", "/finish");
+        assert_eq!(finish.len(), 1, "{client}");
+        let report = finish[0].json();
+        assert_eq!(report["outcome"], "succeeded", "{client}: {report}");
+        assert_eq!(report["summary"], "Validasi stok selesai.", "{client}");
+        assert_eq!(report["tokens"], 150, "{client}: {report}");
+        assert_eq!(report["usage"]["cache_read"], 20, "{client}: {report}");
+        let wt = env.state.join("wt/kasir").join(BRANCH);
+        assert_eq!(
+            git(&wt, &["show", "--name-only", "--format=%s", "HEAD"]),
+            "feat(KSR-26): Validasi stok\n\nstok.rs",
+            "{client}"
+        );
+    }
+}
+
+/// Kuota habis di client non-Claude → outcome `quota`.
+#[tokio::test(flavor = "multi_thread")]
+async fn quota_is_detected_for_other_clients() {
+    let started = Arc::new(AtomicBool::new(false));
+    let flag = started.clone();
+    let fake = serve(Arc::new(move |fake, req| {
+        let job = format!("/api/runner/jobs/{JOB}/");
+        match (req.method.as_str(), req.path.as_str()) {
+            ("GET", "/api/cli/rules") => rules_response(&fake.base, req),
+            ("POST", "/api/runner/register") => (
+                200,
+                json!({ "id": RUNNER, "name": "l", "workspace": "K", "user_email": "a@e",
+                        "auto_claim": false, "max_parallel": null }),
+            ),
+            ("GET", "/api/runner/events") if !flag.load(Ordering::SeqCst) => {
+                (200, json!([{ "type": "job_ready", "job": job_summary() }]))
+            }
+            ("GET", "/api/runner/events") => (200, json!([])),
+            ("POST", p) if p == format!("{job}start") => {
+                flag.store(true, Ordering::SeqCst);
+                (200, job_spec_for(&fake.base, "codex", ""))
+            }
+            ("POST", p) if p == format!("{job}finish") => (200, json!({ "id": JOB })),
+            ("POST", _) => (204, Value::Null),
+            _ => (404, json!({ "error": "not_found" })),
+        }
+    }))
+    .await;
+    let env = Env::new("runner-quota");
+    env.login(&fake.base);
+    let repo = env.root.join("kasir");
+    git_repo(&repo);
+    let out = env.run(&repo, &["init", "--project", "KSR", "--yes"]).await;
+    assert!(out.status.success(), "{}", text(&out));
+    let bin = env.root.join("fake-codex");
+    fs::write(
+        &bin,
+        "#!/bin/sh\ncat >/dev/null\necho '{\"type\":\"turn.failed\",\"error\":{\"message\":\"You'\"'\"'ve hit your usage limit. Try again later.\"}}'\nexit 1\n",
+    )
+    .unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&bin, fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    let out = env
+        .run_with(
+            &repo,
+            &["runner", "start", "--yes", "--once", "--client", "codex"],
+            &[("AGENTGATE_CODEX_BIN", bin.to_str().unwrap())],
+            None,
+        )
+        .await;
+    assert!(out.status.success(), "{}", text(&out));
+    let reg: RegisterRunner =
+        serde_json::from_str(&fake.find("POST", "/api/runner/register")[0].body).unwrap();
+    assert_eq!(reg.client, "codex");
+    let finish = fake.find("POST", "/finish");
+    assert_eq!(finish[0].json()["outcome"], "quota", "{}", text(&out));
 }

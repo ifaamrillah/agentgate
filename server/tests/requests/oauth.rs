@@ -364,6 +364,24 @@ async fn connected_clients_are_listed_and_revocable_from_account() {
             assert_css_exists(&page.text(), &format!("[data-connect='{section}']"));
         }
 
+        // Langkah pemasangan untuk keenam client (aturan v2).
+        let steps = request
+            .get("/account/connect?section=steps")
+            .add_cookie(c.clone())
+            .await
+            .text();
+        assert_css_exists(&steps, "[data-init-command]");
+        for client in agentgate_core::persona::CLIENTS {
+            assert_css_exists(&steps, &format!("[data-mcp-command='{}']", client.key));
+            assert_css_exists(&steps, &format!("[data-login-client='{}']", client.key));
+        }
+        assert!(steps.contains("codex mcp login agentgate"));
+        assert!(steps.contains("~/.cursor/mcp.json"));
+        assert!(
+            !steps.contains("connect-login-"),
+            "kunci Fluent tanpa terjemahan"
+        );
+
         // User lain tidak bisa mencabut grant ini.
         let other = a_user().create(&ctx).await;
         let oc = sign_in_as(&request, &other).await;

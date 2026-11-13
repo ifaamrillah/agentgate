@@ -151,6 +151,80 @@ pub fn tools() -> Vec<ToolInfo> {
         .collect()
 }
 
+/// Cara menghubungkan satu client ke server MCP di luar repo yang di-`agentgate init` (repo yang
+/// di-init sudah memuat config MCP + hook client ini, lihat `agentgate_core::runner::rules`).
+#[derive(Debug, Clone, Serialize)]
+pub struct ClientSetup {
+    pub key: &'static str,
+    pub name: &'static str,
+    /// Perintah menambah server MCP, atau isi file config global bila client tidak punya
+    /// perintah tambah.
+    pub add: String,
+    /// File config global yang diisi `add` (kosong = `add` adalah perintah).
+    pub file: &'static str,
+    /// Perintah login OAuth (kosong = login otomatis saat pertama dipakai).
+    pub login: &'static str,
+    /// Kunci Fluent petunjuk login.
+    pub login_key: String,
+}
+
+/// Langkah koneksi MCP + login keenam client untuk server MCP `mcp_url`.
+#[must_use]
+pub fn client_setup(mcp_url: &str) -> Vec<ClientSetup> {
+    let url = serde_json::to_string(mcp_url).unwrap_or_default();
+    let row =
+        |key: &'static str, add: String, file: &'static str, login: &'static str| ClientSetup {
+            key,
+            name: agentgate_core::persona::client(key).map_or(key, |c| c.name),
+            add,
+            file,
+            login,
+            login_key: format!("connect-login-{key}"),
+        };
+    vec![
+        row(
+            "claude",
+            format!("claude mcp add --transport http agentgate {mcp_url}"),
+            "",
+            "",
+        ),
+        row(
+            "codex",
+            format!("codex mcp add agentgate --url {mcp_url}"),
+            "",
+            "codex mcp login agentgate",
+        ),
+        row(
+            "gemini",
+            format!("gemini mcp add --transport http agentgate {mcp_url}"),
+            "",
+            "",
+        ),
+        row(
+            "cursor",
+            format!("{{ \"mcpServers\": {{ \"agentgate\": {{ \"url\": {url} }} }} }}"),
+            "~/.cursor/mcp.json",
+            "agent mcp login agentgate",
+        ),
+        row(
+            "opencode",
+            format!(
+                "{{ \"mcp\": {{ \"servers\": {{ \"agentgate\": {{ \"type\": \"remote\", \"url\": {url} }} }} }} }}"
+            ),
+            "~/.config/opencode/opencode.json",
+            "opencode mcp auth agentgate",
+        ),
+        row(
+            "copilot",
+            format!(
+                "{{ \"mcpServers\": {{ \"agentgate\": {{ \"type\": \"http\", \"url\": {url} }} }} }}"
+            ),
+            "~/.copilot/mcp-config.json",
+            "",
+        ),
+    ]
+}
+
 #[must_use]
 pub fn stats(clients: usize, workspaces: usize) -> Vec<Stat> {
     vec![

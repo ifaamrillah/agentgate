@@ -2,24 +2,24 @@
 //!
 //! Job otomatis menjalankan
 //! `claude -p <prompt> --output-format stream-json --verbose --setting-sources project
-//! --strict-mcp-config --mcp-config .mcp.json --permission-mode acceptEdits [--model M]`
-//! di worktree. Prompt selalu argv (tidak pernah lewat shell). Flag isolasi membuat config global
-//! user tidak ikut berlaku; hook `PreToolUse` dari `.claude/settings.json` worktree tetap aktif.
+//! --strict-mcp-config --mcp-config .mcp.json --permission-mode acceptEdits [--model M]
+//! [--effort E]` di worktree. Flag isolasi membuat config global user tidak ikut berlaku; hook
+//! `PreToolUse` dari `.claude/settings.json` worktree tetap aktif.
 //!
 //! Setiap baris stdout adalah satu event JSON (`system`, `assistant`, `user`, `result`);
-//! [`Parser`] mengubahnya menjadi baris log, langkah (dari `TodoWrite`), dan hasil akhir.
+//! [`Parser`] mengubahnya menjadi baris log, langkah (dari `TodoWrite`), dan hasil akhir. Cursor
+//! memakai bentuk event yang sama untuk `system`/`assistant`/`result`, jadi parser ini juga
+//! dipakai adapter Cursor.
 
 use std::path::Path;
 
-use agentgate_core::runner::protocol::{JobSpec, LogLine, LogStream, Step, StepState, TokenUsage};
+use agentgate_core::runner::protocol::{JobSpec, LogStream};
 use serde_json::Value;
 
-use crate::ui::clip;
-
-/// Batas panjang satu baris log teks agent.
-const TEXT_MAX: usize = 2_000;
-/// Batas panjang ringkasan input tool.
-const TOOL_MAX: usize = 300;
+use super::{
+    Finished, Parsed, StreamParser, effort, error_line, line, model, raw_line, text_line,
+    todo_steps, tool_detail, tool_line, usage_from,
+};
 
 /// Argumen `claude` untuk job otomatis.
 #[must_use]
@@ -38,9 +38,11 @@ pub fn auto_args(spec: &JobSpec) -> Vec<String> {
         "--permission-mode".into(),
         "acceptEdits".into(),
     ];
-    if !spec.model.trim().is_empty() {
-        args.push("--model".into());
-        args.push(spec.model.trim().to_string());
+    if let Some(m) = model(spec) {
+        args.extend(["--model".into(), m.to_string()]);
+    }
+    if let Some(e) = effort(spec) {
+        args.extend(["--effort".into(), e.to_string()]);
     }
     args
 }
@@ -54,102 +56,30 @@ pub fn interactive_args(spec: &JobSpec, worktree: &Path) -> Vec<String> {
         args.push("--mcp-config".into());
         args.push(".mcp.json".into());
     }
-    if !spec.model.trim().is_empty() {
-        args.push("--model".into());
-        args.push(spec.model.trim().to_string());
+    if let Some(m) = model(spec) {
+        args.extend(["--model".into(), m.to_string()]);
     }
     args.push(spec.prompt.clone());
     args
 }
 
-/// Hasil akhir dari event `result`.
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct Finished {
-    pub is_error: bool,
-    pub text: String,
-    pub tokens: Option<u64>,
-    pub usage: Option<TokenUsage>,
-    pub cost_usd: Option<f64>,
-    pub turns: Option<u64>,
-}
-
-/// Keluaran satu baris stream.
-#[derive(Debug, Default, PartialEq)]
-pub struct Parsed {
-    pub logs: Vec<LogLine>,
-    /// Rencana agent (`TodoWrite`) bila berubah.
-    pub steps: Option<Vec<Step>>,
-    pub finished: Option<Finished>,
-}
-
 /// Parser stream-json (stateless per baris; state hanya teks terakhir agent).
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Parser {
+    /// Nama client di baris log awal.
+    label: &'static str,
     /// Teks assistant terakhir (ringkasan cadangan bila `result` kosong).
     pub last_text: String,
 }
 
-fn line(stream: LogStream, text: impl Into<String>) -> LogLine {
-    LogLine {
-        stream,
-        text: text.into(),
-    }
-}
-
-fn tool_summary(name: &str, input: &Value) -> String {
-    let field = |k: &str| input.get(k).and_then(Value::as_str).unwrap_or_default();
-    let detail = match name {
-        "Bash" => field("command").to_string(),
-        "Read" | "Write" | "Edit" | "MultiEdit" | "NotebookEdit" => {
-            let p = field("file_path");
-            if p.is_empty() {
-                field("notebook_path")
-            } else {
-                p
-            }
-            .to_string()
+impl Parser {
+    #[must_use]
+    pub fn new(label: &'static str) -> Self {
+        Self {
+            label,
+            last_text: String::new(),
         }
-        "Glob" | "Grep" => field("pattern").to_string(),
-        "WebFetch" => field("url").to_string(),
-        "WebSearch" => field("query").to_string(),
-        "Task" | "Agent" => field("description").to_string(),
-        _ => String::new(),
-    };
-    let name = name
-        .strip_prefix("mcp__")
-        .map_or_else(|| name.to_string(), |n| n.replace("__", " · "));
-    let detail = detail.lines().next().unwrap_or_default();
-    if detail.is_empty() {
-        name
-    } else {
-        format!("{name}: {}", clip(detail, TOOL_MAX))
     }
-}
-
-fn todo_steps(input: &Value) -> Option<Vec<Step>> {
-    let todos = input.get("todos")?.as_array()?;
-    Some(
-        todos
-            .iter()
-            .take(40)
-            .filter_map(|t| {
-                let name = t
-                    .get("content")
-                    .or_else(|| t.get("activeForm"))
-                    .and_then(Value::as_str)?;
-                let state = match t.get("status").and_then(Value::as_str) {
-                    Some("completed") => StepState::Ok,
-                    Some("in_progress") => StepState::Now,
-                    _ => StepState::Wait,
-                };
-                Some(Step {
-                    name: clip(name, 200),
-                    state,
-                    seconds: None,
-                })
-            })
-            .collect(),
-    )
 }
 
 fn tool_result_text(content: &Value) -> String {
@@ -164,27 +94,18 @@ fn tool_result_text(content: &Value) -> String {
     }
 }
 
-fn usage_breakdown(usage: &Value) -> Option<TokenUsage> {
-    let n = |k: &str| usage.get(k).and_then(Value::as_u64).unwrap_or(0);
-    let u = TokenUsage {
-        input: n("input_tokens"),
-        output: n("output_tokens"),
-        cache_read: n("cache_read_input_tokens"),
-        cache_write: n("cache_creation_input_tokens"),
-    };
-    (u.total() > 0).then_some(u)
+fn content(v: &Value) -> Vec<Value> {
+    v.pointer("/message/content")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default()
 }
 
-impl Parser {
-    /// Proses satu baris stdout.
-    pub fn line(&mut self, raw: &str) -> Parsed {
+impl StreamParser for Parser {
+    fn line(&mut self, raw: &str) -> Parsed {
         let mut out = Parsed::default();
-        let raw = raw.trim();
-        if raw.is_empty() {
-            return out;
-        }
-        let Ok(v) = serde_json::from_str::<Value>(raw) else {
-            out.logs.push(line(LogStream::Out, clip(raw, TEXT_MAX)));
+        let Ok(v) = serde_json::from_str::<Value>(raw.trim()) else {
+            out.logs.extend(raw_line(raw));
             return out;
         };
         match v.get("type").and_then(Value::as_str) {
@@ -192,33 +113,29 @@ impl Parser {
                 let model = v.get("model").and_then(Value::as_str).unwrap_or("?");
                 out.logs.push(line(
                     LogStream::Info,
-                    format!("Claude Code · model {model}"),
+                    format!("{} · model {model}", self.label),
                 ));
             }
             Some("assistant") => {
-                let content = v
-                    .pointer("/message/content")
-                    .and_then(Value::as_array)
-                    .cloned()
-                    .unwrap_or_default();
-                for item in content {
+                for item in content(&v) {
                     match item.get("type").and_then(Value::as_str) {
                         Some("text") => {
                             let text = item.get("text").and_then(Value::as_str).unwrap_or("");
-                            if !text.trim().is_empty() {
+                            if let Some(l) = text_line(text) {
                                 self.last_text = text.trim().to_string();
-                                out.logs
-                                    .push(line(LogStream::Out, clip(text.trim(), TEXT_MAX)));
+                                out.logs.push(l);
                             }
                         }
                         Some("tool_use") => {
                             let name = item.get("name").and_then(Value::as_str).unwrap_or("tool");
                             let input = item.get("input").cloned().unwrap_or(Value::Null);
                             if name == "TodoWrite" {
-                                out.steps = todo_steps(&input);
+                                out.steps = input
+                                    .get("todos")
+                                    .and_then(Value::as_array)
+                                    .map(|t| todo_steps(t));
                             } else {
-                                out.logs
-                                    .push(line(LogStream::Tool, tool_summary(name, &input)));
+                                out.logs.push(tool_line(name, &tool_detail(&input)));
                             }
                         }
                         _ => {}
@@ -226,18 +143,12 @@ impl Parser {
                 }
             }
             Some("user") => {
-                let content = v
-                    .pointer("/message/content")
-                    .and_then(Value::as_array)
-                    .cloned()
-                    .unwrap_or_default();
-                for item in content {
+                for item in content(&v) {
                     if item.get("type").and_then(Value::as_str) == Some("tool_result")
                         && item.get("is_error").and_then(Value::as_bool) == Some(true)
                     {
                         let text = tool_result_text(item.get("content").unwrap_or(&Value::Null));
-                        let first = text.lines().next().unwrap_or("").trim();
-                        out.logs.push(line(LogStream::Err, clip(first, TEXT_MAX)));
+                        out.logs.push(error_line(&text));
                     }
                 }
             }
@@ -252,6 +163,7 @@ impl Parser {
                     .unwrap_or_default()
                     .trim()
                     .to_string();
+                let usage = v.get("usage").and_then(usage_from);
                 let finished = Finished {
                     is_error,
                     text: if text.is_empty() {
@@ -259,30 +171,12 @@ impl Parser {
                     } else {
                         text
                     },
-                    tokens: v.get("usage").and_then(usage_breakdown).map(|u| u.total()),
-                    usage: v.get("usage").and_then(usage_breakdown),
+                    tokens: usage.map(|u| u.total()),
+                    usage,
                     cost_usd: v.get("total_cost_usd").and_then(Value::as_f64),
                     turns: v.get("num_turns").and_then(Value::as_u64),
                 };
-                let mut summary = if is_error {
-                    "Agent berhenti dengan error".to_string()
-                } else {
-                    "Agent selesai".to_string()
-                };
-                if let Some(t) = finished.turns {
-                    summary.push_str(&format!(" · {t} giliran"));
-                }
-                if let Some(c) = finished.cost_usd {
-                    summary.push_str(&format!(" · ${c:.2}"));
-                }
-                out.logs.push(line(
-                    if is_error {
-                        LogStream::Fail
-                    } else {
-                        LogStream::Ok
-                    },
-                    summary,
-                ));
+                out.logs.push(finished.log());
                 out.finished = Some(finished);
             }
             _ => {}
@@ -291,35 +185,10 @@ impl Parser {
     }
 }
 
-/// Pesan kuota/limit AI habis (Claude Code: "Claude AI usage limit reached|<epoch>",
-/// "You've hit your limit · resets 3pm", "5-hour limit reached ∙ resets 2am").
-#[must_use]
-pub fn is_quota(text: &str) -> bool {
-    let t = text.to_ascii_lowercase();
-    t.contains("usage limit reached")
-        || t.contains("hit your limit")
-        || (t.contains("limit reached") && t.contains("reset"))
-        || t.contains("rate_limit_error")
-        || t.contains("credit balance is too low")
-        || t.contains("quota exceeded")
-}
-
-/// Waktu reset kuota (RFC 3339) dari format `…limit reached|<epoch detik>`.
-#[must_use]
-pub fn quota_reset_at(text: &str) -> Option<String> {
-    let (_, tail) = text.rsplit_once('|')?;
-    let secs: i64 = tail
-        .trim()
-        .chars()
-        .take_while(char::is_ascii_digit)
-        .collect::<String>()
-        .parse()
-        .ok()?;
-    chrono::DateTime::from_timestamp(secs, 0).map(|t| t.to_rfc3339())
-}
-
 #[cfg(test)]
 mod tests {
+    use agentgate_core::runner::protocol::{StepState, TokenUsage};
+
     use super::*;
 
     const SAMPLE: &[&str] = &[
@@ -335,7 +204,7 @@ mod tests {
 
     #[test]
     fn stream_json_becomes_log_lines_steps_and_result() {
-        let mut p = Parser::default();
+        let mut p = Parser::new("Claude Code");
         let parsed: Vec<Parsed> = SAMPLE.iter().map(|l| p.line(l)).collect();
         let logs: Vec<(LogStream, String)> = parsed
             .iter()
@@ -380,7 +249,7 @@ mod tests {
 
     #[test]
     fn non_json_lines_are_kept_and_error_results_fail() {
-        let mut p = Parser::default();
+        let mut p = Parser::new("Claude Code");
         assert_eq!(p.line("plain output").logs[0].stream, LogStream::Out);
         assert!(p.line("   ").logs.is_empty());
         let r = p.line(
@@ -391,29 +260,9 @@ mod tests {
     }
 
     #[test]
-    fn quota_messages_are_detected() {
-        for t in [
-            "Claude AI usage limit reached|1763000000",
-            "You've hit your limit · resets 3pm (Asia/Jakarta)",
-            "5-hour limit reached ∙ resets 2am",
-            "API Error: 429 {\"type\":\"error\",\"error\":{\"type\":\"rate_limit_error\"}}",
-            "Credit balance is too low",
-        ] {
-            assert!(is_quota(t), "{t}");
-        }
-        for t in ["Validasi stok selesai", "rate limiter ditambahkan ke API"] {
-            assert!(!is_quota(t), "{t}");
-        }
-        assert_eq!(
-            quota_reset_at("Claude AI usage limit reached|1763000000").as_deref(),
-            Some("2025-11-13T02:13:20+00:00")
-        );
-        assert_eq!(quota_reset_at("resets 3pm"), None);
-    }
-
-    #[test]
     fn prompt_is_a_single_argv_entry() {
-        let spec: JobSpec = serde_json::from_value(crate::testutil::spec_json()).unwrap();
+        let mut spec = super::super::tests::spec();
+        spec.effort = "high".into();
         let args = auto_args(&spec);
         assert_eq!(args[0], "-p");
         assert_eq!(args[1], spec.prompt);
@@ -425,5 +274,6 @@ mod tests {
             args.windows(2)
                 .any(|w| w == ["--setting-sources", "project"])
         );
+        assert!(args.windows(2).any(|w| w == ["--effort", "high"]));
     }
 }

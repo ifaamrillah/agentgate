@@ -21,7 +21,10 @@ use tokio::{
 };
 use uuid::Uuid;
 
-use super::{claude, evidence, terminal, worktree};
+use super::{
+    clients::{self, ClientKind, Finished, Parsed},
+    evidence, terminal, worktree,
+};
 use crate::{
     api::Api,
     config::{self, JobState, Paths, ProjectFile, Repos},
@@ -42,11 +45,17 @@ pub struct Ctx {
     pub api: Api,
     pub runner_id: Uuid,
     pub secret: [u8; 32],
-    /// Program client (`claude`; `AGENTGATE_CLAUDE_BIN` menggantinya).
-    pub claude: String,
+    /// Client default runner, dipakai bila `JobSpec.client` tidak dikenal.
+    pub client: ClientKind,
 }
 
 impl Ctx {
+    /// Client job: `JobSpec.client` (dipilih server), atau client default runner.
+    #[must_use]
+    pub fn client_for(&self, spec: &JobSpec) -> ClientKind {
+        ClientKind::parse(&spec.client).unwrap_or(self.client)
+    }
+
     fn job_path(&self, id: Uuid, tail: &str) -> String {
         format!("/api/runner/jobs/{id}/{tail}")
     }
@@ -234,6 +243,50 @@ async fn run_tests(wt: &Path, command: &str) -> (bool, String) {
     }
 }
 
+/// Env job untuk proses client: hook `agentgate hook` membaca job dan client dari sini.
+fn job_env(cmd: &mut Command, ctx: &Ctx, spec: &JobSpec, client: ClientKind) {
+    cmd.env("AGENTGATE_JOB_ID", spec.id.to_string())
+        .env(crate::hook::JOB_CLIENT_ENV, client.key())
+        .env("AGENTGATE_CONFIG_DIR", &ctx.paths.config)
+        .env("AGENTGATE_STATE_DIR", &ctx.paths.state);
+}
+
+/// State aliran output client selama job.
+#[derive(Default)]
+struct Stream {
+    finished: Option<Finished>,
+    quota: Option<String>,
+}
+
+impl Stream {
+    /// Catat satu hasil parser: log, langkah, hasil akhir, deteksi kuota.
+    async fn absorb(
+        &mut self,
+        parsed: Parsed,
+        ctx: &Ctx,
+        spec: &JobSpec,
+        log: &mut Logger,
+        steps: &mut Steps,
+    ) {
+        for entry in parsed.logs {
+            if self.quota.is_none() && clients::is_quota(&entry.text) {
+                self.quota = Some(entry.text.clone());
+            }
+            log.push(entry.stream, entry.text);
+        }
+        if let Some(plan) = parsed.steps {
+            steps.plan = plan;
+            steps.post(ctx, spec.id).await;
+        }
+        if let Some(f) = parsed.finished {
+            if self.quota.is_none() && f.is_error && clients::is_quota(&f.text) {
+                self.quota = Some(f.text.clone());
+            }
+            self.finished = Some(f);
+        }
+    }
+}
+
 /// Jalankan client headless dan alirkan output-nya ke log.
 async fn run_agent(
     ctx: &Ctx,
@@ -243,21 +296,41 @@ async fn run_agent(
     steps: &mut Steps,
     cancel: &mut watch::Receiver<bool>,
 ) -> Result<Agent> {
-    let mut child = Command::new(&ctx.claude)
-        .args(claude::auto_args(spec))
-        .current_dir(wt)
-        .env("AGENTGATE_JOB_ID", spec.id.to_string())
-        .env("AGENTGATE_CONFIG_DIR", &ctx.paths.config)
-        .env("AGENTGATE_STATE_DIR", &ctx.paths.state)
-        .stdin(Stdio::null())
+    let client = ctx.client_for(spec);
+    let program = client.program();
+    let invocation = client.auto(spec, wt);
+    log.push(
+        LogStream::Info,
+        format!("Client {} ({program})", client.name()),
+    );
+    let mut cmd = Command::new(&program);
+    cmd.args(&invocation.args).current_dir(wt);
+    job_env(&mut cmd, ctx, spec, client);
+    for (key, value) in &invocation.env {
+        cmd.env(key, value);
+    }
+    let mut child = cmd
+        .stdin(if invocation.stdin.is_some() {
+            Stdio::piped()
+        } else {
+            Stdio::null()
+        })
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .kill_on_drop(true)
         .spawn()
         .map_err(|source| Error::Spawn {
-            program: ctx.claude.clone(),
+            program: program.clone(),
             source,
         })?;
+    if let (Some(prompt), Some(mut stdin)) = (invocation.stdin, child.stdin.take()) {
+        // Ditulis di task sendiri: client bisa mulai menulis stdout sebelum stdin habis dibaca.
+        tokio::spawn(async move {
+            use tokio::io::AsyncWriteExt;
+            let _ = stdin.write_all(prompt.as_bytes()).await;
+            let _ = stdin.shutdown().await;
+        });
+    }
     let (Some(stdout), Some(stderr)) = (child.stdout.take(), child.stderr.take()) else {
         return Ok(Agent::Done {
             ok: false,
@@ -270,38 +343,22 @@ async fn run_agent(
     let mut out = BufReader::new(stdout).lines();
     let mut err = BufReader::new(stderr).lines();
     let (mut out_open, mut err_open, mut cancel_open) = (true, true, true);
-    let mut parser = claude::Parser::default();
-    let mut finished: Option<claude::Finished> = None;
-    let mut quota: Option<String> = None;
+    let mut parser = client.parser();
+    let mut stream = Stream::default();
     let mut tick = tokio::time::interval(config::seconds(2));
     while out_open || err_open {
         tokio::select! {
             line = out.next_line(), if out_open => match line {
-                Ok(Some(l)) => {
-                    let parsed = parser.line(&l);
-                    for entry in parsed.logs {
-                        if quota.is_none() && claude::is_quota(&entry.text) {
-                            quota = Some(entry.text.clone());
-                        }
-                        log.push(entry.stream, entry.text);
-                    }
-                    if let Some(plan) = parsed.steps {
-                        steps.plan = plan;
-                        steps.post(ctx, spec.id).await;
-                    }
-                    if let Some(f) = parsed.finished {
-                        if quota.is_none() && f.is_error && claude::is_quota(&f.text) {
-                            quota = Some(f.text.clone());
-                        }
-                        finished = Some(f);
-                    }
+                Ok(Some(l)) => stream.absorb(parser.line(&l), ctx, spec, log, steps).await,
+                _ => {
+                    out_open = false;
+                    stream.absorb(parser.eof(), ctx, spec, log, steps).await;
                 }
-                _ => out_open = false,
             },
             line = err.next_line(), if err_open => match line {
                 Ok(Some(l)) if !l.trim().is_empty() => {
-                    if quota.is_none() && claude::is_quota(&l) {
-                        quota = Some(l.clone());
+                    if stream.quota.is_none() && clients::is_quota(&l) {
+                        stream.quota = Some(l.clone());
                     }
                     log.push(LogStream::Err, ui::clip(l.trim(), 2_000));
                 }
@@ -320,13 +377,13 @@ async fn run_agent(
         }
     }
     let status = child.wait().await.map_err(|source| Error::Spawn {
-        program: ctx.claude.clone(),
+        program: program.clone(),
         source,
     })?;
-    if let Some(text) = quota {
+    if let Some(text) = stream.quota {
         return Ok(Agent::Quota { text });
     }
-    let (ok, summary, tokens, usage, cost_usd) = match finished {
+    let (ok, summary, tokens, usage, cost_usd) = match stream.finished {
         Some(f) => (
             status.success() && !f.is_error,
             f.text,
@@ -592,7 +649,7 @@ pub async fn run(ctx: &Ctx, id: Uuid, mut cancel: watch::Receiver<bool>) -> Resu
             log.push(LogStream::Warn, "Kuota AI habis");
             FinishReport {
                 outcome: Some(Outcome::Quota),
-                quota_reset_at: claude::quota_reset_at(&text),
+                quota_reset_at: clients::quota_reset_at(&text),
                 summary: text,
                 ..FinishReport::default()
             }
@@ -682,18 +739,19 @@ pub async fn attach(ctx: &Ctx, id: Uuid, out: &mut impl Write) -> Result<()> {
         wt.display()
     );
     let _ = out.flush();
-    let status = Command::new(&ctx.claude)
-        .args(claude::interactive_args(&spec, &wt))
-        .current_dir(&wt)
-        .env("AGENTGATE_JOB_ID", spec.id.to_string())
-        .env("AGENTGATE_CONFIG_DIR", &ctx.paths.config)
-        .env("AGENTGATE_STATE_DIR", &ctx.paths.state)
-        .status()
-        .await
-        .map_err(|source| Error::Spawn {
-            program: ctx.claude.clone(),
-            source,
-        })?;
+    let client = ctx.client_for(&spec);
+    let program = client.program();
+    let mut cmd = Command::new(&program);
+    cmd.args(client.interactive(&spec, &wt)).current_dir(&wt);
+    job_env(&mut cmd, ctx, &spec, client);
+    // Trust/MCP workspace yang sama dengan job headless (bukan flag: sesi interaktif).
+    for (key, value) in client.auto(&spec, &wt).env {
+        cmd.env(key, value);
+    }
+    let status = cmd.status().await.map_err(|source| Error::Spawn {
+        program: program.clone(),
+        source,
+    })?;
     if !ui::confirm("Jalankan tes, kirim evidence, commit, dan tandai job selesai?") {
         let _ = writeln!(
             out,

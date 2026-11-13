@@ -211,6 +211,7 @@ async fn register(
         user_email: s.user.email.clone(),
         auto_claim: prefs.auto_claim,
         max_parallel: prefs.max_parallel.and_then(|m| u32::try_from(m).ok()),
+        client: runner.client,
     })
     .into_response())
 }

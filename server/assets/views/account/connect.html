@@ -10,17 +10,33 @@
 {% <card title={t(key="connect-section-steps", lang="id")} description={t(key="connect-steps-description", lang="id")} flush={true} attrs="data-connect-steps"> %}
 <ol class="app-steps">
   <li><span>1</span><div>
-    <b>{{ t(key="connect-step-add", lang="id") }}</b>
-    <p class="app-hint">{{ t(key="connect-step-add-hint", lang="id") }}</p>
-    <pre class="app-codeblock" data-mcp-command="claude">claude mcp add --transport http agentgate {{ mcp_url }}</pre>
-    <pre class="app-codeblock" data-mcp-command="codex">codex mcp add agentgate --url {{ mcp_url }}</pre>
-    <pre class="app-codeblock" data-mcp-command="gemini">gemini mcp add --transport http agentgate {{ mcp_url }}</pre>
+    <b>{{ t(key="connect-step-init", lang="id") }}</b>
+    <p class="app-hint">{{ t(key="connect-step-init-hint", lang="id") }}</p>
+    <pre class="app-codeblock" data-init-command>agentgate init --project KODE</pre>
   </div></li>
   <li><span>2</span><div>
-    <b>{{ t(key="connect-step-login", lang="id") }}</b>
-    <p class="app-hint">{{ t(key="connect-step-login-hint", lang="id") }}</p>
+    <b>{{ t(key="connect-step-add", lang="id") }}</b>
+    <p class="app-hint">{{ t(key="connect-step-add-hint", lang="id") }}</p>
+    {%- for c in setup %}
+    <div data-mcp-client="{{ c.key }}">
+      <p><b>{{ c.name }}</b>{% if c.file %} · <span class="app-hint">{{ t(key="connect-step-add-file", lang="id", file=c.file) }}</span>{% endif %}</p>
+      <pre class="app-codeblock" data-mcp-command="{{ c.key }}">{{ c.add }}</pre>
+    </div>
+    {%- endfor %}
   </div></li>
   <li><span>3</span><div>
+    <b>{{ t(key="connect-step-login", lang="id") }}</b>
+    <p class="app-hint">{{ t(key="connect-step-login-hint", lang="id") }}</p>
+    {%- for c in setup %}
+    <div data-login-client="{{ c.key }}">
+      <p><b>{{ c.name }}</b> · <span class="app-hint">{{ t(key=c.login_key, lang="id") }}</span></p>
+      {%- if c.login %}
+      <pre class="app-codeblock" data-login-command="{{ c.key }}">{{ c.login }}</pre>
+      {%- endif %}
+    </div>
+    {%- endfor %}
+  </div></li>
+  <li><span>4</span><div>
     <b>{{ t(key="connect-step-try", lang="id") }}</b>
     <p class="app-hint">{{ t(key="connect-step-try-hint", lang="id") }}</p>
     <pre class="app-codeblock">/mcp__agentgate__ag-status</pre>
