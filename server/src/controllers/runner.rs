@@ -50,8 +50,8 @@ use crate::{
         flash::Flash,
         nav::NavItem,
         runner::{
-            EvidenceView, JobContext, JobView, LogLineView, PermissionView, RunnerJob, RunnerView,
-            StepsView,
+            EvidenceView, JobContext, JobView, LogLineView, PermissionContext, PermissionView,
+            RunnerJob, RunnerView, StepsView,
         },
         ui::Stat,
     },
@@ -296,11 +296,13 @@ async fn permission_views(
                 p,
                 j,
                 (&t.code, &t.title),
-                &tenant.workspace.slug,
-                &labels,
-                j.runner_id.and_then(|r| runner_map.get(&r)),
-                p.decided_by.and_then(|u| deciders.get(&u)),
-                now,
+                &PermissionContext {
+                    slug: &tenant.workspace.slug,
+                    labels: &labels,
+                    runner: j.runner_id.and_then(|r| runner_map.get(&r)),
+                    decided_by: p.decided_by.and_then(|u| deciders.get(&u)),
+                    now,
+                },
             )
         })
         .collect())
@@ -477,7 +479,7 @@ async fn page(
             }
             match state.sort {
                 "status" => views.sort_by(|a, b| a.status.cmp(b.status)),
-                "age" => views.sort_by(|a, b| b.id.cmp(&a.id)),
+                "age" => views.sort_by_key(|j| std::cmp::Reverse(j.id)),
                 _ => {}
             }
             if state.desc {

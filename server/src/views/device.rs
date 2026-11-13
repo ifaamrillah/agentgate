@@ -4,9 +4,9 @@
 use serde::Serialize;
 
 use super::{palette, time::wib_datetime, ui::ComboOption};
-use crate::{
-    models::{oauth_device_codes, roles, users, workspaces},
-    services::device::format_user_code,
+use crate::models::{
+    oauth_device_codes::{self, format_user_code},
+    roles, users, workspaces,
 };
 
 #[derive(Debug, Clone, Serialize)]

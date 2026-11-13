@@ -48,10 +48,22 @@ async fn component_catalog_renders_shared_components() {
         // Shell: breadcrumb, pbar dengan tab tampilan project, kepala halaman.
         assert_css_exists(&html, ".app-topbar [data-crumbs] a");
         // Runner & job (M5).
-        assert_css_exists(&html, "[data-catalog-runner] .app-live[data-state=\"busy\"]");
-        assert_css_exists(&html, "[data-catalog-runner] [data-job-steps] li[data-state=\"now\"]");
-        assert_css_exists(&html, "[data-catalog-runner] [data-log] [data-stream=\"fail\"]");
-        assert_css_exists(&html, "[data-catalog-runner] [data-evidence=\"test_report\"]");
+        assert_css_exists(
+            &html,
+            "[data-catalog-runner] .app-live[data-state=\"busy\"]",
+        );
+        assert_css_exists(
+            &html,
+            "[data-catalog-runner] [data-job-steps] li[data-state=\"now\"]",
+        );
+        assert_css_exists(
+            &html,
+            "[data-catalog-runner] [data-log] [data-stream=\"fail\"]",
+        );
+        assert_css_exists(
+            &html,
+            "[data-catalog-runner] [data-evidence=\"test_report\"]",
+        );
         assert_css_exists(&html, ".app-topbar [data-crumbs] [aria-current=\"page\"]");
         assert_css_eq(&html, ".app-page-head h1", "Katalog UI");
         assert_css_exists(&html, ".app-page-acts .btn");

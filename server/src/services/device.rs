@@ -103,15 +103,7 @@ fn new_user_code() -> String {
         .collect()
 }
 
-/// `WDJBMJHT` → `WDJB-MJHT`.
-#[must_use]
-pub fn format_user_code(code: &str) -> String {
-    if code.len() == 8 {
-        format!("{}-{}", &code[..4], &code[4..])
-    } else {
-        code.to_string()
-    }
-}
+pub use crate::models::oauth_device_codes::format_user_code;
 
 /// Kode ketikan user → bentuk tersimpan (8 huruf alfabet), mengabaikan spasi/strip dan huruf
 /// kecil. `None` bila bentuknya tidak mungkin valid.

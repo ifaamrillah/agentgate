@@ -330,18 +330,30 @@ pub struct PermissionView {
     pub decide_href: String,
 }
 
+/// Bahan [`PermissionView`] di luar model izin dan job.
+pub struct PermissionContext<'a> {
+    pub slug: &'a str,
+    pub labels: &'a PersonaLabels,
+    pub runner: Option<&'a runners::Model>,
+    pub decided_by: Option<&'a users::Model>,
+    pub now: DateTime<Utc>,
+}
+
 impl PermissionView {
     #[must_use]
     pub fn of(
         p: &job_permissions::Model,
         job: &jobs::Model,
         ticket: (&str, &str),
-        slug: &str,
-        labels: &PersonaLabels,
-        runner: Option<&runners::Model>,
-        decided_by: Option<&users::Model>,
-        now: DateTime<Utc>,
+        c: &PermissionContext<'_>,
     ) -> Self {
+        let PermissionContext {
+            slug,
+            labels,
+            runner,
+            decided_by,
+            now,
+        } = *c;
         let status = p.status();
         Self {
             id: p.id,

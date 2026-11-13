@@ -227,11 +227,11 @@ async fn render_show(
     let labels = crate::models::personas::Model::labels(&ctx.db, wid).await?;
     let mut online: std::collections::HashMap<Uuid, bool> = std::collections::HashMap::new();
     for j in &agent_jobs {
-        if let Some(u) = j.requested_by {
-            if let std::collections::hash_map::Entry::Vacant(e) = online.entry(u) {
-                let list = crate::services::jobs::runners_of(&ctx.db, wid, Some(u)).await?;
-                e.insert(list.iter().any(crate::models::runners::Model::is_online));
-            }
+        if let Some(u) = j.requested_by
+            && let std::collections::hash_map::Entry::Vacant(e) = online.entry(u)
+        {
+            let list = crate::services::jobs::runners_of(&ctx.db, wid, Some(u)).await?;
+            e.insert(list.iter().any(crate::models::runners::Model::is_online));
         }
     }
     let agent_views = |comment: Uuid| -> Vec<AgentJobView> {
