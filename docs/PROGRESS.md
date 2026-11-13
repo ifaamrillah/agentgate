@@ -13,7 +13,7 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 | M3 Workflow & gate | selesai (2026-11-12) | Builder workflow + YAML impor/ekspor, 9 template, versi + migrasi tiket, workflow per tipe/project, stage per tiket (stepper, gate, approve/reject, batas gagal → Butuh keputusan, 5 keputusan, lompat/paksa Admin, penugasan), artifact + versi + diff, tab kotak masuk "Butuh keputusan", board per stage; 430 tes |
 | M4 MCP & persona | selesai (2026-11-13) | OAuth 2.1 (DCR, PKCE S256, consent pilih workspace, refresh rotasi, revoke) untuk `/mcp`; server MCP rmcp (7 tool, slash command = prompt MCP per stage + utilitas); persona DB (CRUD, warna/ikon, instruksi, skill, tools, model per client); skill pack (impor GitHub + pemindaian statis + review manusia); review draft tiket brainstorming; Akun → Hubungkan client AI; 467 tes |
 | M5 CLI & runner | selesai (2026-11-13) | Crate `cli` (`agentgate`): login device flow, `init`/`uninstall`, aturan + hook Claude Code, `jobs`, `runner start` (WS kontrol + fallback polling, worktree per job, headless/terminal, laporan langkah/log), `doctor`; server: job + klaim/lock, API runner (bearer CLI + header runner), evidence bertanda tangan Ed25519 memenuhi gate `tests_passed`/`screenshot_exists`, izin aksi berbahaya; UI Runner & CLI (izin, antrean, runner saya/tim, pengaturan, drift, instal), halaman job + log live, job + evidence di kartu stage, job dari komentar `@agent`; 533 tes |
-| M6 Git & PR | belum mulai | |
+| M6 Git & PR | selesai (2026-11-13) | Abstraksi provider git + klien GitHub/GHES (PAT terenkripsi, validasi token, daftar repo, webhook dipasang otomatis); Pengaturan → Git provider (Cloud/Enterprise/Repo tertaut); Konvensi git per project (branch, commit, PR, base, hasil kode, CI wajib); runner: worktree dari base branch, branch per tiket, push + PR otomatis; webhook bertanda tangan HMAC melacak PR/merge/CI dan memenuhi gate `pr_open`/`prs_merged`/`ci_green`; merge otomatis (squash) saat stage reviewer di-approve dan CI hijau; daftar PR project, tab "PR & CI" tiket, badge PR di header tiket dan kartu board; sinkron aturan lewat PR (`agentgate sync`); batas job paralel ditegakkan; 558 tes |
 | M7 Code graph | belum mulai | |
 | M8 Knowledge base | belum mulai | |
 | M9 Planning & laporan | belum mulai | |
@@ -146,8 +146,19 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
   untuk ratusan job; pindah ke query SQL bila besar). Log live lewat polling HTMX 2 detik (belum SSE). Tabel
   antrean di 390px digulir horizontal (badge status terpotong di tepi). Kredensial CLI disimpan di file 0600,
   belum keychain OS. Install CLI masih `cargo install --git` (belum ada binary rilis/skrip install).
-  Pengaturan "Job paralel maksimal" (`runner_prefs.max_parallel`) disimpan tetapi belum ditegakkan: runner
-  menjalankan semua job siap secara paralel. Auto-ambil hanya berlaku saat runner menyala.
+  ~~Pengaturan "Job paralel maksimal" belum ditegakkan~~ (selesai di M6: runner membaca `max_parallel` saat
+  start dan server menolak klaim di atas batas). Auto-ambil hanya berlaku saat runner menyala.
+  ~~`JobSpec` belum membawa base branch~~ dan ~~sinkron aturan lewat PR~~ selesai di M6.
+- **M6 Git & PR (2026-11-13)**: hanya GitHub.com dan GitHub Enterprise Server; GitLab, Bitbucket, dan runner
+  jembatan tampil "segera". Autentikasi memakai personal access token, belum GitHub App (izin per repo, token
+  berumur pendek). Satu repo per job runner (tiket lintas repo belum didukung). Panel Konvensi git "Environment
+  testing", "Deploy", dan "Jalur kode" tampil "segera". Belum ada komentar review per baris, review AI atas diff,
+  dan tombol "Hubungkan PR manual" seperti prototype. Webhook diproses sinkron di request (belum antrean + retry);
+  event tidak dikenal dijawab 202 dan diabaikan. Status CI dihitung dari check run/status terakhir per commit
+  head, belum per check wajib dari branch protection. Merge otomatis tidak mencoba ulang bila gagal (hanya notif
+  `merge_failed`). Token baru divalidasi saat Hubungkan; token yang kemudian dicabut baru ketahuan saat panggilan
+  API gagal. Semua dialog sempat rusak karena Basecoat 1.1 memosisikan isi dialog dengan `position: fixed`;
+  diperbaiki di `components/dialog.css` (cek ulang bila Basecoat di-upgrade).
 - Role custom tidak pernah menjadi "admin di semua project": hanya Owner/Admin bawaan yang boleh menugaskan
   role Admin bawaan (termasuk di grant project) dan mengubah izin role yang dipakai grant project.
 
@@ -200,7 +211,32 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
   commit CLI memakai `--no-verify`. Hook PreToolUse di luar job tidak memutuskan apa pun (timeout 1800 detik saat
   menunggu izin). RTK hanya dicek di `doctor` dan hook rewrite.
 
+- M6: provider git memakai personal access token (terenkripsi XChaCha20-Poly1305 seperti secret lain), bukan GitHub App.
+  Satu koneksi per jenis provider per workspace; GHES boleh http hanya untuk host loopback (dev/tes).
+- M6: izin baru `manage_integrations` (Owner/Admin bawaan) untuk Pengaturan → Git provider; Konvensi git project
+  memakai `administer_project`.
+- M6: konvensi git disimpan per project (bukan per stage): pola branch (default `ag/{kode}-{slug}`), format commit, judul
+  PR, base branch, hasil kode (PR otomatis / manual: AI hanya mengubah file), mode merge, check CI wajib. Spec job lama tanpa field
+  `git` dianggap "PR otomatis".
+- M6: PR ditautkan ke tiket lewat kode tiket di nama branch atau judul PR. Gate PR/CI terpenuhi lewat webhook;
+  stage diselesaikan otomatis hanya bila sudah ada job sukses di stage itu.
+- M6: merge otomatis (squash) dipicu approve stage ber-persona `reviewer` bila CI hijau; gagal → notifikasi
+  `merge_failed`, stage tetap di-approve.
+- M6: secret webhook ditampilkan di dialog "Webhook manual" (untuk repo yang webhook-nya gagal dipasang otomatis).
+- M6: `agentgate sync` mendorong branch `agentgate/sync-rules` lalu membuka PR; nama repo diambil dari remote
+  `origin`. Bila repo belum tertaut, CLI menampilkan instruksi manual.
+- M6: seed dev (`seed_git`) memakai token palsu; tombol yang memanggil GitHub (pasang ulang webhook, merge) akan
+  gagal di dev sampai token asli dipasang.
+
 ## Perlu dari user (dikumpulkan untuk akhir)
+
+- M6: token GitHub asli (PAT fine-grained dengan izin contents, pull requests, checks/statuses, webhooks) atau
+  keputusan membuat GitHub App; semua tes memakai server GitHub palsu.
+- M6: URL publik (`public_base_url`) yang bisa dijangkau GitHub agar webhook PR/CI masuk; tanpa itu webhook harus
+  dipasang manual dan gate PR/CI tidak terpenuhi otomatis.
+- M6: konfirmasi kebijakan merge otomatis (squash saat stage reviewer di-approve dan CI hijau) dan apakah
+  GitLab/Bitbucket dibutuhkan sebelum rilis.
+- M6: server GitHub Enterprise Server untuk uji nyata (bila ada pelanggan GHES).
 
 - Remote GitHub untuk repo ini (CI GitHub Actions baru jalan setelah di-push).
 - OAuth app **Google** dan **GitHub** (client ID/secret, callback `{APP_URL}/auth/google/callback` dan
@@ -239,5 +275,8 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
   stage Eksekusi dengan job berjalan + log + 2 evidence bertanda tangan, job komentar `@agent-qa` yang menunggu
   izin, dan KSR-14 "Struk digital via WhatsApp" dengan job antre. Dilewati bila workspace sudah punya runner.
   Status online runner dihitung dari `last_seen_at`, jadi beberapa menit setelah seed semuanya tampil offline.
+- Seed dev M6 (`seed_git`): koneksi GitHub (token palsu) dengan repo `kasir-api` dan `kasir-web` tertaut ke KSR,
+  PR #142 (open, CI lulus), #87 (open, CI gagal), #131 (merged) pada tiket KSR-2..4. Uji webhook manual:
+  kirim payload bertanda tangan `X-Hub-Signature-256` (HMAC-SHA256 secret koneksi) ke `/webhooks/github/{id}`.
 - Uji CLI manual: `cargo run -p agentgate-cli -- login --server http://127.0.0.1:5150`, lalu `init` di repo
   contoh dan `runner start`.
