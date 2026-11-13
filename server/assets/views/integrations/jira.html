@@ -19,7 +19,7 @@
   <div class="app-jsub"><b>{{ t(key="jira-env", lang="id") }}</b></div>
   <div class="app-choices" role="radiogroup" aria-label="{{ t(key="jira-env", lang="id") }}">
     {%- for e in envs %}
-    <label class="app-choice"><input type="radio" class="app-radio" name="env" value="{{ e.key }}"{% if conn_form.env == e.key %} checked{% endif %}><span><b>{{ icon(name=e.icon) }} {{ t(key="jira-env-" ~ e.key, lang="id") }}</b><small>{{ t(key="jira-env-" ~ e.key ~ "-hint", lang="id") }}</small></span></label>
+    <label class="app-choice"><input type="radio" class="app-radio" name="env" value="{{ e.key }}"{% if conn_form.env == e.key %} checked{% endif %}><span><b>{{ icon(name=e.icon) }} {{ t(key=e.label_key, lang="id") }}</b><small>{{ t(key=e.hint_key, lang="id") }}</small></span></label>
     {%- endfor %}
   </div>
   {%- if conn_form.field == "env" %}<p class="app-field-error" role="alert">{{ t(key=conn_form.code, lang="id") }}</p>{% endif %}
@@ -107,7 +107,7 @@
 <div class="app-stack-v">
   <div class="app-choices" data-cols="one" role="radiogroup" aria-label="{{ t(key="jira-panel-mode", lang="id") }}">
     {%- for m in modes %}
-    <label class="app-choice"><input type="radio" class="app-radio" name="mode" value="{{ m.key }}"{% if conn.mode == m.key %} checked{% endif %}><span><b>{{ icon(name=m.icon) }} {{ t(key="jira-mode-" ~ m.key, lang="id") }}</b><small>{{ t(key="jira-mode-" ~ m.key ~ "-hint", lang="id") }}</small></span></label>
+    <label class="app-choice"><input type="radio" class="app-radio" name="mode" value="{{ m.key }}"{% if conn.mode == m.key %} checked{% endif %}><span><b>{{ icon(name=m.icon) }} {{ t(key=m.label_key, lang="id") }}</b><small>{{ t(key=m.hint_key, lang="id") }}</small></span></label>
     {%- endfor %}
   </div>
   <div class="app-jsub"><b>{{ t(key="jira-conflict", lang="id") }}</b><span class="app-hint">{{ t(key="jira-conflict-hint", lang="id") }}</span></div>
@@ -174,7 +174,7 @@
   {%- for r in rows %}
   <tr data-log="{{ r.id }}" data-result="{{ r.result }}" data-direction="{{ r.direction }}">
     <td><span class="app-code app-hint">{{ r.at }}</span></td>
-    <td><span class="app-jres" data-result="{{ r.result }}">{% if r.result == "ok" %}{{ icon(name="circle-check") }}{% elif r.result == "gate" %}{{ icon(name="hand-stop") }}{% else %}{{ icon(name="alert-circle") }}{% endif %}{{ t(key="jira-result-" ~ r.result, lang="id") }}</span></td>
+    <td><span class="app-jres" data-result="{{ r.result }}">{% if r.result == "ok" %}{{ icon(name="circle-check") }}{% elif r.result == "gate" %}{{ icon(name="hand-stop") }}{% else %}{{ icon(name="alert-circle") }}{% endif %}{{ t(key=r.result_key, lang="id") }}</span></td>
     <td><span class="app-code">{% if r.ticket_href %}<a class="app-link" href="{{ r.ticket_href }}">{{ r.subject }}</a>{% else %}{{ r.subject }}{% endif %}</span></td>
     <td data-hide="sm"><span class="app-hint">
       {%- if r.args.reason %}{% set why = t(key=r.args.reason, lang="id") %}{% else %}{% set why = "" %}{% endif -%}

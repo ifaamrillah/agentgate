@@ -84,7 +84,12 @@ pub fn label_keys() -> Vec<String> {
         "jira-stat-gate",
         "jira-stat-gate-hint",
         "jira-env-cloud",
+        "jira-env-cloud-hint",
         "jira-env-data_center",
+        "jira-env-data_center-hint",
+        "jira-mode-once-hint",
+        "jira-mode-mirror-hint",
+        "jira-mode-two_way-hint",
         "jira-mode-once",
         "jira-mode-mirror",
         "jira-mode-two_way",
@@ -108,6 +113,8 @@ pub struct LogRow {
     pub at: String,
     pub direction: String,
     pub result: String,
+    /// Kunci Fluent hasil (`jira-result-ok` …).
+    pub result_key: String,
     /// `SR-311 → KSR-24` (masuk) / `KSR-24 → SR-311` (keluar), `↛` bila ditolak gate.
     pub subject: String,
     pub ticket_href: Option<String>,
@@ -131,6 +138,7 @@ impl LogRow {
             at: super::time::wib_datetime(&l.created_at),
             direction: l.direction.clone(),
             result: l.result.clone(),
+            result_key: format!("jira-result-{}", l.result),
             subject,
             ticket_href: (!l.ticket_code.is_empty() && l.ticket_id.is_some())
                 .then(|| format!("/w/{slug}/t/{}", l.ticket_code)),

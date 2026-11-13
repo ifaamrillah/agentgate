@@ -297,13 +297,13 @@ async fn render_page(
         "unmapped": unmapped,
         "members_href": format!("/w/{slug}/settings/members"),
         "modes": [
-            { "key": "once", "icon": "file-import" },
-            { "key": "mirror", "icon": "arrow-right" },
-            { "key": "two_way", "icon": "arrows-exchange" },
+            { "key": "once", "icon": "file-import", "label_key": "jira-mode-once", "hint_key": "jira-mode-once-hint" },
+            { "key": "mirror", "icon": "arrow-right", "label_key": "jira-mode-mirror", "hint_key": "jira-mode-mirror-hint" },
+            { "key": "two_way", "icon": "arrows-exchange", "label_key": "jira-mode-two_way", "hint_key": "jira-mode-two_way-hint" },
         ],
         "envs": [
-            { "key": "cloud", "icon": "cloud" },
-            { "key": "data_center", "icon": "server" },
+            { "key": "cloud", "icon": "cloud", "label_key": "jira-env-cloud", "hint_key": "jira-env-cloud-hint" },
+            { "key": "data_center", "icon": "server", "label_key": "jira-env-data_center", "hint_key": "jira-env-data_center-hint" },
         ],
     });
     let Some(c) = conn.as_ref() else {
