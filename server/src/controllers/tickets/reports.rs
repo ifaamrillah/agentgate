@@ -433,7 +433,9 @@ pub(super) async fn index(
             let days: Vec<chrono::NaiveDate> = (0..21)
                 .rev()
                 .filter_map(|i| today.checked_sub_signed(chrono::Duration::days(i)))
-                .filter(|d| planning::is_workday(*d))
+                // Hari ini selalu tampil: dibuka di akhir pekan, grafik tetap memuat keadaan
+                // terkini (tanpa ini tiket yang dibuat hari Sabtu/Minggu tidak muncul).
+                .filter(|d| *d == today || planning::is_workday(*d))
                 .collect();
             let flow = reports::cumulative_flow(db, wid, &project_tickets, &days).await?;
             if flow.is_empty() {
