@@ -14,6 +14,7 @@ pub mod flash;
 pub mod git;
 pub mod graph;
 pub mod graph_api;
+pub mod graph_viewer;
 pub mod invitations;
 pub mod knowledge;
 pub mod knowledge_api;

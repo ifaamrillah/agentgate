@@ -7,6 +7,7 @@ mod device;
 mod errors;
 mod git;
 mod graph;
+mod graph_viewer;
 mod health;
 mod home;
 mod knowledge;

@@ -9,6 +9,7 @@ pub mod build;
 pub mod fetch;
 pub mod ingest;
 pub mod query;
+pub mod viewer;
 
 use agentgate_graph::protocol::IndexSummary;
 use sea_orm::{

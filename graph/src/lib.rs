@@ -13,6 +13,7 @@ pub mod protocol;
 pub mod query;
 #[cfg(feature = "scip")]
 pub mod scip;
+pub mod viewer;
 pub mod walk;
 
 pub use extract::extract;

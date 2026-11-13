@@ -1,0 +1,126 @@
+{#- Project → Code graph → Viewer (M10). Kanvas SVG satu level zoom (Project → Repo → Modul → File
+    → Fungsi) dari views::graph_viewer (sudah di-escape, `| safe`), toolbar cari + sorot tiket +
+    analisis dampak, breadcrumb level, tombol zoom, filter layer/bahasa (tautan GET), dan panel
+    node terpilih. Prototype: "Graph viewer" di screens-m7-m8-m10.js. Semua status di URL; JS
+    (graph-viewer.js) hanya menambah geser/zoom roda, klik ganda zoom masuk, dan `/` cari.
+    Variabel: project, paths, graph_tabs, repos, indexed, level, level_label, svg, node_count,
+    edge_count, more, crumbs, zoom_in, zoom_out, panel, layer_chips, lang_chips, ticket,
+    ticket_menu, clear_ticket, impact_on, impact_toggle, clear_impact, can_impact, q,
+    search_empty, viewer_href, scope, state. -#}
+{% extends "layouts/project.html" %}
+{% block title %}{{ t(key="graph-tab-viewer", lang="id") }} · {{ project.name }}{% endblock title %}
+{% block width %}wide{% endblock width %}
+{% block crumb %}{{ <crumb label={t(key="project-view-graph", lang="id")}/> }}{% endblock crumb %}
+{% block page_attrs %}data-graph-viewer="{{ level }}"{% endblock page_attrs %}
+{% block description %}{{ t(key="graph-description", lang="id") }}{% endblock description %}
+{% block main %}
+{{ <tabs label={t(key="project-view-graph", lang="id")} items={graph_tabs}/> }}
+{%- if repos | length == 0 %}
+{{ <empty_state title={t(key="graph-no-repos", lang="id")} description={t(key="graph-no-repos-description", lang="id")} icon="git-branch" attrs="data-graph-empty"/> }}
+{%- elif not indexed %}
+{% <card title={t(key="graph-not-indexed", lang="id")} description={t(key="graph-not-indexed-description", lang="id")} attrs="data-graph-not-indexed"> %}
+  <pre class="app-codeblock">agentgate graph index</pre>
+{% </card> %}
+{%- else %}
+<div class="app-gv" data-gv>
+  <section class="app-card app-gv-main">
+    <div class="app-gv-tool">
+      <form class="app-gv-srch" method="get" action="{{ viewer_href }}" role="search">
+        {%- if state.tk %}<input type="hidden" name="tk" value="{{ state.tk }}">{% endif %}
+        {%- if state.hide %}<input type="hidden" name="hide" value="{{ state.hide }}">{% endif %}
+        {%- if state.lang %}<input type="hidden" name="lang" value="{{ state.lang }}">{% endif %}
+        <label class="app-gv-q">{{ icon(name="search") }}<input type="search" name="q" value="{{ q }}" placeholder="{{ t(key="gv-search-placeholder", lang="id") }}" aria-label="{{ t(key="graph-search-label", lang="id") }}" autocomplete="off" data-gv-q><kbd>/</kbd></label>
+      </form>
+      <span class="app-grow"></span>
+      <div class="popover" id="gv-ticket">
+        <button type="button" class="btn" data-variant="outline" data-size="sm" aria-expanded="false" aria-controls="gv-ticket-popover">{{ icon(name="ticket") }}{% if ticket %}<span class="app-code">{{ ticket.code }}</span>{% else %}{{ t(key="gv-highlight-ticket", lang="id") }}{% endif %}</button>
+        <div id="gv-ticket-popover" data-popover aria-hidden="true" data-align="end" class="app-gv-menu">
+          {%- for tm in ticket_menu %}
+          <a class="app-menu-item" href="{{ tm.href }}"{% if tm.current %} aria-current="true"{% endif %} data-gv-ticket="{{ tm.code }}"><span class="app-code">{{ tm.code }}</span><span class="app-gv-menu-t">{{ tm.title }}</span></a>
+          {%- else %}
+          <p class="app-hint app-pad">{{ t(key="gv-no-tickets", lang="id") }}</p>
+          {%- endfor %}
+          {%- if ticket %}<a class="app-menu-item" href="{{ clear_ticket }}">{{ icon(name="x") }}{{ t(key="gv-clear-highlight", lang="id") }}</a>{% endif %}
+        </div>
+      </div>
+      {%- if can_impact and impact_on %}
+      {{ <button label={t(key="gv-impact", lang="id")} icon="target" size="sm" href={impact_toggle} attrs="data-gv-impact"/> }}
+      {%- elif can_impact %}
+      {{ <button label={t(key="gv-impact", lang="id")} icon="target" size="sm" variant="outline" href={impact_toggle} attrs="data-gv-impact"/> }}
+      {%- else %}
+      {{ <button label={t(key="gv-impact", lang="id")} icon="target" size="sm" variant="outline" disabled={true}/> }}
+      {%- endif %}
+    </div>
+    <div class="app-gv-lv">
+      <nav class="app-gv-bc" aria-label="{{ t(key="gv-levels", lang="id") }}">
+        {%- for c in crumbs %}{% if not loop.first %}<span class="app-gv-sep" aria-hidden="true">{{ icon(name="chevron-right") }}</span>{% endif %}<a href="{{ c.href }}"{% if c.current %} aria-current="page"{% endif %}><small>{{ t(key=c.level_key, lang="id") }}</small><span{% if not loop.first %} class="app-code"{% endif %}>{{ c.label }}</span></a>{% endfor %}
+      </nav>
+      <span class="app-grow"></span>
+      <span class="app-hint" data-hide="sm">{{ t(key="gv-count", lang="id", nodes=node_count, edges=edge_count) }}{% if more > 0 %} · {{ t(key="gv-more", lang="id", n=more) }}{% endif %}</span>
+    </div>
+    <div class="app-gv-canvas" data-gv-canvas>
+      <div class="app-gv-ov" data-pos="tl">
+        {%- if search_empty %}<span class="app-gv-banner" data-tone="warn">{{ icon(name="search") }}<span>{{ t(key="graph-search-empty", lang="id", q=q) }}</span></span>{% endif %}
+        {%- if ticket %}<span class="app-gv-banner" data-gv-banner="ticket">{{ icon(name="ticket") }}<span><b class="app-code">{{ ticket.code }}</b> · {{ t(key="gv-touched", lang="id", n=ticket.count) }}</span><a class="btn" data-variant="ghost" data-size="icon-sm" href="{{ clear_ticket }}" aria-label="{{ t(key="gv-clear-highlight", lang="id") }}">{{ icon(name="x") }}</a></span>{% endif %}
+        {%- if impact_on and panel %}<span class="app-gv-banner" data-tone="warn" data-gv-banner="impact">{{ icon(name="target") }}<span>{{ t(key="gv-impact-of", lang="id") }} <b class="app-code">{{ panel.label }}</b></span><a class="btn" data-variant="ghost" data-size="icon-sm" href="{{ clear_impact }}" aria-label="{{ t(key="gv-impact-close", lang="id") }}">{{ icon(name="x") }}</a></span>{% endif %}
+      </div>
+      <div class="app-gv-ov" data-pos="tr">
+        <div class="app-gv-zoom">
+          {%- if zoom_in %}<a href="{{ zoom_in }}" aria-label="{{ t(key="gv-zoom-in", lang="id") }}" title="{{ t(key="gv-zoom-in", lang="id") }}" data-gv-in>{{ icon(name="zoom-in") }}</a>{% else %}<span aria-disabled="true" title="{{ t(key="gv-zoom-in", lang="id") }}">{{ icon(name="zoom-in") }}</span>{% endif %}
+          {%- if zoom_out %}<a href="{{ zoom_out }}" aria-label="{{ t(key="gv-zoom-out", lang="id") }}" title="{{ t(key="gv-zoom-out", lang="id") }}" data-gv-out>{{ icon(name="zoom-out") }}</a>{% else %}<span aria-disabled="true" title="{{ t(key="gv-zoom-out", lang="id") }}">{{ icon(name="zoom-out") }}</span>{% endif %}
+          <button type="button" aria-label="{{ t(key="gv-fit", lang="id") }}" title="{{ t(key="gv-fit", lang="id") }}" data-gv-fit>{{ icon(name="focus-2") }}</button>
+        </div>
+      </div>
+      <div class="app-gv-stage" data-gv-stage>{{ svg | safe }}</div>
+      {%- if node_count == 0 %}<div class="app-gv-empty">{{ <empty_state title={t(key="gv-empty", lang="id")} description={t(key="gv-empty-description", lang="id")} icon="topology-star-3" variant="plain"/> }}</div>{% endif %}
+      <div class="app-gv-ov" data-pos="bl">
+        <span class="app-gv-flt-lab">{{ t(key="gv-layer", lang="id") }}</span>
+        {%- for c in layer_chips %}<a class="app-gv-flt" href="{{ c.href }}" aria-pressed="{{ c.on }}" data-layer="{{ c.key }}"><i style="background: {{ c.color }}"></i>{{ t(key=c.label_key, lang="id") }}</a>{% endfor %}
+        {%- if lang_chips %}<span class="app-gv-flt-lab">{{ t(key="gv-lang", lang="id") }}</span>{% for c in lang_chips %}<a class="app-gv-flt" href="{{ c.href }}" aria-pressed="{{ c.on }}" data-lang="{{ c.key }}"><i style="background: {{ c.color }}"></i>{{ c.label }}</a>{% endfor %}{% endif %}
+        <span class="app-gv-flt-lab" data-hide="sm">{{ t(key="gv-relation", lang="id") }}</span>
+        <span class="app-gv-legend" data-hide="sm"><span><svg width="22" height="6" aria-hidden="true"><path d="M0 3h22"/></svg>{{ t(key="graph-conf-certain", lang="id") }}</span><span><svg width="22" height="6" aria-hidden="true"><path d="M0 3h22" data-guess/></svg>{{ t(key="graph-conf-inferred", lang="id") }}</span></span>
+      </div>
+    </div>
+  </section>
+  <aside class="app-gv-side" aria-label="{{ t(key="gv-detail", lang="id") }}">
+  {%- if panel %}
+  <section class="app-card app-gv-panel" data-gv-panel="{{ panel.id }}">
+    <header class="app-card-h">
+      <div><h2>{{ panel.label }}</h2><p>{% if panel.kind_key %}{{ t(key=panel.kind_key, lang="id") }} · {% endif %}{{ t(key=panel.layer_key, lang="id") }}{% if panel.lang %} · {{ panel.lang }}{% endif %}</p></div>
+      <div class="app-card-a"><span class="app-tile" style="color: {{ panel.layer_color }}">{{ icon(name="topology-star-3") }}</span></div>
+    </header>
+    <div class="app-gv-pb">
+      {%- if panel.path %}<div class="app-code app-gv-path">{{ panel.path }}</div>{% endif %}
+      {%- if panel.dead %}{{ <badge label={t(key="graph-dead", lang="id")} variant="destructive"/> }}{% endif %}
+      <div class="app-gv-acts">
+        {%- if panel.drill %}{{ <button label={t(key="gv-zoom-in", lang="id")} icon="zoom-in" size="sm" href={panel.drill} attrs="data-gv-drill"/> }}{% endif %}
+        {%- if panel.code %}{{ <button label={t(key="gv-view-code", lang="id")} icon="code" size="sm" variant="outline" href={panel.code}/> }}{% endif %}
+        {%- if panel.doc %}{{ <button label={t(key="gv-open-doc", lang="id")} icon="file-text" size="sm" variant="outline" href={panel.doc}/> }}{% endif %}
+        {%- if impact_on %}{% set imp_label = t(key="gv-impact-close", lang="id") %}{% else %}{% set imp_label = t(key="gv-impact", lang="id") %}{% endif %}
+        {{ <button label={imp_label} icon="target" size="sm" variant="outline" href={panel.impact_href}/> }}
+      </div>
+      {%- if impact_on %}<div class="alert" data-variant="warn" data-gv-impact-list>{{ icon(name="target") }}<span><b>{{ t(key="gv-impact-count", lang="id", n=panel.impact | length) }}</b>{% if panel.impact %}: {{ panel.impact | join(sep=", ") }}{% endif %}</span></div>{% endif %}
+      <div class="app-gv-sec"><h3>{{ t(key="graph-callers", lang="id") }} · {{ panel.callers | length }}</h3>
+        {%- for r in panel.callers %}<a class="app-gv-rel" href="{{ r.href }}">{{ icon(name="arrow-back-up") }}<span class="app-code">{{ r.label }}</span>{% if not r.certain %}{{ <confidence level="inferred"/> }}{% endif %}</a>{% else %}<p class="app-hint">{{ t(key="gv-none", lang="id") }}</p>{% endfor %}
+      </div>
+      <div class="app-gv-sec"><h3>{{ t(key="graph-callees", lang="id") }} · {{ panel.callees | length }}</h3>
+        {%- for r in panel.callees %}<a class="app-gv-rel" href="{{ r.href }}">{{ icon(name="arrow-forward-up") }}<span class="app-code">{{ r.label }}</span>{% if not r.certain %}{{ <confidence level="inferred"/> }}{% endif %}</a>{% else %}<p class="app-hint">{{ t(key="gv-none", lang="id") }}</p>{% endfor %}
+      </div>
+      <div class="app-gv-sec"><h3>{{ t(key="gv-tickets", lang="id") }}</h3>
+        {%- for tk in panel.tickets %}<a class="app-gv-rel" href="{{ tk.href }}"><span class="app-code">{{ tk.code }}</span><span class="app-gv-menu-t">{{ tk.title }}</span></a>{% else %}<p class="app-hint">{{ t(key="gv-no-node-tickets", lang="id") }}</p>{% endfor %}
+      </div>
+      <div class="app-gv-sec"><h3>{{ t(key="gv-docs", lang="id") }}</h3>
+        {%- for d in panel.docs %}<a class="app-gv-rel" href="{{ d.href }}">{{ icon(name="file-text") }}<span>{{ d.title }}</span></a>{% else %}<p class="app-hint">{{ t(key="gv-none", lang="id") }}</p>{% endfor %}
+      </div>
+      <p class="app-hint app-gv-tip">{{ icon(name="info-circle") }}{{ t(key="gv-tip", lang="id") }}</p>
+    </div>
+  </section>
+  {%- else %}
+  {% <card title={t(key="gv-detail", lang="id")}> %}
+    {{ <empty_state title={t(key="gv-pick", lang="id")} description={t(key="gv-pick-description", lang="id")} icon="pointer" variant="plain"/> }}
+  {% </card> %}
+  {%- endif %}
+  </aside>
+</div>
+{%- endif %}
+{% endblock main %}
