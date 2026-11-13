@@ -209,6 +209,7 @@ impl JobView {
             kind: job.kind().as_str(),
             mode_key: match (job.kind(), job.mode()) {
                 (JobKind::Comment, _) => "job-mode-comment",
+                (JobKind::Knowledge, _) => "job-mode-knowledge",
                 (_, JobMode::Auto) => "job-mode-auto",
                 (_, JobMode::Interactive) => "job-mode-interactive",
             },
@@ -218,7 +219,11 @@ impl JobView {
             open: status.is_open(),
             ticket: c.ticket_code.to_string(),
             title: c.ticket_title.to_string(),
-            ticket_href: format!("/w/{}/t/{}", c.slug, c.ticket_code),
+            ticket_href: if job.ticket_id.is_some() {
+                format!("/w/{}/t/{}", c.slug, c.ticket_code)
+            } else {
+                format!("/w/{}/jobs/{}", c.slug, job.id)
+            },
             stage: job.stage_key.clone(),
             stage_name: c.stage_name.clone(),
             label: if job.kind() == JobKind::Comment {
@@ -376,7 +381,11 @@ impl PermissionView {
             },
             ticket: ticket.0.to_string(),
             ticket_title: ticket.1.to_string(),
-            ticket_href: format!("/w/{slug}/t/{}", ticket.0),
+            ticket_href: if job.ticket_id.is_some() {
+                format!("/w/{slug}/t/{}", ticket.0)
+            } else {
+                format!("/w/{slug}/jobs/{}", job.id)
+            },
             job_href: format!("/w/{slug}/jobs/{}", job.id),
             persona: PersonaMark::of(&job.persona, labels),
             runner: runner.map(|r| r.name.clone()),

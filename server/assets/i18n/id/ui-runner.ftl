@@ -175,6 +175,7 @@ job-status-cancelled = Dibatalkan
 job-mode-auto = Mode otomatis · headless
 job-mode-interactive = Mode interaktif · terminal
 job-mode-comment = Dari komentar @agent
+job-mode-knowledge = Knowledge
 job-agent = Agent { $persona }
 job-claim = Ambil
 job-claim-title = Ambil job { $ticket }?

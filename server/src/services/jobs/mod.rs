@@ -100,6 +100,31 @@ pub(crate) async fn notify_users<C: ConnectionTrait>(
     kind: NotificationKind,
     ticket_id: Uuid,
 ) -> Result<(), DbErr> {
+    notify_about(db, wid, actor, users, kind, Some(ticket_id), None).await
+}
+
+/// Notifikasi job: tiket job, atau project untuk job knowledge (tanpa tiket).
+pub(crate) async fn notify_job<C: ConnectionTrait>(
+    db: &C,
+    wid: WorkspaceId,
+    actor: Option<Uuid>,
+    users: impl IntoIterator<Item = Uuid>,
+    kind: NotificationKind,
+    job: &jobs::Model,
+) -> Result<(), DbErr> {
+    let project = job.ticket_id.is_none().then_some(job.project_id);
+    notify_about(db, wid, actor, users, kind, job.ticket_id, project).await
+}
+
+pub(crate) async fn notify_about<C: ConnectionTrait>(
+    db: &C,
+    wid: WorkspaceId,
+    actor: Option<Uuid>,
+    users: impl IntoIterator<Item = Uuid>,
+    kind: NotificationKind,
+    ticket_id: Option<Uuid>,
+    project_id: Option<Uuid>,
+) -> Result<(), DbErr> {
     for user_id in users {
         if Some(user_id) == actor {
             continue;
@@ -111,8 +136,9 @@ pub(crate) async fn notify_users<C: ConnectionTrait>(
                 user_id,
                 actor_id: actor,
                 kind,
-                ticket_id: Some(ticket_id),
+                ticket_id,
                 comment_id: None,
+                project_id,
             },
         )
         .await?;
@@ -170,7 +196,7 @@ pub async fn on_stage_entered<C: ConnectionTrait>(
     let job = jobs::ActiveModel {
         workspace_id: Set(wid.get()),
         project_id: Set(ticket.project_id),
-        ticket_id: Set(ticket.id),
+        ticket_id: Set(Some(ticket.id)),
         kind: Set(JobKind::Stage.as_str().into()),
         mode: Set(mode.as_str().into()),
         stage_key: Set(stage.key.clone()),
@@ -229,7 +255,8 @@ pub async fn latest_of_ticket<C: ConnectionTrait>(
         .await
 }
 
-/// Job yang bisa dilihat pelaku: tiketnya ada di project yang bisa ia buka.
+/// Job yang bisa dilihat pelaku: project-nya bisa ia buka dan tiketnya (bila ada) tidak di
+/// sampah. Job knowledge tidak punya tiket (`None`).
 ///
 /// # Errors
 ///
@@ -238,14 +265,19 @@ pub async fn visible(
     db: &DatabaseConnection,
     acting: &Acting<'_>,
     id: Uuid,
-) -> Result<(jobs::Model, tickets::Model), TicketFailure> {
+) -> Result<(jobs::Model, Option<tickets::Model>), TicketFailure> {
     let wid = acting.workspace_id();
     let job = find(db, wid, id).await?.ok_or(TicketFailure::NotFound)?;
-    let ticket = tickets::Model::find_in(db, wid, job.ticket_id)
-        .await?
-        .filter(|t| !t.is_trashed())
-        .ok_or(TicketFailure::NotFound)?;
-    access_in(db, acting, ticket.project_id, Permission::ViewProject).await?;
+    let ticket = match job.ticket_id {
+        Some(tid) => Some(
+            tickets::Model::find_in(db, wid, tid)
+                .await?
+                .filter(|t| !t.is_trashed())
+                .ok_or(TicketFailure::NotFound)?,
+        ),
+        None => None,
+    };
+    access_in(db, acting, job.project_id, Permission::ViewProject).await?;
     Ok((job, ticket))
 }
 
@@ -256,11 +288,20 @@ async fn is_executor<C: ConnectionTrait>(
     job: &jobs::Model,
 ) -> Result<bool, TicketFailure> {
     let wid = acting.workspace_id();
-    if job.kind() == JobKind::Comment {
-        return Ok(job.requested_by == Some(acting.user.id));
-    }
-    let people =
-        ticket_stage_people::Model::of_stage(db, wid, job.ticket_id, &job.stage_key).await?;
+    let ticket_id = match (job.kind(), job.ticket_id) {
+        (JobKind::Comment, _) => return Ok(job.requested_by == Some(acting.user.id)),
+        // Job knowledge: pemilik knowledge project mendapat notifikasi; bila runner-nya offline
+        // job dilempar ke model klaim, jadi siapa pun yang boleh mengubah project boleh ambil.
+        (JobKind::Knowledge, _) | (_, None) => {
+            return Ok(
+                access_in(db, acting, job.project_id, Permission::EditProject)
+                    .await
+                    .is_ok(),
+            );
+        }
+        (JobKind::Stage, Some(t)) => t,
+    };
+    let people = ticket_stage_people::Model::of_stage(db, wid, ticket_id, &job.stage_key).await?;
     if people.executors.is_empty() {
         return Ok(
             access_in(db, acting, job.project_id, Permission::EditProject)
@@ -412,16 +453,16 @@ pub async fn release(
         &line,
     )
     .await?;
-    if job.kind() == JobKind::Stage {
+    if let (JobKind::Stage, Some(ticket_id)) = (job.kind(), job.ticket_id) {
         let people =
-            ticket_stage_people::Model::of_stage(&txn, wid, job.ticket_id, &job.stage_key).await?;
+            ticket_stage_people::Model::of_stage(&txn, wid, ticket_id, &job.stage_key).await?;
         notify_users(
             &txn,
             wid,
             Some(acting.user.id),
             people.executors,
             NotificationKind::JobQueued,
-            job.ticket_id,
+            ticket_id,
         )
         .await?;
     }
@@ -472,11 +513,17 @@ pub async fn cancel(
             actor_id: Some(acting.user.id),
             action: AuditAction::JobCancelled,
             subject: (AuditSubject::Job, job.id),
-            changes: serde_json::json!({ "ticket": ticket.code, "stage": job.stage_key }),
+            changes: serde_json::json!({
+                "ticket": ticket.as_ref().map(|t| t.code.clone()),
+                "stage": job.stage_key,
+            }),
             request_id: acting.request_id.clone(),
         },
     )
     .await?;
+    if job.ticket_id.is_none() {
+        crate::services::knowledge::runs::job_finished(&txn, wid, &job).await?;
+    }
     txn.commit().await?;
     Ok(job)
 }
@@ -588,7 +635,7 @@ pub async fn decide_permission(
             action: AuditAction::JobPermissionDecided,
             subject: (AuditSubject::Job, job.id),
             changes: serde_json::json!({
-                "ticket": ticket.code,
+                "ticket": ticket.as_ref().map(|t| t.code.clone()),
                 "action": perm.action,
                 "command": perm.command,
                 "status": status.as_str(),
@@ -605,10 +652,29 @@ pub async fn decide_permission(
 #[derive(Debug, Clone)]
 pub struct QueueRow {
     pub job: jobs::Model,
-    pub ticket: tickets::Model,
+    /// `None` untuk job knowledge.
+    pub ticket: Option<tickets::Model>,
     pub project: projects::Model,
     pub priority: u8,
     pub can_claim: bool,
+}
+
+impl QueueRow {
+    /// Kode tiket, atau kunci project untuk job knowledge.
+    #[must_use]
+    pub fn code(&self) -> String {
+        self.ticket
+            .as_ref()
+            .map_or_else(|| self.project.key.clone(), |t| t.code.clone())
+    }
+
+    /// Judul tiket, atau judul tugas knowledge (`prompt_note`).
+    #[must_use]
+    pub fn title(&self) -> String {
+        self.ticket
+            .as_ref()
+            .map_or_else(|| self.job.prompt_note.clone(), |t| t.title.clone())
+    }
 }
 
 /// Job terbuka di project yang bisa dibuka pelaku, urut prioritas tiket lalu umur.
@@ -631,16 +697,25 @@ pub async fn queue(db: &DatabaseConnection, acting: &Acting<'_>) -> Result<Vec<Q
         .await?;
     let mut rows = Vec::with_capacity(open.len());
     for job in open {
-        let Some(ticket) = tickets::Model::find_in(db, wid, job.ticket_id)
-            .await?
-            .filter(|t| !t.is_trashed())
-        else {
-            continue;
+        let ticket = match job.ticket_id {
+            Some(tid) => {
+                let Some(t) = tickets::Model::find_in(db, wid, tid)
+                    .await?
+                    .filter(|t| !t.is_trashed())
+                else {
+                    continue;
+                };
+                Some(t)
+            }
+            None => None,
         };
         let Some(project) = projects.iter().find(|p| p.id == job.project_id).cloned() else {
             continue;
         };
-        let priority = ticket.priority().map_or(3, TicketPriority::rank);
+        let priority = ticket
+            .as_ref()
+            .and_then(|t| t.priority().ok())
+            .map_or(3, TicketPriority::rank);
         let can_claim = can_claim(db, acting, &job).await?;
         rows.push(QueueRow {
             job,
@@ -667,7 +742,7 @@ pub async fn queue(db: &DatabaseConnection, acting: &Acting<'_>) -> Result<Vec<Q
 pub async fn pending_permissions(
     db: &DatabaseConnection,
     acting: &Acting<'_>,
-) -> Result<Vec<(job_permissions::Model, jobs::Model, tickets::Model)>, DbErr> {
+) -> Result<Vec<(job_permissions::Model, jobs::Model, Option<tickets::Model>)>, DbErr> {
     let wid = acting.workspace_id();
     let pending = job_permissions::Entity::find()
         .filter(job_permissions::Column::WorkspaceId.eq(wid.get()))
@@ -683,8 +758,14 @@ pub async fn pending_permissions(
         if job.claimed_by != Some(acting.user.id) && !is_project_admin(db, acting, &job).await {
             continue;
         }
-        let Some(ticket) = tickets::Model::find_in(db, wid, job.ticket_id).await? else {
-            continue;
+        let ticket = match job.ticket_id {
+            Some(tid) => {
+                let Some(t) = tickets::Model::find_in(db, wid, tid).await? else {
+                    continue;
+                };
+                Some(t)
+            }
+            None => None,
         };
         out.push((p, job, ticket));
     }
@@ -853,7 +934,7 @@ pub async fn on_agent_mentions<C: ConnectionTrait>(
         let job = jobs::ActiveModel {
             workspace_id: Set(wid.get()),
             project_id: Set(ticket.project_id),
-            ticket_id: Set(ticket.id),
+            ticket_id: Set(Some(ticket.id)),
             kind: Set(JobKind::Comment.as_str().into()),
             mode: Set(JobMode::Auto.as_str().into()),
             stage_key: Set(ticket.stage_key.clone()),

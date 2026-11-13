@@ -68,7 +68,9 @@ pub fn outline(src: &str) -> Vec<Heading> {
     let mut seen: HashMap<String, usize> = HashMap::new();
     for ev in Parser::new_ext(src, options()) {
         match ev {
-            Event::Start(Tag::Heading { level, .. }) => current = Some((level_num(level), String::new())),
+            Event::Start(Tag::Heading { level, .. }) => {
+                current = Some((level_num(level), String::new()))
+            }
             Event::Text(t) | Event::Code(t) => {
                 if let Some((_, buf)) = current.as_mut() {
                     buf.push_str(&t);
@@ -140,35 +142,35 @@ pub fn render(src: &str) -> String {
     let ids: Vec<String> = outline(src).into_iter().map(|h| h.id).collect();
     let mut ids = ids.into_iter();
     let mut in_mermaid = false;
-    let events = Parser::new_ext(src, options()).filter_map(|ev| match ev {
+    let events = Parser::new_ext(src, options()).map(|ev| match ev {
         // HTML mentah tidak pernah diteruskan.
-        Event::Html(h) | Event::InlineHtml(h) => Some(Event::Text(h)),
+        Event::Html(h) | Event::InlineHtml(h) => Event::Text(h),
         Event::Start(Tag::Heading {
             level,
             classes,
             attrs,
             ..
-        }) => Some(Event::Start(Tag::Heading {
+        }) => Event::Start(Tag::Heading {
             level,
             id: ids.next().map(CowStr::from),
             classes,
             attrs,
-        })),
+        }),
         Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(lang)))
             if lang.split_whitespace().next() == Some("mermaid") =>
         {
             in_mermaid = true;
-            Some(Event::Html(CowStr::from(
+            Event::Html(CowStr::from(
                 "<pre class=\"app-mermaid\" data-mermaid=\"\">",
-            )))
+            ))
         }
-        Event::Text(t) if in_mermaid => Some(Event::Html(CowStr::from(escape(&t)))),
+        Event::Text(t) if in_mermaid => Event::Html(CowStr::from(escape(&t))),
         Event::End(TagEnd::CodeBlock) if in_mermaid => {
             in_mermaid = false;
-            Some(Event::Html(CowStr::from("</pre>")))
+            Event::Html(CowStr::from("</pre>"))
         }
         // Tabel: pulldown menulis `style="text-align"`; style dibuang sanitizer, jadi biarkan.
-        other => Some(other),
+        other => other,
     });
     let mut html = String::new();
     pulldown_cmark::html::push_html(&mut html, events);
@@ -211,7 +213,9 @@ mod tests {
 
     #[test]
     fn renders_gfm() {
-        let html = render("# Judul\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n- [x] selesai\n- [ ] belum\n\n~~lama~~ **tebal**");
+        let html = render(
+            "# Judul\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n- [x] selesai\n- [ ] belum\n\n~~lama~~ **tebal**",
+        );
         assert!(html.contains("<h1 id=\"md-judul\">Judul</h1>"), "{html}");
         assert!(html.contains("<table>"));
         assert!(html.contains("type=\"checkbox\""));
@@ -230,7 +234,8 @@ mod tests {
 
     #[test]
     fn dangerous_links_removed() {
-        let html = render("[klik](javascript:alert(1)) [ok](https://contoh.id) ![x](javascript:alert(2))");
+        let html =
+            render("[klik](javascript:alert(1)) [ok](https://contoh.id) ![x](javascript:alert(2))");
         assert!(!html.contains("javascript:"), "{html}");
         assert!(html.contains("href=\"https://contoh.id\""));
         assert!(html.contains("rel=\"noopener noreferrer nofollow\""));
@@ -239,13 +244,19 @@ mod tests {
     #[test]
     fn relative_links_kept() {
         let html = render("[doc](/w/acme/p/KSR/knowledge/api)");
-        assert!(html.contains("href=\"/w/acme/p/KSR/knowledge/api\""), "{html}");
+        assert!(
+            html.contains("href=\"/w/acme/p/KSR/knowledge/api\""),
+            "{html}"
+        );
     }
 
     #[test]
     fn mermaid_block_marked() {
         let html = render("```mermaid\nflowchart LR\n  a-->b\n```");
-        assert!(html.contains("<pre class=\"app-mermaid\" data-mermaid=\"\">"), "{html}");
+        assert!(
+            html.contains("<pre class=\"app-mermaid\" data-mermaid=\"\">"),
+            "{html}"
+        );
         assert!(html.contains("a--&gt;b"), "{html}");
     }
 
@@ -274,7 +285,10 @@ mod tests {
 
     #[test]
     fn plain_truncates() {
-        assert_eq!(plain("## Judul\n\nIsi **tebal** di sini", 100), "Judul Isi tebal di sini");
+        assert_eq!(
+            plain("## Judul\n\nIsi **tebal** di sini", 100),
+            "Judul Isi tebal di sini"
+        );
         assert_eq!(plain("abcdefghij", 5), "abcd…");
     }
 }

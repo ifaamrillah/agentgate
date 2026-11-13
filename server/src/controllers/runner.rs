@@ -186,9 +186,12 @@ fn done<T>(
 async fn stage_name(
     db: &DatabaseConnection,
     tenant: &Tenant,
-    t: &tickets::Model,
+    t: Option<&tickets::Model>,
     key: &str,
 ) -> String {
+    let Some(t) = t else {
+        return "Knowledge".into();
+    };
     match Flow::load(db, tenant.workspace_id(), t).await {
         Ok(flow) => flow
             .rule(key)
@@ -233,7 +236,7 @@ async fn runners_map(
 pub(crate) async fn job_views(
     db: &DatabaseConnection,
     tenant: &Tenant,
-    rows: &[(jobs::Model, tickets::Model)],
+    rows: &[(jobs::Model, Option<tickets::Model>)],
 ) -> Result<Vec<JobView>> {
     let acting = acting(tenant, None);
     let labels: PersonaLabels = personas::Model::labels(db, tenant.workspace_id()).await?;
@@ -247,18 +250,23 @@ pub(crate) async fn job_views(
     let now = chrono::Utc::now();
     let mut out = Vec::with_capacity(rows.len());
     for (job, ticket) in rows {
-        let name = stage_name(db, tenant, ticket, &job.stage_key).await;
+        let name = stage_name(db, tenant, ticket.as_ref(), &job.stage_key).await;
         let can_claim = svc::can_claim(db, &acting, job).await?;
         let is_admin = svc::is_project_admin(db, &acting, job).await;
         out.push(JobView::of(
             job,
             &JobContext {
                 slug: &tenant.workspace.slug,
-                ticket_code: &ticket.code,
-                ticket_title: &ticket.title,
+                ticket_code: ticket.as_ref().map_or("KB", |t| t.code.as_str()),
+                ticket_title: ticket
+                    .as_ref()
+                    .map_or(job.prompt_note.as_str(), |t| t.title.as_str()),
                 stage_name: name,
                 labels: &labels,
-                priority: ticket.priority().map_or(3, tickets::TicketPriority::rank),
+                priority: ticket
+                    .as_ref()
+                    .and_then(|t| t.priority().ok())
+                    .map_or(3, tickets::TicketPriority::rank),
                 holder: job.claimed_by.and_then(|u| users.get(&u)),
                 runner: job.runner_id.and_then(|r| runner_map.get(&r)),
                 viewer: tenant.user.id,
@@ -274,7 +282,7 @@ pub(crate) async fn job_views(
 async fn permission_views(
     db: &DatabaseConnection,
     tenant: &Tenant,
-    rows: &[(job_permissions::Model, jobs::Model, tickets::Model)],
+    rows: &[(job_permissions::Model, jobs::Model, Option<tickets::Model>)],
 ) -> Result<Vec<PermissionView>> {
     let labels = personas::Model::labels(db, tenant.workspace_id()).await?;
     let runner_map = runners_map(
@@ -295,7 +303,9 @@ async fn permission_views(
             PermissionView::of(
                 p,
                 j,
-                (&t.code, &t.title),
+                t.as_ref().map_or(("KB", j.prompt_note.as_str()), |t| {
+                    (t.code.as_str(), t.title.as_str())
+                }),
                 &PermissionContext {
                     slug: &tenant.workspace.slug,
                     labels: &labels,
@@ -324,12 +334,14 @@ async fn runner_views(
             continue;
         };
         let job = match running.iter().find(|j| j.runner_id == Some(r.id)) {
-            Some(j) => tickets::Model::find_in(db, wid, j.ticket_id)
-                .await?
-                .map(|t| RunnerJob {
-                    ticket: t.code,
-                    href: format!("/w/{}/jobs/{}", tenant.workspace.slug, j.id),
-                }),
+            Some(j) => match j.ticket_id {
+                Some(tid) => tickets::Model::find_in(db, wid, tid).await?.map(|t| t.code),
+                None => Some("KB".into()),
+            }
+            .map(|code| RunnerJob {
+                ticket: code,
+                href: format!("/w/{}/jobs/{}", tenant.workspace.slug, j.id),
+            }),
             None => None,
         };
         out.push(RunnerView::of(
@@ -456,7 +468,7 @@ async fn page(
                 serde_json::to_value(permission_views(db, &tenant, &pending).await?)?;
         }
         "queue" => {
-            let rows: Vec<(jobs::Model, tickets::Model)> = queue
+            let rows: Vec<(jobs::Model, Option<tickets::Model>)> = queue
                 .iter()
                 .map(|r| (r.job.clone(), r.ticket.clone()))
                 .collect();
@@ -509,7 +521,7 @@ async fn page(
             let list =
                 svc::runners_of(db, wid, (panel == "mine").then_some(tenant.user.id)).await?;
             let views = runner_views(db, &tenant, &list).await?;
-            let held: Vec<(jobs::Model, tickets::Model)> = queue
+            let held: Vec<(jobs::Model, Option<tickets::Model>)> = queue
                 .iter()
                 .filter(|r| r.job.claimed_by == Some(tenant.user.id))
                 .map(|r| (r.job.clone(), r.ticket.clone()))
@@ -784,7 +796,7 @@ async fn live_data(
     ctx: &AppContext,
     tenant: &Tenant,
     job: &jobs::Model,
-    ticket: &tickets::Model,
+    ticket: &Option<tickets::Model>,
 ) -> Result<serde_json::Value> {
     let db = &ctx.db;
     let wid = tenant.workspace_id();
@@ -832,7 +844,7 @@ async fn show(
         Err(TicketFailure::Db(e)) => return Err(e.into()),
         Err(_) => return Err(Error::NotFound),
     };
-    let project = projects::Model::find_in(&ctx.db, tenant.workspace_id(), ticket.project_id)
+    let project = projects::Model::find_in(&ctx.db, tenant.workspace_id(), job.project_id)
         .await?
         .ok_or(Error::NotFound)?;
     let mut data = live_data(&ctx, &tenant, &job, &ticket).await?;

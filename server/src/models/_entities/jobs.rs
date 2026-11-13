@@ -15,7 +15,7 @@ pub struct Model {
     #[sea_orm(unique_key = "jobs_id_workspace_id_key")]
     pub workspace_id: Uuid,
     pub project_id: Uuid,
-    pub ticket_id: Uuid,
+    pub ticket_id: Option<Uuid>,
     #[sea_orm(column_type = "Text")]
     pub kind: String,
     #[sea_orm(column_type = "Text")]
@@ -49,6 +49,7 @@ pub struct Model {
     pub finished_at: Option<DateTimeWithTimeZone>,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
+    pub knowledge_run_id: Option<Uuid>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

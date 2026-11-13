@@ -208,6 +208,7 @@ pub(crate) async fn notify<C: sea_orm::ConnectionTrait>(
             kind,
             ticket_id: Some(ticket_id),
             comment_id,
+            project_id: None,
         },
     )
     .await?;
