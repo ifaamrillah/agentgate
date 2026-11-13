@@ -115,6 +115,7 @@ name = "agentgate-server"
 version = "0.1.0"
 dependencies = [
  "agentgate-core",
+ "agentgate-graph",
  "argon2",
  "async-trait",
  "axum",

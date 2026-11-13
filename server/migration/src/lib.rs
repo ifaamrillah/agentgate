@@ -11,6 +11,7 @@ pub mod m20261114_000001_create_workflows;
 mod m20261115_000001_create_mcp_personas;
 mod m20261116_000001_create_runners_jobs;
 mod m20261117_000001_create_git_prs;
+mod m20261118_000001_create_code_graph;
 
 pub struct Migrator;
 
@@ -28,6 +29,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20261115_000001_create_mcp_personas::Migration),
             Box::new(m20261116_000001_create_runners_jobs::Migration),
             Box::new(m20261117_000001_create_git_prs::Migration),
+            Box::new(m20261118_000001_create_code_graph::Migration),
             // inject-above (do not remove this comment)
         ]
     }
