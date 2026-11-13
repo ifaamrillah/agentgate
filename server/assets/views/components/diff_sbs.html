@@ -1,0 +1,15 @@
+{#- Diff berdampingan Sebelum | Sesudah (usulan knowledge, riwayat versi). Baris dihitung server
+    (services::knowledge::proposals::side_by_side). Lebar < 640px: satu kolom (baris dihapus +
+    sesudah), dibaca seperti diff unified.
+    Parameter:
+      rows: array               [SideRow {left_kind, left, right_kind, right}]; kind: same|del|add|gap
+      left_label, right_label: string  judul kolom (sudah diterjemahkan)
+      right_icon: nama ikon Tabler     ikon kolom kanan (default "sparkles") -#}
+{% component diff_sbs(rows: array, left_label: string, right_label: string, right_icon: string = "sparkles") %}
+<div class="app-sbs" data-kb-sbs>
+  <div class="app-sbs-h"><div>{{ icon(name="file-text") }}{{ left_label }}</div><div>{{ icon(name=right_icon) }}{{ right_label }}</div></div>
+  {%- for r in rows %}
+  <div class="app-sbs-r"><div data-kind="{{ r.left_kind }}">{{ r.left }}</div><div data-kind="{{ r.right_kind }}">{{ r.right }}</div></div>
+  {%- endfor %}
+</div>
+{%- endcomponent diff_sbs %}

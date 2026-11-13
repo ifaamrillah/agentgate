@@ -65,14 +65,7 @@
 {% </card> %}
 {% <card title={t(key="kb-health-title", lang="id")} flush={true} attrs="data-kb-health"> %}
   <div class="app-kb-health">
-    <div class="app-kb-donut">
-      <svg viewBox="0 0 92 92" role="img" aria-label="{{ t(key="kb-health-aria", lang="id", pct=donut.center) }}">
-        <circle cx="46" cy="46" r="36" data-tone="track"/>
-        {%- for s in donut.segments %}<circle cx="46" cy="46" r="36" data-tone="{{ s.tone }}" stroke-dasharray="{{ s.dash }}" stroke-dashoffset="{{ s.offset }}" transform="rotate(-90 46 46)"/>{% endfor %}
-        <text x="46" y="52" text-anchor="middle">{{ donut.center }}</text>
-      </svg>
-      <div class="app-kb-leg">{% for l in donut.legend %}<div><span class="app-kb-dot" data-state="{{ l.state }}"></span>{{ t(key=l.label_key, lang="id") }}<b>{{ l.count }}</b></div>{% endfor %}</div>
-    </div>
+    {{ <donut donut={donut} label={t(key="kb-health-aria", lang="id", pct=donut.center)}/> }}
     {%- if open_run %}
     <div class="app-kb-note" data-kb-run="{{ open_run.status }}">{{ icon(name="loader-2") }}<span>{{ t(key="kb-run-open", lang="id", kind=open_run.kind, depth=open_run.depth_label, status=open_run.status) }}</span></div>
     {%- elif last_run %}

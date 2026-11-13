@@ -27,8 +27,7 @@
       <span class="app-diffstat"><span data-tone="add">+{{ diff.added }}</span><span data-tone="del">−{{ diff.removed }}</span></span>
       {%- if can_edit and not diff.current %}<form method="post" action="{{ diff.restore_action }}">{{ <button label={t(key="kb-restore", lang="id", n=diff.number)} icon="arrow-back-up" size="sm" variant="outline" type="submit"/> }}</form>{% endif %}
     </div>
-    {%- set sbs = diff.sbs %}{% set left_label = t(key="kb-version-label", lang="id", n=diff.number) %}{% set right_label = t(key="kb-version-now", lang="id", n=doc.version) %}{% set right_icon = "file-text" %}
-    {% include "knowledge/_sbs.html" %}
+    {{ <diff_sbs rows={diff.sbs} left_label={t(key="kb-version-label", lang="id", n=diff.number)} right_label={t(key="kb-version-now", lang="id", n=doc.version)} right_icon="file-text"/> }}
   </div>
   {%- endif %}
 </div>

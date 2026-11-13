@@ -41,8 +41,7 @@
     </aside>
     <div class="card" data-kb-diff>
       {%- if current.outdated %}<div class="app-blk">{{ <flash kind="warn" message={t(key="kb-review-outdated", lang="id", base=current.base_version, now=current.doc_version)}/> }}</div>{% endif %}
-      {%- set sbs = current.sbs %}{% set left_label = t(key="kb-before", lang="id") %}{% set right_label = t(key="kb-after", lang="id") %}{% set right_icon = "sparkles" %}
-      {% include "knowledge/_sbs.html" %}
+      {{ <diff_sbs rows={current.sbs} left_label={t(key="kb-before", lang="id")} right_label={t(key="kb-after", lang="id")} right_icon="sparkles"/> }}
     </div>
   </div>
   {%- if can_approve %}

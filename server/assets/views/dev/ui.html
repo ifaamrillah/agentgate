@@ -214,6 +214,11 @@
   <div class="app-lrow" data-wrap>{% for s in git.prs %}{{ <pr_state state={s} number={87} compact={true}/> }}{% endfor %}</div>
   <div class="app-lrow" data-wrap>{% for s in git.ci %}{{ <ci_state state={s}/> }}{% endfor %}{{ <ci_state state={git.ci[3]} label="e2e playwright" href="https://github.com"/> }}</div>
 {% </card> %}
+{% <card title="Knowledge & Markdown (M8)" description="md_view: Markdown tersanitasi (tabel, checklist, Mermaid; HTML mentah dibuang). diff_sbs: diff berdampingan usulan/versi. donut: kesehatan dokumen + legenda." flush={true} attrs="data-catalog-kb"> %}
+  <div class="app-blk">{{ <md_view text={kb.markdown}/> }}</div>
+  {{ <diff_sbs rows={kb.sbs} left_label="Sebelum" right_label="Sesudah (usulan AI)"/> }}
+  <div class="app-blk">{{ <donut donut={kb.donut} label="Kesehatan dokumen 60% terbaru"/> }}</div>
+{% </card> %}
 {% <card title="Code graph (M7)" description="confidence: keyakinan relasi (pasti/dugaan/tidak cocok/eksternal). lang_bar: komposisi bahasa repo. code_view: potongan kode bernomor baris." flush={true} attrs="data-catalog-graph"> %}
   <div class="app-lrow" data-wrap>{% for l in graph.levels %}{{ <confidence level={l}/> }}{% endfor %}</div>
   <div class="app-lrow">{{ <lang_bar parts={graph.langs}/> }}</div>

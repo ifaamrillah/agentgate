@@ -1,9 +1,0 @@
-{#- Diff berdampingan (Sebelum | Sesudah). Variabel: sbs ([SideRow {left_kind, left, right_kind,
-    right}]), left_label, right_label (sudah diterjemahkan), right_icon. Lebar < 640px: hanya kolom
-    sesudah + baris yang dihapus (dibaca seperti unified). -#}
-<div class="app-sbs" data-kb-sbs>
-  <div class="app-sbs-h"><div>{{ icon(name="file-text") }}{{ left_label }}</div><div>{{ icon(name=right_icon) }}{{ right_label }}</div></div>
-  {%- for r in sbs %}
-  <div class="app-sbs-r"><div data-kind="{{ r.left_kind }}">{{ r.left }}</div><div data-kind="{{ r.right_kind }}">{{ r.right }}</div></div>
-  {%- endfor %}
-</div>

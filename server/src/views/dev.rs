@@ -136,6 +136,15 @@ pub fn ui(v: &impl ViewRenderer, query: &[(String, String)]) -> Result<Response>
                 "runner": runner_samples(),
                 "git": git_samples(),
                 "graph": graph_samples(),
+                "kb": {
+                    "markdown": "## Alur refund\n\nSupervisor menyetujui refund **di atas Rp500.000**.\n\n- [x] Cek struk\n- [ ] Catat alasan\n\n| Batas | Tindakan |\n| --- | --- |\n| ≤ Rp500.000 | Kasir |\n| > Rp500.000 | Supervisor |\n\n```mermaid\nflowchart LR\n  Kasir --> Supervisor --> Selesai\n```\n\n<script>alert(1)</script>",
+                    "sbs": [
+                        { "left_kind": "same", "left": "## Alur refund", "right_kind": "same", "right": "## Alur refund" },
+                        { "left_kind": "del", "left": "Kasir menyetujui semua refund.", "right_kind": "add", "right": "Supervisor menyetujui refund di atas Rp500.000." },
+                        { "left_kind": "gap", "left": "", "right_kind": "add", "right": "- Catat alasan refund" },
+                    ],
+                    "donut": super::knowledge::Donut::of(6, 2, 2),
+                },
             }),
         ),
     )
