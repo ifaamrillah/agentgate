@@ -378,10 +378,9 @@ pub(super) async fn read(
                 Ok(NotificationKind::ExportReady | NotificationKind::ExportFailed) => {
                     Some(format!("{}/hist", crate::controllers::exports::base(slug)))
                 }
-                Ok(NotificationKind::JiraFailed) => Some(format!(
-                    "{}/overview",
-                    crate::controllers::jira::base(slug)
-                )),
+                Ok(NotificationKind::JiraFailed) => {
+                    Some(format!("{}/overview", crate::controllers::jira::base(slug)))
+                }
                 _ => None,
             },
         },

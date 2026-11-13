@@ -1378,7 +1378,12 @@ async fn jira_enum_checks_match_enums() {
         run(
             "INSERT INTO jira_sync_logs (workspace_id, connection_id, direction, result, message) \
              VALUES ($1, $2, $3, $4, 'jira-log-issue-created')",
-            vec![ws.id.into(), conn_id.into(), direction.into(), result.into()],
+            vec![
+                ws.id.into(),
+                conn_id.into(),
+                direction.into(),
+                result.into(),
+            ],
         )
     };
     for d in Direction::iter() {
@@ -1406,5 +1411,9 @@ async fn jira_enum_checks_match_enums() {
     for o in CommentOrigin::iter() {
         assert!(check.contains(&format!("'{}'", o.to_value())), "{check}");
     }
-    assert_eq!(check.matches("::text").count(), CommentOrigin::iter().count(), "{check}");
+    assert_eq!(
+        check.matches("::text").count(),
+        CommentOrigin::iter().count(),
+        "{check}"
+    );
 }

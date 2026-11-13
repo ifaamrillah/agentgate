@@ -29,15 +29,28 @@ impl BackgroundWorker<JiraSyncArgs> for JiraSyncWorker {
 
     async fn perform(&self, args: JiraSyncArgs) -> loco_rs::Result<()> {
         let settings = Settings::from_ctx(&self.ctx)?;
-        sync::run(&self.ctx.db, &self.ctx.storage, &settings, args.connection_id, args.kind).await?;
+        sync::run(
+            &self.ctx.db,
+            &self.ctx.storage,
+            &settings,
+            args.connection_id,
+            args.kind,
+        )
+        .await?;
         Ok(())
     }
 }
 
 /// Enqueue satu putaran (best-effort: gagal hanya dicatat; scheduler mengulang).
 pub async fn enqueue(ctx: &AppContext, connection_id: Uuid, kind: RunKind) {
-    if let Err(e) =
-        JiraSyncWorker::perform_later(ctx, JiraSyncArgs { connection_id, kind }).await
+    if let Err(e) = JiraSyncWorker::perform_later(
+        ctx,
+        JiraSyncArgs {
+            connection_id,
+            kind,
+        },
+    )
+    .await
     {
         tracing::warn!(error = %e, %connection_id, "enqueue jira sync failed; scheduler will retry");
     }

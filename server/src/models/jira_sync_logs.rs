@@ -177,7 +177,10 @@ impl Model {
             let pattern = crate::common::text::contains_pattern(q);
             cond = cond.add(
                 Condition::any()
-                    .add(Expr::expr(Func::lower(Expr::col(Column::TicketCode))).like(pattern.clone()))
+                    .add(
+                        Expr::expr(Func::lower(Expr::col(Column::TicketCode)))
+                            .like(pattern.clone()),
+                    )
                     .add(Expr::expr(Func::lower(Expr::col(Column::IssueKey))).like(pattern.clone()))
                     .add(Expr::expr(Func::lower(Expr::cust("args::text"))).like(pattern)),
             );

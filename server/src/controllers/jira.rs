@@ -88,7 +88,12 @@ const PANELS: &[(&str, &str, &str, &str)] = &[
         "arrows-exchange",
         "jira-panel-mode-desc",
     ),
-    ("status", "jira-panel-status", "route", "jira-panel-status-desc"),
+    (
+        "status",
+        "jira-panel-status",
+        "route",
+        "jira-panel-status-desc",
+    ),
     (
         "fields",
         "jira-panel-fields",
@@ -196,9 +201,18 @@ async fn render_page(
         .as_ref()
         .and_then(|c| c.project_id)
         .and_then(|id| project_rows.iter().find(|p| p.id == id).cloned());
-    let statuses = conn.as_ref().map(jira_connections::Model::status_map).unwrap_or_default();
-    let fields = conn.as_ref().map(jira_connections::Model::field_map).unwrap_or_default();
-    let users = conn.as_ref().map(jira_connections::Model::user_map).unwrap_or_default();
+    let statuses = conn
+        .as_ref()
+        .map(jira_connections::Model::status_map)
+        .unwrap_or_default();
+    let fields = conn
+        .as_ref()
+        .map(jira_connections::Model::field_map)
+        .unwrap_or_default();
+    let users = conn
+        .as_ref()
+        .map(jira_connections::Model::user_map)
+        .unwrap_or_default();
     let unmapped: Vec<String> = statuses.unmapped().iter().map(|s| s.name.clone()).collect();
     let log_total = match &conn {
         Some(c) => jira_sync_logs::Model::count_of(db, c.id).await?,
@@ -336,7 +350,11 @@ async fn render_page(
                 None => Vec::new(),
             };
             let mut options = vec![ComboOption::new("", i18n::text("jira-unmapped", &[]))];
-            options.extend(stages.iter().map(|s| ComboOption::new(&s.key, &s.name).sub(&s.key)));
+            options.extend(
+                stages
+                    .iter()
+                    .map(|s| ComboOption::new(&s.key, &s.name).sub(&s.key)),
+            );
             data["stage_options"] = serde_json::to_value(options)?;
             data["statuses"] = serde_json::to_value(
                 statuses
@@ -356,23 +374,31 @@ async fn render_page(
             let mut options: Vec<ComboOption> = FieldTarget::BUILTIN
                 .iter()
                 .map(|t| {
-                    ComboOption::new(t.as_str(), i18n::text(&format!("jira-target-{}", t.as_str()), &[]))
+                    ComboOption::new(
+                        t.as_str(),
+                        i18n::text(&format!("jira-target-{}", t.as_str()), &[]),
+                    )
                 })
                 .collect();
             options.extend(custom.iter().map(|f| {
                 ComboOption::new(FieldTarget::Custom(f.id).as_str(), &f.name)
                     .group(i18n::text("jira-target-custom-group", &[]))
             }));
-            options.push(ComboOption::new("none", i18n::text("jira-target-none", &[])));
+            options.push(ComboOption::new(
+                "none",
+                i18n::text("jira-target-none", &[]),
+            ));
             data["target_options"] = serde_json::to_value(options)?;
             data["fields"] = serde_json::to_value(&fields.fields)?;
             let members = workspace_members::Model::list_in(db, wid).await?;
             let mut people = vec![ComboOption::new("", i18n::text("jira-user-unmapped", &[]))];
             let mut sorted: Vec<_> = members.iter().map(|(_, u, _)| u).collect();
             sorted.sort_by(|a, b| a.name.cmp(&b.name));
-            people.extend(sorted.iter().map(|u| {
-                ComboOption::person(u.id, &u.name, &u.email)
-            }));
+            people.extend(
+                sorted
+                    .iter()
+                    .map(|u| ComboOption::person(u.id, &u.name, &u.email)),
+            );
             data["people_options"] = serde_json::to_value(people)?;
             data["users"] = serde_json::to_value(
                 users
@@ -650,7 +676,8 @@ async fn save_mode(
     Form(form): Form<Vec<(String, String)>>,
 ) -> Result<Response> {
     require(&tenant)?;
-    let result = conn_svc::save_mode(&ctx.db, &acting(&tenant, request_id), &value(&form, "mode")).await;
+    let result =
+        conn_svc::save_mode(&ctx.db, &acting(&tenant, request_id), &value(&form, "mode")).await;
     after_save(&ctx, &v, &tenant, session, "mode", result).await
 }
 
@@ -703,7 +730,11 @@ async fn sync_now(
     let conn = connection(&tenant, &ctx).await?;
     let to = format!("{}/overview", base(&tenant.workspace.slug));
     if !conn.is_ready() {
-        return redirect_with(session, &Flash::error(crate::services::jira::NOT_CONNECTED), &to);
+        return redirect_with(
+            session,
+            &Flash::error(crate::services::jira::NOT_CONNECTED),
+            &to,
+        );
     }
     start_sync(&ctx, &conn, RunKind::Cycle).await;
     redirect_with(session, &Flash::success(jv::FLASH_SYNCING), &to)
@@ -819,9 +850,15 @@ async fn download_log(State(ctx): State<AppContext>, tenant: Tenant) -> Result<R
 pub fn routes() -> Routes {
     Routes::new()
         .add("/w/{slug}/settings/jira", get(index))
-        .add("/w/{slug}/settings/jira/conn", get(conn_page).post(save_conn))
+        .add(
+            "/w/{slug}/settings/jira/conn",
+            get(conn_page).post(save_conn),
+        )
         .add("/w/{slug}/settings/jira/conn/test", post(test_conn))
-        .add("/w/{slug}/settings/jira/mode", get(mode_page).post(save_mode))
+        .add(
+            "/w/{slug}/settings/jira/mode",
+            get(mode_page).post(save_mode),
+        )
         .add(
             "/w/{slug}/settings/jira/status",
             get(status_page).post(save_status),

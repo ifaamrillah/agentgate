@@ -2,11 +2,7 @@
 //! tidak disalin lagi ke arah mana pun: komentar dari Jira tidak didorong balik oleh mirror, dan
 //! komentar yang didorong mirror tidak ditarik lagi oleh sinkron dua arah.
 
-use sea_orm::{
-    ActiveValue::Set,
-    entity::prelude::*,
-    sea_query::OnConflict,
-};
+use sea_orm::{ActiveValue::Set, entity::prelude::*, sea_query::OnConflict};
 
 pub use super::_entities::jira_comment_links::{ActiveModel, Column, Entity, Model};
 use super::workspaces::WorkspaceId;

@@ -348,7 +348,11 @@ async fn seed_jira(ctx: &AppContext) -> Result<()> {
         fields: [
             ("summary", "Summary", FieldTarget::Title),
             ("description", "Description", FieldTarget::Description),
-            ("customfield_10016", "Story Points", FieldTarget::StoryPoints),
+            (
+                "customfield_10016",
+                "Story Points",
+                FieldTarget::StoryPoints,
+            ),
             ("customfield_10020", "Sprint", FieldTarget::Sprint),
             ("fixVersions", "Fix Version/s", FieldTarget::Release),
             ("components", "Components", FieldTarget::Component),
@@ -396,12 +400,26 @@ async fn seed_jira(ctx: &AppContext) -> Result<()> {
         mode: Set(SyncMode::TwoWay.as_str()),
         status_map: Set(jira_connections::ActiveModel::json(&statuses)),
         field_map: Set(jira_connections::ActiveModel::json(&fields)),
-        user_map: Set(jira_connections::ActiveModel::json(&UserMap { users: users_map })),
+        user_map: Set(jira_connections::ActiveModel::json(&UserMap {
+            users: users_map,
+        })),
         catalog: Set(jira_connections::ActiveModel::json(&Catalog {
             projects: vec![
-                CatalogProject { id: "10100".into(), key: "SR".into(), name: "Sevima Retail POS".into() },
-                CatalogProject { id: "10101".into(), key: "GD".into(), name: "Gudang".into() },
-                CatalogProject { id: "10102".into(), key: "WEB".into(), name: "Website".into() },
+                CatalogProject {
+                    id: "10100".into(),
+                    key: "SR".into(),
+                    name: "Sevima Retail POS".into(),
+                },
+                CatalogProject {
+                    id: "10101".into(),
+                    key: "GD".into(),
+                    name: "Gudang".into(),
+                },
+                CatalogProject {
+                    id: "10102".into(),
+                    key: "WEB".into(),
+                    name: "Website".into(),
+                },
             ],
         })),
         owner_id: Set(Some(owner.id)),
@@ -452,29 +470,134 @@ async fn seed_jira(ctx: &AppContext) -> Result<()> {
     // Log sinkron contoh (terbaru dulu, menit ke belakang).
     let pick = |i: usize| linked.get(i % linked.len().max(1));
     let entries: [(i64, Direction, SyncResult, &str, Option<usize>, LogArgs); 12] = [
-        (8, Direction::In, SyncResult::Ok, "jira-log-comment-pulled", Some(0), LogArgs::default()),
-        (10, Direction::Out, SyncResult::Ok, "jira-log-issue-updated", Some(1),
-            LogArgs { detail: "due_on".into(), ..LogArgs::default() }),
-        (19, Direction::In, SyncResult::Gate, "jira-log-gate-rejected", Some(2), LogArgs {
-            status: "Done".into(), reason: "ticket-gates-unmet".into(), back: "QA".into(),
-            ..LogArgs::default() }),
-        (38, Direction::Out, SyncResult::Ok, "jira-log-status-pushed", Some(3),
-            LogArgs { status: "In Design".into(), ..LogArgs::default() }),
-        (52, Direction::In, SyncResult::Fail, "jira-log-attachment-skipped", None, LogArgs {
-            detail: "rekaman-layar.mp4".into(), size: "32".into(), ..LogArgs::default() }),
-        (69, Direction::Out, SyncResult::Ok, "jira-log-issue-updated", Some(4),
-            LogArgs { detail: "story_points".into(), ..LogArgs::default() }),
-        (90, Direction::In, SyncResult::Gate, "jira-log-gate-rejected", Some(5), LogArgs {
-            status: "In Review".into(), reason: "ticket-gates-unmet".into(), back: "In Progress".into(),
-            ..LogArgs::default() }),
-        (108, Direction::In, SyncResult::Ok, "jira-log-ticket-created", Some(6), LogArgs::default()),
-        (123, Direction::Out, SyncResult::Ok, "jira-log-issue-updated", Some(0),
-            LogArgs { detail: "labels".into(), ..LogArgs::default() }),
-        (140, Direction::Out, SyncResult::Ok, "jira-log-issue-updated", Some(2),
-            LogArgs { detail: "priority".into(), ..LogArgs::default() }),
-        (158, Direction::In, SyncResult::Ok, "jira-log-comment-pulled", Some(7), LogArgs::default()),
-        (175, Direction::In, SyncResult::Fail, "jira-log-user-unmapped", None,
-            LogArgs { email: "budi@sevima-retail.id".into(), ..LogArgs::default() }),
+        (
+            8,
+            Direction::In,
+            SyncResult::Ok,
+            "jira-log-comment-pulled",
+            Some(0),
+            LogArgs::default(),
+        ),
+        (
+            10,
+            Direction::Out,
+            SyncResult::Ok,
+            "jira-log-issue-updated",
+            Some(1),
+            LogArgs {
+                detail: "due_on".into(),
+                ..LogArgs::default()
+            },
+        ),
+        (
+            19,
+            Direction::In,
+            SyncResult::Gate,
+            "jira-log-gate-rejected",
+            Some(2),
+            LogArgs {
+                status: "Done".into(),
+                reason: "ticket-gates-unmet".into(),
+                back: "QA".into(),
+                ..LogArgs::default()
+            },
+        ),
+        (
+            38,
+            Direction::Out,
+            SyncResult::Ok,
+            "jira-log-status-pushed",
+            Some(3),
+            LogArgs {
+                status: "In Design".into(),
+                ..LogArgs::default()
+            },
+        ),
+        (
+            52,
+            Direction::In,
+            SyncResult::Fail,
+            "jira-log-attachment-skipped",
+            None,
+            LogArgs {
+                detail: "rekaman-layar.mp4".into(),
+                size: "32".into(),
+                ..LogArgs::default()
+            },
+        ),
+        (
+            69,
+            Direction::Out,
+            SyncResult::Ok,
+            "jira-log-issue-updated",
+            Some(4),
+            LogArgs {
+                detail: "story_points".into(),
+                ..LogArgs::default()
+            },
+        ),
+        (
+            90,
+            Direction::In,
+            SyncResult::Gate,
+            "jira-log-gate-rejected",
+            Some(5),
+            LogArgs {
+                status: "In Review".into(),
+                reason: "ticket-gates-unmet".into(),
+                back: "In Progress".into(),
+                ..LogArgs::default()
+            },
+        ),
+        (
+            108,
+            Direction::In,
+            SyncResult::Ok,
+            "jira-log-ticket-created",
+            Some(6),
+            LogArgs::default(),
+        ),
+        (
+            123,
+            Direction::Out,
+            SyncResult::Ok,
+            "jira-log-issue-updated",
+            Some(0),
+            LogArgs {
+                detail: "labels".into(),
+                ..LogArgs::default()
+            },
+        ),
+        (
+            140,
+            Direction::Out,
+            SyncResult::Ok,
+            "jira-log-issue-updated",
+            Some(2),
+            LogArgs {
+                detail: "priority".into(),
+                ..LogArgs::default()
+            },
+        ),
+        (
+            158,
+            Direction::In,
+            SyncResult::Ok,
+            "jira-log-comment-pulled",
+            Some(7),
+            LogArgs::default(),
+        ),
+        (
+            175,
+            Direction::In,
+            SyncResult::Fail,
+            "jira-log-user-unmapped",
+            None,
+            LogArgs {
+                email: "budi@sevima-retail.id".into(),
+                ..LogArgs::default()
+            },
+        ),
     ];
     for (minutes, direction, result, message, ticket, args) in entries {
         let at: sea_orm::prelude::DateTimeWithTimeZone =
@@ -500,7 +623,10 @@ async fn seed_jira(ctx: &AppContext) -> Result<()> {
         .insert(&ctx.db)
         .await?;
     }
-    tracing::info!(links = linked.len(), "seed jira: koneksi contoh dibuat (dijeda)");
+    tracing::info!(
+        links = linked.len(),
+        "seed jira: koneksi contoh dibuat (dijeda)"
+    );
     Ok(())
 }
 

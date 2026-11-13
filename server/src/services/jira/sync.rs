@@ -24,8 +24,8 @@ use axum::body::Bytes;
 use chrono::{DateTime, Utc};
 use loco_rs::storage::Storage;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue::Set, ColumnTrait, DatabaseConnection, DbErr,
-    EntityTrait, IntoActiveModel, QueryFilter, QueryOrder, TransactionTrait,
+    ActiveModelTrait, ActiveValue::Set, ColumnTrait, DatabaseConnection, DbErr, EntityTrait,
+    IntoActiveModel, QueryFilter, QueryOrder, TransactionTrait,
 };
 use uuid::Uuid;
 
@@ -36,7 +36,8 @@ use super::{
 use crate::{
     common::settings::Settings,
     models::{
-        components, jira_comment_links::{self, CommentOrigin},
+        components,
+        jira_comment_links::{self, CommentOrigin},
         jira_connections::{self, FieldMap, FieldTarget, StatusMap, SyncMode, SyncStats, UserMap},
         jira_links::{self, NewLink, Snapshot},
         jira_sync_logs::{self, Direction, LogArgs, NewLog, SyncResult},
@@ -49,8 +50,10 @@ use crate::{
     services::{
         planning::sprints as sprint_svc,
         tickets::{
-            TicketFailure, attachments, comments, create::{self, TicketForm},
-            stages::{self, Target}, update,
+            TicketFailure, attachments, comments,
+            create::{self, TicketForm},
+            stages::{self, Target},
+            update,
         },
         workspaces::Acting,
     },
@@ -135,7 +138,10 @@ pub async fn run(
     connection_id: Uuid,
     kind: RunKind,
 ) -> Result<Outcome, DbErr> {
-    let Some(conn) = jira_connections::Entity::find_by_id(connection_id).one(db).await? else {
+    let Some(conn) = jira_connections::Entity::find_by_id(connection_id)
+        .one(db)
+        .await?
+    else {
         return Ok(Outcome::Skipped);
     };
     if conn.is_paused() || !conn.is_ready() {
@@ -163,7 +169,10 @@ pub async fn run_with(
     kind: RunKind,
     now: DateTime<Utc>,
 ) -> Result<Outcome, DbErr> {
-    let Some(conn) = jira_connections::Entity::find_by_id(connection_id).one(db).await? else {
+    let Some(conn) = jira_connections::Entity::find_by_id(connection_id)
+        .one(db)
+        .await?
+    else {
         return Ok(Outcome::Skipped);
     };
     if conn.is_paused() || !conn.is_ready() {
@@ -211,7 +220,11 @@ pub async fn run_with(
 
 /// Catat gangguan: `last_error`, log, dan notifikasi `jira_failed` ke pemilik koneksi saat error
 /// baru muncul (bukan setiap putaran yang gagal berturut-turut).
-async fn fail(db: &DatabaseConnection, conn: &jira_connections::Model, code: &str) -> Result<(), DbErr> {
+async fn fail(
+    db: &DatabaseConnection,
+    conn: &jira_connections::Model,
+    code: &str,
+) -> Result<(), DbErr> {
     let Some(ws) = workspaces::Model::find_by_id(db, conn.workspace_id).await? else {
         return Ok(());
     };
@@ -403,9 +416,7 @@ macro_rules! jira {
 // ---------------------------------------------------------------------------------------------
 // Mirror: Agent Gate → Jira
 
-async fn latest_event(
-    cx: &Cx<'_>,
-) -> Result<Option<outbox_events::Model>, DbErr> {
+async fn latest_event(cx: &Cx<'_>) -> Result<Option<outbox_events::Model>, DbErr> {
     outbox_events::Entity::find()
         .filter(outbox_events::Column::WorkspaceId.eq(cx.wid.get()))
         .order_by_desc(outbox_events::Column::CreatedAt)
@@ -526,11 +537,14 @@ async fn push_ticket(
 ) -> ItemResult {
     let snap = issues::of_ticket(t);
     let env = cx.api.env();
-    let out = || NewLog::new(Direction::Out, SyncResult::Fail, "jira-log-push-failed").ticket(t.id, &t.code);
+    let out = || {
+        NewLog::new(Direction::Out, SyncResult::Fail, "jira-log-push-failed").ticket(t.id, &t.code)
+    };
     let link = match jira_links::Model::of_ticket(cx.db, cx.conn.id, t.id).await? {
         Some(link) => link,
         None => {
-            let mut fields = issues::jira_fields(env, &cx.fields, &snap, &mapped_targets(&cx.fields));
+            let mut fields =
+                issues::jira_fields(env, &cx.fields, &snap, &mapped_targets(&cx.fields));
             fields["project"] = serde_json::json!({ "key": cx.conn.jira_project_key });
             fields["issuetype"] =
                 serde_json::json!({ "name": issues::type_name(cx.type_key(t.type_id)) });
@@ -664,13 +678,17 @@ async fn move_jira(
     t: &tickets::Model,
 ) -> Result<Result<bool, JiraError>, DbErr> {
     let fail = || {
-        NewLog::new(Direction::Out, SyncResult::Fail, "jira-log-transition-failed")
-            .ticket(t.id, &t.code)
-            .issue(&link.issue_key)
-            .args(LogArgs {
-                status: cx.statuses.name_of(to),
-                ..LogArgs::default()
-            })
+        NewLog::new(
+            Direction::Out,
+            SyncResult::Fail,
+            "jira-log-transition-failed",
+        )
+        .ticket(t.id, &t.code)
+        .issue(&link.issue_key)
+        .args(LogArgs {
+            status: cx.statuses.name_of(to),
+            ..LogArgs::default()
+        })
     };
     let transitions = match cx.api.transitions(&link.issue_key).await {
         Ok(list) => list,
@@ -688,7 +706,10 @@ async fn move_jira(
 
 /// Dorong komentar Agent Gate yang belum tertaut.
 async fn push_comment(cx: &mut Cx<'_>, c: &ticket_comments::Model) -> ItemResult {
-    if jira_comment_links::Model::of_comment(cx.db, c.id).await?.is_some() {
+    if jira_comment_links::Model::of_comment(cx.db, c.id)
+        .await?
+        .is_some()
+    {
         return Ok(Ok(()));
     }
     let Some(t) = tickets::Model::find_in(cx.db, cx.wid, c.ticket_id).await? else {
@@ -747,7 +768,12 @@ async fn push_comment(cx: &mut Cx<'_>, c: &ticket_comments::Model) -> ItemResult
 async fn each_issue(
     cx: &mut Cx<'_>,
     jql: &str,
-    mut f: impl for<'b> FnMut(&'b mut Cx<'_>, JiraIssue) -> std::pin::Pin<Box<dyn std::future::Future<Output = ItemResult> + Send + 'b>>,
+    mut f: impl for<'b> FnMut(
+        &'b mut Cx<'_>,
+        JiraIssue,
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = ItemResult> + Send + 'b>,
+    >,
 ) -> ItemResult {
     let fields = issues::wanted(&cx.fields);
     let mut next: Option<String> = None;
@@ -795,7 +821,10 @@ async fn pull(cx: &mut Cx<'_>, now: DateTime<Utc>) -> Result<Result<(), JiraErro
             "{} AND updated >= -{m}m ORDER BY updated ASC",
             project_jql(&cx.conn.jira_project_key)
         ),
-        None => format!("{} ORDER BY updated ASC", project_jql(&cx.conn.jira_project_key)),
+        None => format!(
+            "{} ORDER BY updated ASC",
+            project_jql(&cx.conn.jira_project_key)
+        ),
     };
     if let Err(e) = each_issue(cx, &jql, |cx, issue| Box::pin(pull_issue(cx, issue))).await? {
         return Ok(Err(e));
@@ -813,7 +842,10 @@ async fn pull(cx: &mut Cx<'_>, now: DateTime<Utc>) -> Result<Result<(), JiraErro
 
 /// Tarik semua issue project (putaran pertama dua arah).
 async fn pull_all(cx: &mut Cx<'_>) -> Result<Result<(), JiraError>, DbErr> {
-    let jql = format!("{} ORDER BY created ASC", project_jql(&cx.conn.jira_project_key));
+    let jql = format!(
+        "{} ORDER BY created ASC",
+        project_jql(&cx.conn.jira_project_key)
+    );
     each_issue(cx, &jql, |cx, issue| Box::pin(pull_issue(cx, issue))).await
 }
 
@@ -931,8 +963,7 @@ async fn pull_status(
         None => Some("jira-reason-unmapped".to_string()),
         Some(stage) => {
             let acting = cx.acting();
-            match stages::move_to(cx.db, &acting, t.id, Target::Stage(stage.clone()), None).await
-            {
+            match stages::move_to(cx.db, &acting, t.id, Target::Stage(stage.clone()), None).await {
                 Ok(moved) => {
                     cx.log(
                         NewLog::new(Direction::In, SyncResult::Ok, "jira-log-stage-moved")
@@ -963,7 +994,10 @@ async fn pull_status(
     };
     let reason = rejected.unwrap_or_default();
     // Kembalikan status Jira ke status stage sekarang (status/stage selalu ikut Agent Gate).
-    let back = cx.statuses.status_for(&t.stage_key, &link.jira_status_id).cloned();
+    let back = cx
+        .statuses
+        .status_for(&t.stage_key, &link.jira_status_id)
+        .cloned();
     let mut back_name = String::new();
     if let Some(b) = &back {
         match move_jira(cx, &link, &b.id, t).await? {
@@ -975,7 +1009,11 @@ async fn pull_status(
     cx.log(
         NewLog::new(
             Direction::In,
-            if wanted.is_some() { SyncResult::Gate } else { SyncResult::Fail },
+            if wanted.is_some() {
+                SyncResult::Gate
+            } else {
+                SyncResult::Fail
+            },
             if back_name.is_empty() {
                 "jira-log-gate-rejected-kept"
             } else {
@@ -1105,7 +1143,9 @@ async fn apply(
     targets: &[FieldTarget],
 ) -> Result<Result<tickets::Model, String>, DbErr> {
     let parent = match t.parent_id {
-        Some(id) => tickets::Model::find_in(cx.db, cx.wid, id).await?.map(|p| p.code),
+        Some(id) => tickets::Model::find_in(cx.db, cx.wid, id)
+            .await?
+            .map(|p| p.code),
         None => None,
     };
     let mut form = form_of(t, parent.as_deref());
@@ -1134,7 +1174,10 @@ fn first_code(e: &TicketFailure) -> String {
 // Impor sekali
 
 async fn import(cx: &mut Cx<'_>) -> Result<Result<(), JiraError>, DbErr> {
-    let jql = format!("{} ORDER BY created ASC", project_jql(&cx.conn.jira_project_key));
+    let jql = format!(
+        "{} ORDER BY created ASC",
+        project_jql(&cx.conn.jira_project_key)
+    );
     each_issue(cx, &jql, |cx, issue| Box::pin(import_issue(cx, issue))).await
 }
 
@@ -1172,7 +1215,10 @@ async fn create_ticket(
         && let Some(t) = tickets::Model::find_in(cx.db, cx.wid, code.ticket_id).await?
         && t.project_id == cx.project.id
     {
-        if jira_links::Model::of_ticket(cx.db, cx.conn.id, t.id).await?.is_none() {
+        if jira_links::Model::of_ticket(cx.db, cx.conn.id, t.id)
+            .await?
+            .is_none()
+        {
             jira_links::ActiveModel::link(cx.db, new_link(cx, &t, issue)).await?;
         }
         return Ok(None);
@@ -1390,25 +1436,33 @@ async fn import_attachments(cx: &mut Cx<'_>, t: &tickets::Model, issue: &JiraIss
         let mb = |n: u64| format!("{:.0}", n as f64 / 1024.0 / 1024.0);
         if usize::try_from(a.size).unwrap_or(usize::MAX) > super::MAX_ATTACHMENT_BYTES {
             cx.log(
-                NewLog::new(Direction::In, SyncResult::Fail, "jira-log-attachment-skipped")
-                    .ticket(t.id, &t.code)
-                    .issue(&issue.key)
-                    .args(LogArgs {
-                        detail: a.filename.clone(),
-                        size: mb(a.size),
-                        ..LogArgs::default()
-                    }),
+                NewLog::new(
+                    Direction::In,
+                    SyncResult::Fail,
+                    "jira-log-attachment-skipped",
+                )
+                .ticket(t.id, &t.code)
+                .issue(&issue.key)
+                .args(LogArgs {
+                    detail: a.filename.clone(),
+                    size: mb(a.size),
+                    ..LogArgs::default()
+                }),
             )
             .await?;
             continue;
         }
-        let fail = NewLog::new(Direction::In, SyncResult::Fail, "jira-log-attachment-failed")
-            .ticket(t.id, &t.code)
-            .issue(&issue.key)
-            .args(LogArgs {
-                detail: a.filename.clone(),
-                ..LogArgs::default()
-            });
+        let fail = NewLog::new(
+            Direction::In,
+            SyncResult::Fail,
+            "jira-log-attachment-failed",
+        )
+        .ticket(t.id, &t.code)
+        .issue(&issue.key)
+        .args(LogArgs {
+            detail: a.filename.clone(),
+            ..LogArgs::default()
+        });
         let data = match cx.api.download(&a.url, super::MAX_ATTACHMENT_BYTES).await {
             Ok(d) => d,
             Err(e) => {

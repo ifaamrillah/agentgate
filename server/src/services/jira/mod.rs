@@ -113,10 +113,14 @@ pub async fn client_for(
     conn: &jira_connections::Model,
     settings: &Settings,
 ) -> Result<api::HttpJira, &'static str> {
-    let token = conn
-        .token(&key(settings)?)
-        .map_err(|_| TOKEN_INVALID)?;
-    client(settings, &conn.base_url, conn.env(), auth(conn.env(), &conn.email, &token)).await
+    let token = conn.token(&key(settings)?).map_err(|_| TOKEN_INVALID)?;
+    client(
+        settings,
+        &conn.base_url,
+        conn.env(),
+        auth(conn.env(), &conn.email, &token),
+    )
+    .await
 }
 
 /// Error Jira → kode Fluent.

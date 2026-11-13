@@ -20,8 +20,8 @@ use super::{
 use crate::{
     common::{crypto, settings::Settings},
     models::{
-        custom_fields,
-        jira_comment_links, jira_connections::{
+        custom_fields, jira_comment_links,
+        jira_connections::{
             self, Catalog, CatalogProject, FieldMap, FieldTarget, JiraEnv, StatusMap, SyncMode,
             UserMap,
         },
@@ -88,8 +88,8 @@ async fn credentials(
     input: &ConnInput,
 ) -> Result<(JiraEnv, String, String, String), TicketFailure> {
     let env = JiraEnv::parse(&input.env).ok_or_else(|| field("env", super::ENV_INVALID))?;
-    let url = super::webhooks_url(&input.base_url, settings)
-        .map_err(|code| field("base_url", code))?;
+    let url =
+        super::webhooks_url(&input.base_url, settings).map_err(|code| field("base_url", code))?;
     let email = input.email.trim().to_lowercase();
     if env == JiraEnv::Cloud && (email.is_empty() || !email.contains('@')) {
         return Err(field("email", super::EMAIL_REQUIRED));
@@ -137,7 +137,11 @@ async fn probe(api: &dyn JiraApi) -> Result<Tested, TicketFailure> {
         .await
         .map_err(|e| field("token", super::error_code(&e)))?;
     Ok(Tested {
-        account: if me.name.is_empty() { me.account } else { me.name },
+        account: if me.name.is_empty() {
+            me.account
+        } else {
+            me.name
+        },
         projects,
     })
 }
@@ -170,7 +174,13 @@ async fn refresh_maps(
         .map(|(_, u, _)| (u.id, u.email.to_lowercase()))
         .collect();
     let (cs, cf, cu) = current.map_or_else(
-        || (StatusMap::default(), FieldMap::default(), UserMap::default()),
+        || {
+            (
+                StatusMap::default(),
+                FieldMap::default(),
+                UserMap::default(),
+            )
+        },
         |c| (c.status_map(), c.field_map(), c.user_map()),
     );
     Ok(Mapped {
@@ -250,7 +260,10 @@ pub async fn save(
     let existing = jira_connections::Model::of_workspace(&txn, wid).await?;
     let created = existing.is_none();
     let project_id = project.as_ref().map(|p| p.id);
-    let jira_key = jira_project.as_ref().map(|p| p.key.clone()).unwrap_or_default();
+    let jira_key = jira_project
+        .as_ref()
+        .map(|p| p.key.clone())
+        .unwrap_or_default();
     let pair_changed = existing
         .as_ref()
         .is_some_and(|e| e.project_id != project_id || e.jira_project_key != jira_key);
@@ -264,12 +277,19 @@ pub async fn save(
     };
     row.env = Set(env.as_str());
     row.base_url = Set(url.clone());
-    row.email = Set(if env == JiraEnv::Cloud { email } else { String::new() });
+    row.email = Set(if env == JiraEnv::Cloud {
+        email
+    } else {
+        String::new()
+    });
     row.token_encrypted = Set(encrypted);
     row.account_name = Set(tested.account.clone());
     row.catalog = Set(jira_connections::ActiveModel::json(&catalog));
     row.jira_project_key = Set(jira_key.clone());
-    row.jira_project_name = Set(jira_project.as_ref().map(|p| p.name.clone()).unwrap_or_default());
+    row.jira_project_name = Set(jira_project
+        .as_ref()
+        .map(|p| p.name.clone())
+        .unwrap_or_default());
     row.project_id = Set(project_id);
     row.last_error = Set(String::new());
     if let Some(m) = &mapped {
@@ -430,7 +450,8 @@ pub async fn save_fields(
     let mut fm = conn.field_map();
     for entry in &mut fm.fields {
         if let Some((_, raw)) = fields.iter().find(|(id, _)| *id == entry.id) {
-            let target = FieldTarget::parse(raw).ok_or_else(|| field("fields", super::FIELD_INVALID))?;
+            let target =
+                FieldTarget::parse(raw).ok_or_else(|| field("fields", super::FIELD_INVALID))?;
             if let FieldTarget::Custom(id) = target
                 && !custom.iter().any(|c| c.id == id)
             {
@@ -484,10 +505,15 @@ pub async fn set_paused(
     acting: &Acting<'_>,
     paused: bool,
 ) -> Result<jira_connections::Model, TicketFailure> {
-    change(db, acting, serde_json::json!({ "paused": paused }), |_, row| {
-        row.paused_at = Set(paused.then(|| chrono::Utc::now().into()));
-        Ok(())
-    })
+    change(
+        db,
+        acting,
+        serde_json::json!({ "paused": paused }),
+        |_, row| {
+            row.paused_at = Set(paused.then(|| chrono::Utc::now().into()));
+            Ok(())
+        },
+    )
     .await
 }
 
@@ -500,13 +526,18 @@ pub async fn request_full(
     db: &DatabaseConnection,
     acting: &Acting<'_>,
 ) -> Result<jira_connections::Model, TicketFailure> {
-    change(db, acting, serde_json::json!({ "full_sync": true }), |c, row| {
-        if !c.is_ready() {
-            return Err(field("sync", super::NOT_CONNECTED));
-        }
-        row.full_sync_requested_at = Set(Some(chrono::Utc::now().into()));
-        Ok(())
-    })
+    change(
+        db,
+        acting,
+        serde_json::json!({ "full_sync": true }),
+        |c, row| {
+            if !c.is_ready() {
+                return Err(field("sync", super::NOT_CONNECTED));
+            }
+            row.full_sync_requested_at = Set(Some(chrono::Utc::now().into()));
+            Ok(())
+        },
+    )
     .await
 }
 

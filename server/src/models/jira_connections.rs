@@ -436,9 +436,7 @@ impl Model {
     /// Error database.
     pub async fn due_for_sync<C: ConnectionTrait>(db: &C) -> Result<Vec<Self>, DbErr> {
         Entity::find()
-            .filter(
-                Column::Mode.is_in([SyncMode::Mirror.as_str(), SyncMode::TwoWay.as_str()]),
-            )
+            .filter(Column::Mode.is_in([SyncMode::Mirror.as_str(), SyncMode::TwoWay.as_str()]))
             .filter(Column::PausedAt.is_null())
             .filter(Column::ProjectId.is_not_null())
             .filter(Column::JiraProjectKey.ne(""))

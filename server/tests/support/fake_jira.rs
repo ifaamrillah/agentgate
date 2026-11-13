@@ -198,10 +198,7 @@ impl FakeJira {
         let url = format!("{}/secure/attachment/{id}/{filename}", s.base);
         s.files.insert(id.clone(), data.to_vec());
         let i = s.find(key).expect("issue");
-        let list = i
-            .fields
-            .entry("attachment")
-            .or_insert_with(|| json!([]));
+        let list = i.fields.entry("attachment").or_insert_with(|| json!([]));
         list.as_array_mut().unwrap().push(json!({
             "id": id, "filename": filename, "size": size, "mimeType": "text/plain",
             "content": url,
@@ -227,10 +224,7 @@ impl FakeJira {
 }
 
 fn authorized(headers: &HeaderMap) -> bool {
-    let Some(raw) = headers
-        .get("authorization")
-        .and_then(|v| v.to_str().ok())
-    else {
+    let Some(raw) = headers.get("authorization").and_then(|v| v.to_str().ok()) else {
         return false;
     };
     if let Some(t) = raw.strip_prefix("Bearer ") {
@@ -248,7 +242,11 @@ fn authorized(headers: &HeaderMap) -> bool {
 }
 
 fn unauthorized() -> Response {
-    (StatusCode::UNAUTHORIZED, Json(json!({ "errorMessages": ["unauthorized"] }))).into_response()
+    (
+        StatusCode::UNAUTHORIZED,
+        Json(json!({ "errorMessages": ["unauthorized"] })),
+    )
+        .into_response()
 }
 
 async fn record(state: &Shared, method: &Method, uri: &Uri, body: &Bytes) {
@@ -337,7 +335,12 @@ async fn handle(
         },
         ("POST", ["issue"]) => {
             let fields = input["fields"].as_object().cloned().unwrap_or_default();
-            if fields.get("summary").and_then(Value::as_str).unwrap_or_default().is_empty() {
+            if fields
+                .get("summary")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .is_empty()
+            {
                 return (
                     StatusCode::BAD_REQUEST,
                     Json(json!({ "errors": { "summary": "You must specify a summary." } })),
@@ -350,7 +353,11 @@ async fn handle(
             let id = format!("{}", 20_000 + n);
             let mut fields = fields;
             fields.remove("project");
-            let status = s.statuses.first().map(|st| st.0.clone()).unwrap_or_default();
+            let status = s
+                .statuses
+                .first()
+                .map(|st| st.0.clone())
+                .unwrap_or_default();
             s.issues.push(Issue {
                 id: id.clone(),
                 key: key.clone(),
@@ -378,7 +385,9 @@ async fn handle(
             let list: Vec<Value> = s
                 .statuses
                 .iter()
-                .map(|st| json!({ "id": format!("t{}", st.0), "name": st.1, "to": s.status(&st.0) }))
+                .map(
+                    |st| json!({ "id": format!("t{}", st.0), "name": st.1, "to": s.status(&st.0) }),
+                )
                 .collect();
             Json(json!({ "transitions": list })).into_response()
         }
@@ -428,7 +437,11 @@ async fn handle(
         _ => {
             drop(s);
             let _ = query;
-            (StatusCode::NOT_FOUND, Json(json!({ "errorMessages": ["no route"] }))).into_response()
+            (
+                StatusCode::NOT_FOUND,
+                Json(json!({ "errorMessages": ["no route"] })),
+            )
+                .into_response()
         }
     }
 }
@@ -469,7 +482,11 @@ pub async fn start() -> FakeJira {
         requests: Vec::new(),
         statuses: vec![
             (TODO.into(), "To Do".into(), "new".into()),
-            (IN_PROGRESS.into(), "In Progress".into(), "indeterminate".into()),
+            (
+                IN_PROGRESS.into(),
+                "In Progress".into(),
+                "indeterminate".into(),
+            ),
             (DONE.into(), "Done".into(), "done".into()),
         ],
         users: vec![(ACCOUNT.into(), "Olivia Owner".into(), EMAIL.into())],
@@ -480,10 +497,7 @@ pub async fn start() -> FakeJira {
         base: String::new(),
     }));
     let app = Router::new()
-        .route(
-            "/rest/api/{*rest}",
-            get(handle).post(handle).put(handle),
-        )
+        .route("/rest/api/{*rest}", get(handle).post(handle).put(handle))
         .route("/secure/attachment/{id}/{name}", get(attachment))
         .with_state(state.clone());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();

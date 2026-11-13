@@ -51,7 +51,10 @@ async fn pages_need_manage_integrations() {
             let res = request.get(path).add_cookie(member_cookie.clone()).await;
             assert_eq!(res.status_code(), 404, "{path}");
         }
-        for path in ["/w/acme/settings/jira/sync", "/w/acme/settings/jira/disconnect"] {
+        for path in [
+            "/w/acme/settings/jira/sync",
+            "/w/acme/settings/jira/disconnect",
+        ] {
             let res = request.post(path).add_cookie(member_cookie.clone()).await;
             assert_eq!(res.status_code(), 404, "{path}");
         }
@@ -138,7 +141,13 @@ async fn connection_is_tested_saved_and_audited() {
         assert!(html.contains("Olivia Owner"), "{html}");
         assert!(html.contains("2 project"), "{html}");
         assert!(html.contains("SR · Sevima Retail POS"));
-        assert_eq!(jira_connections::Entity::find().count(&ctx.db).await.unwrap(), 0);
+        assert_eq!(
+            jira_connections::Entity::find()
+                .count(&ctx.db)
+                .await
+                .unwrap(),
+            0
+        );
 
         // Token salah → 422 dengan pesan di field token.
         let res = request
@@ -154,7 +163,13 @@ async fn connection_is_tested_saved_and_audited() {
             .form(&form("salah"))
             .await;
         assert_eq!(res.status_code(), 422);
-        assert_eq!(jira_connections::Entity::find().count(&ctx.db).await.unwrap(), 0);
+        assert_eq!(
+            jira_connections::Entity::find()
+                .count(&ctx.db)
+                .await
+                .unwrap(),
+            0
+        );
 
         // URL bukan https (selain loopback) ditolak.
         let res = request
@@ -182,9 +197,15 @@ async fn connection_is_tested_saved_and_audited() {
         let statuses = conn.status_map();
         let stage = |id: &str| statuses.stage_of(id).map(str::to_string);
         assert_eq!(stage(fake_jira::TODO).as_deref(), Some("todo"));
-        assert_eq!(stage(fake_jira::IN_PROGRESS).as_deref(), Some("in_progress"));
+        assert_eq!(
+            stage(fake_jira::IN_PROGRESS).as_deref(),
+            Some("in_progress")
+        );
         assert_eq!(stage(fake_jira::DONE).as_deref(), Some("done"));
-        assert_eq!(conn.user_map().user_of(fake_jira::ACCOUNT), Some(f.owner.id));
+        assert_eq!(
+            conn.user_map().user_of(fake_jira::ACCOUNT),
+            Some(f.owner.id)
+        );
         let audit = newest_audit_events(&ctx.db, f.workspace.workspace_id(), 1)
             .await
             .unwrap();
@@ -262,7 +283,10 @@ async fn mappings_are_saved_and_rejected_values_are_422() {
         let res = request
             .post("/w/acme/settings/jira/fields")
             .add_cookie(f.cookie.clone())
-            .form(&[("f:labels", "none"), ("f:customfield_10016", "story_points")])
+            .form(&[
+                ("f:labels", "none"),
+                ("f:customfield_10016", "story_points"),
+            ])
             .await;
         assert_eq!(res.status_code(), 303, "{}", res.text());
         let fm = connection(&ctx).await.field_map();
@@ -354,8 +378,16 @@ async fn pause_resume_log_and_disconnect() {
             .lines()
             .map(|l| serde_json::from_str(l).unwrap())
             .collect();
-        assert!(lines.iter().any(|l| l["message"] == "jira-log-issue-created"));
-        assert!(lines.iter().all(|l| l["direction"] == "out" || l["direction"] == "in"));
+        assert!(
+            lines
+                .iter()
+                .any(|l| l["message"] == "jira-log-issue-created")
+        );
+        assert!(
+            lines
+                .iter()
+                .all(|l| l["direction"] == "out" || l["direction"] == "in")
+        );
 
         // Putus: koneksi, tautan, dan log hilang; tiket tetap ada.
         let res = request
@@ -363,9 +395,18 @@ async fn pause_resume_log_and_disconnect() {
             .add_cookie(f.cookie.clone())
             .await;
         assert_eq!(res.status_code(), 303);
-        assert_eq!(jira_connections::Entity::find().count(&ctx.db).await.unwrap(), 0);
+        assert_eq!(
+            jira_connections::Entity::find()
+                .count(&ctx.db)
+                .await
+                .unwrap(),
+            0
+        );
         assert_eq!(jira_links::Entity::find().count(&ctx.db).await.unwrap(), 0);
-        assert_eq!(jira_sync_logs::Entity::find().count(&ctx.db).await.unwrap(), 0);
+        assert_eq!(
+            jira_sync_logs::Entity::find().count(&ctx.db).await.unwrap(),
+            0
+        );
         let res = request
             .get("/w/acme/t/KSR-2")
             .add_cookie(f.cookie.clone())

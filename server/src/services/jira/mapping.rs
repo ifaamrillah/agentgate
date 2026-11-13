@@ -134,11 +134,7 @@ fn custom_target(name: &str) -> Option<FieldTarget> {
 
 /// Peta field dari katalog field Jira dan field custom Agent Gate.
 #[must_use]
-pub fn fields(
-    jira: &[JiraField],
-    custom: &[custom_fields::Model],
-    current: &FieldMap,
-) -> FieldMap {
+pub fn fields(jira: &[JiraField], custom: &[custom_fields::Model], current: &FieldMap) -> FieldMap {
     let mut out: Vec<FieldEntry> = Vec::new();
     let keep = |id: &str, suggested: FieldTarget| {
         current

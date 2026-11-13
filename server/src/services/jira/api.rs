@@ -338,7 +338,11 @@ fn error_message(status: u16, body: &str) -> String {
     let mut parts: Vec<String> = v
         .get("errorMessages")
         .and_then(Value::as_array)
-        .map(|a| a.iter().filter_map(|m| m.as_str().map(str::to_string)).collect())
+        .map(|a| {
+            a.iter()
+                .filter_map(|m| m.as_str().map(str::to_string))
+                .collect()
+        })
         .unwrap_or_default();
     if let Some(map) = v.get("errors").and_then(Value::as_object) {
         parts.extend(
@@ -410,7 +414,10 @@ impl JiraApi for HttpJira {
 
     async fn statuses(&self, project_key: &str) -> Result<Vec<JiraStatus>, JiraError> {
         let v = self
-            .get(&format!("/project/{}/statuses", escape_path(project_key)), &[])
+            .get(
+                &format!("/project/{}/statuses", escape_path(project_key)),
+                &[],
+            )
             .await?;
         let mut out: Vec<JiraStatus> = Vec::new();
         for t in v.as_array().map_or(&[][..], Vec::as_slice) {
@@ -495,7 +502,8 @@ impl JiraApi for HttpJira {
             }
             JiraEnv::DataCenter => {
                 let start: u64 = next.and_then(|n| n.parse().ok()).unwrap_or(0);
-                let body = json!({ "jql": jql, "fields": fields, "maxResults": 50, "startAt": start });
+                let body =
+                    json!({ "jql": jql, "fields": fields, "maxResults": 50, "startAt": start });
                 let v = self.post("/search", &body).await?.unwrap_or(Value::Null);
                 let issues = issues_of(&v);
                 let total = v.get("total").and_then(Value::as_u64).unwrap_or(0);
@@ -625,7 +633,8 @@ impl JiraApi for HttpJira {
     }
 
     async fn download(&self, url: &str, max_bytes: usize) -> Result<Vec<u8>, JiraError> {
-        let parsed = reqwest::Url::parse(url).map_err(|_| JiraError::Rejected("url_invalid".into()))?;
+        let parsed =
+            reqwest::Url::parse(url).map_err(|_| JiraError::Rejected("url_invalid".into()))?;
         if parsed.host_str() != Some(self.host.as_str()) {
             return Err(JiraError::Rejected("url_forbidden".into()));
         }
@@ -666,7 +675,10 @@ mod tests {
     #[test]
     fn error_message_joins_jira_errors() {
         assert_eq!(
-            error_message(400, r#"{"errorMessages":["x"],"errors":{"summary":"wajib"}}"#),
+            error_message(
+                400,
+                r#"{"errorMessages":["x"],"errors":{"summary":"wajib"}}"#
+            ),
             "x; summary: wajib"
         );
         assert_eq!(error_message(403, "<html>"), "status 403");

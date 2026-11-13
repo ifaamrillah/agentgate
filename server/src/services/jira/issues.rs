@@ -106,11 +106,7 @@ pub fn of_issue(issue: &JiraIssue, fm: &FieldMap) -> Snapshot {
             }),
     };
     if s.title.is_empty() {
-        s.title = issue
-            .fields
-            .get("summary")
-            .map(str_at)
-            .unwrap_or_default();
+        s.title = issue.fields.get("summary").map(str_at).unwrap_or_default();
     }
     s.normalized()
 }
@@ -441,14 +437,32 @@ mod tests {
     fn merge_takes_changed_side_and_last_writer_on_conflict() {
         let base = snap("A", Some(1));
         // Jira ubah judul, AG ubah poin: keduanya diambil.
-        let m = merge(&fm(), &base, &snap("A", Some(3)), &snap("B", Some(1)), false);
+        let m = merge(
+            &fm(),
+            &base,
+            &snap("A", Some(3)),
+            &snap("B", Some(1)),
+            false,
+        );
         assert_eq!(m.merged, snap("B", Some(3)));
         assert_eq!(m.to_ticket, vec![FieldTarget::Title]);
         assert_eq!(m.to_jira, vec![FieldTarget::StoryPoints]);
         // Keduanya ubah judul: yang terakhir menang.
-        let jira_newer = merge(&fm(), &base, &snap("AG", Some(1)), &snap("J", Some(1)), true);
+        let jira_newer = merge(
+            &fm(),
+            &base,
+            &snap("AG", Some(1)),
+            &snap("J", Some(1)),
+            true,
+        );
         assert_eq!(jira_newer.merged.title, "J");
-        let ag_newer = merge(&fm(), &base, &snap("AG", Some(1)), &snap("J", Some(1)), false);
+        let ag_newer = merge(
+            &fm(),
+            &base,
+            &snap("AG", Some(1)),
+            &snap("J", Some(1)),
+            false,
+        );
         assert_eq!(ag_newer.merged.title, "AG");
         assert_eq!(ag_newer.to_jira, vec![FieldTarget::Title]);
     }

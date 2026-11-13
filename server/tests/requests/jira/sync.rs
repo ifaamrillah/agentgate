@@ -13,8 +13,8 @@ use agentgate_server::{
 };
 use loco_rs::{TestServer, app::AppContext, auth::cookies::Cookie, testing::prelude::*};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, IntoActiveModel,
-    PaginatorTrait, QueryFilter,
+    ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, IntoActiveModel, PaginatorTrait,
+    QueryFilter,
 };
 use serde_json::json;
 
@@ -58,7 +58,10 @@ async fn comments_of(ctx: &AppContext, f: &Fixture, code: &str) -> Vec<String> {
 }
 
 fn summary(fake: &FakeJira, key: &str) -> String {
-    fake.issue(key).fields["summary"].as_str().unwrap().to_string()
+    fake.issue(key).fields["summary"]
+        .as_str()
+        .unwrap()
+        .to_string()
 }
 
 #[tokio::test]
@@ -111,15 +114,27 @@ async fn mirror_pushes_tickets_fields_stages_and_comments() {
 
         // Stage berubah → transisi Jira ke status yang dipetakan.
         post(&request, &f.cookie, "/w/acme/t/KSR-1/stage/complete", &[]).await;
-        assert_eq!(ticket(&ctx, &f.workspace, "KSR-1").await.stage_key, "in_progress");
+        assert_eq!(
+            ticket(&ctx, &f.workspace, "KSR-1").await.stage_key,
+            "in_progress"
+        );
         assert_eq!(fake.issue(&l1.issue_key).status_id, IN_PROGRESS);
 
         // Komentar baru → komentar Jira (sekali).
-        post(&request, &f.cookie, "/w/acme/t/KSR-1/comments", &[("body", "Sudah dicek")]).await;
+        post(
+            &request,
+            &f.cookie,
+            "/w/acme/t/KSR-1/comments",
+            &[("body", "Sudah dicek")],
+        )
+        .await;
         let comments = fake.issue(&l1.issue_key).comments;
         assert_eq!(comments.len(), 1);
         let text = fake_jira::text_of(&comments[0]["body"]);
-        assert!(text.contains("Sudah dicek") && text.contains("Olivia Owner"), "{text}");
+        assert!(
+            text.contains("Sudah dicek") && text.contains("Olivia Owner"),
+            "{text}"
+        );
 
         // Putaran berikutnya tanpa perubahan tidak menulis apa pun.
         fake.clear_requests();
@@ -129,7 +144,10 @@ async fn mirror_pushes_tickets_fields_stages_and_comments() {
         // Mirror: perubahan di Jira tidak ditarik …
         fake.edit(&l1.issue_key, json!({ "summary": "Diubah di Jira" }), 0);
         sync_now(&request, &f.cookie).await;
-        assert_eq!(ticket(&ctx, &f.workspace, "KSR-1").await.title, "Checkout QRIS dinamis");
+        assert_eq!(
+            ticket(&ctx, &f.workspace, "KSR-1").await.title,
+            "Checkout QRIS dinamis"
+        );
         // … dan Sinkron ulang semua menimpanya.
         post(&request, &f.cookie, "/w/acme/settings/jira/resync", &[]).await;
         assert_eq!(summary(&fake, &l1.issue_key), "Checkout QRIS dinamis");
@@ -198,7 +216,10 @@ async fn two_way_rejects_gate_violations_and_reverts_jira() {
             .add_cookie(f.cookie.clone())
             .await;
         let html = res.text();
-        assert!(html.contains("ditolak") && html.contains("Dikembalikan ke To Do"), "{html}");
+        assert!(
+            html.contains("ditolak") && html.contains("Dikembalikan ke To Do"),
+            "{html}"
+        );
 
         // In Progress → PRD diizinkan (todo tanpa gate) lewat gate service.
         fake.set_status(&link.issue_key, IN_PROGRESS);
@@ -211,7 +232,11 @@ async fn two_way_rejects_gate_violations_and_reverts_jira() {
         assert_eq!(ticket(&ctx, &f.workspace, "KSR-1").await.stage_key, "prd");
         assert_eq!(fake.issue(&link.issue_key).status_id, IN_PROGRESS);
         assert_eq!(
-            logs(&ctx).await.iter().filter(|l| l.result == "gate").count(),
+            logs(&ctx)
+                .await
+                .iter()
+                .filter(|l| l.result == "gate")
+                .count(),
             2
         );
 
@@ -246,10 +271,23 @@ async fn two_way_last_writer_wins_without_loops() {
 
         // Bentrok pada field yang sama, Jira lebih baru → Jira menang.
         post(&request, &f.cookie, "/w/acme/settings/jira/pause", &[]).await;
-        post(&request, &f.cookie, "/w/acme/t/KSR-1", &[("title", "Judul Agent Gate")]).await;
-        fake.edit(&link.issue_key, json!({ "summary": "Judul Jira terbaru" }), 60);
+        post(
+            &request,
+            &f.cookie,
+            "/w/acme/t/KSR-1",
+            &[("title", "Judul Agent Gate")],
+        )
+        .await;
+        fake.edit(
+            &link.issue_key,
+            json!({ "summary": "Judul Jira terbaru" }),
+            60,
+        );
         post(&request, &f.cookie, "/w/acme/settings/jira/resume", &[]).await;
-        assert_eq!(ticket(&ctx, &f.workspace, "KSR-1").await.title, "Judul Jira terbaru");
+        assert_eq!(
+            ticket(&ctx, &f.workspace, "KSR-1").await.title,
+            "Judul Jira terbaru"
+        );
         assert_eq!(summary(&fake, &link.issue_key), "Judul Jira terbaru");
 
         // Bentrok, Agent Gate lebih baru → Agent Gate menang dan Jira diperbarui; field berbeda
@@ -261,7 +299,13 @@ async fn two_way_last_writer_wins_without_loops() {
             -30,
         );
         // Jeda ≥ 1 detik tidak diperlukan: updated tiket = sekarang > updated Jira (−30 dtk).
-        post(&request, &f.cookie, "/w/acme/t/KSR-1", &[("title", "Judul AG terbaru")]).await;
+        post(
+            &request,
+            &f.cookie,
+            "/w/acme/t/KSR-1",
+            &[("title", "Judul AG terbaru")],
+        )
+        .await;
         post(&request, &f.cookie, "/w/acme/settings/jira/resume", &[]).await;
         let t = ticket(&ctx, &f.workspace, "KSR-1").await;
         assert_eq!(t.title, "Judul AG terbaru");
@@ -303,18 +347,32 @@ async fn two_way_pulls_new_issues_and_comments() {
         assert_eq!(new_link.issue_key, key);
         let c1 = comments_of(&ctx, &f, "KSR-1").await;
         assert_eq!(c1.len(), 1);
-        assert!(c1[0].contains("(Jira)") && c1[0].contains("Tolong cek ulang"), "{c1:?}");
+        assert!(
+            c1[0].contains("(Jira)") && c1[0].contains("Tolong cek ulang"),
+            "{c1:?}"
+        );
         assert_eq!(comments_of(&ctx, &f, &new.code).await.len(), 1);
         // Komentar dari Jira tidak dikirim balik; tidak ada issue ganda.
         assert_eq!(fake.issue(&link.issue_key).comments.len(), 1);
         assert_eq!(fake.issues().len(), 2);
 
         // Komentar Agent Gate → Jira (sekali); tarikan berikutnya tidak menyalinnya balik.
-        post(&request, &f.cookie, "/w/acme/t/KSR-1/comments", &[("body", "Sudah")]).await;
+        post(
+            &request,
+            &f.cookie,
+            "/w/acme/t/KSR-1/comments",
+            &[("body", "Sudah")],
+        )
+        .await;
         assert_eq!(fake.issue(&link.issue_key).comments.len(), 2);
         sync_now(&request, &f.cookie).await;
         assert_eq!(comments_of(&ctx, &f, "KSR-1").await.len(), 2);
-        assert!(messages(&ctx).await.iter().any(|m| m == "jira-log-ticket-created"));
+        assert!(
+            messages(&ctx)
+                .await
+                .iter()
+                .any(|m| m == "jira-log-ticket-created")
+        );
     })
     .await;
 }
@@ -502,10 +560,16 @@ async fn data_center_uses_rest_v2_and_bearer_token() {
         assert_eq!(res.status_code(), 303, "{}", res.text());
         set_mode(&request, &f.cookie, "mirror").await;
         let reqs = fake.requests();
-        assert!(reqs.iter().all(|r| !r.path.contains("/rest/api/3/")), "{reqs:?}");
+        assert!(
+            reqs.iter().all(|r| !r.path.contains("/rest/api/3/")),
+            "{reqs:?}"
+        );
         let link = link_of(&ctx, &f, "KSR-1").await;
         // Data Center: deskripsi teks wiki, bukan ADF.
-        assert_eq!(fake.issue(&link.issue_key).fields["description"], "Pakai QRIS");
+        assert_eq!(
+            fake.issue(&link.issue_key).fields["description"],
+            "Pakai QRIS"
+        );
     })
     .await;
 }
