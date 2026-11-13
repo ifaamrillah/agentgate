@@ -343,10 +343,12 @@ async fn cycle(
         || conn.outbox_cursor().is_none()
         || conn.full_sync_requested_at.is_some();
     // Dua arah: tarik dulu supaya perubahan Jira yang lebih baru tidak ditimpa rekonsiliasi.
-    if mode == SyncMode::TwoWay && kind != RunKind::Push && !full {
-        if let Err(e) = pull(&mut cx, now).await? {
-            return Ok(Err(e));
-        }
+    if mode == SyncMode::TwoWay
+        && kind != RunKind::Push
+        && !full
+        && let Err(e) = pull(&mut cx, now).await?
+    {
+        return Ok(Err(e));
     }
     let pushed = if full {
         reconcile(&mut cx).await?

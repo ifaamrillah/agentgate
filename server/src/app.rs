@@ -469,7 +469,15 @@ async fn seed_jira(ctx: &AppContext) -> Result<()> {
 
     // Log sinkron contoh (terbaru dulu, menit ke belakang).
     let pick = |i: usize| linked.get(i % linked.len().max(1));
-    let entries: [(i64, Direction, SyncResult, &str, Option<usize>, LogArgs); 12] = [
+    type SeedLog = (
+        i64,
+        Direction,
+        SyncResult,
+        &'static str,
+        Option<usize>,
+        LogArgs,
+    );
+    let entries: [SeedLog; 12] = [
         (
             8,
             Direction::In,
