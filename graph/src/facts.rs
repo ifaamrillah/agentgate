@@ -198,7 +198,15 @@ pub struct FileFacts {
     /// Jumlah node ERROR tree-sitter (0 = parsing bersih).
     #[serde(default)]
     pub errors: u32,
+    /// Versi extractor yang menghasilkan fakta ini ([`EXTRACTOR_VERSION`]). Fakta versi lama
+    /// di-parse ulang saat index berikutnya walau isi file tidak berubah.
+    #[serde(default)]
+    pub version: u32,
 }
+
+/// Naikkan saat hasil `extract` berubah (resolusi import/call baru) supaya index inkremental
+/// mem-parse ulang file lama. 2 = `use` Rust per daun + call di argumen makro.
+pub const EXTRACTOR_VERSION: u32 = 2;
 
 impl FileFacts {
     #[must_use]
@@ -216,6 +224,7 @@ impl FileFacts {
             package: None,
             todos: 0,
             errors: 0,
+            version: EXTRACTOR_VERSION,
         }
     }
 }

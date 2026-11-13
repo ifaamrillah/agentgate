@@ -8,7 +8,7 @@ use agentgate_server::{
     services::graph::query::{self, Direction, SearchFilter},
 };
 use loco_rs::{TestServer, app::AppContext, testing::prelude::*};
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+use sea_orm::{ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter};
 use serde_json::{Value, json};
 
 use super::{
@@ -144,6 +144,26 @@ async fn cli_indexes_incrementally_and_never_stores_secrets() {
         assert_eq!(diff["need"], json!(["src/stock.ts"]));
         assert_eq!(diff["removed"], 1);
         assert_eq!(diff["unchanged"], 1);
+
+        // Fakta dari extractor versi lama di-parse ulang walau isi file sama.
+        ctx.db
+            .execute_unprepared(
+                "UPDATE graph_files SET facts = facts - 'version' WHERE path = 'src/api.ts'",
+            )
+            .await
+            .unwrap();
+        let (_, diff) = post_json(
+            &request,
+            &token,
+            None,
+            "/api/cli/graph/manifest",
+            &json!({ "project": "KSR", "repo": "kasir-api", "files": [
+                { "path": "src/api.ts", "sha": sha(API_TS) },
+                { "path": "src/stock.ts", "sha": sha(&changed) },
+            ]}),
+        )
+        .await;
+        assert_eq!(diff["need"], json!(["src/api.ts", "src/stock.ts"]));
 
         // Path berbahaya ditolak, repo tak dikenal 404.
         let (status, err) = post_json(

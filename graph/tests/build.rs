@@ -246,3 +246,37 @@ fn routes_handlers_and_impact_from_diff() {
     let callees = adj.trace(&[node(&g, "create")], Direction::Callees, 2, 10);
     assert_eq!(callees.len(), 1);
 }
+
+#[test]
+fn rust_crate_paths_and_macros() {
+    let (_, g) = repo(&[
+        (
+            "server/src/services/graph/mod.rs",
+            "pub mod ingest;\npub fn ensure_row() -> i32 { 1 }\n",
+        ),
+        (
+            "server/src/services/graph/ingest.rs",
+            "use super::ensure_row;\npub fn start() -> i32 { ensure_row() }\n",
+        ),
+        (
+            "server/src/controllers/graph.rs",
+            "use crate::services::graph::{self as svc, ingest};\nuse crate::views::graph as gv;\npub fn reindex() { svc::ensure_row(); crate::services::graph::ensure_row(); ingest::start(); }\npub fn page() { json!({ \"n\": gv::num(1) }); }\n",
+        ),
+        (
+            "server/src/views/graph.rs",
+            "pub fn num(n: i64) -> i64 { n }\n",
+        ),
+        ("graph/src/query.rs", "fn other() -> i64 { num(2) }\n"),
+    ]);
+    let calls = edges(&g, EdgeKind::Calls);
+    for want in [
+        "start -!> ensure_row",
+        "reindex -!> ensure_row",
+        "reindex -!> start",
+        "page -!> num",
+    ] {
+        assert!(calls.contains(&want.to_string()), "{want}: {calls:?}");
+    }
+    // Crate lain (tanpa import) tidak menebak fungsi `num` milik server.
+    assert!(!calls.iter().any(|c| c.starts_with("other")), "{calls:?}");
+}

@@ -19,9 +19,5 @@
 (call_expression function: (generic_function function: (field_expression value: (_) @receiver field: (field_identifier) @callee))) @call
 (struct_expression name: (type_identifier) @callee) @call
 
-(use_declaration argument: (scoped_identifier path: (_) @source name: (identifier) @imported)) @import
-(use_declaration argument: (scoped_use_list path: (_) @source list: (use_list (identifier) @imported))) @import
-(use_declaration argument: (scoped_use_list path: (_) @source list: (use_list (scoped_identifier name: (identifier) @imported)))) @import
-(use_declaration argument: (use_as_clause path: (scoped_identifier path: (_) @source name: (identifier) @imported) alias: (identifier) @alias)) @import
 
 (impl_item trait: [(type_identifier) @base (scoped_type_identifier name: (type_identifier) @base) (generic_type type: (type_identifier) @base)] type: [(type_identifier) @owner (generic_type type: (type_identifier) @owner)]) @inherit

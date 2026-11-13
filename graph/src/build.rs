@@ -241,6 +241,18 @@ pub fn module_of(path: &str) -> String {
     }
 }
 
+/// Akar crate Rust (`server/src/x.rs` → `server`), untuk membatasi inferensi ke crate sendiri.
+fn crate_root(path: &str) -> &str {
+    path.rfind("/src/")
+        .map(|i| &path[..i])
+        .or_else(|| {
+            ["/tests/", "/examples/", "/benches/"]
+                .iter()
+                .find_map(|m| path.find(m).map(|i| &path[..i]))
+        })
+        .unwrap_or("")
+}
+
 fn dir_of(path: &str) -> &str {
     path.rsplit_once('/').map_or("", |(d, _)| d)
 }
@@ -429,6 +441,11 @@ impl<'a> Index<'a> {
             }
             return Vec::new();
         }
+        if lang == Lang::Rust
+            && let Some(hit) = self.rust_path(from, source, false)
+        {
+            return hit;
+        }
         let segs = import_segments(source);
         if segs.is_empty() {
             return Vec::new();
@@ -471,6 +488,56 @@ impl<'a> Index<'a> {
             }
         }
         Vec::new()
+    }
+
+    /// Modul Rust relatif crate: `crate::a::b`, `super::x`, `self::y`. `exact` = hanya modul persis
+    /// (tanpa membuang segmen akhir yang mungkin nama item). `None` = bukan path relatif crate.
+    fn rust_path(&self, from: usize, source: &str, exact: bool) -> Option<Vec<u32>> {
+        let segs: Vec<&str> = source.split("::").map(str::trim).collect();
+        let first = *segs.first()?;
+        if !matches!(first, "crate" | "super" | "self") {
+            return None;
+        }
+        let path = &self.files[from].path;
+        let mut base: Vec<&str> = if first == "crate" {
+            let root = path
+                .rfind("/src/")
+                .map(|i| &path[..i + 4])
+                .or_else(|| path.starts_with("src/").then_some("src"))
+                .unwrap_or_else(|| dir_of(path));
+            root.split('/').filter(|x| !x.is_empty()).collect()
+        } else {
+            Vec::new()
+        };
+        let own = module_path(path);
+        let mut rest = segs.as_slice();
+        if first != "crate" {
+            base = own.split('/').filter(|x| !x.is_empty()).collect();
+            while let Some((&head, tail)) = rest.split_first() {
+                match head {
+                    "super" => {
+                        base.pop();
+                    }
+                    "self" => {}
+                    _ => break,
+                }
+                rest = tail;
+            }
+        } else {
+            rest = &rest[1..];
+        }
+        let mut take = rest.len();
+        loop {
+            let mut key = base.clone();
+            key.extend(&rest[..take]);
+            if let Some(f) = self.paths.get(&key.join("/")) {
+                return Some(f.clone());
+            }
+            if exact || take == 0 {
+                return Some(Vec::new());
+            }
+            take -= 1;
+        }
     }
 
     fn type_of_scope(&self, scope: u32) -> Option<&'a str> {
@@ -537,8 +604,36 @@ pub fn build(files: &[SourceFile], scip: Option<&ScipData>) -> RepoGraph {
                     }
                 }
             }
+            // Rust `use a::b` / `use a::b as c`: `b` bisa modul (`b::f()`), bukan item.
+            if f.facts.lang == Lang::Rust {
+                for n in &imp.names {
+                    let sub = format!("{}::{n}", imp.source);
+                    let as_mod = ix
+                        .rust_path(fi, &sub, true)
+                        .filter(|t| !t.is_empty())
+                        .or_else(|| {
+                            let t = ix.resolve_import(fi, &sub, Lang::Rust);
+                            (!t.is_empty()
+                                && t.iter().all(|&x| {
+                                    module_path(&files[x as usize].path).ends_with(n.as_str())
+                                }))
+                            .then_some(t)
+                        });
+                    if let Some(t) = as_mod {
+                        let key = if imp.alias.is_empty() {
+                            n.as_str()
+                        } else {
+                            imp.alias.as_str()
+                        };
+                        al.entry(key).or_default().extend(t);
+                    }
+                }
+            }
             let targets = ix.resolve_import(fi, &imp.source, f.facts.lang);
-            let alias = if imp.alias.is_empty() {
+            let alias = if f.facts.lang == Lang::Rust && !imp.names.is_empty() {
+                // Alias Rust milik nama yang diimpor, bukan sumbernya.
+                ""
+            } else if imp.alias.is_empty() {
                 imp.source
                     .rsplit(['/', '.', ':', '\\'])
                     .find(|s| !s.is_empty())
@@ -634,6 +729,16 @@ pub fn build(files: &[SourceFile], scip: Option<&ScipData>) -> RepoGraph {
                         );
                     }
                 }
+                if !ids.is_empty() {
+                    found = Some((ids, Confidence::Certain));
+                }
+            }
+            if found.is_none()
+                && lang == Lang::Rust
+                && (recv.contains("::") || matches!(recv, "crate" | "super"))
+                && let Some(t) = ix.rust_path(fi, recv, true)
+            {
+                let ids = in_files(&t);
                 if !ids.is_empty() {
                     found = Some((ids, Confidence::Certain));
                 }
@@ -735,6 +840,9 @@ pub fn build(files: &[SourceFile], scip: Option<&ScipData>) -> RepoGraph {
                             && (recv.is_empty() && (!is_method || implicit_this(lang))
                                 || !recv.is_empty() && is_method)
                             && compatible(lang, files[node.file as usize].facts.lang)
+                            && (lang != Lang::Rust
+                                || crate_root(&files[node.file as usize].path)
+                                    == crate_root(&f.path))
                     })
                     .collect();
                 let pick = if pool.len() == 1 {

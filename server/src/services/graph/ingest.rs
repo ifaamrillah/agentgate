@@ -83,11 +83,12 @@ async fn diff_manifest(
     files: &[(String, String)],
     full: bool,
 ) -> Result<ManifestResponse, DbErr> {
-    let existing: HashMap<String, (Uuid, String)> = graph_files::Model::manifest(db, wid, repo)
-        .await?
-        .into_iter()
-        .map(|(id, path, sha)| (path, (id, sha)))
-        .collect();
+    let existing: HashMap<String, (Uuid, String, bool)> =
+        graph_files::Model::manifest(db, wid, repo)
+            .await?
+            .into_iter()
+            .map(|(id, path, sha, current)| (path, (id, sha, current)))
+            .collect();
     let wanted: HashMap<&str, &str> = files
         .iter()
         .map(|(p, s)| (p.as_str(), s.as_str()))
@@ -95,7 +96,7 @@ async fn diff_manifest(
     let gone: Vec<Uuid> = existing
         .iter()
         .filter(|(p, _)| !wanted.contains_key(p.as_str()))
-        .map(|(_, (id, _))| *id)
+        .map(|(_, (id, ..))| *id)
         .collect();
     for chunk in gone.chunks(1000) {
         graph_files::Entity::delete_many()
@@ -108,7 +109,7 @@ async fn diff_manifest(
     let mut unchanged = 0u32;
     for (path, sha) in files {
         match existing.get(path) {
-            Some((_, old)) if !full && old == sha => unchanged += 1,
+            Some((_, old, true)) if !full && old == sha => unchanged += 1,
             _ => need.push(path.clone()),
         }
     }

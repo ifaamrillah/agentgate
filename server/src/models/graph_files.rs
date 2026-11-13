@@ -18,7 +18,8 @@ impl Model {
         serde_json::from_value(self.facts.clone()).ok()
     }
 
-    /// `(path, sha)` semua file repo (manifest inkremental).
+    /// `(id, path, sha, terkini)` semua file repo (manifest inkremental); `terkini` = fakta dari
+    /// versi extractor sekarang atau file dilewati.
     ///
     /// # Errors
     ///
@@ -27,12 +28,19 @@ impl Model {
         db: &C,
         wid: WorkspaceId,
         repo: Uuid,
-    ) -> Result<Vec<(Uuid, String, String)>, DbErr> {
+    ) -> Result<Vec<(Uuid, String, String, bool)>, DbErr> {
         Entity::find()
             .select_only()
             .column(Column::Id)
             .column(Column::Path)
             .column(Column::Sha)
+            .column_as(
+                sea_orm::sea_query::Expr::cust(format!(
+                    "(skip_reason <> '' OR COALESCE((facts->>'version')::int, 0) >= {})",
+                    agentgate_graph::EXTRACTOR_VERSION
+                )),
+                "current",
+            )
             .filter(Column::WorkspaceId.eq(wid.get()))
             .filter(Column::RepoId.eq(repo))
             .into_tuple()

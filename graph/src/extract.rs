@@ -208,6 +208,9 @@ impl<'s, 't> Extractor<'s, 't> {
                 inherits.push((node, owner, base));
             }
         }
+        if self.lang == Lang::Rust {
+            self.rust_macro_calls(root, &mut calls);
+        }
         self.finish_defs();
         for (node, name, receiver) in calls {
             let scope = self.scope_of(node);
@@ -219,6 +222,9 @@ impl<'s, 't> Extractor<'s, 't> {
             });
         }
         self.facts.imports = imports.into_iter().map(|(_, f)| f).collect();
+        if self.lang == Lang::Rust {
+            self.rust_uses(root);
+        }
         for (node, owner, base) in inherits {
             let symbol = self
                 .defs
@@ -243,6 +249,180 @@ impl<'s, 't> Extractor<'s, 't> {
             });
         }
         self.scan(root);
+    }
+
+    /// Call di dalam argumen makro (`json!({ "x": f(a) })`, `assert_eq!(g(1), 2)`): tree-sitter
+    /// tidak mem-parse isi makro, jadi pola `ident (…)` dicari di token tree.
+    fn rust_macro_calls(&self, root: Node<'t>, calls: &mut Vec<(Node<'t>, String, String)>) {
+        let mut stack = vec![root];
+        while let Some(n) = stack.pop() {
+            if n.kind() == "token_tree" {
+                let mut c = n.walk();
+                let toks: Vec<Node<'t>> = n.children(&mut c).collect();
+                for (i, t) in toks.iter().enumerate() {
+                    if t.kind() == "token_tree" {
+                        stack.push(*t);
+                    }
+                    if t.kind() != "identifier"
+                        || !toks.get(i + 1).is_some_and(|x| {
+                            x.kind() == "token_tree" && self.text(*x).starts_with('(')
+                        })
+                    {
+                        continue;
+                    }
+                    let prev = i.checked_sub(1).map(|p| toks[p]);
+                    let receiver = match prev.map(|p| self.text(p)) {
+                        Some("::") => {
+                            let mut parts = Vec::new();
+                            let mut j = i;
+                            while j >= 2 && self.text(toks[j - 1]) == "::" {
+                                let k = toks[j - 2].kind();
+                                if !matches!(k, "identifier" | "self" | "super" | "crate") {
+                                    break;
+                                }
+                                parts.push(self.text(toks[j - 2]));
+                                j -= 2;
+                            }
+                            parts.reverse();
+                            parts.join("::")
+                        }
+                        Some(".") => i
+                            .checked_sub(2)
+                            .map(|p| self.text(toks[p]).to_string())
+                            .filter(|r| r.chars().all(|ch| ch.is_alphanumeric() || ch == '_'))
+                            .unwrap_or_else(|| "_".into()),
+                        Some("fn" | "!") => continue,
+                        _ => String::new(),
+                    };
+                    calls.push((*t, self.text(*t).to_string(), receiver));
+                }
+                continue;
+            }
+            let mut c = n.walk();
+            for ch in n.named_children(&mut c) {
+                stack.push(ch);
+            }
+        }
+    }
+
+    /// `use` Rust diratakan per daun: `use a::{b::{self as c, d}, e as f, *}` menjadi
+    /// (`a::b`, alias `c`), (`a::b`, `d`), (`a`, `e` alias `f`), (`a`, glob).
+    fn rust_uses(&mut self, root: Node<'t>) {
+        let mut stack = vec![root];
+        while let Some(n) = stack.pop() {
+            if n.kind() == "use_declaration" {
+                if let Some(arg) = n.child_by_field_name("argument") {
+                    let at = line(n);
+                    self.rust_use_tree(arg, &[], at);
+                }
+                continue;
+            }
+            let mut c = n.walk();
+            let kids: Vec<Node<'t>> = n.named_children(&mut c).collect();
+            stack.extend(kids.into_iter().rev());
+        }
+    }
+
+    fn rust_use_tree(&mut self, n: Node<'t>, prefix: &[String], at: u32) {
+        let path_of = |x: Option<Node<'t>>| -> Vec<String> {
+            x.map(|p| {
+                self.text(p)
+                    .split("::")
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect()
+            })
+            .unwrap_or_default()
+        };
+        match n.kind() {
+            "scoped_use_list" => {
+                let mut next = prefix.to_vec();
+                next.extend(path_of(n.child_by_field_name("path")));
+                if let Some(list) = n.child_by_field_name("list") {
+                    self.rust_use_tree(list, &next, at);
+                }
+            }
+            "use_list" => {
+                let mut c = n.walk();
+                let kids: Vec<Node<'t>> = n.named_children(&mut c).collect();
+                for ch in kids {
+                    self.rust_use_tree(ch, prefix, at);
+                }
+            }
+            "use_as_clause" => {
+                let mut full = prefix.to_vec();
+                full.extend(path_of(n.child_by_field_name("path")));
+                let alias = n
+                    .child_by_field_name("alias")
+                    .map(|a| self.text(a).to_string())
+                    .unwrap_or_default();
+                self.rust_use_leaf(full, alias, at);
+            }
+            "use_wildcard" => {
+                let mut full = prefix.to_vec();
+                let t = self.text(n).trim_end_matches('*').trim_end_matches("::");
+                full.extend(t.split("::").filter(|s| !s.is_empty()).map(str::to_string));
+                if !full.is_empty() {
+                    self.facts.imports.push(ImportFact {
+                        source: full.join("::"),
+                        names: Vec::new(),
+                        alias: String::new(),
+                        line: at,
+                    });
+                }
+            }
+            "scoped_identifier" | "identifier" | "self" | "crate" | "super" => {
+                let mut full = prefix.to_vec();
+                full.extend(path_of(Some(n)));
+                self.rust_use_leaf(full, String::new(), at);
+            }
+            _ => {}
+        }
+    }
+
+    fn rust_use_leaf(&mut self, mut full: Vec<String>, alias: String, at: u32) {
+        let Some(last) = full.pop() else { return };
+        if last == "self" {
+            // `a::b::{self}`: modul `a::b` dengan nama `b` (atau alias).
+            let Some(name) = full.last().cloned() else {
+                return;
+            };
+            let alias = if alias.is_empty() { name } else { alias };
+            self.facts.imports.push(ImportFact {
+                source: full.join("::"),
+                names: Vec::new(),
+                alias,
+                line: at,
+            });
+            return;
+        }
+        if full.is_empty() {
+            // `use serde;` / `use foo as bar;`: crate eksternal atau modul akar.
+            self.facts.imports.push(ImportFact {
+                source: last,
+                names: Vec::new(),
+                alias,
+                line: at,
+            });
+            return;
+        }
+        let source = full.join("::");
+        if alias.is_empty()
+            && let Some(prev) = self.facts.imports.last_mut()
+            && prev.line == at
+            && prev.source == source
+            && prev.alias.is_empty()
+            && !prev.names.is_empty()
+        {
+            prev.names.push(last);
+            return;
+        }
+        self.facts.imports.push(ImportFact {
+            source,
+            names: vec![last],
+            alias,
+            line: at,
+        });
     }
 
     fn add_def(&mut self, node: Node<'t>, name: String, kind: SymbolKind, owner: String) {

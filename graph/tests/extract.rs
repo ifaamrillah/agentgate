@@ -324,6 +324,7 @@ fn rust() {
         "src/promo.rs",
         r#"use crate::money::{round, cap};
 use std::fmt;
+use crate::{views::{self as v, graph as gv}, services::*};
 
 /// Layanan promo.
 pub struct Promo { total: i64 }
@@ -346,6 +347,8 @@ mod tests {
 }
 
 pub fn routes() -> Router { Router::new().route("/v1/promo", get(list)).route("/v1/promo/{id}", post(save)) }
+
+fn render() { json!({ "n": gv::num(1), "x": total.fmt(2), "y": format!("{}", helper()) }); }
 "#,
     );
     assert_eq!(
@@ -358,7 +361,8 @@ pub fn routes() -> Router { Router::new().route("/v1/promo", get(list)).route("/
             "helper:function",
             "tests:module",
             "works:function@tests",
-            "routes:function"
+            "routes:function",
+            "render:function"
         ]
     );
     assert_eq!(f.symbols[0].doc, "Layanan promo.");
@@ -375,6 +379,9 @@ pub fn routes() -> Router { Router::new().route("/v1/promo", get(list)).route("/
             "apply>round",
             "new>Self",
             "new>helper",
+            "render>gv.num",
+            "render>helper",
+            "render>total.fmt",
             "routes>Router.new",
             "routes>Router::new().route",
             "routes>Router::new().route(\"/v1/promo\", get(list)).route",
@@ -383,7 +390,16 @@ pub fn routes() -> Router { Router::new().route("/v1/promo", get(list)).route("/
             "works>super.helper"
         ]
     );
-    assert_eq!(imports(&f), vec!["crate::money[round,cap]", "std[fmt]"]);
+    assert_eq!(
+        imports(&f),
+        vec![
+            "crate::money[round,cap]",
+            "std[fmt]",
+            "crate::views[] as v",
+            "crate::views[graph] as gv",
+            "crate::services[]"
+        ]
+    );
     assert_eq!(inherits(&f), vec!["Promo<Display"]);
     assert_eq!(
         f.routes

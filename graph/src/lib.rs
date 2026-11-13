@@ -16,5 +16,5 @@ pub mod scip;
 pub mod walk;
 
 pub use extract::extract;
-pub use facts::{FileFacts, SymbolKind};
+pub use facts::{EXTRACTOR_VERSION, FileFacts, SymbolKind};
 pub use lang::Lang;
