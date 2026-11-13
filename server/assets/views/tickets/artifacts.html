@@ -1,6 +1,6 @@
 {#- Tiket → Artifact (prototype "Artifact"): kiri daftar artifact per stage (status versi
     terbaru), kanan pratinjau versi terpilih dengan tab versi, Buka editor, Bandingkan, dan
-    Approve/Reject bila stage-nya menunggu review Anda. Markdown tampil apa adanya (pre-wrap).
+    Approve/Reject bila stage-nya menunggu review Anda. Isi Markdown dirender md_view (tersanitasi).
     Variabel: lihat controllers::tickets::artifact::render_index. -#}
 {% extends "tickets/_layout.html" %}
 {% block page_attrs %}data-ticket-artifacts{% endblock page_attrs %}

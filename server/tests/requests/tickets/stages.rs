@@ -746,3 +746,62 @@ async fn artifact_routes_respect_ticket_access() {
     })
     .await;
 }
+
+#[tokio::test]
+async fn artifact_body_renders_sanitized_markdown() {
+    request::<App, _, _>(|request, ctx| async move {
+        let f = fixture(&request, &ctx).await;
+        use_workflow(&request, &ctx, &f, FLOW_YAML).await;
+        create_ticket(&request, &f.cookie, &[("title", "XSS artifact")]).await;
+        post(&request, &f.cookie, "/w/acme/t/KSR-1/stage/complete", &[]).await;
+        let res = post(
+            &request,
+            &f.cookie,
+            "/w/acme/t/KSR-1/artifacts",
+            &[("name", "")],
+        )
+        .await;
+        assert_eq!(res.status_code(), 303, "{}", res.text());
+        let t = ticket(&ctx, &f.workspace, "KSR-1").await;
+        let artifact = ticket_artifacts::Model::find_named(
+            &ctx.db,
+            f.workspace.workspace_id(),
+            t.id,
+            "prd.md",
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        let evil = "# PRD\n\n- [x] **tebal**\n\n<script>alert(1)</script>\n\n\
+                    <img src=x onerror=alert(2)>\n\n[klik](javascript:alert(3))";
+        let res = post(
+            &request,
+            &f.cookie,
+            &format!("/w/acme/t/KSR-1/artifacts/{}", artifact.id),
+            &[("body", evil)],
+        )
+        .await;
+        assert_eq!(res.status_code(), 303, "{}", res.text());
+        for path in [
+            "/w/acme/t/KSR-1/artifacts".to_string(),
+            format!("/w/acme/t/KSR-1/artifacts/{}/edit", artifact.id),
+        ] {
+            let html = request
+                .get(&path)
+                .add_cookie(f.cookie.clone())
+                .await
+                .text();
+            assert!(!html.contains("<script>alert(1)"), "{path}: script lolos");
+            assert!(!html.contains("<img src=x"), "{path}: img onerror lolos");
+            assert!(!html.contains("href=\"javascript"), "{path}: javascript lolos");
+        }
+        let html = request
+            .get("/w/acme/t/KSR-1/artifacts")
+            .add_cookie(f.cookie.clone())
+            .await
+            .text();
+        assert_css_exists(&html, "[data-artifact-body].app-md h1");
+        assert_css_exists(&html, "[data-artifact-body] strong");
+    })
+    .await;
+}
