@@ -204,6 +204,15 @@ pub enum AuditAction {
     /// Secret webhook dibuat ulang (secret tidak pernah dicatat).
     #[sea_orm(string_value = "webhook.secret_rotated")]
     WebhookSecretRotated,
+    /// Ekspor data workspace diminta (M11).
+    #[sea_orm(string_value = "export.requested")]
+    ExportRequested,
+    /// Berkas ekspor diunduh.
+    #[sea_orm(string_value = "export.downloaded")]
+    ExportDownloaded,
+    /// Impor CSV tiket selesai.
+    #[sea_orm(string_value = "import.completed")]
+    ImportCompleted,
 }
 
 /// Kelompok aksi untuk filter halaman audit: awalan `<subjek>` dari aksi, kecuali jabatan
@@ -330,6 +339,9 @@ impl AuditAction {
             | Self::WebhookUpdated
             | Self::WebhookDeleted
             | Self::WebhookSecretRotated => AuditGroup::Workspace,
+            Self::ExportRequested | Self::ExportDownloaded | Self::ImportCompleted => {
+                AuditGroup::Workspace
+            }
         }
     }
 }
@@ -441,6 +453,10 @@ pub enum AuditSubject {
     ApiToken,
     #[sea_orm(string_value = "webhook")]
     Webhook,
+    #[sea_orm(string_value = "data_export")]
+    DataExport,
+    #[sea_orm(string_value = "ticket_import")]
+    TicketImport,
 }
 
 /// Data satu baris audit untuk [`ActiveModel::append`].

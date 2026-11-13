@@ -69,6 +69,12 @@ pub enum NotificationKind {
     /// Webhook keluar dinonaktifkan otomatis setelah gagal beruntun (M11; tanpa tiket/project).
     #[sea_orm(string_value = "webhook_disabled")]
     WebhookDisabled,
+    /// Ekspor data workspace siap diunduh (M11, penerima link).
+    #[sea_orm(string_value = "export_ready")]
+    ExportReady,
+    /// Ekspor data workspace gagal.
+    #[sea_orm(string_value = "export_failed")]
+    ExportFailed,
 }
 
 impl TenantEntity for Entity {

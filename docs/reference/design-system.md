@@ -75,6 +75,8 @@ Semua di `server/assets/views/components/`; parameter lengkap ada di komentar ke
 | `combo` (+ `combo_options`) | pilihan orang/tim yang bisa dicari, satu atau banyak (`multiple`), opsi dari server (`src` → GET `?q=` membalas `combo_options`) | `views::ui::ComboOption` |
 | `color_picker` | 18 warna palet + warna lain (hex) | `palette()` |
 | `uploader` | unggah logo/gambar (klik atau tarik-lepas, langsung submit), hapus | — |
+| `file_drop` | area pilih/seret berkas di dalam form multipart (input file transparan, tanpa JS); bukan untuk gambar berpratinjau | — |
+| `wizard_steps` | langkah wizard bernomor (selesai bercentang + tautan, sekarang beraksen, berikutnya redup); bukan `stage_stepper` | `views::ui::WizardStep::sequence` |
 | `md_editor` | editor markdown Milkdown Crepe dengan Batal/Simpan; tanpa JS jadi textarea | — |
 | `card` | kartu seksi: judul, deskripsi, `count`, tautan "lihat semua", tombol aksi kecil di kepala (`action_label` + `action_dialog`, mis. "Token baru"), varian danger/accent, `flush` untuk daftar/tabel; `form="<action>"` membungkus kartu dengan `savebar` | — |
 | `copy_value` | nilai mono yang bisa disalin (token, secret, URL) + tombol Salin (`static/js/copy.js`, tersembunyi tanpa JS/clipboard); `compact` = tombol ikon di baris daftar | — |
@@ -328,3 +330,19 @@ katalog `/_dev/ui` di commit yang sama.
 - Switch aktif webhook = `app-switch` di form kecil dengan `data-submit-on-change`; menu ⋯
   (`action_menu`) berisi Riwayat pengiriman, Kirim event uji, Rotasi secret, Hapus (dialog
   konfirmasi `tone=danger`).
+## M11 (Ekspor data, Impor CSV)
+
+- **Komponen baru** `wizard_steps` dan `file_drop` (`components/wizard.css`), katalog `/_dev/ui`
+  kartu "wizard_steps, file_drop (M11)".
+- **Ekspor data** (`/w/{slug}/settings/export/{new,hist}`, Owner/Admin): `subpage` + `card`
+  form (centang isi di `app-box` > `app-lrow` dengan `app-check`, cakupan di `setting_row` +
+  `combo` multi/tunggal), `savebar` lewat `card form=`. Riwayat = `datatable`; baris
+  antre/berjalan memakai progres `app-bar` + persen + fase, lainnya `badge`. Selama ada ekspor
+  antre/berjalan, `#export-live` dipolling `hx-get … every 3s` (tanpa `hx-on`). Unduh = form POST
+  `hx-boost="false"` (diaudit; GET tidak menulis). Aksi sel kanan `app-cell-acts`.
+- **Impor CSV** (`/w/{slug}/settings/import-csv`, ManageIntegrations): satu `card flush` berisi
+  `wizard_steps` (`app-wsteps-wrap`), isi langkah, dan footer `app-wfoot` (Batal/Kembali kiri,
+  Lanjut kanan). Langkah: unggah (`file_drop`), pemetaan (tabel `table` biasa dengan `combo` per
+  kolom), pratinjau (`stats` + `datatable` dengan filter Hasil; catatan baris `app-notes` >
+  `app-note[data-tone=success|warn|danger]`), hasil (`app-tile[data-size=lg]` + `app-bar`,
+  dipolling `#import-live` saat berjalan). Setiap langkah form POST + PRG tanpa JS.

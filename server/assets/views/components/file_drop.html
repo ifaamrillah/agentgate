@@ -1,0 +1,22 @@
+{#- Area pilih/seret berkas di dalam form (M11, unggah CSV): seluruh area adalah <input type=file>
+    transparan di atas label, jadi klik dan seret berkas bekerja tanpa JS. Form pembungkus
+    wajib `enctype="multipart/form-data"`. Untuk gambar dengan pratinjau pakai `uploader`.
+    Parameter:
+      id, name: string          id dan nama field berkas
+      title: string             teks utama (sudah diterjemahkan)
+      hint: string              keterangan tipe/ukuran (sudah diterjemahkan) (default "")
+      accept: string            atribut accept (default "")
+      icon: nama ikon Tabler    (default "cloud-upload")
+      error: string             kode error = kunci Fluent (default "")
+      required: bool            (default false) -#}
+{% component file_drop(id: string, name: string, title: string, hint: string = "", accept: string = "", icon: string = "cloud-upload", error: string = "", required: bool = false) %}
+<div class="app-field"{% if error %} data-invalid="true"{% endif %}>
+  <div class="app-drop" data-file-drop>
+    <input type="file" id="{{ id }}" name="{{ name }}"{% if accept %} accept="{{ accept }}"{% endif %}{% if required %} required{% endif %}{% if error %} aria-invalid="true" aria-describedby="{{ id }}-error"{% elif hint %} aria-describedby="{{ id }}-hint"{% endif %}>
+    {{ icon(name=icon) }}
+    <label for="{{ id }}"><b>{{ title }}</b></label>
+    {%- if hint %}<span id="{{ id }}-hint">{{ hint }}</span>{% endif %}
+  </div>
+  {%- if error %}<p class="app-field-error" role="alert" id="{{ id }}-error">{{ t(key=error, lang="id") }}</p>{% endif %}
+</div>
+{%- endcomponent file_drop %}

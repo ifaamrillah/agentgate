@@ -368,9 +368,17 @@ pub(super) async fn read(
                         _ => format!("{home}/proposals"),
                     }
                 }),
-            // Webhook dinonaktifkan (M11): ke daftar webhook.
-            None => matches!(notification.kind(), Ok(NotificationKind::WebhookDisabled))
-                .then(|| format!("{}/hooks", crate::controllers::integrations::base(slug))),
+            // Webhook dinonaktifkan → daftar webhook; ekspor data → Riwayat ekspor (M11).
+            None => match notification.kind() {
+                Ok(NotificationKind::WebhookDisabled) => Some(format!(
+                    "{}/hooks",
+                    crate::controllers::integrations::base(slug)
+                )),
+                Ok(NotificationKind::ExportReady | NotificationKind::ExportFailed) => {
+                    Some(format!("{}/hist", crate::controllers::exports::base(slug)))
+                }
+                _ => None,
+            },
         },
     };
     format::redirect(&target.unwrap_or_else(|| format!("/w/{slug}/inbox")))

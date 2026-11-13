@@ -10,6 +10,7 @@ pub mod connect;
 #[cfg(debug_assertions)]
 pub mod dev;
 pub mod device;
+pub mod exports;
 pub mod extractors;
 pub mod flash;
 pub mod git;
@@ -17,6 +18,7 @@ pub mod graph;
 pub mod graph_api;
 pub mod graph_viewer;
 pub mod integrations;
+pub mod imports;
 pub mod invitations;
 pub mod knowledge;
 pub mod knowledge_api;
@@ -57,6 +59,8 @@ pub fn routes(ctx: &AppContext) -> AppRoutes {
         .add_route(graph::routes())
         .add_route(knowledge::routes())
         .add_route(knowledge_settings::routes())
+        .add_route(exports::routes())
+        .add_route(imports::routes())
         .add_route(tokens::routes())
         .add_route(office::routes())
         .add_route(preview::routes())

@@ -1247,3 +1247,78 @@ async fn api_webhook_enum_checks_match_enums() {
     assert!(!delivery("ping".into(), "sent".into()).await);
     assert!(!delivery("job.started".into(), "pending".into()).await);
 }
+
+/// Kolom enum tabel M11 (ekspor data, impor CSV).
+#[tokio::test]
+async fn transfer_enum_checks_match_enums() {
+    use agentgate_server::models::{
+        data_exports::{ExportPart, ExportStatus},
+        ticket_imports::{Delimiter, ImportStatus},
+    };
+
+    use crate::support::{a_user, a_workspace};
+
+    let boot = boot_test::<App>().await.unwrap();
+    let ctx = &boot.app_context;
+    let db = &ctx.db;
+    let owner = a_user().create(ctx).await;
+    let workspace = a_workspace(&owner).create(ctx).await;
+    let row = |sql: &str| {
+        let stmt = Statement::from_sql_and_values(DbBackend::Postgres, sql, [workspace.id.into()]);
+        async move {
+            db.query_one_raw(stmt)
+                .await
+                .unwrap()
+                .unwrap()
+                .try_get::<Uuid>("", "id")
+                .unwrap()
+        }
+    };
+    let export = row(
+        "INSERT INTO data_exports (workspace_id, parts) VALUES ($1, ARRAY['tickets']) RETURNING id",
+    )
+    .await;
+    let import = row(
+        "INSERT INTO ticket_imports (workspace_id, filename, size_bytes, delimiter) \
+         VALUES ($1, 'a.csv', 10, 'comma') RETURNING id",
+    )
+    .await;
+    for v in ExportStatus::iter() {
+        assert!(
+            update_ok(db, "data_exports", "status", export, &v.to_value()).await,
+            "{v:?}"
+        );
+    }
+    assert!(!update_ok(db, "data_exports", "status", export, "done").await);
+    let parts_ok = |value: String| {
+        let stmt = Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "UPDATE data_exports SET parts = ARRAY[$1] WHERE id = $2",
+            [Value::from(value), Value::from(export)],
+        );
+        async move { db.execute_raw(stmt).await.is_ok() }
+    };
+    for v in ExportPart::iter() {
+        assert!(parts_ok(v.to_value()).await, "{v:?}");
+        assert!(
+            update_ok(db, "data_exports", "phase", export, &v.to_value()).await,
+            "{v:?}"
+        );
+    }
+    assert!(!parts_ok("secrets".into()).await);
+    assert!(!update_ok(db, "data_exports", "phase", export, "secrets").await);
+    for v in ImportStatus::iter() {
+        assert!(
+            update_ok(db, "ticket_imports", "status", import, &v.to_value()).await,
+            "{v:?}"
+        );
+    }
+    assert!(!update_ok(db, "ticket_imports", "status", import, "ready").await);
+    for v in Delimiter::iter() {
+        assert!(
+            update_ok(db, "ticket_imports", "delimiter", import, &v.to_value()).await,
+            "{v:?}"
+        );
+    }
+    assert!(!update_ok(db, "ticket_imports", "delimiter", import, "tab").await);
+}
