@@ -267,6 +267,15 @@ fn rust_crate_paths_and_macros() {
             "pub fn num(n: i64) -> i64 { n }\n",
         ),
         ("graph/src/query.rs", "fn other() -> i64 { num(2) }\n"),
+        ("graph/src/protocol.rs", "pub fn words() -> i64 { 1 }\n"),
+        (
+            "core/src/runner/protocol.rs",
+            "pub fn words() -> i64 { 2 }\n",
+        ),
+        (
+            "server/src/services/graph/query.rs",
+            "use agentgate_graph::{protocol::words};\npub fn terms() -> i64 { words() }\npub fn full() -> i64 { agentgate_graph::protocol::words() }\n",
+        ),
     ]);
     let calls = edges(&g, EdgeKind::Calls);
     for want in [
@@ -274,9 +283,16 @@ fn rust_crate_paths_and_macros() {
         "reindex -!> ensure_row",
         "reindex -!> start",
         "page -!> num",
+        "terms -!> words",
+        "full -!> words",
     ] {
         assert!(calls.contains(&want.to_string()), "{want}: {calls:?}");
     }
     // Crate lain (tanpa import) tidak menebak fungsi `num` milik server.
     assert!(!calls.iter().any(|c| c.starts_with("other")), "{calls:?}");
+    assert_eq!(
+        calls.iter().filter(|c| c.starts_with("terms")).count(),
+        1,
+        "hanya words milik agentgate_graph: {calls:?}"
+    );
 }

@@ -478,6 +478,23 @@ impl<'a> Index<'a> {
                 .filter(|(p, _)| *p == &suffix || p.ends_with(&format!("/{suffix}")))
                 .flat_map(|(_, f)| f.iter().copied())
                 .collect();
+            if lang == Lang::Rust && hits.len() > 1 && segs.len() > n {
+                // `nama_crate::modul`: pilih file di crate yang namanya cocok (`agentgate_graph`
+                // → folder `graph`).
+                let krate = segs[0].replace('-', "_");
+                let own: Vec<u32> = hits
+                    .iter()
+                    .copied()
+                    .filter(|&f| {
+                        let root = crate_root(&self.files[f as usize].path);
+                        let dir = root.rsplit('/').next().unwrap_or(root).replace('-', "_");
+                        !dir.is_empty() && (krate == dir || krate.ends_with(&format!("_{dir}")))
+                    })
+                    .collect();
+                if !own.is_empty() {
+                    hits = own;
+                }
+            }
             if !hits.is_empty() {
                 hits.sort_unstable();
                 // Satu segmen saja terlalu lemah bila cocok banyak file.
@@ -736,7 +753,9 @@ pub fn build(files: &[SourceFile], scip: Option<&ScipData>) -> RepoGraph {
             if found.is_none()
                 && lang == Lang::Rust
                 && (recv.contains("::") || matches!(recv, "crate" | "super"))
-                && let Some(t) = ix.rust_path(fi, recv, true)
+                && let Some(t) = ix
+                    .rust_path(fi, recv, true)
+                    .or_else(|| Some(ix.resolve_import(fi, recv, Lang::Rust)))
             {
                 let ids = in_files(&t);
                 if !ids.is_empty() {
