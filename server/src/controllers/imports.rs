@@ -153,6 +153,12 @@ async fn page(
     if data.get("flash").is_none() {
         data["flash"] = serde_json::Value::Null;
     }
+    // Judul langkah untuk deskripsi kartu ("Langkah 2 dari 4 · Pemetaan kolom").
+    if let Some(step) = data.get("step").and_then(serde_json::Value::as_u64) {
+        let labels = step_labels();
+        let idx = usize::try_from(step.saturating_sub(1)).unwrap_or(0);
+        data["step_name"] = serde_json::Value::String(labels.get(idx).cloned().unwrap_or_default());
+    }
     let shell = app_shell(ctx, &tenant.user, Some(tenant), None)
         .await?
         .at("import_csv");
@@ -386,7 +392,7 @@ async fn render_mapping(
             "panel": "mapping",
             "step": 2,
             "steps": steps(&tenant.workspace.slug, 1, Some(row)),
-            "import": { "id": row.id, "filename": row.filename, "rows": row.row_count, "cols": rows.len(), "delimiter": delimiter },
+            "import": { "id": row.id, "filename": row.filename, "rows": row.row_count, "cols": rows.len(), "delimiter": delimiter, "delimiter_key": format!("import-delimiter-{delimiter}") },
             "map_rows": rows,
             "auto_mapped": auto,
             "field_options": field_options(),
@@ -517,7 +523,17 @@ struct PreviewRow {
     notes: Vec<String>,
 }
 
+/// Teks catatan baris: argumen `a|b`; `csv-warn-truncated` membawa kunci field, dan
+/// `csv-skip-failed` membawa kode error validasi tiket (diterjemahkan di dalam kurung).
 fn note_text(code: &str, arg: &str) -> String {
+    if code == plan::WARN_TRUNCATED {
+        let field = i18n::text(&format!("import-field-{arg}"), &[]);
+        return i18n::text(code, &[("a", &field)]);
+    }
+    if code == plan::SKIP_FAILED && !arg.is_empty() {
+        let why = i18n::text(arg, &[]);
+        return format!("{} ({why})", i18n::text(code, &[]));
+    }
     let (a, b) = arg.split_once('|').unwrap_or((arg, ""));
     i18n::text(code, &[("a", a), ("b", b)])
 }
@@ -799,6 +815,7 @@ struct HistRow {
     at: String,
     project: Option<serde_json::Value>,
     status: String,
+    status_key: String,
     imported: i32,
     skipped: i32,
     href: String,
@@ -847,6 +864,7 @@ async fn history(
                 })
             }),
             status: sea_orm::ActiveEnum::to_value(&r.status()),
+            status_key: format!("import-status-{}", sea_orm::ActiveEnum::to_value(&r.status())),
             imported: r.imported,
             skipped: r.skipped,
             href: format!("{b}/{}", r.id),
@@ -864,6 +882,52 @@ async fn history(
     )
     .await?;
     Ok((session, res).into_response())
+}
+
+/// Kunci Fluent yang dibentuk dinamis (tes kelengkapan).
+#[must_use]
+pub fn label_keys() -> Vec<String> {
+    let mut out: Vec<String> = ImportField::iter()
+        .map(|f| format!("import-field-{}", f.key()))
+        .collect();
+    out.extend(
+        ImportStatus::iter()
+            .map(|s| format!("import-status-{}", sea_orm::ActiveEnum::to_value(&s))),
+    );
+    out.extend(
+        ticket_imports::Delimiter::iter()
+            .map(|d| format!("import-delimiter-{}", sea_orm::ActiveEnum::to_value(&d))),
+    );
+    for spec in [&PREVIEW_TABLE, &HISTORY_TABLE] {
+        out.extend(spec.columns.iter().map(|c| c.label_key.to_string()));
+        out.extend(spec.filters.iter().map(|f| f.label_key.to_string()));
+        out.extend(spec.search_key.map(str::to_string));
+    }
+    out.extend(
+        [
+            FLASH_CANCELLED,
+            "import-step-upload",
+            "import-step-mapping",
+            "import-step-preview",
+            "import-step-import",
+            "import-res-ready",
+            "import-res-warning",
+            "import-res-skipped",
+            "import-stat-ready",
+            "import-stat-ready-hint",
+            "import-stat-warn",
+            "import-stat-warn-hint",
+            "import-stat-skip",
+            "import-stat-skip-hint",
+            "import-field-group-other",
+            "import-nav-new",
+            "import-nav-hist",
+        ]
+        .iter()
+        .map(|k| (*k).to_string()),
+    );
+    out.extend(plan::CODES.iter().map(|k| (*k).to_string()));
+    out
 }
 
 pub fn routes() -> Routes {

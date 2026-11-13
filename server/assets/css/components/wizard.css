@@ -20,3 +20,20 @@
   .app-drop > input[type='file'] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
   [data-invalid] > .app-drop { border-color: var(--ag-danger); }
 }
+@layer components {
+  /* Catatan per baris pratinjau impor: ikon + teks berwarna sesuai hasil. */
+  .app-note { display: inline-flex; align-items: flex-start; gap: 4px; font-size: 12.5px; color: var(--ag-muted); }
+  .app-note > svg { width: 14px; height: 14px; flex-shrink: 0; margin-top: 2px; }
+  .app-note[data-tone='success'] { color: var(--ag-success); }
+  .app-note[data-tone='warn'] { color: var(--ag-warn); }
+  .app-note[data-tone='danger'] { color: var(--ag-danger); }
+  .app-notes { display: grid; gap: 2px; }
+  /* Footer langkah wizard: Kembali di kiri, Lanjut di kanan. */
+  .app-wfoot { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--ag-line); }
+  .app-wfoot > [data-grow] { flex: 1; }
+}
+@layer components {
+  /* Aksi di sel kanan tabel (unduh/ulangi). */
+  .app-cell-acts { display: flex; justify-content: flex-end; gap: 6px; }
+  .app-cell-acts > form { display: contents; }
+}

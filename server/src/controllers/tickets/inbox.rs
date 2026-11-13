@@ -368,7 +368,13 @@ pub(super) async fn read(
                         _ => format!("{home}/proposals"),
                     }
                 }),
-            None => None,
+            // Ekspor data (M11): ke Riwayat ekspor.
+            None => match notification.kind() {
+                Ok(NotificationKind::ExportReady | NotificationKind::ExportFailed) => {
+                    Some(format!("{}/hist", crate::controllers::exports::base(slug)))
+                }
+                _ => None,
+            },
         },
     };
     format::redirect(&target.unwrap_or_else(|| format!("/w/{slug}/inbox")))

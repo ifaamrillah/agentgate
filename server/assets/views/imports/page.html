@@ -1,0 +1,154 @@
+{#- Pengaturan → Impor CSV (M11, ManageIntegrations): subpage varian E (Impor baru, Riwayat impor).
+    Wizard 4 langkah tanpa JS (form POST + PRG, state di baris ticket_imports).
+    Prototype: "Impor CSV" di screens-m9-m11-m12.js.
+    Variabel: panel (upload|mapping|preview|result|hist), subnav, base, flash, steps, step;
+      upload: error;
+      mapping: import {id, filename, rows, cols, delimiter}, map_rows ([{index, header, example,
+               field}]), auto_mapped, field_options, project_options, project, action,
+               cancel_action, error_field, error_code;
+      preview: import, project_name, stats, table, rows ([{row, title, type_key, stage, outcome,
+               notes}]), types, importable, back_href, run_action, cancel_action;
+      result: import {id, filename, status, rows, processed, imported, skipped, warned, error, pct},
+              pending (polling 3 detik), project_name, board_href, report_href, self_href, new_href;
+      hist: table, rows ([HistRow]). -#}
+{% extends "layouts/settings.html" %}
+{% block title %}{{ t(key="import-title", lang="id") }}{% endblock title %}
+{% block crumb_label %}{{ t(key="import-title", lang="id") }}{% endblock crumb_label %}
+{% block page_attrs %}data-import-page="{{ panel }}"{% endblock page_attrs %}
+{% block settings %}
+{% <subpage title={t(key="import-title", lang="id")} description={t(key="import-description", lang="id")} items={subnav}> %}
+{%- if panel == "hist" %}
+{% <card title={t(key="import-hist-title", lang="id")} description={t(key="import-hist-description", lang="id")} flush={true} attrs="data-import-hist"> %}
+  {% <datatable table={table} empty_title={t(key="import-hist-empty", lang="id")} empty_description={t(key="import-hist-empty-description", lang="id")} empty_icon="file-import"> %}
+  {%- for r in rows %}
+  <tr data-import="{{ r.id }}" data-status="{{ r.status }}">
+    <td><a class="app-who" href="{{ r.href }}">{{ icon(name="file-text") }}<span><b class="app-code">{{ r.filename }}</b><small>{% if r.by %}{{ r.by }} · {% endif %}{{ r.at }}</small></span></a></td>
+    <td data-hide="sm">{% if r.project %}<span class="app-who">{{ <dot color={r.project.color}/> }}<span>{{ r.project.name }}</span></span>{% else %}<span class="app-hint">—</span>{% endif %}</td>
+    <td>
+      {%- if r.status == "done" %}<span class="app-lrow-main"><b class="app-note" data-tone="success">{{ t(key="import-hist-imported", lang="id", n=r.imported) }}</b><small>{{ t(key="import-hist-skipped", lang="id", n=r.skipped) }}</small></span>
+      {%- elif r.status == "failed" %}{{ <badge label={t(key="import-status-failed", lang="id")} variant="destructive"/> }}
+      {%- elif r.status == "cancelled" %}{{ <badge label={t(key="import-status-cancelled", lang="id")} variant="neutral"/> }}
+      {%- else %}{{ <badge label={t(key=r.status_key, lang="id")} variant="info"/> }}{% endif %}
+    </td>
+    <td><div class="app-cell-acts">{% if r.report_href %}{{ <button icon="download" variant="ghost" size="icon-sm" href={r.report_href} aria_label={t(key="import-report-download-of", lang="id", file=r.filename)} attrs="data-report hx-boost=false download"/> }}{% endif %}</div></td>
+  </tr>
+  {%- endfor %}
+  {% </datatable> %}
+{% </card> %}
+{%- else %}
+{% <card title={t(key="import-new-title", lang="id")} description={t(key="import-step-of", lang="id", n=step, total=4, name=step_name)} flush={true} attrs="data-import-wizard"> %}
+  <div class="app-pad"><div class="app-wsteps-wrap">{{ <wizard_steps steps={steps} label={t(key="import-steps-label", lang="id")}/> }}</div></div>
+
+  {%- if panel == "upload" %}
+  <form method="post" action="{{ base }}/new" enctype="multipart/form-data" class="app-form" data-import-upload>
+    <div class="app-pad app-stack-v">
+      {{ <file_drop id="import-file" name="file" title={t(key="import-drop-title", lang="id")} hint={t(key="import-drop-hint", lang="id")} accept=".csv,text/csv" error={error} required={true}/> }}
+      <p class="app-hint">{{ icon(name="download") }} <a href="{{ base }}/template.csv" hx-boost="false" download data-template>{{ t(key="import-template", lang="id") }}</a> · {{ t(key="import-template-hint", lang="id") }}</p>
+    </div>
+    <div class="app-wfoot"><span data-grow></span>{{ <button label={t(key="import-upload-submit", lang="id")} type="submit" icon="arrow-right" attrs="data-next"/> }}</div>
+  </form>
+
+  {%- elif panel == "mapping" %}
+  <form method="post" action="{{ action }}" class="app-form" data-import-mapping>
+    <div class="app-pad app-stack-v">
+      <div class="app-box">
+        <div class="app-lrow">
+          <span class="app-tile">{{ icon(name="file-text") }}</span>
+          <span class="app-lrow-main"><b>{{ import.filename }}</b>{%- set delim = t(key=import.delimiter_key, lang="id") %}<small>{{ t(key="import-file-meta", lang="id", rows=import.rows, cols=import.cols, delimiter=delim) }}</small></span>
+          <span class="app-lrow-acts">{{ <button label={t(key="import-replace-file", lang="id")} variant="outline" size="sm" href={base ~ "/new"}/> }}</span>
+        </div>
+        {% <setting_row title={t(key="import-project", lang="id")} description={t(key="import-project-hint", lang="id")}> %}
+          {%- if error_field == "project" %}{% set pe = error_code %}{% else %}{% set pe = "" %}{% endif %}
+          {{ <combo id="import-project" name="project" label={t(key="import-project", lang="id")} options={project_options} value={project} required={true} hide_label={true} error={pe}/> }}
+        {% </setting_row> %}
+      </div>
+      {%- if error_code and error_field != "project" %}{{ <flash kind="error" message={t(key=error_code, lang="id")}/> }}
+      {%- else %}{{ <flash kind="info" message={t(key="import-auto-mapped", lang="id", n=auto_mapped)}/> }}{% endif %}
+    </div>
+    <div class="app-dt-box">
+      <div class="table-container">
+        <table class="table" data-import-map>
+          <thead><tr>
+            <th scope="col">{{ t(key="import-col-csv", lang="id") }}</th>
+            <th scope="col" data-hide="sm">{{ t(key="import-col-example", lang="id") }}</th>
+            <th scope="col">{{ t(key="import-col-field", lang="id") }}</th>
+          </tr></thead>
+          <tbody>
+            {%- for m in map_rows %}
+            <tr data-col="{{ m.index }}">
+              <td><span class="app-code">{{ m.header }}</span></td>
+              <td data-hide="sm"><span class="app-hint">{{ m.example }}</span></td>
+              <td>{{ <combo id={"import-col-" ~ m.index} name={"col_" ~ m.index} label={t(key="import-col-field-of", lang="id", col=m.header)} options={field_options} value={m.field} hide_label={true}/> }}</td>
+            </tr>
+            {%- endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="app-wfoot">
+      {{ <button label={t(key="action-cancel", lang="id")} variant="ghost" type="submit" form="import-cancel" attrs="data-cancel"/> }}
+      <span data-grow></span>
+      {{ <button label={t(key="import-next", lang="id")} type="submit" icon="arrow-right" attrs="data-next"/> }}
+    </div>
+  </form>
+  <form method="post" action="{{ cancel_action }}" id="import-cancel"></form>
+
+  {%- elif panel == "preview" %}
+  <div class="app-pad app-stack-v">
+    <p class="app-hint">{{ t(key="import-preview-target", lang="id", file=import.filename, project=project_name) }}</p>
+    {{ <stats items={stats}/> }}
+  </div>
+  {% <datatable table={table} empty_title={t(key="import-preview-empty", lang="id")} attrs="data-import-preview"> %}
+  {%- for r in rows %}
+  <tr data-row="{{ r.row }}" data-outcome="{{ r.outcome }}">
+    <td><span class="app-code app-hint">{{ r.row }}</span></td>
+    <td>{% if r.title %}{{ r.title }}{% else %}<span class="app-hint">—</span>{% endif %}</td>
+    <td>{% for ty in types %}{% if ty.key == r.type_key %}{{ <type_icon icon={ty.icon} color={ty.color} label={ty.name}/> }}{% endif %}{% endfor %}</td>
+    <td data-hide="sm">{% if r.stage %}{{ r.stage }}{% else %}<span class="app-hint">—</span>{% endif %}</td>
+    <td>
+      {%- if r.outcome == "ready" %}<span class="app-note" data-tone="success">{{ icon(name="check") }}{{ t(key="import-res-ready", lang="id") }}</span>
+      {%- else %}{% if r.outcome == "skipped" %}{% set tone = "danger" %}{% set ic = "circle-x" %}{% else %}{% set tone = "warn" %}{% set ic = "alert-triangle" %}{% endif %}
+      <span class="app-notes">{% for n in r.notes %}<span class="app-note" data-tone="{{ tone }}">{{ icon(name=ic) }}<span>{{ n }}</span></span>{% endfor %}</span>
+      {%- endif %}
+    </td>
+  </tr>
+  {%- endfor %}
+  {% </datatable> %}
+  <form method="post" action="{{ run_action }}" class="app-wfoot" data-import-run>
+    {{ <button label={t(key="import-back", lang="id")} variant="ghost" icon="arrow-left" href={back_href} attrs="data-back"/> }}
+    {{ <button label={t(key="action-cancel", lang="id")} variant="ghost" type="submit" form="import-cancel" attrs="data-cancel"/> }}
+    <span data-grow></span>
+    {%- set nothing = importable == 0 %}
+    {{ <button label={t(key="import-run", lang="id", n=importable)} type="submit" icon="file-import" disabled={nothing} attrs="data-run"/> }}
+  </form>
+  <form method="post" action="{{ cancel_action }}" id="import-cancel"></form>
+
+  {%- elif panel == "result" %}
+  <div id="import-live" class="app-pad"{% if pending %} hx-get="{{ self_href }}" hx-trigger="every 3s" hx-select="#import-live" hx-swap="outerMorph"{% endif %} data-import-result="{{ import.status }}">
+    <div class="app-box app-pad app-stack-v">
+      {%- if import.status == "done" %}{% set tone = "success" %}{% set ic = "circle-check" %}{% set head = t(key="import-done-title", lang="id") %}{% set sub = t(key="import-done-detail", lang="id", n=import.imported, project=project_name) %}
+      {%- elif import.status == "failed" %}{% set tone = "danger" %}{% set ic = "circle-x" %}{% set head = t(key="import-failed-title", lang="id") %}{% if import.error %}{% set sub = t(key=import.error, lang="id") %}{% else %}{% set sub = "" %}{% endif %}
+      {%- elif import.status == "cancelled" %}{% set tone = "" %}{% set ic = "circle-x" %}{% set head = t(key="import-status-cancelled", lang="id") %}{% set sub = "" %}
+      {%- else %}{% set tone = "accent" %}{% set ic = "loader-2" %}{% set head = t(key="import-running-title", lang="id") %}{% set sub = t(key="import-running-detail", lang="id", done=import.processed, total=import.rows, project=project_name) %}{% endif %}
+      <div class="app-lrow">
+        <span class="app-tile" data-size="lg"{% if tone %} data-tone="{{ tone }}"{% endif %}>{{ icon(name=ic) }}</span>
+        <span class="app-lrow-main"><b>{{ head }}</b>{% if sub %}<small>{{ sub }}</small>{% endif %}</span>
+      </div>
+      <span class="app-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{% if import.status == "done" %}100{% else %}{{ import.pct }}{% endif %}" aria-label="{{ head }}"{% if tone == "success" %} style="--c:var(--ag-success)"{% elif tone == "danger" %} style="--c:var(--ag-danger)"{% endif %}><i style="width:{% if import.status == "done" %}100{% else %}{{ import.pct }}{% endif %}%"></i></span>
+      {%- if import.status == "done" %}
+      <p class="app-hint">{{ t(key="import-done-summary", lang="id", imported=import.imported, warned=import.warned, skipped=import.skipped) }}</p>
+      {%- endif %}
+      {%- if not pending %}
+      <div class="app-btnrow">
+        {%- if board_href and import.status == "done" %}{{ <button label={t(key="import-open-board", lang="id")} icon="layout-kanban" href={board_href} attrs="data-board"/> }}{% endif %}
+        {%- if report_href %}{{ <button label={t(key="import-report-download", lang="id")} icon="download" variant="outline" href={report_href} attrs="data-report hx-boost=false download"/> }}{% endif %}
+        {{ <button label={t(key="import-another", lang="id")} icon="plus" variant="ghost" href={new_href} attrs="data-another"/> }}
+      </div>
+      {%- endif %}
+    </div>
+  </div>
+  {%- endif %}
+{% </card> %}
+{%- endif %}
+{% </subpage> %}
+{% endblock settings %}

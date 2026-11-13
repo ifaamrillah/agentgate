@@ -83,6 +83,7 @@ struct ExportRow {
     created: String,
     by: Option<views::tickets::PersonView>,
     status: &'static str,
+    status_key: String,
     variant: &'static str,
     progress: i32,
     phase: Option<String>,
@@ -97,6 +98,8 @@ struct ExportRow {
 #[derive(Debug, Serialize)]
 struct PartView {
     key: String,
+    label_key: String,
+    desc_key: String,
     checked: bool,
 }
 
@@ -160,9 +163,10 @@ async fn render_new(
 ) -> Result<Response> {
     let wid = tenant.workspace_id();
     let project_rows = projects::Model::accessible_for(&ctx.db, &tenant.accessor()).await?;
-    let mut project_options =
-        vec![ComboOption::new("all", "").group_key("export-projects-group-all")];
-    project_options[0].label = String::new();
+    let mut project_options = vec![ComboOption::new(
+        "all",
+        crate::common::i18n::text("export-projects-all", &[]),
+    )];
     project_options.extend(project_rows.iter().map(|p| {
         ComboOption::new(p.id, &p.name).sub(&p.key).color(
             p.color
@@ -178,6 +182,8 @@ async fn render_new(
     let parts: Vec<PartView> = ExportPart::iter()
         .map(|p| PartView {
             key: p.key(),
+            label_key: format!("export-part-{}", p.key()),
+            desc_key: format!("export-part-{}-desc", p.key()),
             checked: rejected
                 .as_ref()
                 .map_or_else(|| p.default_on(), |r| r.parts.contains(&p.key())),
@@ -339,9 +345,10 @@ async fn history(
                 created: views::time::wib_datetime(&r.created_at),
                 by: r.requested_by.and_then(|id| people.get(&id).cloned()),
                 status,
+                status_key: format!("export-status-{status}"),
                 variant,
                 progress: r.progress,
-                phase: r.phase().map(|p| p.key()),
+                phase: r.phase().map(|p| format!("export-phase-{}", p.key())),
                 size: human_size(r.size_bytes),
                 expires: r
                     .expires_at
@@ -440,6 +447,40 @@ async fn retry(
         format::redirect(&format!("{}/hist", base(&tenant.workspace.slug)))?,
     )
         .into_response())
+}
+
+/// Kunci Fluent yang dibentuk dinamis (tes kelengkapan).
+#[must_use]
+pub fn label_keys() -> Vec<String> {
+    let mut out: Vec<String> = ExportPart::iter()
+        .flat_map(|p| {
+            let k = p.key();
+            [
+                format!("export-part-{k}"),
+                format!("export-part-{k}-desc"),
+                format!("export-phase-{k}"),
+            ]
+        })
+        .collect();
+    out.extend(ExportStatus::iter().map(|s| format!("export-status-{}", status_badge(s).0)));
+    out.extend(
+        HISTORY_TABLE
+            .columns
+            .iter()
+            .map(|c| c.label_key.to_string()),
+    );
+    out.extend(
+        [
+            FLASH_STARTED,
+            FLASH_RETRIED,
+            "export-projects-all",
+            "export-nav-new",
+            "export-nav-hist",
+        ]
+        .iter()
+        .map(|k| (*k).to_string()),
+    );
+    out
 }
 
 pub fn routes() -> Routes {
