@@ -562,7 +562,11 @@ pub async fn start(
         .ok_or(TicketFailure::NotFound)?;
     let persona = personas::Model::resolve(db, wid, &job.persona).await?;
     let client = runner.client.clone();
-    let choice = persona.as_ref().and_then(|p| p.model_for(&client));
+    // Model per persona bisa dimatikan per project (Penghemat token): pakai default client.
+    let choice = persona
+        .as_ref()
+        .and_then(|p| p.model_for(&client))
+        .filter(|_| crate::services::tokens::TokenSaver::of(&project).persona_models);
     let flow = stages::Flow::load(db, wid, &ticket).await?;
     let stage_name = flow
         .rule(&job.stage_key)
@@ -730,7 +734,11 @@ async fn knowledge_spec(
         .ok_or(TicketFailure::NotFound)?;
     let persona = personas::Model::resolve(db, wid, &job.persona).await?;
     let client = runner.client.clone();
-    let choice = persona.as_ref().and_then(|p| p.model_for(&client));
+    // Model per persona bisa dimatikan per project (Penghemat token): pakai default client.
+    let choice = persona
+        .as_ref()
+        .and_then(|p| p.model_for(&client))
+        .filter(|_| crate::services::tokens::TokenSaver::of(&project).persona_models);
     let project_repos = repos::Model::of_project(db, wid, project.id).await?;
     let base_branch = project_repos
         .first()

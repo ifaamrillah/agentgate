@@ -15,5 +15,6 @@ pub mod planning;
 pub mod projects;
 pub mod skills;
 pub mod tickets;
+pub mod tokens;
 pub mod workflows;
 pub mod workspaces;
