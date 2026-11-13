@@ -560,8 +560,8 @@ pub(crate) mod tests {
     pub fn finished(parsed: &[Parsed]) -> Finished {
         parsed
             .iter()
-            .filter_map(|p| p.finished.clone())
-            .last()
+            .rev()
+            .find_map(|p| p.finished.clone())
             .expect("hasil akhir")
     }
 
