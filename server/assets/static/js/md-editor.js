@@ -27,6 +27,22 @@
     return crepeModule;
   };
 
+  // Pratinjau blok kode ```mermaid di editor: SVG dari Mermaid yang sama dengan markdown.js
+  // (dimuat lazy); Crepe menyanitasi HTML pratinjau dengan DOMPurify.
+  let previewSeq = 0;
+  const renderPreview = (labels) => (language, content, applyPreview) => {
+    if (String(language).toLowerCase() !== "mermaid" || !window.agMermaid) return null;
+    window
+      .agMermaid()
+      .then((mermaid) => {
+        mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: document.documentElement.classList.contains("dark") ? "dark" : "neutral" });
+        return mermaid.render("ag-mmd-ed-" + ++previewSeq, content);
+      })
+      .then(({ svg }) => applyPreview('<div class="app-mermaid-svg">' + svg + "</div>"))
+      .catch(() => applyPreview('<p class="app-hint">' + (labels.mermaidError || "") + "</p>"));
+    return undefined;
+  };
+
   const config = (Crepe, root, labels, textarea) => {
     const L = (k, fallback) => labels[k] || fallback;
     return {
@@ -47,6 +63,7 @@
         },
         [Crepe.Feature.CodeMirror]: {
           theme: [],
+          renderPreview: renderPreview(labels),
           previewLabel: L("preview"), previewLoading: L("previewLoading"),
           searchPlaceholder: L("language"), noResultText: L("noResult"), copyText: L("copy"),
           previewToggleText: (previewOnly) => (previewOnly ? L("edit") : L("hide")),

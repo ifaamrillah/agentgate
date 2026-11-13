@@ -17,7 +17,7 @@
     {%- if can_edit %}
     {{ <md_editor id="artifact-body" name="body" label={t(key="artifact-content", lang="id")} value={body} action={action} cancel_href={back} save_label={t(key="artifact-save-version", lang="id")} hide_label={true} rows={24}/> }}
     {%- else %}
-    <div class="app-blk"><div class="app-prose">{{ body }}</div></div>
+    <div class="app-blk">{{ <md_view text={body} size="doc"/> }}</div>
     {%- endif %}
   {% </card> %}
   </div>

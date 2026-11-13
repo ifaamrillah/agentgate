@@ -48,7 +48,7 @@
     {%- if preview.shown.note %}{{ <flash kind="neutral" title={t(key="artifact-decision-note", lang="id")} message={preview.shown.note}/> }}{% endif %}
     {%- endif %}
     <div class="app-blk">
-      {%- if preview.body %}<div class="app-prose app-artifact-body" data-artifact-body>{{ preview.body }}</div>{% else %}<p class="app-hint">{{ t(key="artifact-body-empty", lang="id") }}</p>{% endif %}
+      {{ <md_view text={preview.body} size="doc" attrs="data-artifact-body" empty={t(key="artifact-body-empty", lang="id")}/> }}
     </div>
     {%- if preview.in_review and stage.can_decide %}
     <div class="app-blk app-artifact-decide">

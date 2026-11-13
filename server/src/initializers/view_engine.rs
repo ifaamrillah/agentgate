@@ -54,6 +54,22 @@ impl tera::Function<TeraResult<Value>> for PaletteFn {
     }
 }
 
+/// Fungsi Tera `markdown(text)`: Markdown → HTML tersanitasi (`common::markdown::render`).
+pub struct MarkdownFn;
+
+impl tera::Function<TeraResult<Value>> for MarkdownFn {
+    fn call(&self, kwargs: Kwargs, _state: &State) -> TeraResult<Value> {
+        let text: Option<String> = kwargs.get("text")?;
+        Ok(Value::from(crate::common::markdown::render(
+            text.as_deref().unwrap_or_default(),
+        )))
+    }
+
+    fn is_safe(&self) -> bool {
+        true
+    }
+}
+
 /// Bangun view engine aplikasi. Dipakai initializer dan tes (satu implementasi).
 pub fn build_view_engine() -> Result<TeraView> {
     let locales = i18n::loader()?;
@@ -65,6 +81,7 @@ pub fn build_view_engine() -> Result<TeraView> {
         tera.register_function("t", FluentLoader::new(locales.clone()));
         tera.register_function("icon", IconFn(icons.clone()));
         tera.register_function("palette", PaletteFn);
+        tera.register_function("markdown", MarkdownFn);
         Ok(())
     })
 }

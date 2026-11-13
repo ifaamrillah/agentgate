@@ -199,3 +199,42 @@ async fn assigning_notifies_the_assignee() {
     })
     .await;
 }
+
+#[tokio::test]
+async fn comments_and_description_render_sanitized_markdown() {
+    request::<App, _, _>(|request, ctx| async move {
+        let f = fixture(&request, &ctx).await;
+        let code = create_ticket(
+            &request,
+            &f.cookie,
+            &[(
+                "title",
+                "Markdown",
+            ), (
+                "description",
+                "## Tujuan\n\n- [x] **selesai**\n\n<script>alert(1)</script>",
+            )],
+        )
+        .await;
+        let res = request
+            .post(&format!("/w/acme/t/{code}/comments"))
+            .add_cookie(f.cookie.clone())
+            .form(&[(
+                "body",
+                "Lihat [dok](javascript:alert(2)) dan `kode`\n\n```mermaid\nflowchart LR\n  a-->b\n```",
+            )])
+            .await;
+        assert_eq!(res.status_code(), 303, "{}", res.text());
+        let page = request
+            .get(&format!("/w/acme/t/{code}"))
+            .add_cookie(f.cookie.clone())
+            .await;
+        let html = page.text();
+        assert!(!html.contains("<script>alert"), "script lolos");
+        assert!(!html.contains("href=\"javascript"), "tautan javascript lolos");
+        assert!(html.contains("<code>kode</code>"));
+        assert!(html.contains("data-mermaid"));
+        assert!(html.contains("class=\"app-md\""));
+    })
+    .await;
+}

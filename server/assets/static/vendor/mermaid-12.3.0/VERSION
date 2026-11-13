@@ -1,0 +1,7 @@
+mermaid 12.3.0 (MIT, lihat LICENSE)
+https://registry.npmjs.org/mermaid/-/mermaid-12.3.0.tgz
+  sha256 be0684e8d20bfc874df12c0f04927a5c482f57f2200eec54cca52a4583fd4040
+  package/dist/mermaid.esm.min.mjs            → mermaid.esm.min.mjs
+  package/dist/chunks/mermaid.esm.min/*.mjs   → chunks/mermaid.esm.min/ (105 file, tanpa *.map)
+Dimuat lazy oleh static/js/markdown.js (window.agMermaid) dan pratinjau md-editor.js.
+Resep: docs/spikes/2026-11-11-wysiwyg-tanpa-bundler.md
