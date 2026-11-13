@@ -64,6 +64,16 @@ async fn advanced_search_filters_and_bulk_edit() {
         assert!(pc < pb, "terbaru dulu");
         assert!(!html.contains(&format!("data-ticket-row=\"{a}\"")));
 
+        // ORDER BY priority: paling mendesak dulu.
+        let html = request
+            .get("/w/acme/search/advanced")
+            .add_query_param("q", "project = KSR ORDER BY priority")
+            .add_cookie(f.cookie.clone())
+            .await
+            .text();
+        let pos = |code: &str| html.find(&format!("data-ticket-row=\"{code}\"")).expect("baris");
+        assert!(pos(&a) < pos(&b), "high sebelum low");
+
         // Query salah → pesan, tanpa hasil.
         let page = request
             .get("/w/acme/search/advanced")

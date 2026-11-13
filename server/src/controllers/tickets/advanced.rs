@@ -72,7 +72,6 @@ struct Row {
     #[serde(flatten)]
     row: TicketRow,
     stage: String,
-    sprint: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -215,8 +214,8 @@ async fn render(
                 Field::Updated => list.sort_by_key(|t| t.updated_at),
                 _ => list.sort_by(|a, b| a.code.cmp(&b.code)),
             }
-            // Prioritas: urutan naik = paling mendesak dulu.
-            if desc != (field == Field::Priority) {
+            // Prioritas: urutan naik = paling mendesak dulu (peringkat 0 = urgent).
+            if desc {
                 list.reverse();
             }
         }
@@ -237,11 +236,6 @@ async fn render(
                     .get(&(t.workflow_id, t.stage_key.clone()))
                     .cloned()
                     .unwrap_or_else(|| t.stage_key.clone()),
-                sprint: t
-                    .sprint_id
-                    .and_then(|id| all_sprints.iter().find(|s| s.id == id))
-                    .map(|s| s.name.clone())
-                    .unwrap_or_default(),
             });
         }
         let in_results: Vec<Uuid> = list.iter().map(|t| t.project_id).collect();

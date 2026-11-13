@@ -70,11 +70,10 @@
           <th class="app-jql-ck"><span class="sr-only">{{ t(key="search-select", lang="id") }}</span></th>
           <th>{{ t(key="report-col-ticket", lang="id") }}</th>
           <th>{{ t(key="report-col-title", lang="id") }}</th>
-          <th data-hide="sm">{{ t(key="search-col-stage", lang="id") }}</th>
+          <th data-hide="lg">{{ t(key="search-col-stage", lang="id") }}</th>
           <th data-hide="md">{{ t(key="ticket-column-status", lang="id") }}</th>
           <th>{{ t(key="ticket-column-priority", lang="id") }}</th>
-          <th data-hide="md">{{ t(key="ticket-column-assignee", lang="id") }}</th>
-          <th data-hide="md">{{ t(key="search-col-sprint", lang="id") }}</th>
+          <th data-hide="sm">{{ t(key="ticket-column-assignee", lang="id") }}</th>
           <th data-align="right" data-hide="sm">{{ t(key="report-col-points", lang="id") }}</th>
         </tr></thead>
         <tbody>
@@ -82,12 +81,11 @@
         <tr data-ticket-row="{{ r.code }}">
           <td class="app-jql-ck"><input type="checkbox" class="app-check" name="ids" value="{{ r.id }}" form="bulk-form" aria-label="{{ t(key="search-select-one", lang="id", code=r.code) }}"></td>
           <td><a class="app-tref" href="{{ r.href }}">{{ <type_icon icon={r.ticket_type.icon} color={r.ticket_type.color} label={r.ticket_type.name}/> }}<span class="app-code">{{ r.code }}</span></a></td>
-          <td><span class="app-tcell"><a class="app-ttitle" href="{{ r.href }}" title="{{ r.title }}">{{ r.title }}</a>{% for l in r.labels %}{% if loop.index <= 2 %}<span class="app-label-pill" data-hide="md">{{ l }}</span>{% endif %}{% endfor %}</span></td>
-          <td data-hide="sm"><span class="app-hint">{{ r.stage }}</span></td>
+          <td><span class="app-tcell"><a class="app-ttitle" href="{{ r.href }}" title="{{ r.title }}">{{ r.title }}</a></span></td>
+          <td data-hide="lg"><span class="app-hint">{{ r.stage }}</span></td>
           <td data-hide="md"><span class="app-status-pill" data-status="{{ r.status.value }}">{{ icon(name=r.status.icon) }}{{ t(key=r.status.label_key, lang="id") }}</span></td>
-          <td>{{ <prio rank={r.priority.rank} label={t(key=r.priority.label_key, lang="id")} full={true}/> }}</td>
-          <td data-hide="md">{% if r.assignee %}{{ <person name={r.assignee.name} initials={r.assignee.initials} color={r.assignee.color} size="default"/> }}{% else %}<span class="app-hint">{{ t(key="ticket-unassigned", lang="id") }}</span>{% endif %}</td>
-          <td data-hide="md">{% if r.sprint %}{{ r.sprint }}{% else %}<span class="app-hint">{{ t(key="search-backlog", lang="id") }}</span>{% endif %}</td>
+          <td>{{ <prio rank={r.priority.rank} label={t(key=r.priority.label_key, lang="id")}/> }}</td>
+          <td data-hide="sm">{% if r.assignee %}{{ <avatar initials={r.assignee.initials} color={r.assignee.color} label={r.assignee.name}/> }}{% else %}<span class="app-hint" title="{{ t(key="ticket-unassigned", lang="id") }}">–</span>{% endif %}</td>
           <td data-align="right" data-hide="sm"><span class="app-code">{% if r.points is not none %}{{ r.points }}{% else %}–{% endif %}</span></td>
         </tr>
         {%- endfor %}
