@@ -256,8 +256,252 @@ impl Hooks for App {
         seed_graph(ctx, base).await?;
         seed_knowledge(ctx).await?;
         seed_planning(ctx).await?;
-        seed_visual(ctx).await
+        seed_visual(ctx).await?;
+        seed_jira(ctx).await
     }
+}
+
+/// Connector Jira contoh (M11) di PT Contoh: Jira Cloud `sevima-retail.atlassian.net` (token
+/// palsu, terenkripsi), project SR ↔ KSR, mode dua arah, peta status dengan satu status
+/// (`Blocked`) sengaja belum dipetakan, peta field dan user (satu user Jira belum dipetakan),
+/// beberapa tiket tertaut, dan ±12 baris log sinkron (berhasil/ditolak gate/gagal, masuk/keluar).
+/// Koneksi dibuat **dijeda** supaya dev tidak memanggil Jira sungguhan dengan token palsu
+/// (dorongan setelah request dan scheduler melewati koneksi yang dijeda). Dilewati bila
+/// workspace sudah punya koneksi Jira.
+#[allow(clippy::too_many_lines)]
+async fn seed_jira(ctx: &AppContext) -> Result<()> {
+    use sea_orm::{ActiveModelTrait, ActiveValue::Set};
+
+    use crate::{
+        common::crypto,
+        models::{
+            jira_connections::{
+                self, Catalog, CatalogProject, FieldEntry, FieldMap, FieldTarget, StatusCategory,
+                StatusEntry, StatusMap, SyncMode, SyncStats, UserEntry, UserMap,
+            },
+            jira_links::{self, NewLink},
+            jira_sync_logs::{self, Direction, LogArgs, SyncResult},
+            tickets,
+        },
+        services::jira::{api::JiraStatus, issues, mapping},
+    };
+    let Some(workspace) = workspaces::Model::find_by_slug(&ctx.db, SEED_WORKSPACE_SLUG).await?
+    else {
+        return Ok(());
+    };
+    let wid = workspace.workspace_id();
+    if jira_connections::Model::of_workspace(&ctx.db, wid)
+        .await?
+        .is_some()
+    {
+        tracing::info!("seed jira dilewati: koneksi Jira sudah ada");
+        return Ok(());
+    }
+    let Some(project) = projects::Model::find_by_key(&ctx.db, wid, SEED_PROJECT.0).await? else {
+        return Ok(());
+    };
+    let owner = users::Model::find_by_email(&ctx.db, SEED_MARKER_EMAIL)
+        .await?
+        .ok_or_else(|| loco_rs::Error::string("owner seed tidak ada"))?;
+    let settings = Settings::from_ctx(ctx)?;
+    let key = settings
+        .auth
+        .encryption_key_bytes()
+        .map_err(|e| loco_rs::Error::string(&e.to_string()))?;
+    let token = crypto::encrypt(&key, b"seed-jira-api-token-palsu")
+        .map_err(|e| loco_rs::Error::string(&e.to_string()))?;
+
+    // Status Jira project SR (prototype M11) → stage yang disarankan; Blocked dibiarkan kosong.
+    let stages = mapping::project_stages(&ctx.db, wid, &project).await?;
+    let raw = [
+        ("10000", "To Do", StatusCategory::New),
+        ("10001", "Analysis", StatusCategory::Indeterminate),
+        ("10002", "Spec", StatusCategory::Indeterminate),
+        ("10003", "In Design", StatusCategory::Indeterminate),
+        ("10004", "In Progress", StatusCategory::Indeterminate),
+        ("10005", "In Review", StatusCategory::Indeterminate),
+        ("10006", "QA", StatusCategory::Indeterminate),
+        ("10007", "Done", StatusCategory::Done),
+        ("10008", "Blocked", StatusCategory::Indeterminate),
+    ];
+    let statuses = StatusMap {
+        statuses: raw
+            .iter()
+            .map(|(id, name, category)| {
+                let status = JiraStatus {
+                    id: (*id).to_string(),
+                    name: (*name).to_string(),
+                    category: *category,
+                };
+                StatusEntry {
+                    id: status.id.clone(),
+                    name: status.name.clone(),
+                    category: *category,
+                    stage: (*name != "Blocked")
+                        .then(|| mapping::suggest_stage(&status, &stages))
+                        .flatten(),
+                }
+            })
+            .collect(),
+    };
+    let fields = FieldMap {
+        fields: [
+            ("summary", "Summary", FieldTarget::Title),
+            ("description", "Description", FieldTarget::Description),
+            ("customfield_10016", "Story Points", FieldTarget::StoryPoints),
+            ("customfield_10020", "Sprint", FieldTarget::Sprint),
+            ("fixVersions", "Fix Version/s", FieldTarget::Release),
+            ("components", "Components", FieldTarget::Component),
+            ("duedate", "Due date", FieldTarget::DueOn),
+            ("labels", "Labels", FieldTarget::Labels),
+            ("priority", "Priority", FieldTarget::Priority),
+            ("customfield_10031", "Toko", FieldTarget::Skip),
+        ]
+        .into_iter()
+        .map(|(id, name, target)| FieldEntry {
+            id: id.into(),
+            name: name.into(),
+            target,
+        })
+        .collect(),
+    };
+    let mut users_map = Vec::new();
+    for (account, name, email) in [
+        ("acc-owner", "Owner Contoh", SEED_MARKER_EMAIL),
+        ("acc-dev", "Dewi Dev", "dev@agentgate.test"),
+        ("acc-qa", "Qori QA", "qa@agentgate.test"),
+        ("acc-budi", "Budi Santoso", "budi@sevima-retail.id"),
+    ] {
+        let user_id = users::Model::find_by_email(&ctx.db, email)
+            .await?
+            .map(|u| u.id);
+        users_map.push(UserEntry {
+            account: account.into(),
+            name: name.into(),
+            email: email.into(),
+            user_id,
+        });
+    }
+    let now = chrono::Utc::now();
+    let conn = jira_connections::ActiveModel {
+        workspace_id: Set(wid.get()),
+        env: Set("cloud".into()),
+        base_url: Set("https://sevima-retail.atlassian.net".into()),
+        email: Set("olivia@sevima-retail.id".into()),
+        token_encrypted: Set(token),
+        account_name: Set("Olivia O.".into()),
+        jira_project_key: Set("SR".into()),
+        jira_project_name: Set("Sevima Retail POS".into()),
+        project_id: Set(Some(project.id)),
+        mode: Set(SyncMode::TwoWay.as_str()),
+        status_map: Set(jira_connections::ActiveModel::json(&statuses)),
+        field_map: Set(jira_connections::ActiveModel::json(&fields)),
+        user_map: Set(jira_connections::ActiveModel::json(&UserMap { users: users_map })),
+        catalog: Set(jira_connections::ActiveModel::json(&Catalog {
+            projects: vec![
+                CatalogProject { id: "10100".into(), key: "SR".into(), name: "Sevima Retail POS".into() },
+                CatalogProject { id: "10101".into(), key: "GD".into(), name: "Gudang".into() },
+                CatalogProject { id: "10102".into(), key: "WEB".into(), name: "Website".into() },
+            ],
+        })),
+        owner_id: Set(Some(owner.id)),
+        last_sync_at: Set(Some((now - chrono::Duration::minutes(3)).into())),
+        pulled_at: Set(Some((now - chrono::Duration::minutes(3)).into())),
+        paused_at: Set(Some(now.into())),
+        ..Default::default()
+    }
+    .insert(&ctx.db)
+    .await?;
+
+    // Tiket tertaut: KSR-1..KSR-8 ↔ SR-301..; status Jira = status yang dipetakan ke stagenya.
+    let mut linked = Vec::new();
+    for n in 1..=8 {
+        let code = format!("{}-{n}", SEED_PROJECT.0);
+        let Some((t, _)) = tickets::Model::find_by_code(&ctx.db, wid, &code).await? else {
+            continue;
+        };
+        let issue_key = format!("SR-{}", 300 + n);
+        let status = statuses
+            .status_for(&t.stage_key, "")
+            .map(|s| s.id.clone())
+            .unwrap_or_default();
+        jira_links::ActiveModel::link(
+            &ctx.db,
+            NewLink {
+                workspace_id: wid,
+                connection_id: conn.id,
+                ticket_id: t.id,
+                issue_id: format!("{}", 20_000 + n),
+                issue_key: issue_key.clone(),
+                jira_status_id: status,
+                snapshot: issues::of_ticket(&t),
+            },
+        )
+        .await?;
+        linked.push((t, issue_key));
+    }
+    let mut row: jira_connections::ActiveModel = conn.clone().into();
+    row.stats = Set(jira_connections::ActiveModel::json(&SyncStats {
+        tickets: linked.len() as u64,
+        comments: 61,
+        attachments: 8,
+        sprints: 2,
+    }));
+    row.update(&ctx.db).await?;
+
+    // Log sinkron contoh (terbaru dulu, menit ke belakang).
+    let pick = |i: usize| linked.get(i % linked.len().max(1));
+    let entries: [(i64, Direction, SyncResult, &str, Option<usize>, LogArgs); 12] = [
+        (8, Direction::In, SyncResult::Ok, "jira-log-comment-pulled", Some(0), LogArgs::default()),
+        (10, Direction::Out, SyncResult::Ok, "jira-log-issue-updated", Some(1),
+            LogArgs { detail: "due_on".into(), ..LogArgs::default() }),
+        (19, Direction::In, SyncResult::Gate, "jira-log-gate-rejected", Some(2), LogArgs {
+            status: "Done".into(), reason: "ticket-gates-unmet".into(), back: "QA".into(),
+            ..LogArgs::default() }),
+        (38, Direction::Out, SyncResult::Ok, "jira-log-status-pushed", Some(3),
+            LogArgs { status: "In Design".into(), ..LogArgs::default() }),
+        (52, Direction::In, SyncResult::Fail, "jira-log-attachment-skipped", None, LogArgs {
+            detail: "rekaman-layar.mp4".into(), size: "32".into(), ..LogArgs::default() }),
+        (69, Direction::Out, SyncResult::Ok, "jira-log-issue-updated", Some(4),
+            LogArgs { detail: "story_points".into(), ..LogArgs::default() }),
+        (90, Direction::In, SyncResult::Gate, "jira-log-gate-rejected", Some(5), LogArgs {
+            status: "In Review".into(), reason: "ticket-gates-unmet".into(), back: "In Progress".into(),
+            ..LogArgs::default() }),
+        (108, Direction::In, SyncResult::Ok, "jira-log-ticket-created", Some(6), LogArgs::default()),
+        (123, Direction::Out, SyncResult::Ok, "jira-log-issue-updated", Some(0),
+            LogArgs { detail: "labels".into(), ..LogArgs::default() }),
+        (140, Direction::Out, SyncResult::Ok, "jira-log-issue-updated", Some(2),
+            LogArgs { detail: "priority".into(), ..LogArgs::default() }),
+        (158, Direction::In, SyncResult::Ok, "jira-log-comment-pulled", Some(7), LogArgs::default()),
+        (175, Direction::In, SyncResult::Fail, "jira-log-user-unmapped", None,
+            LogArgs { email: "budi@sevima-retail.id".into(), ..LogArgs::default() }),
+    ];
+    for (minutes, direction, result, message, ticket, args) in entries {
+        let at: sea_orm::prelude::DateTimeWithTimeZone =
+            (now - chrono::Duration::minutes(minutes)).into();
+        let (ticket_id, ticket_code, issue_key) = match ticket.and_then(pick) {
+            Some((t, key)) => (Some(t.id), t.code.clone(), key.clone()),
+            None => (None, String::new(), "SR-277".to_string()),
+        };
+        jira_sync_logs::ActiveModel {
+            workspace_id: Set(wid.get()),
+            connection_id: Set(conn.id),
+            direction: Set(sea_orm::ActiveEnum::to_value(&direction)),
+            result: Set(sea_orm::ActiveEnum::to_value(&result)),
+            ticket_id: Set(ticket_id),
+            ticket_code: Set(ticket_code),
+            issue_key: Set(issue_key),
+            message: Set(message.to_string()),
+            args: Set(serde_json::to_value(&args).unwrap_or_default()),
+            created_at: Set(at),
+            updated_at: Set(at),
+            ..Default::default()
+        }
+        .insert(&ctx.db)
+        .await?;
+    }
+    tracing::info!(links = linked.len(), "seed jira: koneksi contoh dibuat (dijeda)");
+    Ok(())
 }
 
 /// Data visual (M10) di KSR: riwayat job selesai 4 minggu terakhir dengan rincian token, biaya,

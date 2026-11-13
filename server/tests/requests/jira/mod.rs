@@ -63,16 +63,6 @@ pub async fn set_mode(request: &TestServer, cookie: &Cookie<'static>, mode: &str
     assert_eq!(res.status_code(), 303, "{}", res.text());
 }
 
-/// Petakan user Jira (akun Olivia di Jira palsu) ke `user_id`.
-pub async fn map_user(request: &TestServer, cookie: &Cookie<'static>, user_id: uuid::Uuid) {
-    let res = request
-        .post("/w/acme/settings/jira/fields")
-        .add_cookie(cookie.clone())
-        .form(&[(format!("u:{}", fake_jira::ACCOUNT), user_id.to_string())])
-        .await;
-    assert_eq!(res.status_code(), 303, "{}", res.text());
-}
-
 /// Sinkron sekarang.
 pub async fn sync_now(request: &TestServer, cookie: &Cookie<'static>) {
     let res = request
