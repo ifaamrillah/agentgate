@@ -13,7 +13,7 @@
     <div class="app-stage-persona">{{ icon(name=stage.current.icon) }}<span><b>{{ t(key="stage-agent", lang="id", persona=stage.current.persona_name) }}</b><small>{% if stage.job %}{{ t(key=stage.job.mode_key, lang="id") }}{% if stage.job.holder %} · {{ t(key="job-held-by", lang="id", name=stage.job.holder.name) }}{% endif %}{% else %}{{ t(key="stage-agent-no-job", lang="id") }}{% endif %}</small></span></div>
     {%- if stage.job %}
     <div>{{ <badge label={t(key=stage.job.status_key, lang="id")} variant={stage.job.status_variant}/> }}{% if stage.job.status != "queued" %}<a class="app-link" href="{{ stage.job.href }}" data-job-link>{{ t(key="job-view-log", lang="id") }}</a>{% endif %}</div>
-    {%- set j = stage.job %}{% set next = stage.back %}{% set my_runners = stage.my_runners %}{% set compact = true %}{% include "runner/_job_actions.html" %}
+    {%- set j = stage.job %}{% set next = stage.back %}{% set my_runners = stage.my_runners %}{% set compact = true %}{% set hide_view = true %}{% include "runner/_job_actions.html" %}
     {%- endif %}
   </div>
   {%- endif %}

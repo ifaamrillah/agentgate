@@ -3,13 +3,13 @@
     job terbuka (jobs/_live.html). Aksi Lepas/Batalkan di bar aksi.
     Variabel: job (JobView), steps, logs, evidence, permissions, project, next, live_href. -#}
 {% extends "layouts/page.html" %}
-{% block title %}{{ t(key="job-page-title", lang="id", stage=job.stage_name, ticket=job.ticket) }}{% endblock title %}
-{% block crumb %}<span data-sep aria-hidden="true">/</span><a href="{{ project.href }}">{{ project.name }}</a><span data-sep aria-hidden="true">/</span><a href="{{ job.ticket_href }}">{{ job.ticket }}</a><span data-sep aria-hidden="true">/</span><span aria-current="page">{{ t(key="job-crumb", lang="id", stage=job.stage_name) }}</span>{% endblock crumb %}
+{% block title %}{{ t(key="job-page-title", lang="id", stage=job.label, ticket=job.ticket) }}{% endblock title %}
+{% block crumb %}<span data-sep aria-hidden="true">/</span><a href="{{ project.href }}">{{ project.name }}</a><span data-sep aria-hidden="true">/</span><a href="{{ job.ticket_href }}">{{ job.ticket }}</a><span data-sep aria-hidden="true">/</span><span aria-current="page">{{ t(key="job-crumb", lang="id", stage=job.label) }}</span>{% endblock crumb %}
 {% block width %}wide{% endblock width %}
 {% block page_attrs %}data-job-page="{{ job.id }}"{% endblock page_attrs %}
 {% block actions %}{% set j = job %}{% set compact = false %}{% include "runner/_job_actions.html" %}{% endblock actions %}
 {% block leading %}<span class="app-pav" data-size="lg" style="--pc: {{ job.persona.color }}" aria-hidden="true">{{ icon(name=job.persona.icon) }}</span>{% endblock leading %}
-{% block heading %}{{ t(key="job-page-title", lang="id", stage=job.stage_name, ticket=job.ticket) }}{% endblock heading %}
+{% block heading %}{{ t(key="job-page-title", lang="id", stage=job.label, ticket=job.ticket) }}{% endblock heading %}
 {% block description %}{{ job.title }} · {% if job.kind == "comment" %}{{ t(key="job-comment-by", lang="id", persona=job.persona.name) }}{% else %}{{ t(key="job-run-by", lang="id", persona=job.persona.name) }}{% endif %}{% if job.holder %} · {{ t(key="job-held-by", lang="id", name=job.holder.name) }}{% endif %}{% endblock description %}
 {% block main %}
 {% include "jobs/_live.html" %}

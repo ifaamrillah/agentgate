@@ -22,7 +22,7 @@
       <div>{{ <prio rank={j.priority} label={t(key=j.priority_key, lang="id")}/> }}<a class="app-link app-code" href="{{ j.ticket_href }}">{{ j.ticket }}</a><b>{{ j.title }}</b>{% if j.mine %}{{ <badge label={t(key="job-for-you", lang="id")} variant="info"/> }}{% endif %}</div>
       <small>{% if j.holder %}{{ t(key="job-held-by", lang="id", name=j.holder.name) }}{% if j.runner %} · {{ j.runner }}{% endif %}{% elif j.can_claim %}{{ t(key="job-claimable", lang="id") }}{% else %}{{ t(key="job-waiting-executor", lang="id") }}{% endif %}</small>
     </div></td>
-    <td data-hide="sm"><span class="app-who"><span class="app-pav" data-size="sm" style="--pc: {{ j.persona.color }}" title="{{ j.persona.name }}" aria-hidden="true">{{ icon(name=j.persona.icon) }}</span><span>{{ j.stage_name }}</span></span></td>
+    <td data-hide="sm"><span class="app-who"><span class="app-pav" data-size="sm" style="--pc: {{ j.persona.color }}" title="{{ j.persona.name }}" aria-hidden="true">{{ icon(name=j.persona.icon) }}</span><span>{{ j.label }}</span></span></td>
     <td>{{ <badge label={t(key=j.status_key, lang="id")} variant={j.status_variant}/> }}</td>
     <td data-hide="sm"><span class="app-hint">{{ t(key=j.age.key, lang="id", n=j.age.n) }}</span></td>
     <td>{% set compact = true %}{% include "runner/_job_actions.html" %}</td>
@@ -32,8 +32,10 @@
 {% </card> %}
 {%- elif panel == "mine" or panel == "team" %}
 {%- if panel == "mine" %}
+<div class="app-pad app-stack-v" data-gap="sm">
 {{ <flash kind="info" message={t(key="runner-start-info", lang="id")}/> }}
 {{ <stats items={stats}/> }}
+</div>
 {%- endif %}
 {%- if panel == "team" %}{% set r_title = t(key="runner-panel-team", lang="id") %}{% set r_desc = t(key="runner-team-description", lang="id") %}{% set r_empty = t(key="runner-team-empty", lang="id") %}
 {%- else %}{% set r_title = t(key="runner-panel-mine", lang="id") %}{% set r_desc = t(key="runner-mine-description", lang="id") %}{% set r_empty = t(key="runner-mine-empty", lang="id") %}{% endif %}
@@ -71,7 +73,7 @@
   {%- for j in held %}
   <div class="app-lrow" data-wrap data-job="{{ j.id }}">
     <span class="app-pav" data-size="sm" style="--pc: {{ j.persona.color }}" aria-hidden="true">{{ icon(name=j.persona.icon) }}</span>
-    <span class="app-lrow-main"><b><a class="app-link" href="{{ j.href }}">{{ j.ticket }} · {{ j.title }}</a></b><small>{{ j.stage_name }}{% if j.branch %} · <span class="app-code">{{ j.branch }}</span>{% endif %}</small></span>
+    <span class="app-lrow-main"><b><a class="app-link" href="{{ j.href }}">{{ j.ticket }} · {{ j.title }}</a></b><small>{{ j.label }}{% if j.branch %} · <span class="app-code">{{ j.branch }}</span>{% endif %}</small></span>
     {{ <badge label={t(key=j.status_key, lang="id")} variant={j.status_variant}/> }}
   </div>
   {%- else %}

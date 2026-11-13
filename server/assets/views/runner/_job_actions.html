@@ -1,15 +1,15 @@
 {#- Tombol aksi satu job + dialognya (Ambil, Putuskan kuota, Lepas, Batalkan). Variabel: j
     (views::runner::JobView), next (path kembali), my_runners ([RunnerView] milik pelaku,
-    opsional), compact (bool: tombol kecil di baris tabel). -#}
+    opsional), compact (bool: tombol kecil di baris tabel), hide_view (opsional: tanpa tombol Lihat job). -#}
 <div class="app-lrow-acts" data-job-actions="{{ j.id }}">
   {%- if j.can_claim %}{{ <button label={t(key="job-claim", lang="id")} variant="primary" size="sm" dialog={"claim-" ~ j.id} attrs="data-claim"/> }}{% endif %}
   {%- if j.can_quota %}{{ <button label={t(key="job-quota-decide", lang="id")} icon="hourglass" variant="outline" size="sm" dialog={"quota-" ~ j.id} attrs="data-quota"/> }}{% endif %}
-  {%- if compact and j.status != "queued" %}{{ <button label={t(key="job-view-log", lang="id")} variant="outline" size="sm" href={j.href}/> }}{% endif %}
+  {%- if compact and j.status != "queued" and not (hide_view is defined and hide_view) %}{{ <button label={t(key="job-view-log", lang="id")} variant="outline" size="sm" href={j.href}/> }}{% endif %}
   {%- if j.can_release and not compact %}{{ <button label={t(key="job-release", lang="id")} icon="arrow-back-up" variant="outline" size="sm" dialog={"release-" ~ j.id} attrs="data-release"/> }}{% endif %}
   {%- if j.can_cancel and not compact %}{{ <button label={t(key="job-cancel", lang="id")} icon="player-stop" variant="destructive" size="sm" dialog={"cancel-" ~ j.id} attrs="data-cancel"/> }}{% endif %}
 </div>
 {%- if j.can_claim %}
-{% <dialog id={"claim-" ~ j.id} title={t(key="job-claim-title", lang="id", ticket=j.ticket)} description={j.stage_name ~ " · " ~ j.title} icon="hand-stop" tone="accent"> %}
+{% <dialog id={"claim-" ~ j.id} title={t(key="job-claim-title", lang="id", ticket=j.ticket)} description={j.label ~ " · " ~ j.title} icon="hand-stop" tone="accent"> %}
 <form method="post" action="{{ j.actions.claim }}">
   <input type="hidden" name="next" value="{{ next }}">
   <section><div class="app-stack-v" data-gap="sm">

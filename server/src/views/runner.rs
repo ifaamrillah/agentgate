@@ -133,6 +133,8 @@ pub struct JobView {
     pub ticket_href: String,
     pub stage: String,
     pub stage_name: String,
+    /// Nama job untuk judul dan baris: nama persona untuk job komentar, nama stage selain itu.
+    pub label: String,
     pub persona: PersonaMark,
     pub priority: u8,
     pub priority_key: &'static str,
@@ -219,6 +221,11 @@ impl JobView {
             ticket_href: format!("/w/{}/t/{}", c.slug, c.ticket_code),
             stage: job.stage_key.clone(),
             stage_name: c.stage_name.clone(),
+            label: if job.kind() == JobKind::Comment {
+                PersonaMark::of(&job.persona, c.labels).name
+            } else {
+                c.stage_name.clone()
+            },
             persona: PersonaMark::of(&job.persona, c.labels),
             priority: c.priority,
             priority_key: match c.priority {

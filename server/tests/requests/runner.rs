@@ -747,6 +747,15 @@ async fn agent_mention_queues_a_comment_job_for_the_author() {
         assert_eq!(job["persona"], "qa");
         assert_eq!(job["mine"], true);
         let id = job["id"].as_str().unwrap();
+        let page = request
+            .get(&format!("/w/acme/jobs/{id}"))
+            .add_cookie(f.cookie.clone())
+            .await;
+        assert_eq!(page.status_code(), 200);
+        assert!(
+            page.text().contains(&format!("Job QA · {code}")),
+            "judul job komentar memakai nama persona"
+        );
 
         // Runner menjalankan dan membalas sebagai komentar.
         let runner = register(&request, &token, &SECRET).await;
