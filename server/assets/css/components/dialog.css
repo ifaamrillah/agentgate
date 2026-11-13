@@ -11,12 +11,14 @@
   .dialog::backdrop { background: var(--ag-scrim); }
   .dialog[open] { animation: app-pop 0.16s ease; }
   .dialog > * { display: grid; gap: 0; padding: 0; max-width: none; width: 100%; background: none; border: 0; box-shadow: none; }
-  .dialog > * > header { padding: 18px 20px 0; display: flex; gap: 12px; align-items: flex-start; text-align: left; }
+  /* Basecoat memusatkan isi dengan `position: fixed` + translate/scale; di sini <dialog> sendiri yang diposisikan. */
+  .dialog > *, .dialog:is([open], :popover-open) > * { position: static; inset: auto; translate: none; scale: none; transform: none; max-height: none; z-index: auto; }
+  .dialog > * > header { padding: 18px 20px 0; display: flex; flex-direction: row; gap: 12px; align-items: flex-start; text-align: left; }
   .dialog > * > header > div { flex: 1; min-width: 0; }
   .dialog > * > header h2 { font-size: 16px; font-weight: 600; }
   .dialog > * > header p { color: var(--ag-muted); margin-top: 3px; font-size: 13px; }
-  .dialog > * > section { padding: 14px 20px 20px; display: grid; gap: 14px; }
-  .dialog > * > footer {
+  .dialog > * > section, .dialog > * > form > section { padding: 14px 20px 20px; display: grid; gap: 14px; }
+  .dialog > * > footer, .dialog > * > form > footer {
     display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--ag-line);
     background: var(--ag-muted-bg); flex-wrap: wrap; flex-direction: row;
   }
