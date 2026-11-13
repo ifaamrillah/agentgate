@@ -1178,3 +1178,85 @@ async fn runner_settings_and_revoke() {
     })
     .await;
 }
+
+/// "Job paralel maksimal" (utang M5): server menolak `start` bila runner sudah menjalankan
+/// `max_parallel` job; slot kosong lagi setelah job selesai.
+#[tokio::test]
+async fn start_refuses_jobs_beyond_max_parallel() {
+    request::<App, _, _>(|request, ctx| async move {
+        let f = fixture(&request, &ctx).await;
+        let (first, token) = ticket_in_dev(&request, &ctx, &f).await;
+        create_ticket(&request, &f.cookie, &[("title", "Struk WhatsApp")]).await;
+        let res = request
+            .post("/w/acme/t/KSR-2/stage/complete")
+            .add_cookie(f.cookie.clone())
+            .form(&[("x", "")])
+            .await;
+        assert_eq!(res.status_code(), 303, "{}", res.text());
+        let (_, list) = get_json(&request, &token, "/api/cli/jobs").await;
+        let second = list
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|j| j["ticket"] == "KSR-2")
+            .unwrap()["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let runner = register(&request, &token, &SECRET).await;
+        let res = web_post(
+            &request,
+            &f.cookie,
+            "/w/acme/runner/prefs",
+            &[
+                ("max_parallel", "1"),
+                ("default_client", "claude"),
+                ("quota_policy", "wait"),
+            ],
+        )
+        .await;
+        assert_eq!(res.status_code(), 303);
+        for job in [&first, &second] {
+            let (status, body) = post_json(
+                &request,
+                &token,
+                None,
+                &format!("/api/cli/jobs/{job}/claim"),
+                &json!({ "runner_id": runner }),
+            )
+            .await;
+            assert_eq!(status, 200, "{body}");
+        }
+        let start = |job: String| {
+            let (request, token, runner) = (&request, token.clone(), runner.clone());
+            async move {
+                post_json(
+                    request,
+                    &token,
+                    Some(&runner),
+                    &format!("/api/runner/jobs/{job}/start"),
+                    &json!({}),
+                )
+                .await
+            }
+        };
+        assert_eq!(start(first.clone()).await.0, 200);
+        // Start ulang job yang sama (lanjutkan) tetap boleh.
+        assert_eq!(start(first.clone()).await.0, 200);
+        let (status, body) = start(second.clone()).await;
+        assert_eq!(status, 422, "{body}");
+        assert_eq!(body["error"], "job-runner-busy");
+
+        let (status, _) = post_json(
+            &request,
+            &token,
+            Some(&runner),
+            &format!("/api/runner/jobs/{first}/finish"),
+            &json!({ "outcome": "failed", "summary": "x" }),
+        )
+        .await;
+        assert_eq!(status, 200);
+        assert_eq!(start(second).await.0, 200);
+    })
+    .await;
+}

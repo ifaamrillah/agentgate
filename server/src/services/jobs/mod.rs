@@ -47,6 +47,7 @@ pub const RUNNER_INVALID: &str = "job-runner-invalid";
 pub const NOT_QUOTA: &str = "job-not-quota";
 pub const PERMISSION_CLOSED: &str = "job-permission-closed";
 pub const ACTION_BLOCKED: &str = "job-action-blocked";
+pub const RUNNER_BUSY: &str = "job-runner-busy";
 pub const ERROR_CODES: &[&str] = &[
     NOT_QUEUED,
     NOT_EXECUTOR,
@@ -56,6 +57,7 @@ pub const ERROR_CODES: &[&str] = &[
     NOT_QUOTA,
     PERMISSION_CLOSED,
     ACTION_BLOCKED,
+    RUNNER_BUSY,
 ];
 
 fn invalid(code: &'static str) -> TicketFailure {

@@ -52,6 +52,7 @@ job-runner-invalid = Runner tidak ditemukan atau sudah dicabut.
 job-not-quota = Job ini tidak sedang menunggu kuota AI.
 job-permission-closed = Permintaan izin ini sudah dijawab.
 job-action-blocked = Aksi ini selalu diblokir dan tidak bisa diizinkan.
+job-runner-busy = Runner ini sudah menjalankan job sebanyak batas "Job paralel maksimal". Job dimulai saat ada slot kosong.
 runner-name-invalid = Nama runner wajib diisi (maks. 80 karakter).
 runner-key-invalid = Kunci publik runner tidak valid.
 runner-batch-too-large = Kiriman dari runner terlalu besar. Kirim dalam beberapa bagian.

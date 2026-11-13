@@ -22,7 +22,8 @@ use agentgate_core::{
 use chrono::Duration;
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, ConnectionTrait, DatabaseConnection, DbErr,
-    EntityTrait, IntoActiveModel, QueryFilter, QueryOrder, TransactionTrait, sea_query::Expr,
+    EntityTrait, IntoActiveModel, PaginatorTrait, QueryFilter, QueryOrder, TransactionTrait,
+    sea_query::Expr,
 };
 use uuid::Uuid;
 
@@ -413,6 +414,37 @@ fn job_prompt(
     }
 }
 
+/// "Job paralel maksimal" pemilik runner: job baru tidak dimulai bila runner ini sudah
+/// menjalankan (`running`/`paused`) sebanyak batasnya. Melanjutkan job yang sudah berjalan
+/// selalu boleh.
+async fn runner_has_room(
+    db: &DatabaseConnection,
+    session: &Session,
+    runner: &runners::Model,
+    job: &jobs::Model,
+) -> Result<(), TicketFailure> {
+    if job.status().is_active() && job.runner_id == Some(runner.id) {
+        return Ok(());
+    }
+    let prefs =
+        runner_prefs::Model::of(db, session.workspace.workspace_id(), session.user.id).await?;
+    let Some(max) = prefs.max_parallel else {
+        return Ok(());
+    };
+    let active = jobs::Entity::find()
+        .filter(jobs::Column::RunnerId.eq(runner.id))
+        .filter(
+            jobs::Column::Status.is_in([JobStatus::Running.as_str(), JobStatus::Paused.as_str()]),
+        )
+        .filter(jobs::Column::Id.ne(job.id))
+        .count(db)
+        .await?;
+    if active >= u64::try_from(max.max(1)).unwrap_or(1) {
+        return Err(invalid(super::RUNNER_BUSY));
+    }
+    Ok(())
+}
+
 /// Mulai (atau lanjutkan) job di runner: kunci ke runner ini, status `running`, dan semua yang
 /// dibutuhkan runner.
 ///
@@ -439,6 +471,7 @@ pub async fn start(
     ) {
         return Err(invalid(CLOSED));
     }
+    runner_has_room(db, session, runner, &job).await?;
     let ticket = tickets::Model::find_in(db, wid, job.ticket_id)
         .await?
         .ok_or(TicketFailure::NotFound)?;

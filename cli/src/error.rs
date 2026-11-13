@@ -143,6 +143,7 @@ fn api_message(e: &ApiError) -> String {
             "job-closed" => "Job sudah selesai atau dibatalkan.".into(),
             "job-runner-invalid" => "Runner tidak valid.".into(),
             "job-action-blocked" => "Aksi ini selalu diblokir.".into(),
+            "job-runner-busy" => "Runner penuh (batas job paralel).".into(),
             other => format!("Server menolak permintaan ({other})."),
         },
         ApiError::Status { status, code } => format!("Server membalas {status} {code}."),
