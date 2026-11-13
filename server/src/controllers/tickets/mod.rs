@@ -19,6 +19,7 @@ use uuid::Uuid;
 mod artifact;
 mod backlog;
 mod board;
+pub mod components;
 mod drafts;
 pub mod estimate;
 mod inbox;
@@ -236,6 +237,19 @@ pub fn routes() -> Routes {
         .add("/w/{slug}/p/{key}/list", get(board::list))
         .add("/w/{slug}/p/{key}/backlog", get(backlog::index))
         .add("/w/{slug}/p/{key}/reports", get(reports::index))
+        .add(
+            "/w/{slug}/p/{key}/settings/components",
+            get(components::index).post(components::create),
+        )
+        .add(
+            "/w/{slug}/p/{key}/settings/components/rules",
+            get(components::rules).post(components::save_rules),
+        )
+        .add("/w/{slug}/p/{key}/settings/components/{id}", post(components::update))
+        .add(
+            "/w/{slug}/p/{key}/settings/components/{id}/delete",
+            post(components::delete),
+        )
         .add(
             "/w/{slug}/p/{key}/releases",
             get(releases::index).post(releases::create),
