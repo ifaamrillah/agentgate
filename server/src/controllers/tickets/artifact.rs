@@ -254,7 +254,7 @@ async fn render_index(
             "ticket": loaded.lookup.row(t),
             "paths": paths,
             "board": BoardPaths::new(&super::project_paths(&access.access).home),
-            "tabs": tabs(&paths, "artifacts", events.len() as u64, counts(ctx, access).await?),
+            "tabs": tabs(&paths, "artifacts", events.len() as u64, counts(ctx, access).await?, super::pulls::counts(ctx, access).await?),
             "stage": stage_panel,
             "groups": groups,
             "preview": preview,

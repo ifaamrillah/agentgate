@@ -231,6 +231,8 @@ pub struct SettingsLinks {
     pub skills: Option<String>,
     /// Runner & CLI: semua anggota (runner milik sendiri).
     pub runner: Option<String>,
+    /// Git provider: `ManageIntegrations`.
+    pub git: Option<String>,
 }
 
 impl AppShell {

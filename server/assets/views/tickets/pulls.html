@@ -1,0 +1,40 @@
+{#- Tiket → PR & CI (M6): satu kotak per PR (judul, repo #nomor, branch → base, ukuran diff,
+    status, tautan ke provider) dengan daftar check CI head commit terbaru. Prototype: prBody di
+    screens-m2-m3.js. Variabel: pulls ([views::git::PrView]), manual (hasil kode project manual),
+    git_settings (path Konvensi git), can_admin; sisanya sama dengan tickets/activity.html. -#}
+{% extends "tickets/_layout.html" %}
+{% block page_attrs %}data-ticket-pulls{% endblock page_attrs %}
+{% block main %}
+{% include "tickets/_stage_head.html" %}
+{{ <tabs label={t(key="ticket-tabs", lang="id")} items={tabs}/> }}
+{% <card title={t(key="ticket-pr-title", lang="id")} description={t(key="ticket-pr-description", lang="id")} count={pulls | length ~ ""}> %}
+  {%- for pr in pulls %}
+  <article class="app-pr" data-pr="{{ pr.number }}" data-pr-state="{{ pr.state.value }}" data-ci="{{ pr.ci.value }}">
+    <div class="app-pr-head">
+      <span class="app-tile" data-tone="{% if pr.state.value == "merged" %}info{% elif pr.state.value == "open" %}success{% endif %}">{{ icon(name=pr.state.icon) }}</span>
+      <span class="app-pr-main">
+        <b>{{ pr.title }}</b>
+        <small><span class="app-code">{{ pr.repo }} #{{ pr.number }}</span> · <code>{{ pr.head_branch }}</code>{{ icon(name="arrow-right") }}<code>{{ pr.base_branch }}</code>
+          · <span class="app-pr-diff"><ins>+{{ pr.additions }}</ins> <del>−{{ pr.deletions }}</del></span></small>
+      </span>
+      {{ <pr_state state={pr.state}/> }}
+      {{ <button label={t(key="pr-open-provider", lang="id")} icon="external-link" variant="outline" size="sm" href={pr.url} attrs="target=_blank rel=noopener data-pr-link"/> }}
+    </div>
+    <div class="app-pr-checks">
+      <span class="app-hint">{{ t(key="pr-ci-label", lang="id") }} · {{ t(key=pr.ci.key, lang="id") }}{% if pr.head_sha %} · <span class="app-code">{{ pr.head_sha }}</span>{% endif %}</span>
+      {%- for c in pr.checks %}
+      <div class="app-pr-check" data-check="{{ c.name }}">{{ <ci_state state={c.state} label={c.name} href={c.url}/> }}<span class="app-hint">{{ t(key=c.state.key, lang="id") }}</span></div>
+      {%- else %}
+      <p class="app-hint">{{ t(key="pr-checks-empty", lang="id") }}</p>
+      {%- endfor %}
+      {%- if pr.job_href %}<p class="app-hint">{{ t(key="pr-from-job", lang="id") }} <a class="app-link" href="{{ pr.job_href }}">{{ t(key="pr-view-job", lang="id") }}</a></p>{% endif %}
+    </div>
+  </article>
+  {%- else %}
+  {%- if manual %}{% set empty_desc = t(key="ticket-pr-empty-manual", lang="id") %}{% else %}{% set empty_desc = t(key="ticket-pr-empty-auto", lang="id") %}{% endif %}
+  {% <empty_state title={t(key="ticket-pr-empty", lang="id")} description={empty_desc} icon="git-pull-request" variant="plain"> %}
+    {%- if can_admin %}{{ <button label={t(key="project-git-title", lang="id")} icon="settings" variant="outline" size="sm" href={git_settings}/> }}{% endif %}
+  {% </empty_state> %}
+  {%- endfor %}
+{% </card> %}
+{% endblock main %}

@@ -273,10 +273,8 @@ pub fn repo_path(url: &str) -> Option<(String, String)> {
         .or_else(|| url.strip_prefix("http://"))
     {
         rest.split_once('/')?
-    } else if let Some(rest) = url.strip_prefix("git@") {
-        rest.split_once(':')?
     } else {
-        return None;
+        url.strip_prefix("git@")?.split_once(':')?
     };
     let host = host.rsplit('@').next()?.to_ascii_lowercase();
     let path = path.trim_end_matches('/').trim_end_matches(".git");

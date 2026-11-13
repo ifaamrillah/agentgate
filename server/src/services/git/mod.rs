@@ -9,6 +9,7 @@
 pub mod connections;
 pub mod provider;
 pub mod pulls;
+pub mod settings;
 pub mod webhook;
 
 use std::time::Duration;

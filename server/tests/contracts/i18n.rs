@@ -110,6 +110,8 @@ fn every_validation_error_code_has_a_message() {
         &[agentgate_server::controllers::device::CODE_INVALID],
         agentgate_core::workflow::definition::ERROR_CODES,
         agentgate_core::workflow::yaml::ERROR_CODES,
+        agentgate_core::git::ERROR_CODES,
+        agentgate_server::services::git::ERROR_CODES,
     ]
     .concat();
     let missing: Vec<_> = codes.iter().filter(|c| !keys.contains(**c)).collect();
@@ -138,6 +140,7 @@ fn every_auth_message_key_has_a_translation() {
         views::members::MESSAGE_KEYS,
         views::teams::MESSAGE_KEYS,
         views::projects::MESSAGE_KEYS,
+        views::git::MESSAGE_KEYS,
         views::tickets::MESSAGE_KEYS,
         views::workflow::MESSAGE_KEYS,
         views::runner::MESSAGE_KEYS,

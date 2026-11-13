@@ -1,0 +1,36 @@
+{#- Project → Pull request (M6): stat, tab Semua/Terbuka/Merged, tabel PR server-side (cari,
+    filter repo/CI, sort, halaman). Prototype: "Pull request project" di screens-m4-m6.js.
+    Variabel: project, views, views_action, return_to (layouts/project.html), paths
+    (ProjectPaths), tabs ([NavItem]), stats, table (TableView PRS_TABLE), pulls ([PrView]),
+    can_admin, has_repos. -#}
+{% extends "layouts/project.html" %}
+{% block title %}{{ t(key="project-view-prs", lang="id") }} · {{ project.name }}{% endblock title %}
+{% block width %}wide{% endblock width %}
+{% block crumb %}{{ <crumb label={t(key="project-view-prs", lang="id")}/> }}{% endblock crumb %}
+{% block actions %}
+  {%- if can_admin %}{{ <button label={t(key="project-git-title", lang="id")} icon="settings" variant="outline" href={paths.git} size="sm" attrs="data-git-settings"/> }}{% endif -%}
+{% endblock actions %}
+{% block page_attrs %}data-project-prs{% endblock page_attrs %}
+{% block description %}{{ t(key="prs-description", lang="id") }}{% endblock description %}
+{% block main %}
+{{ <stats items={stats}/> }}
+{%- if not has_repos %}{{ <flash kind="info" message={t(key="prs-no-repos", lang="id")}/> }}{% endif %}
+{{ <tabs label={t(key="project-view-prs", lang="id")} items={tabs}/> }}
+{% <card flush={true}> %}
+  {% <datatable table={table} empty_title={t(key="prs-empty", lang="id")} empty_description={t(key="prs-empty-description", lang="id")} empty_icon="git-pull-request"> %}
+  {%- for p in pulls %}
+  <tr data-pr="{{ p.number }}" data-pr-state="{{ p.state.value }}">
+    <td><div class="app-pr-cell"><span class="app-code">#{{ p.number }}</span><span>
+      <b><a class="app-link" href="{{ p.url }}" target="_blank" rel="noopener noreferrer">{{ p.title }}</a></b>
+      <small>{{ icon(name="folder") }}<span class="app-code">{{ p.repo }}</span><span class="app-pr-diff" data-hide="sm"> · <ins>+{{ p.additions }}</ins> <del>−{{ p.deletions }}</del></span></small>
+    </span></div></td>
+    <td>{% if p.ticket %}<a class="app-link app-code" href="{{ p.ticket.href }}" title="{{ p.ticket.title }}">{{ p.ticket.code }}</a>{% else %}<span class="app-hint">—</span>{% endif %}</td>
+    <td data-hide="sm"><span class="app-code app-hint">{{ p.head_branch }}</span></td>
+    <td>{{ <ci_state state={p.ci}/> }}</td>
+    <td>{{ <pr_state state={p.state}/> }}</td>
+    <td data-hide="sm"><span class="app-hint">{% if p.author %}{{ p.author }} · {% endif %}{{ t(key=p.updated.key, lang="id", n=p.updated.n) }}</span></td>
+  </tr>
+  {%- endfor %}
+  {% </datatable> %}
+{% </card> %}
+{% endblock main %}

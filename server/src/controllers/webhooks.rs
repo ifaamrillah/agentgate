@@ -26,10 +26,13 @@ fn json_error(status: StatusCode, code: &str) -> Response {
 #[debug_handler]
 async fn github(
     State(ctx): State<AppContext>,
-    Path(id): Path<Uuid>,
+    Path(id): Path<String>,
     headers: HeaderMap,
     body: Bytes,
 ) -> Result<Response> {
+    let Ok(id) = Uuid::try_parse(&id) else {
+        return Ok(json_error(StatusCode::NOT_FOUND, "not_found"));
+    };
     let settings = Settings::from_ctx(&ctx)?;
     let header = |name: &str| headers.get(name).and_then(|v| v.to_str().ok());
     let event = header("x-github-event").unwrap_or_default();

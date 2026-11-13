@@ -87,6 +87,25 @@ async fn render(
     views::projects::repos(v, &shell, &summary(access), &paths(access), &page, status)
 }
 
+/// Tautkan repo ke provider git workspace (+ webhook). Gagal tidak membatalkan simpan; status
+/// webhook tampil di Pengaturan → Git provider.
+async fn link(ctx: &AppContext, access: &ProjectAccess, repo: repos::Model) {
+    let Ok(settings) = crate::common::settings::Settings::from_ctx(ctx) else {
+        return;
+    };
+    if let Err(e) = crate::services::git::connections::link_repo(
+        &ctx.db,
+        &settings,
+        access.tenant.workspace_id(),
+        repo,
+        Some(&acting(access, None)),
+    )
+    .await
+    {
+        tracing::warn!(error = %e, "link repo to git provider failed");
+    }
+}
+
 async fn done(session: Session, access: &ProjectAccess, key: &str) -> Result<Response> {
     let session = flash::set(session, &Flash::success(key))?;
     Ok((session, format::redirect(&paths(access).repos)?).into_response())
@@ -123,7 +142,10 @@ pub(super) async fn create(
     )
     .await
     {
-        Ok(_) => done(session, &access, views::projects::FLASH_REPO_ADDED).await,
+        Ok(repo) => {
+            link(&ctx, &access, repo).await;
+            done(session, &access, views::projects::FLASH_REPO_ADDED).await
+        }
         Err(ProjectFailure::Invalid(errors)) => {
             render(
                 &ctx,
@@ -159,7 +181,10 @@ pub(super) async fn update(
     )
     .await
     {
-        Ok(_) => done(session, &access, views::projects::FLASH_REPO_UPDATED).await,
+        Ok(repo) => {
+            link(&ctx, &access, repo).await;
+            done(session, &access, views::projects::FLASH_REPO_UPDATED).await
+        }
         Err(ProjectFailure::Invalid(errors)) => {
             render(
                 &ctx,

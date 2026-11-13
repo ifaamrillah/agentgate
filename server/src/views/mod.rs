@@ -9,6 +9,7 @@ pub mod drafts;
 pub mod errors;
 pub mod flash;
 pub mod form;
+pub mod git;
 pub mod invitations;
 pub mod job_titles;
 pub mod layout;

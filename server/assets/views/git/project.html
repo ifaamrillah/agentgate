@@ -1,0 +1,65 @@
+{#- Pengaturan project → Konvensi git (M6, Admin project): subpage varian E (Konvensi git, Hasil
+    kode & merge, Gate CI; Environment testing, Stage deploy, Jalur kode "segera"). Prototype:
+    "Konvensi git & deploy project" di screens-m4-m6.js. Satu form per panel; field panel lain
+    tidak berubah. Variabel: project, paths, panel, subnav, form (GitSettings), required_checks,
+    example, error ({field, code}?), action, repo_count, styles, languages, outputs, merges. -#}
+{% extends "layouts/settings.html" %}
+{% block title %}{{ t(key="project-git-title", lang="id") }} · {{ project.name }}{% endblock title %}
+{% block crumb_label %}{{ t(key="project-git-title", lang="id") }}{% endblock crumb_label %}
+{% block page_attrs %}data-project-git="{{ panel }}"{% endblock page_attrs %}
+{% block settings %}
+{% <subpage title={t(key="project-git-title", lang="id")} description={t(key="project-git-description", lang="id", project=project.name)} items={subnav}> %}
+{%- if error and error.field == "branch_pattern" %}{% set pattern_error = error.code %}{% else %}{% set pattern_error = "" %}{% endif %}
+{%- if error and error.field == "required_checks" %}{% set checks_error = error.code %}{% else %}{% set checks_error = "" %}{% endif %}
+{%- if panel == "git" %}
+{% <card title={t(key="project-git-panel-git", lang="id")} description={t(key="project-git-git-description", lang="id")} flush={true} form={action} cancel_href={action ~ "/git"} note={t(key="project-git-note", lang="id")} attrs="data-git-form"> %}
+  <input type="hidden" name="panel" value="git">
+  {% <setting_row title={t(key="git-branch-pattern", lang="id")} description={t(key="git-branch-pattern-hint", lang="id")} top={true} wide={true}> %}
+    {{ <field id="git-branch-pattern" name="branch_pattern" label={t(key="git-branch-pattern", lang="id")} value={form.branch_pattern} mono={true} hide_label={true} error={pattern_error} hint={t(key="git-branch-example", lang="id", example=example)}/> }}
+  {% </setting_row> %}
+  {% <setting_row title={t(key="git-commit-style", lang="id")} description={t(key="git-commit-style-hint", lang="id")}> %}
+    <select class="app-input" name="commit_style" aria-label="{{ t(key="git-commit-style", lang="id") }}">
+      {%- for o in styles %}<option value="{{ o.value }}"{% if form.commit_style == o.value %} selected{% endif %}>{{ t(key=o.label_key, lang="id") }}</option>{% endfor %}
+    </select>
+  {% </setting_row> %}
+  {%- for row in [["commit_language", "git-commit-language", form.commit_language], ["pr_language", "git-pr-language", form.pr_language], ["code_language", "git-code-language", form.code_language]] %}
+  {% <setting_row title={t(key=row[1], lang="id")}> %}
+    <select class="app-input" name="{{ row[0] }}" aria-label="{{ t(key=row[1], lang="id") }}">
+      {%- for o in languages %}<option value="{{ o.value }}"{% if row[2] == o.value %} selected{% endif %}>{{ t(key=o.label_key, lang="id") }}</option>{% endfor %}
+    </select>
+  {% </setting_row> %}
+  {%- endfor %}
+{% </card> %}
+{%- elif panel == "out" %}
+{% <card title={t(key="project-git-panel-out", lang="id")} description={t(key="project-git-out-description", lang="id")} form={action} cancel_href={action ~ "/out"} note={t(key="project-git-note", lang="id")} attrs="data-git-form"> %}
+  <input type="hidden" name="panel" value="out">
+  <div class="app-stack-v">
+    {%- if repo_count == 0 %}{{ <flash kind="warn" message={t(key="project-git-no-repos", lang="id")}/> }}{% endif %}
+    <div class="app-blk"><b class="app-blk-t">{{ t(key="git-code-output", lang="id") }}</b>
+      <div class="app-choices" data-cols="one" role="radiogroup" aria-label="{{ t(key="git-code-output", lang="id") }}">
+        {%- for o in outputs %}
+        <label class="app-choice"><input type="radio" class="app-radio" name="code_output" value="{{ o.value }}"{% if form.code_output == o.value %} checked{% endif %}> <span><b>{{ t(key=o.label_key, lang="id") }}</b><small class="app-hint">{{ t(key=o.label_key ~ "-hint", lang="id") }}</small></span></label>
+        {%- endfor %}
+      </div>
+    </div>
+    <div class="app-blk"><b class="app-blk-t">{{ t(key="git-merge-mode", lang="id") }}</b>
+      <div class="app-choices" data-cols="one" role="radiogroup" aria-label="{{ t(key="git-merge-mode", lang="id") }}">
+        {%- for o in merges %}
+        <label class="app-choice"><input type="radio" class="app-radio" name="merge_mode" value="{{ o.value }}"{% if form.merge_mode == o.value %} checked{% endif %}> <span><b>{{ t(key=o.label_key, lang="id") }}</b><small class="app-hint">{{ t(key=o.label_key ~ "-hint", lang="id") }}</small></span></label>
+        {%- endfor %}
+      </div>
+    </div>
+  </div>
+{% </card> %}
+{%- else %}
+{% <card title={t(key="project-git-panel-ci", lang="id")} description={t(key="project-git-ci-description", lang="id")} flush={true} form={action} cancel_href={action ~ "/ci"} note={t(key="project-git-note", lang="id")} attrs="data-git-form"> %}
+  <input type="hidden" name="panel" value="ci">
+  {% <setting_row title={t(key="git-require-ci", lang="id")} description={t(key="git-require-ci-hint", lang="id")}> %}<input type="checkbox" class="app-switch" role="switch" name="require_ci" value="1" aria-label="{{ t(key="git-require-ci", lang="id") }}"{% if form.require_ci %} checked{% endif %}>{% </setting_row> %}
+  {% <setting_row title={t(key="git-required-checks", lang="id")} description={t(key="git-required-checks-hint", lang="id")} top={true} wide={true}> %}
+    {{ <field id="git-required-checks" name="required_checks" label={t(key="git-required-checks", lang="id")} value={required_checks} placeholder="build, test, clippy" mono={true} hide_label={true} error={checks_error}/> }}
+  {% </setting_row> %}
+  {% <setting_row title={t(key="git-ai-review", lang="id")} description={t(key="git-ai-review-hint", lang="id")}> %}{{ <badge label={t(key="nav-soon", lang="id")} variant="neutral"/> }}{% </setting_row> %}
+{% </card> %}
+{%- endif %}
+{% </subpage> %}
+{% endblock settings %}

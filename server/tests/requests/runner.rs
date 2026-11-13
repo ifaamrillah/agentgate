@@ -25,7 +25,7 @@ use super::tickets::{
 };
 use crate::support::{a_user, a_workspace, oauth_flow::device_login, sign_in_as};
 
-const SECRET: [u8; 32] = [7; 32];
+pub(super) const SECRET: [u8; 32] = [7; 32];
 const PNG: &[u8] = b"\x89PNG\r\n\x1a\n\0\0\0\rIHDRfake";
 
 fn flow_yaml(executor: &str) -> String {
@@ -52,7 +52,7 @@ stages:
     )
 }
 
-async fn get_json(request: &TestServer, token: &str, url: &str) -> (u16, Value) {
+pub(super) async fn get_json(request: &TestServer, token: &str, url: &str) -> (u16, Value) {
     let res = request
         .get(url)
         .add_header("authorization", format!("Bearer {token}"))
@@ -64,7 +64,7 @@ async fn get_json(request: &TestServer, token: &str, url: &str) -> (u16, Value) 
     )
 }
 
-async fn post_json(
+pub(super) async fn post_json(
     request: &TestServer,
     token: &str,
     runner: Option<&str>,
@@ -85,7 +85,7 @@ async fn post_json(
     )
 }
 
-async fn register(request: &TestServer, token: &str, secret: &[u8; 32]) -> String {
+pub(super) async fn register(request: &TestServer, token: &str, secret: &[u8; 32]) -> String {
     let (status, body) = post_json(
         request,
         token,

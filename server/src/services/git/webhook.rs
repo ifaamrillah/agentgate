@@ -68,7 +68,10 @@ pub fn verify(secret: &str, body: &[u8], header: Option<&str>) -> bool {
 /// Tanda tangan untuk tes/fake provider.
 #[must_use]
 pub fn sign(secret: &str, body: &[u8]) -> String {
-    let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_bytes()).expect("hmac key");
+    // HMAC menerima kunci sepanjang apa pun; cabang `Err` tidak terjadi.
+    let Ok(mut mac) = Hmac::<Sha256>::new_from_slice(secret.as_bytes()) else {
+        return String::new();
+    };
     mac.update(body);
     format!("sha256={}", hex::encode(mac.finalize().into_bytes()))
 }

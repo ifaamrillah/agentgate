@@ -1,0 +1,112 @@
+{#- Pengaturan → Git provider (M6, ManageIntegrations): subpage varian E (Cloud, Versi
+    perusahaan, Repo terhubung). Prototype: "Git provider" di screens-m4-m6.js.
+    Variabel: panel, subnav, stats, base, connect_action, failed ({kind, url, field, code} isian
+    Hubungkan yang ditolak → dialog terbuka lagi); cloud/enterprise: providers ([{key, icon,
+    label, available, connection: ConnectionView?}]); repos: table + repos ([RepoLinkView]). -#}
+{% extends "layouts/settings.html" %}
+{% block title %}{{ t(key="git-title", lang="id") }}{% endblock title %}
+{% block crumb_label %}{{ t(key="git-title", lang="id") }}{% endblock crumb_label %}
+{% block page_attrs %}data-git-page="{{ panel }}"{% endblock page_attrs %}
+{% block settings %}
+{% <subpage title={t(key="git-title", lang="id")} description={t(key="git-description", lang="id")} items={subnav}> %}
+<div class="app-pad">{{ <stats items={stats}/> }}</div>
+{%- if panel == "repos" %}
+{% <card title={t(key="git-panel-repos", lang="id")} description={t(key="git-repos-description", lang="id")} flush={true} attrs="data-git-repos"> %}
+  {% <datatable table={table} empty_title={t(key="git-repos-empty", lang="id")} empty_description={t(key="git-repos-empty-description", lang="id")} empty_icon="folder"> %}
+  {%- for r in repos %}
+  <tr data-repo="{{ r.full_name }}" data-webhook="{{ r.webhook }}">
+    <td><span class="app-code">{{ r.full_name }}</span></td>
+    <td><span class="app-who">{{ <dot color={r.project_color}/> }}<span>{{ r.project_name }}</span></span></td>
+    <td data-hide="sm">{% if r.provider %}{{ r.provider }}{% else %}<span class="app-hint">—</span>{% endif %}</td>
+    <td>
+      {%- if r.webhook == "active" %}{{ <badge label={t(key="git-webhook-active", lang="id")} variant="success"/> }}
+      {%- elif r.webhook == "error" %}<span title="{% if r.webhook_error %}{{ t(key=r.webhook_error, lang="id") }}{% endif %}">{{ <badge label={t(key="git-webhook-error", lang="id")} variant="destructive"/> }}</span>
+      {%- else %}{{ <badge label={t(key="git-webhook-none", lang="id")} variant="neutral"/> }}{% endif %}
+    </td>
+    <td data-hide="sm">{% if r.last_event %}<span class="app-hint">{{ t(key=r.last_event.key, lang="id", n=r.last_event.n) }}</span>{% else %}<span class="app-hint">{{ t(key="git-no-event", lang="id") }}</span>{% endif %}</td>
+    <td>{% if r.webhook != "none" %}<form method="post" action="{{ r.relink_action }}">{{ <button label={t(key="git-relink", lang="id")} icon="refresh" variant="ghost" size="sm" type="submit" attrs="data-relink"/> }}</form>{% endif %}</td>
+  </tr>
+  {%- endfor %}
+  {% </datatable> %}
+{% </card> %}
+{%- else %}
+{%- if panel == "cloud" %}{% set p_title = t(key="git-panel-cloud", lang="id") %}{% set p_desc = t(key="git-cloud-description", lang="id") %}
+{%- else %}{% set p_title = t(key="git-panel-enterprise", lang="id") %}{% set p_desc = t(key="git-enterprise-description", lang="id") %}{% endif %}
+{% <card title={p_title} description={p_desc} flush={true} attrs="data-git-providers"> %}
+  {%- for p in providers %}
+  <div class="app-lrow" data-wrap data-provider="{{ p.key }}"{% if p.connection %} data-connected{% endif %}>
+    <span class="app-prov-logo" aria-hidden="true">{{ icon(name=p.icon) }}</span>
+    <span class="app-lrow-main">
+      <b>{{ p.label }}{% if p.connection %} {{ <badge label={t(key="git-connected", lang="id")} variant="success"/> }}{% endif %}</b>
+      <small>
+        {%- if p.connection %}{{ t(key="git-connected-detail", lang="id", account=p.connection.account, host=p.connection.host, n=p.connection.repos) }}{% if p.connection.last_event %} · {{ t(key="git-last-event", lang="id") }} {{ t(key=p.connection.last_event.key, lang="id", n=p.connection.last_event.n) }}{% endif %}
+        {%- elif p.key == "github" %}{{ t(key="git-provider-github-hint", lang="id") }}
+        {%- elif p.available %}{{ t(key="git-provider-github_enterprise-hint", lang="id") }}
+        {%- else %}{{ t(key="nav-soon", lang="id") }}{% endif %}
+      </small>
+    </span>
+    <span class="app-lrow-acts">
+      {%- if not p.available %}{{ <badge label={t(key="nav-soon", lang="id")} variant="neutral"/> }}
+      {%- elif p.connection %}
+      {{ <button label={t(key="git-webhook-manual", lang="id")} icon="api" variant="ghost" size="sm" dialog={"hook-" ~ p.key}/> }}
+      {{ <button label={t(key="git-replace-token", lang="id")} icon="key" variant="outline" size="sm" dialog={"connect-" ~ p.key}/> }}
+      {{ <button label={t(key="git-disconnect", lang="id")} icon="plug" variant="destructive" size="sm" dialog={"disconnect-" ~ p.key}/> }}
+      {%- else %}
+      {{ <button label={t(key="git-connect", lang="id")} icon="plug-connected" variant="outline" size="sm" dialog={"connect-" ~ p.key} attrs="data-connect"/> }}
+      {%- endif %}
+    </span>
+  </div>
+  {%- if p.available %}
+  {%- set failed_here = false %}{% if failed %}{% if failed.kind == p.key %}{% set failed_here = true %}{% endif %}{% endif %}
+  {%- if p.connection %}{% set d_title = t(key="git-replace-token-title", lang="id", provider=p.label) %}{% else %}{% set d_title = t(key="git-connect-title", lang="id", provider=p.label) %}{% endif %}
+  {% <dialog id={"connect-" ~ p.key} title={d_title} description={t(key="git-connect-description", lang="id")} icon={p.icon} tone="accent" open={failed_here}> %}
+  <form method="post" action="{{ connect_action }}" class="app-form" data-connect-form>
+    <input type="hidden" name="kind" value="{{ p.key }}">
+    <section class="app-stack-v">
+      {%- if p.key == "github_enterprise" %}
+      {%- if failed_here %}{% set url_value = failed.url %}{% elif p.connection %}{% set url_value = p.connection.web_base %}{% else %}{% set url_value = "" %}{% endif %}
+      {%- if failed_here and failed.field == "url" %}{% set url_error = failed.code %}{% else %}{% set url_error = "" %}{% endif %}
+      {{ <field id={"git-url-" ~ p.key} name="url" label={t(key="git-server-url", lang="id")} value={url_value} placeholder="https://github.perusahaan.local" mono={true} required={true} error={url_error} hint={t(key="git-server-url-hint", lang="id")}/> }}
+      {%- endif %}
+      {%- if failed_here and failed.field != "url" %}{% set token_error = failed.code %}{% else %}{% set token_error = "" %}{% endif %}
+      {{ <field id={"git-token-" ~ p.key} name="token" type="password" label={t(key="git-token", lang="id")} placeholder="ghp_…" mono={true} required={true} autocomplete="off" error={token_error} hint={t(key="git-token-hint", lang="id")}/> }}
+      <div class="app-consent-scopes"><span class="app-hint">{{ t(key="git-scopes", lang="id") }}</span><ul>
+        <li>{{ icon(name="file-code") }}{{ t(key="git-scope-read", lang="id") }}</li>
+        <li>{{ icon(name="git-pull-request") }}{{ t(key="git-scope-pr", lang="id") }}</li>
+        <li>{{ icon(name="circle-check") }}{{ t(key="git-scope-ci", lang="id") }}</li>
+        <li>{{ icon(name="api") }}{{ t(key="git-scope-hooks", lang="id") }}</li>
+      </ul></div>
+    </section>
+    <footer>
+      <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+      {{ <button label={t(key="git-connect-submit", lang="id")} type="submit" attrs="data-connect-submit"/> }}
+    </footer>
+  </form>
+  {% </dialog> %}
+  {%- endif %}
+  {%- if p.connection %}
+  {% <dialog id={"hook-" ~ p.key} title={t(key="git-webhook-manual", lang="id")} description={t(key="git-webhook-manual-description", lang="id")} icon="api" tone="accent"> %}
+  <section class="app-stack-v">
+    <dl class="app-props">
+      <dt>{{ t(key="git-webhook-url", lang="id") }}</dt><dd><code class="app-code" data-webhook-url>{{ p.connection.webhook_url }}</code></dd>
+      <dt>{{ t(key="git-webhook-secret", lang="id") }}</dt><dd><code class="app-code" data-webhook-secret>{{ p.connection.webhook_secret }}</code></dd>
+      <dt>{{ t(key="git-webhook-events", lang="id") }}</dt><dd><span class="app-code">pull_request, check_run, check_suite, status</span></dd>
+      <dt>{{ t(key="git-webhook-type", lang="id") }}</dt><dd><span class="app-code">application/json</span></dd>
+    </dl>
+  </section>
+  <footer><button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-close", lang="id") }}</button></footer>
+  {% </dialog> %}
+  {% <dialog id={"disconnect-" ~ p.key} title={t(key="git-disconnect-title", lang="id", provider=p.label)} description={t(key="git-disconnect-description", lang="id")} icon="plug" tone="danger"> %}
+  <form method="post" action="{{ p.connection.disconnect_action }}">
+    <footer>
+      <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+      {{ <button label={t(key="git-disconnect", lang="id")} type="submit" variant="danger" attrs="data-disconnect"/> }}
+    </footer>
+  </form>
+  {% </dialog> %}
+  {%- endif %}
+  {%- endfor %}
+{% </card> %}
+{%- endif %}
+{% </subpage> %}
+{% endblock settings %}

@@ -33,6 +33,7 @@
 @import "./components/agent.css";
 @import "./components/auth.css";
 @import "./components/runner.css";
+@import "./components/git.css";
 
 @source "../views";
 @source "../../src";

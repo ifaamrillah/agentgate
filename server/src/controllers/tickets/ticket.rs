@@ -107,6 +107,7 @@ pub(super) fn tabs(
     current: &str,
     events: u64,
     artifacts: (u64, u64),
+    prs: (u64, bool),
 ) -> Vec<NavItem> {
     let mut items = vec![
         NavItem::link("summary", "ticket-tab-summary", "file-text", &paths.show),
@@ -124,6 +125,7 @@ pub(super) fn tabs(
             &paths.artifacts,
         )
         .counted(artifacts.0, artifacts.1 > 0),
+        NavItem::link("pr", "ticket-tab-pr", "git-pull-request", &paths.prs).counted(prs.0, prs.1),
     ];
     for item in &mut items {
         item.current = item.key == current;
@@ -356,7 +358,7 @@ async fn render_show(
             "paths": paths,
             "people_src": board.people,
             "board": board,
-            "tabs": tabs(&paths, "summary", events.len() as u64, artifact_counts),
+            "tabs": tabs(&paths, "summary", events.len() as u64, artifact_counts, super::pulls::counts(ctx, access).await?),
             "stage": stage,
             "can_edit": can_edit,
             "errors": {
@@ -538,7 +540,7 @@ pub(super) async fn activity(
             "events": event_views,
             "paths": paths,
             "board": BoardPaths::new(&super::project_paths(&access.access).home),
-            "tabs": tabs(&paths, "activity", events.len() as u64, super::artifact::counts(&ctx, &access).await?),
+            "tabs": tabs(&paths, "activity", events.len() as u64, super::artifact::counts(&ctx, &access).await?, super::pulls::counts(&ctx, &access).await?),
             "stage": super::stage::panel(&ctx, &access).await?,
             "errors": { "dialogs": super::stage::errors_view("", "") },
             "can_edit": access.can(Permission::EditProject),
