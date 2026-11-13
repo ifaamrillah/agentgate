@@ -11,8 +11,7 @@ use agentgate_core::runner::protocol::{JobKind, JobMode, JobStatus};
 use chrono::NaiveDate;
 use sea_orm::{
     ActiveEnum, ActiveModelTrait, ActiveValue::Set, ColumnTrait, ConnectionTrait,
-    DatabaseConnection, DbErr, EntityTrait, IntoActiveModel, QueryFilter, SqlErr,
-    TransactionTrait,
+    DatabaseConnection, DbErr, EntityTrait, IntoActiveModel, QueryFilter, SqlErr, TransactionTrait,
 };
 use uuid::Uuid;
 
@@ -241,7 +240,10 @@ pub async fn release_now(
     let wid = acting.workspace_id();
     let txn = db.begin().await?;
     let r = editable(&txn, acting, id).await?;
-    if matches!(r.status(), ReleaseStatus::Released | ReleaseStatus::Archived) {
+    if matches!(
+        r.status(),
+        ReleaseStatus::Released | ReleaseStatus::Archived
+    ) {
         return Err(Failure::field("release", RELEASE_STATE));
     }
     let target = match move_to {
@@ -251,7 +253,10 @@ pub async fn release_now(
                 .filter(|x| {
                     x.project_id == r.project_id
                         && x.id != r.id
-                        && !matches!(x.status(), ReleaseStatus::Released | ReleaseStatus::Archived)
+                        && !matches!(
+                            x.status(),
+                            ReleaseStatus::Released | ReleaseStatus::Archived
+                        )
                 })
                 .ok_or_else(|| Failure::field("target", TARGET_INVALID))?,
         ),
@@ -447,10 +452,9 @@ pub async fn request_ai_notes(
         .filter(jobs::Column::ProjectId.eq(r.project_id))
         .filter(jobs::Column::StageKey.eq(NOTES_STAGE))
         .filter(jobs::Column::PromptNote.eq(prompt.clone()))
-        .filter(jobs::Column::Status.is_in([
-            JobStatus::Queued.as_str(),
-            JobStatus::Running.as_str(),
-        ]))
+        .filter(
+            jobs::Column::Status.is_in([JobStatus::Queued.as_str(), JobStatus::Running.as_str()]),
+        )
         .one(db)
         .await?;
     if open.is_some() {
@@ -490,10 +494,9 @@ pub async fn open_notes_job<C: ConnectionTrait>(
         .filter(jobs::Column::ProjectId.eq(r.project_id))
         .filter(jobs::Column::StageKey.eq(NOTES_STAGE))
         .filter(jobs::Column::PromptNote.eq(notes_prompt(project_key, r)))
-        .filter(jobs::Column::Status.is_in([
-            JobStatus::Queued.as_str(),
-            JobStatus::Running.as_str(),
-        ]))
+        .filter(
+            jobs::Column::Status.is_in([JobStatus::Queued.as_str(), JobStatus::Running.as_str()]),
+        )
         .one(db)
         .await
 }

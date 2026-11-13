@@ -122,7 +122,11 @@ pub(super) async fn index(
     let chosen = query
         .sprint
         .and_then(|id| all_sprints.iter().find(|s| s.id == id))
-        .or_else(|| all_sprints.iter().find(|s| s.state() == SprintState::Active))
+        .or_else(|| {
+            all_sprints
+                .iter()
+                .find(|s| s.state() == SprintState::Active)
+        })
         .or_else(|| {
             all_sprints
                 .iter()
@@ -138,7 +142,11 @@ pub(super) async fn index(
             id: s.id.to_string(),
             name: s.name.clone(),
             range: pv::range(s.starts_on, s.ends_on),
-            state: if s.state() == SprintState::Active { "active" } else { "completed" },
+            state: if s.state() == SprintState::Active {
+                "active"
+            } else {
+                "completed"
+            },
             href: format!("{base}?tab={tab}&sprint={}", s.id),
             current: chosen.as_ref().is_some_and(|c| c.id == s.id),
         })
@@ -195,7 +203,11 @@ pub(super) async fn index(
                     .days
                     .iter()
                     .map(|d| {
-                        let mut t = format!("{}\nIdeal: {} poin", pv::day_month(d.day), charts::label(d.ideal));
+                        let mut t = format!(
+                            "{}\nIdeal: {} poin",
+                            pv::day_month(d.day),
+                            charts::label(d.ideal)
+                        );
                         if let Some(r) = d.remaining {
                             t.push_str(&format!("\nSisa: {r} poin"));
                         }
@@ -324,7 +336,10 @@ pub(super) async fn index(
                     )
                 })
                 .collect();
-            if let Some(a) = all_sprints.iter().find(|s| s.state() == SprintState::Active) {
+            if let Some(a) = all_sprints
+                .iter()
+                .find(|s| s.state() == SprintState::Active)
+            {
                 groups.push((a.name.clone(), f64::from(a.committed_points), None));
             }
             if groups.is_empty() {
@@ -347,7 +362,10 @@ pub(super) async fn index(
                     Stat::new(
                         "report-stat-completion",
                         if committed > 0 {
-                            format!("{}%", (f64::from(completed) / f64::from(committed) * 100.0).round())
+                            format!(
+                                "{}%",
+                                (f64::from(completed) / f64::from(committed) * 100.0).round()
+                            )
                         } else {
                             "–".into()
                         },
@@ -389,7 +407,11 @@ pub(super) async fn index(
                         .hint(
                             "report-hint-of-commitment",
                             if r.committed > 0 {
-                                format!("{}%", (f64::from(r.completed) / f64::from(r.committed) * 100.0).round())
+                                format!(
+                                    "{}%",
+                                    (f64::from(r.completed) / f64::from(r.committed) * 100.0)
+                                        .round()
+                                )
                             } else {
                                 "–".into()
                             },
@@ -477,8 +499,16 @@ pub(super) async fn index(
                     .iter()
                     .map(|s| StageRow {
                         name: stage_name(&s.stage),
-                        estimate: format!("{} + {}", charts::label(s.estimate.0), charts::label(s.estimate.1)),
-                        actual: format!("{} + {}", charts::label(s.actual.0), charts::label(s.actual.1)),
+                        estimate: format!(
+                            "{} + {}",
+                            charts::label(s.estimate.0),
+                            charts::label(s.estimate.1)
+                        ),
+                        actual: format!(
+                            "{} + {}",
+                            charts::label(s.actual.0),
+                            charts::label(s.actual.1)
+                        ),
                         factor: format!("×{}", charts::label((s.factor * 100.0).round() / 100.0)),
                         high: s.factor > 1.2,
                         samples: s.samples,
@@ -487,15 +517,19 @@ pub(super) async fn index(
                 stats = vec![
                     Stat::new(
                         "backlog-stat-accuracy",
-                        calib
-                            .accuracy
-                            .map_or_else(|| "–".to_string(), |a| format!("{}%", (a * 100.0).round())),
+                        calib.accuracy.map_or_else(
+                            || "–".to_string(),
+                            |a| format!("{}%", (a * 100.0).round()),
+                        ),
                         "sparkles",
                     )
                     .tone("success"),
                     Stat::new(
                         "report-stat-factor",
-                        calib.overall.map_or_else(|| "–".to_string(), |o| format!("×{}", charts::label((o * 100.0).round() / 100.0))),
+                        calib.overall.map_or_else(
+                            || "–".to_string(),
+                            |o| format!("×{}", charts::label((o * 100.0).round() / 100.0)),
+                        ),
                         "adjustments-horizontal",
                     ),
                     Stat::new("report-stat-samples", calib.points.len(), "ticket"),
@@ -508,7 +542,10 @@ pub(super) async fn index(
             let since = chrono::Utc::now() - chrono::Duration::days(90);
             let done: Vec<tickets::Model> = project_tickets
                 .iter()
-                .filter(|t| t.done_at.is_some_and(|d| d.with_timezone(&chrono::Utc) >= since))
+                .filter(|t| {
+                    t.done_at
+                        .is_some_and(|d| d.with_timezone(&chrono::Utc) >= since)
+                })
                 .cloned()
                 .collect();
             let actuals = estimates::actuals(db, wid, &done).await?;
@@ -516,7 +553,11 @@ pub(super) async fn index(
             if cycle.is_empty() {
                 empty = true;
             } else {
-                let longest = cycle.values().map(|(a, h)| a + h).fold(0.0, f64::max).max(0.1);
+                let longest = cycle
+                    .values()
+                    .map(|(a, h)| a + h)
+                    .fold(0.0, f64::max)
+                    .max(0.1);
                 let total_ai: f64 = cycle.values().map(|(a, _)| a).sum();
                 let total: f64 = cycle.values().map(|(a, h)| a + h).sum();
                 cycle_rows = cycle
@@ -527,7 +568,11 @@ pub(super) async fn index(
                         human: charts::label((h * 10.0).round() / 10.0),
                         total: charts::label(((a + h) * 10.0).round() / 10.0),
                         width: pct((a + h) / longest * 100.0).max(3),
-                        ai_pct: if a + h > 0.0 { pct(a / (a + h) * 100.0) } else { 0 },
+                        ai_pct: if a + h > 0.0 {
+                            pct(a / (a + h) * 100.0)
+                        } else {
+                            0
+                        },
                     })
                     .collect();
                 legend = vec![
@@ -543,9 +588,14 @@ pub(super) async fn index(
         }
     }
 
-    let shell = app_shell(&ctx, &access.tenant.user, Some(&access.tenant), Some(&access))
-        .await?
-        .at("project_reports");
+    let shell = app_shell(
+        &ctx,
+        &access.tenant.user,
+        Some(&access.tenant),
+        Some(&access),
+    )
+    .await?
+    .at("project_reports");
     views::tickets::render(
         &v,
         &shell,

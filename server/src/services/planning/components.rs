@@ -82,7 +82,9 @@ pub async fn default_assignee<C: ConnectionTrait>(
     else {
         return Ok(None);
     };
-    Ok(has_access(db, wid, project.id, owner).await?.then_some(owner))
+    Ok(has_access(db, wid, project.id, owner)
+        .await?
+        .then_some(owner))
 }
 
 /// Modul code graph project (`<repo>/<modul>`), urut.
@@ -155,7 +157,8 @@ async fn validate<C: ConnectionTrait>(
     let owner = match input.owner.trim() {
         "" => None,
         raw => {
-            let id = uuid::Uuid::parse_str(raw).map_err(|_| Failure::field("owner", OWNER_INVALID))?;
+            let id =
+                uuid::Uuid::parse_str(raw).map_err(|_| Failure::field("owner", OWNER_INVALID))?;
             if !has_access(db, wid, project_id, id).await? {
                 return Err(Failure::field("owner", OWNER_INVALID));
             }

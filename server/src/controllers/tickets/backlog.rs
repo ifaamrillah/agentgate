@@ -29,8 +29,8 @@ use crate::{
         tickets::TicketFailure,
     },
     views::{
-        self, flash::Flash, form::field_errors, nav, planning as pv, projects::PROJECT_VIEWS_ACTION,
-        ui::Stat,
+        self, flash::Flash, form::field_errors, nav, planning as pv,
+        projects::PROJECT_VIEWS_ACTION, ui::Stat,
     },
 };
 
@@ -138,8 +138,10 @@ async fn render(
         let workdays_left = if today > s.ends_on {
             0
         } else {
-            i64::try_from(crate::services::planning::workdays(today.max(s.starts_on), s.ends_on).len())
-                .unwrap_or(0)
+            i64::try_from(
+                crate::services::planning::workdays(today.max(s.starts_on), s.ends_on).len(),
+            )
+            .unwrap_or(0)
         };
         let mut block = pv::sprint_block(
             s,
@@ -182,7 +184,8 @@ async fn render(
         &estimates,
         &move_base,
     ));
-    let every_backlog: Vec<&tickets::Model> = all.iter().filter(|t| t.sprint_id.is_none()).collect();
+    let every_backlog: Vec<&tickets::Model> =
+        all.iter().filter(|t| t.sprint_id.is_none()).collect();
     backlog.count = every_backlog.len();
     backlog.points = every_backlog.iter().filter_map(|t| t.story_points).sum();
 
@@ -201,8 +204,10 @@ async fn render(
         None => stats.push(Stat::new("backlog-stat-no-active", "–", "flag")),
     }
     stats.push(match avg {
-        Some(a) => Stat::new("backlog-stat-velocity", pv::decimal(a), "chart-line")
-            .hint("backlog-stat-velocity-hint", done.len().min(planning::sprints::VELOCITY_WINDOW)),
+        Some(a) => Stat::new("backlog-stat-velocity", pv::decimal(a), "chart-line").hint(
+            "backlog-stat-velocity-hint",
+            done.len().min(planning::sprints::VELOCITY_WINDOW),
+        ),
         None => Stat::new("backlog-stat-velocity", "–", "chart-line")
             .hint("backlog-stat-velocity-none", ""),
     });
@@ -214,13 +219,19 @@ async fn render(
                 .map_or_else(|| "–".to_string(), |a| format!("{}%", (a * 100.0).round())),
             "sparkles",
         )
-        .tone(if calib.accuracy.is_some() { "success" } else { "" })
+        .tone(if calib.accuracy.is_some() {
+            "success"
+        } else {
+            ""
+        })
         .hint("backlog-stat-accuracy-hint", calib.points.len())
         .link(format!("{home}/reports?tab=calibration")),
     );
     if let Some(active) = open.iter().find(|s| s.state() == SprintState::Active) {
-        let in_sprint: Vec<&tickets::Model> =
-            all.iter().filter(|t| t.sprint_id == Some(active.id)).collect();
+        let in_sprint: Vec<&tickets::Model> = all
+            .iter()
+            .filter(|t| t.sprint_id == Some(active.id))
+            .collect();
         let left: i32 = in_sprint
             .iter()
             .filter(|t| t.status != "done")
@@ -261,7 +272,9 @@ async fn render(
         ),
         None => (String::new(), field_errors(FIELDS, None), None),
     };
-    let new_input = input.filter(|_| failed_dialog == "sprint-new").unwrap_or(&suggestion);
+    let new_input = input
+        .filter(|_| failed_dialog == "sprint-new")
+        .unwrap_or(&suggestion);
     let shell = app_shell(ctx, &access.tenant.user, Some(&access.tenant), Some(access))
         .await?
         .at("project_backlog");
@@ -312,12 +325,22 @@ pub(super) async fn index(
 ) -> Result<Response> {
     access.require(Permission::ViewProject)?;
     let (session, flash) = flash::take(session);
-    let res = render(&ctx, &v, &access, query.q.trim(), flash, None, StatusCode::OK).await?;
+    let res = render(
+        &ctx,
+        &v,
+        &access,
+        query.q.trim(),
+        flash,
+        None,
+        StatusCode::OK,
+    )
+    .await?;
     Ok((session, res).into_response())
 }
 
 /// Hasil POST: berhasil → flash + kembali ke backlog; validasi gagal → render ulang dengan
 /// dialog terbuka; lainnya → error.
+#[allow(clippy::too_many_arguments)]
 async fn finish<T>(
     ctx: &AppContext,
     v: &TeraView,
@@ -372,7 +395,17 @@ pub(super) async fn create(
         &input,
     )
     .await;
-    finish(&ctx, &v, &access, session, result, pv::FLASH_CREATED, "sprint-new".into(), input).await
+    finish(
+        &ctx,
+        &v,
+        &access,
+        session,
+        result,
+        pv::FLASH_CREATED,
+        "sprint-new".into(),
+        input,
+    )
+    .await
 }
 
 #[debug_handler]
@@ -388,8 +421,17 @@ pub(super) async fn update(
     access.require(Permission::EditProject)?;
     let input = sprint_input(&fields);
     let result = service::update(&ctx.db, &acting(&access.tenant, request_id), id, &input).await;
-    finish(&ctx, &v, &access, session, result, pv::FLASH_SAVED, format!("sprint-edit-{id}"), input)
-        .await
+    finish(
+        &ctx,
+        &v,
+        &access,
+        session,
+        result,
+        pv::FLASH_SAVED,
+        format!("sprint-edit-{id}"),
+        input,
+    )
+    .await
 }
 
 #[debug_handler]
@@ -403,8 +445,17 @@ pub(super) async fn delete(
 ) -> Result<Response> {
     access.require(Permission::EditProject)?;
     let result = service::delete(&ctx.db, &acting(&access.tenant, request_id), id).await;
-    finish(&ctx, &v, &access, session, result, pv::FLASH_DELETED, String::new(), SprintInput::default())
-        .await
+    finish(
+        &ctx,
+        &v,
+        &access,
+        session,
+        result,
+        pv::FLASH_DELETED,
+        String::new(),
+        SprintInput::default(),
+    )
+    .await
 }
 
 #[debug_handler]
@@ -427,8 +478,17 @@ pub(super) async fn start(
         given.then_some(&input),
     )
     .await;
-    finish(&ctx, &v, &access, session, result, pv::FLASH_STARTED, format!("sprint-start-{id}"), input)
-        .await
+    finish(
+        &ctx,
+        &v,
+        &access,
+        session,
+        result,
+        pv::FLASH_STARTED,
+        format!("sprint-start-{id}"),
+        input,
+    )
+    .await
 }
 
 #[debug_handler]
@@ -486,6 +546,15 @@ pub(super) async fn move_ticket(
         _ => Place::Keep,
     };
     let result = service::move_ticket(&ctx.db, &acting, id, to, place).await;
-    finish(&ctx, &v, &access, session, result, pv::FLASH_MOVED, String::new(), SprintInput::default())
-        .await
+    finish(
+        &ctx,
+        &v,
+        &access,
+        session,
+        result,
+        pv::FLASH_MOVED,
+        String::new(),
+        SprintInput::default(),
+    )
+    .await
 }

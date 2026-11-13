@@ -155,7 +155,9 @@ pub fn ui(v: &impl ViewRenderer, query: &[(String, String)]) -> Result<Response>
 fn planning_samples() -> serde_json::Value {
     use crate::views::charts::{Mark, Series, line_chart};
     let labels: Vec<String> = (1..=10).map(|d| format!("{d} Des")).collect();
-    let ideal: Vec<Option<f64>> = (0..10).map(|i| Some(30.0 - 30.0 / 9.0 * f64::from(i))).collect();
+    let ideal: Vec<Option<f64>> = (0..10)
+        .map(|i| Some(30.0 - 30.0 / 9.0 * f64::from(i)))
+        .collect();
     let actual = [30.0, 30.0, 27.0, 25.0, 25.0, 19.0];
     let remaining: Vec<Option<f64>> = (0..10).map(|i| actual.get(i).copied()).collect();
     let tips: Vec<String> = labels.iter().map(|l| format!("{l}\nSisa poin")).collect();

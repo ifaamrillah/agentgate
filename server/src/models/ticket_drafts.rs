@@ -32,7 +32,6 @@ pub struct DraftEstimate {
     pub persona: String,
 }
 
-
 impl Model {
     /// Estimasi AI draft (`None` = tanpa estimasi / tanpa jam per stage).
     #[must_use]

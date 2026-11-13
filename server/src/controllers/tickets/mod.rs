@@ -27,10 +27,10 @@ mod inbox;
 mod pulls;
 pub mod releases;
 pub mod reports;
-pub mod timeline;
 mod settings;
 mod stage;
 mod ticket;
+pub mod timeline;
 mod workflow;
 
 use super::extractors::{ProjectAccess, Tenant};
@@ -249,7 +249,10 @@ pub fn routes() -> Routes {
             "/w/{slug}/p/{key}/settings/components/rules",
             get(components::rules).post(components::save_rules),
         )
-        .add("/w/{slug}/p/{key}/settings/components/{id}", post(components::update))
+        .add(
+            "/w/{slug}/p/{key}/settings/components/{id}",
+            post(components::update),
+        )
         .add(
             "/w/{slug}/p/{key}/settings/components/{id}/delete",
             post(components::delete),
@@ -262,9 +265,18 @@ pub fn routes() -> Routes {
             "/w/{slug}/p/{key}/releases/{id}",
             get(releases::show).post(releases::update),
         )
-        .add("/w/{slug}/p/{key}/releases/{id}/delete", post(releases::delete))
-        .add("/w/{slug}/p/{key}/releases/{id}/release", post(releases::release_now))
-        .add("/w/{slug}/p/{key}/releases/{id}/status", post(releases::set_status))
+        .add(
+            "/w/{slug}/p/{key}/releases/{id}/delete",
+            post(releases::delete),
+        )
+        .add(
+            "/w/{slug}/p/{key}/releases/{id}/release",
+            post(releases::release_now),
+        )
+        .add(
+            "/w/{slug}/p/{key}/releases/{id}/status",
+            post(releases::set_status),
+        )
         .add(
             "/w/{slug}/p/{key}/releases/{id}/notes",
             get(releases::notes).post(releases::save_notes),
@@ -277,9 +289,15 @@ pub fn routes() -> Routes {
             "/w/{slug}/p/{key}/releases/{id}/notes/publish",
             post(releases::publish_notes),
         )
-        .add("/w/{slug}/p/{key}/releases/{id}/notes/ai", post(releases::request_ai))
+        .add(
+            "/w/{slug}/p/{key}/releases/{id}/notes/ai",
+            post(releases::request_ai),
+        )
         .add("/w/{slug}/p/{key}/backlog/sprints", post(backlog::create))
-        .add("/w/{slug}/p/{key}/backlog/sprints/{id}", post(backlog::update))
+        .add(
+            "/w/{slug}/p/{key}/backlog/sprints/{id}",
+            post(backlog::update),
+        )
         .add(
             "/w/{slug}/p/{key}/backlog/sprints/{id}/delete",
             post(backlog::delete),
@@ -292,7 +310,10 @@ pub fn routes() -> Routes {
             "/w/{slug}/p/{key}/backlog/sprints/{id}/complete",
             post(backlog::complete),
         )
-        .add("/w/{slug}/p/{key}/backlog/move/{id}", post(backlog::move_ticket))
+        .add(
+            "/w/{slug}/p/{key}/backlog/move/{id}",
+            post(backlog::move_ticket),
+        )
         .add(
             "/w/{slug}/p/{key}/tickets/new",
             get(board::new).post(board::create),
@@ -367,8 +388,14 @@ pub fn routes() -> Routes {
         .add("/w/{slug}/inbox/{id}/read", post(inbox::read))
         .add("/w/{slug}/search", get(inbox::search))
         .add("/w/{slug}/search/advanced", get(advanced::index))
-        .add("/w/{slug}/search/advanced/filters", post(advanced::save_filter))
-        .add("/w/{slug}/search/advanced/filters/{id}/delete", post(advanced::delete_filter))
+        .add(
+            "/w/{slug}/search/advanced/filters",
+            post(advanced::save_filter),
+        )
+        .add(
+            "/w/{slug}/search/advanced/filters/{id}/delete",
+            post(advanced::delete_filter),
+        )
         .add("/w/{slug}/search/advanced/bulk", post(advanced::bulk))
         // Pengaturan workspace
         .add("/w/{slug}/settings/ticket-types", get(settings::types))

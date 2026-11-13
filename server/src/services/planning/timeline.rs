@@ -37,10 +37,15 @@ pub fn span(
     let hours = remaining_hours.filter(|h| *h > 0.0);
     let (start, end, estimated) = if t.status == "done" {
         let start = sprint.map_or(created, |s| s.starts_on.max(created));
-        let end = t.done_at.as_ref().map_or_else(|| wib_date(&t.updated_at), wib_date);
+        let end = t
+            .done_at
+            .as_ref()
+            .map_or_else(|| wib_date(&t.updated_at), wib_date);
         (start, end, false)
     } else if started {
-        let start = sprint.map_or(created, |s| s.starts_on.max(created)).min(today);
+        let start = sprint
+            .map_or(created, |s| s.starts_on.max(created))
+            .min(today);
         let end = hours
             .map(|h| estimates::finish_date(today, h))
             .or(t.due_on)
@@ -66,7 +71,11 @@ pub fn span(
 
 /// Perkiraan selesai tiket yang belum selesai dari sisa jam estimasi.
 #[must_use]
-pub fn forecast(t: &tickets::Model, remaining_hours: Option<f64>, today: NaiveDate) -> Option<NaiveDate> {
+pub fn forecast(
+    t: &tickets::Model,
+    remaining_hours: Option<f64>,
+    today: NaiveDate,
+) -> Option<NaiveDate> {
     if t.status == "done" {
         return None;
     }
@@ -177,7 +186,10 @@ mod tests {
         let mut t = ticket("in_progress", "2026-11-04");
         t.due_on = Some(d("2026-11-20"));
         let s = span(&t, None, None, d("2026-11-12")).unwrap();
-        assert_eq!((s.start, s.end, s.estimated, s.late), (d("2026-11-04"), d("2026-11-20"), false, false));
+        assert_eq!(
+            (s.start, s.end, s.estimated, s.late),
+            (d("2026-11-04"), d("2026-11-20"), false, false)
+        );
     }
 
     #[test]

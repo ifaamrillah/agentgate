@@ -21,21 +21,46 @@ async fn advanced_search_filters_and_bulk_edit() {
         request
             .post("/w/acme/p/KSR/backlog/sprints")
             .add_cookie(f.cookie.clone())
-            .form(&[("name", "Sprint 1"), ("starts_on", start.as_str()), ("ends_on", end.as_str())])
+            .form(&[
+                ("name", "Sprint 1"),
+                ("starts_on", start.as_str()),
+                ("ends_on", end.as_str()),
+            ])
             .await;
         let s1 = sprint(&ctx, &f, "Sprint 1").await;
-        let a = create_ticket(&request, &f.cookie, &[("title", "Bayar QRIS"), ("priority", "high")]).await;
-        let b = create_ticket(&request, &f.cookie, &[("title", "Struk digital"), ("priority", "low")]).await;
-        let c = create_ticket(&request, &f.cookie, &[("title", "Laporan harian"), ("priority", "low")]).await;
+        let a = create_ticket(
+            &request,
+            &f.cookie,
+            &[("title", "Bayar QRIS"), ("priority", "high")],
+        )
+        .await;
+        let b = create_ticket(
+            &request,
+            &f.cookie,
+            &[("title", "Struk digital"), ("priority", "low")],
+        )
+        .await;
+        let c = create_ticket(
+            &request,
+            &f.cookie,
+            &[("title", "Laporan harian"), ("priority", "low")],
+        )
+        .await;
         let mut m = ticket(&ctx, &f.workspace, &a).await.into_active_model();
         m.sprint_id = Set(Some(s1.id));
         m.story_points = Set(Some(5));
         m.update(&ctx.db).await.unwrap();
 
         // Halaman awal + tautan dari pencarian dasar.
-        let page = request.get("/w/acme/search").add_cookie(f.cookie.clone()).await;
+        let page = request
+            .get("/w/acme/search")
+            .add_cookie(f.cookie.clone())
+            .await;
         assert!(page.text().contains("/w/acme/search/advanced"));
-        let page = request.get("/w/acme/search/advanced").add_cookie(f.cookie.clone()).await;
+        let page = request
+            .get("/w/acme/search/advanced")
+            .add_cookie(f.cookie.clone())
+            .await;
         assert_eq!(page.status_code(), 200);
         assert!(page.text().contains("data-advanced-page"));
 
@@ -71,7 +96,10 @@ async fn advanced_search_filters_and_bulk_edit() {
             .add_cookie(f.cookie.clone())
             .await
             .text();
-        let pos = |code: &str| html.find(&format!("data-ticket-row=\"{code}\"")).expect("baris");
+        let pos = |code: &str| {
+            html.find(&format!("data-ticket-row=\"{code}\""))
+                .expect("baris")
+        };
         assert!(pos(&a) < pos(&b), "high sebelum low");
 
         // Query salah → pesan, tanpa hasil.
@@ -87,37 +115,58 @@ async fn advanced_search_filters_and_bulk_edit() {
         let res = request
             .post("/w/acme/search/advanced/filters")
             .add_cookie(f.cookie.clone())
-            .form(&[("name", ""), ("query", "priority = low"), ("visibility", "private")])
+            .form(&[
+                ("name", ""),
+                ("query", "priority = low"),
+                ("visibility", "private"),
+            ])
             .await;
         assert_eq!(res.status_code(), 422);
         assert!(res.text().contains("data-open-on-load"));
         let res = request
             .post("/w/acme/search/advanced/filters")
             .add_cookie(f.cookie.clone())
-            .form(&[("name", "Prioritas rendah"), ("query", "OR"), ("visibility", "private")])
+            .form(&[
+                ("name", "Prioritas rendah"),
+                ("query", "OR"),
+                ("visibility", "private"),
+            ])
             .await;
         assert_eq!(res.status_code(), 422);
         let res = request
             .post("/w/acme/search/advanced/filters")
             .add_cookie(f.cookie.clone())
-            .form(&[("name", "Prioritas rendah"), ("query", "priority = low"), ("visibility", "workspace")])
+            .form(&[
+                ("name", "Prioritas rendah"),
+                ("query", "priority = low"),
+                ("visibility", "workspace"),
+            ])
             .await;
         assert_eq!(res.status_code(), 303, "{}", res.text());
         let filters = saved_filters::Entity::find().all(&ctx.db).await.unwrap();
         assert_eq!(filters.len(), 1);
-        let page = request.get("/w/acme/search/advanced").add_cookie(f.cookie.clone()).await;
+        let page = request
+            .get("/w/acme/search/advanced")
+            .add_cookie(f.cookie.clone())
+            .await;
         assert!(page.text().contains("data-filter=\"Prioritas rendah\""));
 
         // Anggota lain melihat filter workspace tetapi tidak bisa menghapusnya.
         let member = a_user().create(&ctx).await;
         add_member(&ctx, &f.workspace, &member, RoleKey::Member).await;
         let mc = sign_in_as(&request, &member).await;
-        let page = request.get("/w/acme/search/advanced").add_cookie(mc.clone()).await;
+        let page = request
+            .get("/w/acme/search/advanced")
+            .add_cookie(mc.clone())
+            .await;
         let html = page.text();
         assert!(html.contains("data-filter=\"Prioritas rendah\""));
         assert!(!html.contains("data-filter-delete"));
         let res = request
-            .post(&format!("/w/acme/search/advanced/filters/{}/delete", filters[0].id))
+            .post(&format!(
+                "/w/acme/search/advanced/filters/{}/delete",
+                filters[0].id
+            ))
             .add_cookie(mc.clone())
             .form(&[("x", "1")])
             .await;
@@ -174,12 +223,21 @@ async fn advanced_search_filters_and_bulk_edit() {
 
         // Pemilik menghapus filternya.
         let res = request
-            .post(&format!("/w/acme/search/advanced/filters/{}/delete", filters[0].id))
+            .post(&format!(
+                "/w/acme/search/advanced/filters/{}/delete",
+                filters[0].id
+            ))
             .add_cookie(f.cookie.clone())
             .form(&[("x", "1")])
             .await;
         assert_eq!(res.status_code(), 303);
-        assert!(saved_filters::Entity::find().all(&ctx.db).await.unwrap().is_empty());
+        assert!(
+            saved_filters::Entity::find()
+                .all(&ctx.db)
+                .await
+                .unwrap()
+                .is_empty()
+        );
     })
     .await;
 }

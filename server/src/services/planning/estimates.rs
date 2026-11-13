@@ -411,9 +411,7 @@ pub fn median(mut v: Vec<f64>) -> f64 {
 
 /// Hitung kalibrasi dari tiket selesai: estimasi AI terakhir vs aktual.
 #[must_use]
-pub fn calibrate(
-    done: &[(Uuid, String, ticket_estimates::Model, StageActual)],
-) -> Calibration {
+pub fn calibrate(done: &[(Uuid, String, ticket_estimates::Model, StageActual)]) -> Calibration {
     let mut per_stage: BTreeMap<String, Vec<(f64, f64, f64, f64)>> = BTreeMap::new();
     let mut points = Vec::new();
     let mut ratios = Vec::new();
@@ -617,7 +615,10 @@ mod tests {
     fn finish_date_uses_working_days() {
         let fri = NaiveDate::from_ymd_opt(2026, 11, 13).unwrap();
         assert_eq!(finish_date(fri, 4.0), fri);
-        assert_eq!(finish_date(fri, 9.0), NaiveDate::from_ymd_opt(2026, 11, 16).unwrap());
+        assert_eq!(
+            finish_date(fri, 9.0),
+            NaiveDate::from_ymd_opt(2026, 11, 16).unwrap()
+        );
     }
 
     #[test]

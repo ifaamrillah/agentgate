@@ -235,12 +235,7 @@ pub fn project_settings_nav(paths: &ProjectPaths, current: &str) -> Vec<NavItem>
                 &paths.ticket_code,
             ),
             NavItem::link("git", "project-git-title", "git-branch", &paths.git),
-            NavItem::link(
-                "components",
-                "component-title",
-                "puzzle",
-                &paths.components,
-            ),
+            NavItem::link("components", "component-title", "puzzle", &paths.components),
         ],
         current,
     )

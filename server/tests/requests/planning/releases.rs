@@ -7,11 +7,17 @@ use agentgate_server::{
     services::planning::releases as service,
 };
 use loco_rs::testing::prelude::*;
-use sea_orm::{ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, IntoActiveModel, QueryFilter};
+use sea_orm::{
+    ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, IntoActiveModel, QueryFilter,
+};
 
 use super::{create_ticket, fixture, ksr, ticket};
 
-async fn release(ctx: &loco_rs::app::AppContext, wid: agentgate_server::models::workspaces::WorkspaceId, name: &str) -> releases::Model {
+async fn release(
+    ctx: &loco_rs::app::AppContext,
+    wid: agentgate_server::models::workspaces::WorkspaceId,
+    name: &str,
+) -> releases::Model {
     releases::Entity::find()
         .filter(releases::Column::WorkspaceId.eq(wid.get()))
         .filter(releases::Column::Name.eq(name))
@@ -37,7 +43,11 @@ async fn release_lifecycle_with_versioned_notes() {
         assert_css_exists(&page, "#release-new form");
 
         // Nama kosong → 422, dialog terbuka dengan error.
-        let res = request.post(base).add_cookie(f.cookie.clone()).form(&[("name", " ")]).await;
+        let res = request
+            .post(base)
+            .add_cookie(f.cookie.clone())
+            .form(&[("name", " ")])
+            .await;
         assert_eq!(res.status_code(), 422);
         assert_css_exists(&res.text(), "dialog#release-new[data-open-on-load]");
 
@@ -45,15 +55,34 @@ async fn release_lifecycle_with_versioned_notes() {
         let res = request
             .post(base)
             .add_cookie(f.cookie.clone())
-            .form(&[("name", "v1.4"), ("description", "QRIS <b>struk</b>"), ("target_on", "2026-11-20")])
+            .form(&[
+                ("name", "v1.4"),
+                ("description", "QRIS <b>struk</b>"),
+                ("target_on", "2026-11-20"),
+            ])
             .await;
         assert_eq!(res.status_code(), 303, "{}", res.text());
         let v14 = release(&ctx, wid, "v1.4").await;
-        assert!(res.headers().get("location").unwrap().to_str().unwrap().ends_with(&v14.id.to_string()));
-        request.post(base).add_cookie(f.cookie.clone()).form(&[("name", "v1.5")]).await;
+        assert!(
+            res.headers()
+                .get("location")
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .ends_with(&v14.id.to_string())
+        );
+        request
+            .post(base)
+            .add_cookie(f.cookie.clone())
+            .form(&[("name", "v1.5")])
+            .await;
         let v15 = release(&ctx, wid, "v1.5").await;
         // Nama sama → 422.
-        let res = request.post(base).add_cookie(f.cookie.clone()).form(&[("name", "v1.4")]).await;
+        let res = request
+            .post(base)
+            .add_cookie(f.cookie.clone())
+            .form(&[("name", "v1.4")])
+            .await;
         assert_eq!(res.status_code(), 422);
 
         // Dua tiket di v1.4, satu selesai.
@@ -77,10 +106,18 @@ async fn release_lifecycle_with_versioned_notes() {
         assert!(page.contains("1 dari 2 tiket selesai"));
         assert!(!page.contains("<b>struk</b>"), "deskripsi di-escape");
         // Filter status: v1.4 sudah ada tiket dikerjakan → Belum dirilis.
-        let page = request.get(&format!("{base}?status=planned")).add_cookie(f.cookie.clone()).await.text();
+        let page = request
+            .get(&format!("{base}?status=planned"))
+            .add_cookie(f.cookie.clone())
+            .await
+            .text();
         assert_css_exists(&page, "tr[data-release='v1.5']");
         assert_css_not_exists(&page, "tr[data-release='v1.4']");
-        let page = request.get(&format!("{base}?q=1.4")).add_cookie(f.cookie.clone()).await.text();
+        let page = request
+            .get(&format!("{base}?q=1.4"))
+            .add_cookie(f.cookie.clone())
+            .await
+            .text();
         assert_css_not_exists(&page, "tr[data-release='v1.5']");
 
         // Detail.
@@ -96,7 +133,11 @@ async fn release_lifecycle_with_versioned_notes() {
         let res = request
             .post(&show)
             .add_cookie(f.cookie.clone())
-            .form(&[("name", "v1.4"), ("starts_on", "2026-12-01"), ("target_on", "2026-11-20")])
+            .form(&[
+                ("name", "v1.4"),
+                ("starts_on", "2026-12-01"),
+                ("target_on", "2026-11-20"),
+            ])
             .await;
         assert_eq!(res.status_code(), 422);
         assert_css_exists(&res.text(), "dialog#release-edit[data-open-on-load]");
@@ -106,33 +147,71 @@ async fn release_lifecycle_with_versioned_notes() {
         let page = request.get(&notes).add_cookie(f.cookie.clone()).await;
         assert_eq!(page.status_code(), 200);
         assert_css_exists(&page.text(), "textarea[name=body]");
-        let res = request.post(&notes).add_cookie(f.cookie.clone()).form(&[("body", "## v1.4\n\n- QRIS")]).await;
+        let res = request
+            .post(&notes)
+            .add_cookie(f.cookie.clone())
+            .form(&[("body", "## v1.4\n\n- QRIS")])
+            .await;
         assert_eq!(res.status_code(), 303);
-        request.post(&notes).add_cookie(f.cookie.clone()).form(&[("body", "## v1.4\n\n- QRIS")]).await;
-        request.post(&notes).add_cookie(f.cookie.clone()).form(&[("body", "## v1.4\n\n- QRIS\n- Struk")]).await;
+        request
+            .post(&notes)
+            .add_cookie(f.cookie.clone())
+            .form(&[("body", "## v1.4\n\n- QRIS")])
+            .await;
+        request
+            .post(&notes)
+            .add_cookie(f.cookie.clone())
+            .form(&[("body", "## v1.4\n\n- QRIS\n- Struk")])
+            .await;
         let r = release(&ctx, wid, "v1.4").await;
         assert_eq!(r.notes_version, 2);
-        let res = request.post(&format!("{notes}/restore")).add_cookie(f.cookie.clone()).form(&[("number", "1")]).await;
+        let res = request
+            .post(&format!("{notes}/restore"))
+            .add_cookie(f.cookie.clone())
+            .form(&[("number", "1")])
+            .await;
         assert_eq!(res.status_code(), 303);
         let r = release(&ctx, wid, "v1.4").await;
         assert_eq!(r.notes_version, 3);
         assert_eq!(r.notes, "## v1.4\n\n- QRIS");
-        let versions = release_note_versions::Model::of_release(&ctx.db, wid, r.id, 10).await.unwrap();
+        let versions = release_note_versions::Model::of_release(&ctx.db, wid, r.id, 10)
+            .await
+            .unwrap();
         assert_eq!(versions.len(), 3);
-        let page = request.get(&notes).add_cookie(f.cookie.clone()).await.text();
+        let page = request
+            .get(&notes)
+            .add_cookie(f.cookie.clone())
+            .await
+            .text();
         assert_css_exists(&page, "[data-notes-version='1'] [data-notes-restore]");
-        let res = request.post(&format!("{notes}/restore")).add_cookie(f.cookie.clone()).form(&[("number", "99")]).await;
+        let res = request
+            .post(&format!("{notes}/restore"))
+            .add_cookie(f.cookie.clone())
+            .form(&[("number", "99")])
+            .await;
         assert_eq!(res.status_code(), 404);
 
         // Terlalu panjang → 422 dengan isian tetap.
         let long = "x".repeat(100_001);
-        let res = request.post(&notes).add_cookie(f.cookie.clone()).form(&[("body", long.as_str())]).await;
+        let res = request
+            .post(&notes)
+            .add_cookie(f.cookie.clone())
+            .form(&[("body", long.as_str())])
+            .await;
         assert_eq!(res.status_code(), 422);
 
         // Susun dengan AI → job writer; kedua kali → sibuk, tidak ada job baru.
-        let res = request.post(&format!("{notes}/ai")).add_cookie(f.cookie.clone()).form(&[("back", "notes")]).await;
+        let res = request
+            .post(&format!("{notes}/ai"))
+            .add_cookie(f.cookie.clone())
+            .form(&[("back", "notes")])
+            .await;
         assert_eq!(res.status_code(), 303);
-        request.post(&format!("{notes}/ai")).add_cookie(f.cookie.clone()).form(&[("back", "notes")]).await;
+        request
+            .post(&format!("{notes}/ai"))
+            .add_cookie(f.cookie.clone())
+            .form(&[("back", "notes")])
+            .await;
         let jobs = jobs::Entity::find()
             .filter(jobs::Column::WorkspaceId.eq(wid.get()))
             .filter(jobs::Column::StageKey.eq(service::NOTES_STAGE))
@@ -155,28 +234,59 @@ async fn release_lifecycle_with_versioned_notes() {
         let r = release(&ctx, wid, "v1.4").await;
         assert_eq!(r.status, "released");
         assert!(r.notes_published);
-        assert_eq!(ticket(&ctx, &f.workspace, &b).await.release_id, Some(v15.id));
-        assert_eq!(ticket(&ctx, &f.workspace, &a).await.release_id, Some(v14.id));
+        assert_eq!(
+            ticket(&ctx, &f.workspace, &b).await.release_id,
+            Some(v15.id)
+        );
+        assert_eq!(
+            ticket(&ctx, &f.workspace, &a).await.release_id,
+            Some(v14.id)
+        );
         let page = request.get(&show).add_cookie(f.cookie.clone()).await.text();
         assert_css_exists(&page, "[data-release-page='released']");
         assert_css_not_exists(&page, "[data-release-now]");
         assert_css_exists(&page, "[data-release-reopen]");
         // Rilis lagi → tidak berubah (sudah dirilis).
-        request.post(&format!("{show}/release")).add_cookie(f.cookie.clone()).form(&[("target", "none")]).await;
+        request
+            .post(&format!("{show}/release"))
+            .add_cookie(f.cookie.clone())
+            .form(&[("target", "none")])
+            .await;
         assert_eq!(release(&ctx, wid, "v1.4").await.status, "released");
 
         // Arsip lalu buka.
-        request.post(&format!("{show}/status")).add_cookie(f.cookie.clone()).form(&[("status", "archived")]).await;
+        request
+            .post(&format!("{show}/status"))
+            .add_cookie(f.cookie.clone())
+            .form(&[("status", "archived")])
+            .await;
         assert_eq!(release(&ctx, wid, "v1.4").await.status, "archived");
-        request.post(&format!("{show}/status")).add_cookie(f.cookie.clone()).form(&[("status", "unreleased")]).await;
+        request
+            .post(&format!("{show}/status"))
+            .add_cookie(f.cookie.clone())
+            .form(&[("status", "unreleased")])
+            .await;
         assert_eq!(release(&ctx, wid, "v1.4").await.status, "unreleased");
 
         // Hapus v1.5: tiketnya kehilangan Fix version.
-        let res = request.post(&format!("{base}/{}/delete", v15.id)).add_cookie(f.cookie.clone()).form(&[("x", "")]).await;
+        let res = request
+            .post(&format!("{base}/{}/delete", v15.id))
+            .add_cookie(f.cookie.clone())
+            .form(&[("x", "")])
+            .await;
         assert_eq!(res.status_code(), 303);
-        assert!(releases::Entity::find_by_id(v15.id).one(&ctx.db).await.unwrap().is_none());
+        assert!(
+            releases::Entity::find_by_id(v15.id)
+                .one(&ctx.db)
+                .await
+                .unwrap()
+                .is_none()
+        );
         assert_eq!(ticket(&ctx, &f.workspace, &b).await.release_id, None);
-        let res = request.get(&format!("{base}/{}", v15.id)).add_cookie(f.cookie.clone()).await;
+        let res = request
+            .get(&format!("{base}/{}", v15.id))
+            .add_cookie(f.cookie.clone())
+            .await;
         assert_eq!(res.status_code(), 404);
         let _ = (ksr(&ctx, &f).await, tickets::Entity::find());
     })

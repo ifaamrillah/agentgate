@@ -15,14 +15,23 @@ async fn scrum_board_filters_active_sprint_and_swimlanes() {
         let b = create_ticket(&request, &f.cookie, &[("title", "Di backlog")]).await;
 
         // Tanpa sprint: semua tiket, tanpa chip sprint.
-        let page = request.get("/w/acme/p/KSR/board").add_cookie(f.cookie.clone()).await.text();
+        let page = request
+            .get("/w/acme/p/KSR/board")
+            .add_cookie(f.cookie.clone())
+            .await
+            .text();
         assert_css_not_exists(&page, "[data-board-sprints]");
         assert!(page.contains(&a) && page.contains(&b));
 
         request
             .post("/w/acme/p/KSR/backlog/sprints")
             .add_cookie(f.cookie.clone())
-            .form(&[("name", "Sprint 1"), ("goal", "QRIS jalan"), ("starts_on", "2026-11-16"), ("ends_on", "2026-11-27")])
+            .form(&[
+                ("name", "Sprint 1"),
+                ("goal", "QRIS jalan"),
+                ("starts_on", "2026-11-16"),
+                ("ends_on", "2026-11-27"),
+            ])
             .await;
         let s1 = sprint(&ctx, &f, "Sprint 1").await;
         let t = ticket(&ctx, &f.workspace, &a).await;
@@ -30,10 +39,18 @@ async fn scrum_board_filters_active_sprint_and_swimlanes() {
         m.sprint_id = Set(Some(s1.id));
         m.update(&ctx.db).await.unwrap();
         // Sprint rencana belum aktif → bawaan tetap semua tiket; pilih sprint lewat chip.
-        let page = request.get("/w/acme/p/KSR/board").add_cookie(f.cookie.clone()).await.text();
+        let page = request
+            .get("/w/acme/p/KSR/board")
+            .add_cookie(f.cookie.clone())
+            .await
+            .text();
         assert_css_exists(&page, "[data-board-sprints]");
         assert!(page.contains(&b));
-        let page = request.get(&format!("/w/acme/p/KSR/board?sprint={}", s1.id)).add_cookie(f.cookie.clone()).await.text();
+        let page = request
+            .get(&format!("/w/acme/p/KSR/board?sprint={}", s1.id))
+            .add_cookie(f.cookie.clone())
+            .await
+            .text();
         assert!(page.contains(&a) && !page.contains(&b));
         // Mulai sprint → board bawaan sprint aktif.
         request
@@ -41,17 +58,35 @@ async fn scrum_board_filters_active_sprint_and_swimlanes() {
             .add_cookie(f.cookie.clone())
             .form(&[("name", "")])
             .await;
-        let page = request.get("/w/acme/p/KSR/board").add_cookie(f.cookie.clone()).await.text();
-        assert!(page.contains(&a) && !page.contains(&b), "bawaan sprint aktif");
+        let page = request
+            .get("/w/acme/p/KSR/board")
+            .add_cookie(f.cookie.clone())
+            .await
+            .text();
+        assert!(
+            page.contains(&a) && !page.contains(&b),
+            "bawaan sprint aktif"
+        );
         assert_css_exists(&page, "[data-board-goal]");
-        let page = request.get("/w/acme/p/KSR/board?sprint=all").add_cookie(f.cookie.clone()).await.text();
+        let page = request
+            .get("/w/acme/p/KSR/board?sprint=all")
+            .add_cookie(f.cookie.clone())
+            .await
+            .text();
         assert!(page.contains(&b));
 
         // Swimlane.
-        let page = request.get("/w/acme/p/KSR/board?sprint=all&swim=assignee").add_cookie(f.cookie.clone()).await.text();
+        let page = request
+            .get("/w/acme/p/KSR/board?sprint=all&swim=assignee")
+            .add_cookie(f.cookie.clone())
+            .await
+            .text();
         assert_css_exists(&page, "[data-lane]");
         assert_css_exists(&page, "[data-lane-board][data-board]");
-        let page = request.get("/w/acme/p/KSR/board?sprint=all&swim=epic").add_cookie(f.cookie.clone()).await;
+        let page = request
+            .get("/w/acme/p/KSR/board?sprint=all&swim=epic")
+            .add_cookie(f.cookie.clone())
+            .await;
         assert_eq!(page.status_code(), 200);
         assert!(page.text().contains("Tanpa epic"));
     })

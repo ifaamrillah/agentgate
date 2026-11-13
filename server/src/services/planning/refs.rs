@@ -103,7 +103,9 @@ pub async fn names<C: ConnectionTrait>(
         let mut n = [None, None];
         for (i, id) in release.iter().enumerate() {
             if let Some(id) = id {
-                n[i] = releases::Model::find_in(db, wid, *id).await?.map(|s| s.name);
+                n[i] = releases::Model::find_in(db, wid, *id)
+                    .await?
+                    .map(|s| s.name);
             }
         }
         out.release = Some(serde_json::json!({ "from": n[0], "to": n[1] }));
@@ -112,7 +114,9 @@ pub async fn names<C: ConnectionTrait>(
         let mut n = [None, None];
         for (i, id) in component.iter().enumerate() {
             if let Some(id) = id {
-                n[i] = components::Model::find_in(db, wid, *id).await?.map(|s| s.name);
+                n[i] = components::Model::find_in(db, wid, *id)
+                    .await?
+                    .map(|s| s.name);
             }
         }
         out.component = Some(serde_json::json!({ "from": n[0], "to": n[1] }));

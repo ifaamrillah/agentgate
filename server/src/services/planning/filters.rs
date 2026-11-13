@@ -31,12 +31,17 @@ pub struct FilterInput {
 /// # Errors
 ///
 /// Error database.
-pub async fn team_ids(db: &DatabaseConnection, acting: &Acting<'_>) -> Result<Vec<Uuid>, sea_orm::DbErr> {
-    Ok(team_members::Model::in_teams_of(db, acting.workspace_id(), [acting.user.id])
-        .await?
-        .iter()
-        .map(|m| m.team_id)
-        .collect())
+pub async fn team_ids(
+    db: &DatabaseConnection,
+    acting: &Acting<'_>,
+) -> Result<Vec<Uuid>, sea_orm::DbErr> {
+    Ok(
+        team_members::Model::in_teams_of(db, acting.workspace_id(), [acting.user.id])
+            .await?
+            .iter()
+            .map(|m| m.team_id)
+            .collect(),
+    )
 }
 
 /// Saved filter yang boleh dilihat user.
@@ -44,7 +49,10 @@ pub async fn team_ids(db: &DatabaseConnection, acting: &Acting<'_>) -> Result<Ve
 /// # Errors
 ///
 /// Error database.
-pub async fn visible(db: &DatabaseConnection, acting: &Acting<'_>) -> Result<Vec<saved_filters::Model>, sea_orm::DbErr> {
+pub async fn visible(
+    db: &DatabaseConnection,
+    acting: &Acting<'_>,
+) -> Result<Vec<saved_filters::Model>, sea_orm::DbErr> {
     let teams = team_ids(db, acting).await?;
     saved_filters::Model::visible_to(db, acting.workspace_id(), acting.user.id, &teams).await
 }
@@ -70,7 +78,8 @@ pub async fn create(
     let (visibility, team_id) = match input.visibility.as_str() {
         "workspace" => (Visibility::Workspace, None),
         "team" => {
-            let id = Uuid::parse_str(input.team.trim()).map_err(|_| Failure::field("team", TEAM_INVALID))?;
+            let id = Uuid::parse_str(input.team.trim())
+                .map_err(|_| Failure::field("team", TEAM_INVALID))?;
             if !team_ids(db, acting).await?.contains(&id) {
                 return Err(Failure::field("team", TEAM_INVALID));
             }

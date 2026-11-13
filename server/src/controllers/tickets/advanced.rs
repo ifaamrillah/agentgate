@@ -17,9 +17,8 @@ use crate::{
         shell::app_shell,
     },
     models::{
-        components, projects, releases, saved_filters, sprints,
-        sprints::SprintState,
-        teams, tickets, workflows,
+        components, projects, releases, saved_filters, sprints, sprints::SprintState, teams,
+        tickets, workflows,
     },
     services::{
         planning::{
@@ -166,7 +165,9 @@ async fn render(
         };
         let facts = |t: &tickets::Model| {
             let row = lookup.row(t);
-            let sprint = t.sprint_id.and_then(|id| all_sprints.iter().find(|s| s.id == id));
+            let sprint = t
+                .sprint_id
+                .and_then(|id| all_sprints.iter().find(|s| s.id == id));
             let assignee = lookup.person(t.assignee_id);
             Facts {
                 project: key_of(t.project_id).to_lowercase(),
@@ -179,7 +180,13 @@ async fn render(
                 ],
                 status: t.status.clone(),
                 assignee: assignee
-                    .map(|p| vec![p.name.to_lowercase(), p.email.to_lowercase(), p.id.to_string()])
+                    .map(|p| {
+                        vec![
+                            p.name.to_lowercase(),
+                            p.email.to_lowercase(),
+                            p.id.to_string(),
+                        ]
+                    })
                     .unwrap_or_default(),
                 assignee_id: t.assignee_id,
                 ticket_type: vec![
@@ -205,7 +212,11 @@ async fn render(
         };
         list.retain(|t| jql::matches(query, &facts(t), me));
         if let Some((field, desc)) = query.order {
-            let rank = |p: &str| ["urgent", "high", "medium", "low"].iter().position(|x| *x == p);
+            let rank = |p: &str| {
+                ["urgent", "high", "medium", "low"]
+                    .iter()
+                    .position(|x| *x == p)
+            };
             match field {
                 Field::Priority => list.sort_by_key(|t| rank(&t.priority)),
                 Field::Points => list.sort_by_key(|t| t.story_points),
@@ -269,8 +280,11 @@ async fn render(
         .map(|f| FilterView {
             href: format!(
                 "{base}?{}",
-                serde_urlencoded::to_string([("q", f.query.as_str()), ("filter", &f.id.to_string())])
-                    .unwrap_or_default()
+                serde_urlencoded::to_string([
+                    ("q", f.query.as_str()),
+                    ("filter", &f.id.to_string())
+                ])
+                .unwrap_or_default()
             ),
             current: current_filter == Some(f.id),
             mine: f.owner_id == me,
@@ -359,7 +373,12 @@ pub(super) async fn index(
     Query(query): Query<AdvancedQuery>,
 ) -> Result<Response> {
     let (session, flash) = flash::take(session);
-    let q: String = query.q.trim().chars().take(saved_filters::QUERY_MAX_LEN).collect();
+    let q: String = query
+        .q
+        .trim()
+        .chars()
+        .take(saved_filters::QUERY_MAX_LEN)
+        .collect();
     let res = render(&ctx, &v, &tenant, &q, query.filter, flash, None).await?;
     Ok((session, res).into_response())
 }
@@ -386,8 +405,11 @@ pub(super) async fn save_filter(
             let to = format!(
                 "{}?{}",
                 base(&tenant),
-                serde_urlencoded::to_string([("q", f.query.as_str()), ("filter", &f.id.to_string())])
-                    .unwrap_or_default()
+                serde_urlencoded::to_string([
+                    ("q", f.query.as_str()),
+                    ("filter", &f.id.to_string())
+                ])
+                .unwrap_or_default()
             );
             Ok((session, format::redirect(&to)?).into_response())
         }
@@ -399,7 +421,16 @@ pub(super) async fn save_filter(
                 .map(|e| e.code.to_string())
                 .next()
                 .unwrap_or_default();
-            let res = render(&ctx, &v, &tenant, input.query.trim(), None, None, Some(code)).await?;
+            let res = render(
+                &ctx,
+                &v,
+                &tenant,
+                input.query.trim(),
+                None,
+                None,
+                Some(code),
+            )
+            .await?;
             Ok((session, res).into_response())
         }
         Err(e) => Err(e.into()),
@@ -448,7 +479,11 @@ pub(super) async fn bulk(
     let label = value(&fields, "label").trim().to_string();
     let back = {
         let r = value(&fields, "return_to");
-        if r.starts_with(&base(&tenant)) { r } else { base(&tenant) }
+        if r.starts_with(&base(&tenant)) {
+            r
+        } else {
+            base(&tenant)
+        }
     };
     if ids.is_empty()
         || (priority.is_empty()
@@ -469,7 +504,9 @@ pub(super) async fn bulk(
             continue;
         };
         let parent = match t.parent_id {
-            Some(p) => tickets::Model::find_in(&ctx.db, wid, p).await?.map(|x| x.code),
+            Some(p) => tickets::Model::find_in(&ctx.db, wid, p)
+                .await?
+                .map(|x| x.code),
             None => None,
         };
         let mut form = current_form(&t, parent.as_deref());

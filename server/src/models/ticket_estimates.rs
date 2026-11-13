@@ -102,4 +102,3 @@ impl Latest {
         self.current.as_ref().map(Model::totals)
     }
 }
-

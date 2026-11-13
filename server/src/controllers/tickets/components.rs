@@ -61,7 +61,9 @@ static COMPONENTS_TABLE: TableSpec = TableSpec {
         ColumnSpec::new("component-col-name").sort("name"),
         ColumnSpec::new("component-col-modules").hide("sm"),
         ColumnSpec::new("component-col-owner").sort("owner"),
-        ColumnSpec::new("component-col-tickets").sort("tickets").right(),
+        ColumnSpec::new("component-col-tickets")
+            .sort("tickets")
+            .right(),
         ColumnSpec::new("component-col-actions").right(),
     ],
     filters: &[FilterSpec {
@@ -129,11 +131,27 @@ struct Failed {
     input: ComponentInput,
 }
 
-fn subnav(access: &crate::controllers::extractors::ProjectAccess, panel: &str, count: usize) -> Vec<NavItem> {
+fn subnav(
+    access: &crate::controllers::extractors::ProjectAccess,
+    panel: &str,
+    count: usize,
+) -> Vec<NavItem> {
     let base = base(access);
     [
-        ("list", "component-panel-list", "puzzle", "component-panel-list-desc", base.clone()),
-        ("rules", "component-panel-rules", "sparkles", "component-panel-rules-desc", format!("{base}/rules")),
+        (
+            "list",
+            "component-panel-list",
+            "puzzle",
+            "component-panel-list-desc",
+            base.clone(),
+        ),
+        (
+            "rules",
+            "component-panel-rules",
+            "sparkles",
+            "component-panel-rules-desc",
+            format!("{base}/rules"),
+        ),
     ]
     .into_iter()
     .map(|(k, label, icon, desc, href)| {
@@ -177,7 +195,10 @@ async fn render(
                 name: c.name.clone(),
                 description: c.description.clone(),
                 modules: c.modules.clone(),
-                owner_sort: owner.as_ref().map(|o| o.name.to_lowercase()).unwrap_or_default(),
+                owner_sort: owner
+                    .as_ref()
+                    .map(|o| o.name.to_lowercase())
+                    .unwrap_or_default(),
                 owner,
                 tickets: counts.get(&c.id).copied().unwrap_or(0),
                 action: format!("{base}/{}", c.id),
@@ -203,14 +224,18 @@ async fn render(
     let graph = state.filter("graph").to_vec();
     if !graph.is_empty() {
         rows.retain(|r| {
-            let linked = if r.modules.is_empty() { "unlinked" } else { "linked" };
+            let linked = if r.modules.is_empty() {
+                "unlinked"
+            } else {
+                "linked"
+            };
             graph.iter().any(|g| g == linked)
         });
     }
     match state.sort {
-        "owner" => rows.sort_by(|a, b| a.owner_sort.cmp(&b.owner_sort)),
+        "owner" => rows.sort_by_key(|r| r.owner_sort.clone()),
         "tickets" => rows.sort_by_key(|r| r.tickets),
-        _ => rows.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase())),
+        _ => rows.sort_by_key(|r| r.name.to_lowercase()),
     }
     if state.desc {
         rows.reverse();
@@ -247,7 +272,10 @@ async fn render(
         .collect();
     let mut people = people_options(ctx, access, None, None).await?;
     for c in &all {
-        if let Some(id) = c.owner_id.filter(|id| !people.iter().any(|p| p.value == id.to_string())) {
+        if let Some(id) = c
+            .owner_id
+            .filter(|id| !people.iter().any(|p| p.value == id.to_string()))
+        {
             people.extend(
                 users_by_id(db, [id])
                     .await?
@@ -286,7 +314,11 @@ async fn render(
     })];
     for r in &page {
         let id = format!("component-edit-{}", r.id);
-        let form = if failed_dialog == id { failed_input.take() } else { None };
+        let form = if failed_dialog == id {
+            failed_input.take()
+        } else {
+            None
+        };
         dialogs.push(serde_json::json!({
             "id": id, "action": r.action, "new": false,
             "form": form.map_or_else(|| serde_json::to_value(&r.form).unwrap_or_default(), |f| serde_json::to_value(f).unwrap_or_default()),
@@ -369,9 +401,14 @@ pub(super) async fn save_rules(
     )
     .await?;
     let session = flash::set(session, &Flash::success(FLASH_RULES))?;
-    Ok((session, format::redirect(&format!("{}/rules", base(&access)))?).into_response())
+    Ok((
+        session,
+        format::redirect(&format!("{}/rules", base(&access)))?,
+    )
+        .into_response())
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn finish<T>(
     ctx: &AppContext,
     v: &TeraView,
@@ -418,7 +455,17 @@ pub(super) async fn create(
         &input,
     )
     .await;
-    finish(&ctx, &v, &access, session, result, FLASH_CREATED, "component-new".into(), input).await
+    finish(
+        &ctx,
+        &v,
+        &access,
+        session,
+        result,
+        FLASH_CREATED,
+        "component-new".into(),
+        input,
+    )
+    .await
 }
 
 async fn find(
@@ -445,8 +492,17 @@ pub(super) async fn update(
     let c = find(&ctx, &access, id).await?;
     let input = input(&fields);
     let result = service::update(&ctx.db, &acting(&access.tenant, request_id), c.id, &input).await;
-    finish(&ctx, &v, &access, session, result, FLASH_SAVED, format!("component-edit-{id}"), input)
-        .await
+    finish(
+        &ctx,
+        &v,
+        &access,
+        session,
+        result,
+        FLASH_SAVED,
+        format!("component-edit-{id}"),
+        input,
+    )
+    .await
 }
 
 #[debug_handler]
@@ -460,6 +516,15 @@ pub(super) async fn delete(
 ) -> Result<Response> {
     let c = find(&ctx, &access, id).await?;
     let result = service::delete(&ctx.db, &acting(&access.tenant, request_id), c.id).await;
-    finish(&ctx, &v, &access, session, result, FLASH_DELETED, String::new(), ComponentInput::default())
-        .await
+    finish(
+        &ctx,
+        &v,
+        &access,
+        session,
+        result,
+        FLASH_DELETED,
+        String::new(),
+        ComponentInput::default(),
+    )
+    .await
 }

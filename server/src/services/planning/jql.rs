@@ -36,7 +36,11 @@ pub const FIELDS: &[(&str, Field, &str)] = &[
     ("project", Field::Project, "Kunci project, mis. KSR"),
     ("stage", Field::Stage, "Kunci atau nama stage workflow"),
     ("status", Field::Status, "backlog, todo, in_progress, done"),
-    ("assignee", Field::Assignee, "Nama/email penerima, currentUser(), EMPTY"),
+    (
+        "assignee",
+        Field::Assignee,
+        "Nama/email penerima, currentUser(), EMPTY",
+    ),
     ("type", Field::Type, "Kunci atau nama tipe tiket"),
     ("sprint", Field::Sprint, "Nama sprint, openSprints(), EMPTY"),
     ("label", Field::Label, "Label tiket"),
@@ -146,7 +150,10 @@ fn tokenize(src: &str) -> Result<Vec<Tok>, String> {
                 let start = i;
                 while i < chars.len()
                     && !chars[i].is_whitespace()
-                    && !matches!(chars[i], '(' | ')' | ',' | '"' | '\'' | '!' | '<' | '>' | '=' | '~')
+                    && !matches!(
+                        chars[i],
+                        '(' | ')' | ',' | '"' | '\'' | '!' | '<' | '>' | '=' | '~'
+                    )
                 {
                     i += 1;
                 }
@@ -178,7 +185,11 @@ fn field_of(name: &str) -> Result<Field, String> {
         .ok_or_else(|| {
             format!(
                 "Field “{name}” tidak dikenal. Coba: {}.",
-                FIELDS[..6].iter().map(|f| f.0).collect::<Vec<_>>().join(", ")
+                FIELDS[..6]
+                    .iter()
+                    .map(|f| f.0)
+                    .collect::<Vec<_>>()
+                    .join(", ")
             )
         })
 }
@@ -244,7 +255,9 @@ pub fn parse(src: &str) -> Result<Query, String> {
             if is_kw(toks.get(i), "and") {
                 i += 1;
             } else if is_kw(toks.get(i), "or") {
-                return Err("OR belum didukung. Gabungkan syarat dengan AND, atau pakai in (…).".into());
+                return Err(
+                    "OR belum didukung. Gabungkan syarat dengan AND, atau pakai in (…).".into(),
+                );
             } else {
                 return Err("Gabungkan syarat dengan AND.".into());
             }
@@ -285,9 +298,14 @@ pub fn parse(src: &str) -> Result<Query, String> {
             }
         };
         if matches!(op, Op::Lt | Op::Le | Op::Gt | Op::Ge)
-            && !matches!(field, Field::Points | Field::Due | Field::Created | Field::Updated)
+            && !matches!(
+                field,
+                Field::Points | Field::Due | Field::Created | Field::Updated
+            )
         {
-            return Err(format!("Operator <, > hanya untuk points dan due, bukan “{name}”."));
+            return Err(format!(
+                "Operator <, > hanya untuk points dan due, bukan “{name}”."
+            ));
         }
         let func = matches!(toks.get(i), Some(Tok::Word(w)) if w.ends_with("()"));
         let values = if matches!(op, Op::In | Op::NotIn) && func {
@@ -375,7 +393,10 @@ fn cmp_value(f: &Facts, field: Field, v: &Value) -> Option<std::cmp::Ordering> {
     let Value::Text(raw) = v else { return None };
     match field {
         Field::Points => Some(f.points?.cmp(&raw.trim().parse::<i32>().ok()?)),
-        Field::Due => Some(f.due?.cmp(&NaiveDate::parse_from_str(raw.trim(), "%Y-%m-%d").ok()?)),
+        Field::Due => Some(
+            f.due?
+                .cmp(&NaiveDate::parse_from_str(raw.trim(), "%Y-%m-%d").ok()?),
+        ),
         _ => None,
     }
 }
@@ -387,7 +408,7 @@ fn hit(f: &Facts, field: Field, v: &Value, me: uuid::Uuid) -> bool {
         Value::Empty => text_values(f, field).is_empty(),
         Value::Text(t) => {
             let t = t.to_lowercase();
-            text_values(f, field).iter().any(|x| *x == t)
+            text_values(f, field).contains(&t)
         }
     }
 }
@@ -463,8 +484,16 @@ mod tests {
 
     #[test]
     fn reports_readable_errors() {
-        assert!(parse("warna = merah").unwrap_err().contains("tidak dikenal"));
-        assert!(parse("project = KSR OR project = POS").unwrap_err().contains("OR"));
+        assert!(
+            parse("warna = merah")
+                .unwrap_err()
+                .contains("tidak dikenal")
+        );
+        assert!(
+            parse("project = KSR OR project = POS")
+                .unwrap_err()
+                .contains("OR")
+        );
         assert!(parse("project KSR").unwrap_err().contains("Operator"));
         assert!(parse("label in (a, b").unwrap_err().contains("Kurung"));
         assert!(parse("text ~ \"qris").unwrap_err().contains("kutip"));

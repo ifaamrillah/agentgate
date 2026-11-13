@@ -48,9 +48,10 @@ pub struct Burndown {
 pub fn burndown(sprint: &sprints::Model, events: &[ScopeEvent], today: NaiveDate) -> Burndown {
     let days = super::workdays(sprint.starts_on, sprint.ends_on);
     let last = days.len().saturating_sub(1).max(1);
-    let start_at = sprint
-        .started_at
-        .map_or_else(|| scope::end_of_day(sprint.starts_on), |s| s.with_timezone(&Utc));
+    let start_at = sprint.started_at.map_or_else(
+        || scope::end_of_day(sprint.starts_on),
+        |s| s.with_timezone(&Utc),
+    );
     let committed = if sprint.state() == SprintState::Planned {
         scope::snapshot(&scope::state_at(events, Utc::now())).scope
     } else {
@@ -103,17 +104,21 @@ pub fn burndown(sprint: &sprints::Model, events: &[ScopeEvent], today: NaiveDate
         });
     }
     // Proyeksi linear dari laju selesai sejauh ini.
-    if sprint.state() == SprintState::Active {
-        if let Some(cur) = out.iter().rposition(|d| d.remaining.is_some()) {
-            let now_rem = f64::from(out[cur].remaining.unwrap_or(0));
-            let burned = f64::from(out[0].scope.unwrap_or(committed)) - now_rem;
+    if sprint.state() == SprintState::Active
+        && let Some(cur) = out.iter().rposition(|d| d.remaining.is_some())
+    {
+        let now_rem = f64::from(out[cur].remaining.unwrap_or(0));
+        let burned = f64::from(out[0].scope.unwrap_or(committed)) - now_rem;
+        #[allow(clippy::cast_precision_loss)]
+        let rate = if cur == 0 {
+            0.0
+        } else {
+            burned.max(0.0) / cur as f64
+        };
+        for (j, d) in out.iter_mut().enumerate().skip(cur) {
             #[allow(clippy::cast_precision_loss)]
-            let rate = if cur == 0 { 0.0 } else { burned.max(0.0) / cur as f64 };
-            for (j, d) in out.iter_mut().enumerate().skip(cur) {
-                #[allow(clippy::cast_precision_loss)]
-                let p = (now_rem - rate * (j - cur) as f64).max(0.0);
-                d.projected = Some((p * 10.0).round() / 10.0);
-            }
+            let p = (now_rem - rate * (j - cur) as f64).max(0.0);
+            d.projected = Some((p * 10.0).round() / 10.0);
         }
     }
     let remaining = out
@@ -238,8 +243,11 @@ pub async fn cumulative_flow<C: ConnectionTrait>(
         .await?;
     let now = Utc::now();
     for t in tickets {
-        let ev: Vec<ticket_events::Model> =
-            events.iter().filter(|e| e.ticket_id == t.id).cloned().collect();
+        let ev: Vec<ticket_events::Model> = events
+            .iter()
+            .filter(|e| e.ticket_id == t.id)
+            .cloned()
+            .collect();
         let mut visits = estimates::visits(t, &ev, now);
         // Tiket selesai tetap terhitung di stage terakhirnya setelah selesai.
         if let (Some(done), Some(last)) = (t.done_at, visits.last_mut()) {
@@ -291,9 +299,7 @@ mod tests {
             ends_on: d(11, 13),
             state: state.into(),
             capacity: None,
-            started_at: Some(
-                chrono::DateTime::parse_from_rfc3339("2026-11-02T02:00:00Z").unwrap(),
-            ),
+            started_at: Some(chrono::DateTime::parse_from_rfc3339("2026-11-02T02:00:00Z").unwrap()),
             completed_at: Some(
                 chrono::DateTime::parse_from_rfc3339("2026-11-13T09:00:00Z").unwrap(),
             ),
@@ -311,7 +317,9 @@ mod tests {
             ticket: Uuid::from_u128(ticket),
             kind,
             points,
-            at: chrono::DateTime::parse_from_rfc3339(at).unwrap().with_timezone(&Utc),
+            at: chrono::DateTime::parse_from_rfc3339(at)
+                .unwrap()
+                .with_timezone(&Utc),
         }
     }
 
@@ -323,7 +331,11 @@ mod tests {
             ev(3, ScopeKind::Added, 2, "2026-11-04T03:00:00Z"),
             ev(1, ScopeKind::Done, 5, "2026-11-05T03:00:00Z"),
         ];
-        let b = burndown(&sprint("completed"), &events, NaiveDate::from_ymd_opt(2026, 11, 20).unwrap());
+        let b = burndown(
+            &sprint("completed"),
+            &events,
+            NaiveDate::from_ymd_opt(2026, 11, 20).unwrap(),
+        );
         assert_eq!(b.days.len(), 10);
         assert_eq!(b.days[0].remaining, Some(8));
         assert_eq!(b.days[2].remaining, Some(10));

@@ -394,9 +394,9 @@ pub async fn complete(
             .iter()
             .map(scope::ScopeEvent::of)
             .collect();
-    let added = sprint
-        .started_at
-        .map_or(0, |s| scope::added_after(&events, s.with_timezone(&chrono::Utc)).0);
+    let added = sprint.started_at.map_or(0, |s| {
+        scope::added_after(&events, s.with_timezone(&chrono::Utc)).0
+    });
     let ids: Vec<Uuid> = done.iter().map(|t| t.id).collect();
     let est = super::estimates::latest(&txn, wid, &ids).await?;
     let act = super::estimates::actuals(&txn, wid, &done).await?;
@@ -494,7 +494,9 @@ pub async fn set_sprint_in<C: ConnectionTrait>(
         Some(id) => Some(
             sprints::Model::find_in(db, wid, id)
                 .await?
-                .filter(|s| s.project_id == ticket.project_id && s.state() != SprintState::Completed)
+                .filter(|s| {
+                    s.project_id == ticket.project_id && s.state() != SprintState::Completed
+                })
                 .ok_or_else(|| Failure::field("sprint", TARGET_INVALID))?,
         ),
         None => None,
@@ -604,7 +606,11 @@ pub fn average_velocity(done: &[sprints::Model]) -> Option<f64> {
         return None;
     }
     #[allow(clippy::cast_precision_loss)]
-    let avg = last.iter().map(|s| f64::from(s.completed_points)).sum::<f64>() / last.len() as f64;
+    let avg = last
+        .iter()
+        .map(|s| f64::from(s.completed_points))
+        .sum::<f64>()
+        / last.len() as f64;
     Some(avg)
 }
 

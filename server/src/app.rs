@@ -854,12 +854,20 @@ async fn seed_workflows(ctx: &AppContext) -> Result<()> {
 /// rilis v1.4 dengan Fix version, dan dua component. Lewat service produksi (izin, log scope);
 /// dilewati bila KSR sudah punya sprint.
 async fn seed_planning(ctx: &AppContext) -> Result<()> {
-    use sea_orm::{ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, IntoActiveModel, QueryFilter, QueryOrder};
+    use sea_orm::{
+        ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, IntoActiveModel, QueryFilter,
+        QueryOrder,
+    };
 
     use crate::{
         models::{sprints, tickets},
         services::{
-            planning::{self, components::ComponentInput, releases::ReleaseInput, sprints::{Place, SprintInput}},
+            planning::{
+                self,
+                components::ComponentInput,
+                releases::ReleaseInput,
+                sprints::{Place, SprintInput},
+            },
             workspaces::Acting,
         },
     };
@@ -871,7 +879,10 @@ async fn seed_planning(ctx: &AppContext) -> Result<()> {
     let Some(project) = projects::Model::find_by_key(&ctx.db, wid, SEED_PROJECT.0).await? else {
         return Ok(());
     };
-    if !sprints::Model::of_project(&ctx.db, wid, project.id).await?.is_empty() {
+    if !sprints::Model::of_project(&ctx.db, wid, project.id)
+        .await?
+        .is_empty()
+    {
         tracing::info!("seed planning dilewati: KSR sudah punya sprint");
         return Ok(());
     }
@@ -966,9 +977,10 @@ async fn seed_planning(ctx: &AppContext) -> Result<()> {
         .await?;
     // Lima tiket pertama ke Sprint 4 (Fix version v1.4); yang tanpa poin diberi 3.
     for t in list.iter().take(5) {
-        let t = planning::sprints::move_ticket(&ctx.db, &acting, t.id, Some(active.id), Place::Keep)
-            .await
-            .map_err(fail)?;
+        let t =
+            planning::sprints::move_ticket(&ctx.db, &acting, t.id, Some(active.id), Place::Keep)
+                .await
+                .map_err(fail)?;
         let mut m = t.clone().into_active_model();
         m.release_id = Set(Some(release.id));
         m.component_id = Set(Some(payments.id));
@@ -1200,14 +1212,18 @@ async fn seed_agents(ctx: &AppContext) -> Result<()> {
             estimate: points.map(|p| {
                 let h = f64::from(p);
                 crate::services::drafts::DraftEstimate {
-                    stages: [("prd", 0.5, 1.0), ("development", 1.5, 0.5), ("code_review", 0.2, 0.8)]
-                        .iter()
-                        .map(|(k, a, m)| crate::models::ticket_estimates::StageHours {
-                            stage: (*k).to_string(),
-                            ai_hours: a * h,
-                            human_hours: m * h,
-                        })
-                        .collect(),
+                    stages: [
+                        ("prd", 0.5, 1.0),
+                        ("development", 1.5, 0.5),
+                        ("code_review", 0.2, 0.8),
+                    ]
+                    .iter()
+                    .map(|(k, a, m)| crate::models::ticket_estimates::StageHours {
+                        stage: (*k).to_string(),
+                        ai_hours: a * h,
+                        human_hours: m * h,
+                    })
+                    .collect(),
                     basis: "Mirip fitur laporan sebelumnya; diskalakan dari story point.".into(),
                     persona: "analyst".into(),
                 }

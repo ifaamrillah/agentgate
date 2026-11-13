@@ -1,11 +1,7 @@
 //! Roadmap dan kalender: tiket bertanggal (sprint, tenggat) tampil, tiket tanpa tanggal masuk
 //! "Tanpa tanggal", target rilis, filter jenis, zoom, navigasi bulan, panah blocks.
 
-use agentgate_server::{
-    app::App,
-    models::ticket_links,
-    services::planning,
-};
+use agentgate_server::{app::App, models::ticket_links, services::planning};
 use chrono::{Datelike, Duration};
 use loco_rs::testing::prelude::*;
 use sea_orm::{ActiveModelTrait, ActiveValue::Set, IntoActiveModel};
@@ -24,7 +20,11 @@ async fn roadmap_and_calendar_show_dated_tickets() {
         request
             .post("/w/acme/p/KSR/backlog/sprints")
             .add_cookie(f.cookie.clone())
-            .form(&[("name", "Sprint 1"), ("starts_on", start.as_str()), ("ends_on", end.as_str())])
+            .form(&[
+                ("name", "Sprint 1"),
+                ("starts_on", start.as_str()),
+                ("ends_on", end.as_str()),
+            ])
             .await;
         let s1 = sprint(&ctx, &f, "Sprint 1").await;
         let a = create_ticket(&request, &f.cookie, &[("title", "Bayar QRIS")]).await;
@@ -58,27 +58,43 @@ async fn roadmap_and_calendar_show_dated_tickets() {
             .await;
 
         // Roadmap.
-        let page = request.get("/w/acme/p/KSR/roadmap").add_cookie(f.cookie.clone()).await;
+        let page = request
+            .get("/w/acme/p/KSR/roadmap")
+            .add_cookie(f.cookie.clone())
+            .await;
         assert_eq!(page.status_code(), 200);
         let page = page.text();
         assert_css_exists(&page, "[data-roadmap-page='week']");
-        assert_css_exists(&page, &format!("[data-tl-row='{a}'] .app-tl-bar:not([data-est])"));
+        assert_css_exists(
+            &page,
+            &format!("[data-tl-row='{a}'] .app-tl-bar:not([data-est])"),
+        );
         assert_css_exists(&page, &format!("[data-tl-row='{b}'] .app-tl-bar[data-est]"));
         assert_css_not_exists(&page, &format!("[data-tl-row='{c}']"));
         assert_css_exists(&page, ".app-tl-mkl[data-release]");
         assert_css_exists(&page, ".app-tl-ov svg path[marker-end]");
         assert!(!page.contains("<b>digital</b>"));
         for zoom in ["month", "quarter"] {
-            let page = request.get(&format!("/w/acme/p/KSR/roadmap?zoom={zoom}")).add_cookie(f.cookie.clone()).await;
+            let page = request
+                .get(&format!("/w/acme/p/KSR/roadmap?zoom={zoom}"))
+                .add_cookie(f.cookie.clone())
+                .await;
             assert_eq!(page.status_code(), 200);
             assert_css_exists(&page.text(), &format!("[data-roadmap-page='{zoom}']"));
         }
-        let page = request.get("/w/acme/p/KSR/roadmap?q=QRIS").add_cookie(f.cookie.clone()).await.text();
+        let page = request
+            .get("/w/acme/p/KSR/roadmap?q=QRIS")
+            .add_cookie(f.cookie.clone())
+            .await
+            .text();
         assert_css_exists(&page, &format!("[data-tl-row='{a}']"));
         assert_css_not_exists(&page, &format!("[data-tl-row='{b}']"));
 
         // Kalender bulan berjalan.
-        let page = request.get("/w/acme/p/KSR/calendar").add_cookie(f.cookie.clone()).await;
+        let page = request
+            .get("/w/acme/p/KSR/calendar")
+            .add_cookie(f.cookie.clone())
+            .await;
         assert_eq!(page.status_code(), 200);
         let page = page.text();
         let day = format!("[data-date='{today}']");
@@ -90,7 +106,9 @@ async fn roadmap_and_calendar_show_dated_tickets() {
         // Filter jenis: hanya rilis.
         let month = format!("{:04}-{:02}", today.year(), today.month());
         let page = request
-            .get(&format!("/w/acme/p/KSR/calendar?month={month}&kind=release"))
+            .get(&format!(
+                "/w/acme/p/KSR/calendar?month={month}&kind=release"
+            ))
             .add_cookie(f.cookie.clone())
             .await
             .text();
@@ -98,9 +116,16 @@ async fn roadmap_and_calendar_show_dated_tickets() {
         assert_css_exists(&page, "[data-event='release']");
         assert_css_exists(&page, "[data-kind='release'][aria-pressed='true']");
         // Bulan lain tanpa acara; bulan tidak valid → bulan ini.
-        let page = request.get("/w/acme/p/KSR/calendar?month=2020-01").add_cookie(f.cookie.clone()).await.text();
+        let page = request
+            .get("/w/acme/p/KSR/calendar?month=2020-01")
+            .add_cookie(f.cookie.clone())
+            .await
+            .text();
         assert_css_exists(&page, "[data-calendar-page='2020-01'] [data-cal-empty]");
-        let page = request.get("/w/acme/p/KSR/calendar?month=xx").add_cookie(f.cookie.clone()).await;
+        let page = request
+            .get("/w/acme/p/KSR/calendar?month=xx")
+            .add_cookie(f.cookie.clone())
+            .await;
         assert_eq!(page.status_code(), 200);
     })
     .await;

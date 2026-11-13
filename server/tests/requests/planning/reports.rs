@@ -6,7 +6,15 @@ use loco_rs::testing::prelude::*;
 
 use super::{create_ticket, fixture, sprint, ticket};
 
-const TABS: &[&str] = &["burndown", "burnup", "velocity", "sprint", "cfd", "calibration", "cycle"];
+const TABS: &[&str] = &[
+    "burndown",
+    "burnup",
+    "velocity",
+    "sprint",
+    "cfd",
+    "calibration",
+    "cycle",
+];
 
 #[tokio::test]
 async fn reports_render_empty_and_after_a_sprint() {
@@ -21,12 +29,26 @@ async fn reports_render_empty_and_after_a_sprint() {
             assert_css_exists(&res.text(), &format!("[data-reports-page='{tab}']"));
         }
 
-        let a = create_ticket(&request, &f.cookie, &[("title", "Bayar QRIS"), ("story_points", "5")]).await;
-        let b = create_ticket(&request, &f.cookie, &[("title", "Struk <b>email</b>"), ("story_points", "3")]).await;
+        let a = create_ticket(
+            &request,
+            &f.cookie,
+            &[("title", "Bayar QRIS"), ("story_points", "5")],
+        )
+        .await;
+        let b = create_ticket(
+            &request,
+            &f.cookie,
+            &[("title", "Struk <b>email</b>"), ("story_points", "3")],
+        )
+        .await;
         let res = request
             .post("/w/acme/p/KSR/backlog/sprints")
             .add_cookie(f.cookie.clone())
-            .form(&[("name", "Sprint <1>"), ("starts_on", "2026-11-02"), ("ends_on", "2026-11-13")])
+            .form(&[
+                ("name", "Sprint <1>"),
+                ("starts_on", "2026-11-02"),
+                ("ends_on", "2026-11-13"),
+            ])
             .await;
         assert_eq!(res.status_code(), 303);
         let s = sprint(&ctx, &f, "Sprint <1>").await;

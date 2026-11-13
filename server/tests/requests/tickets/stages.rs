@@ -786,14 +786,13 @@ async fn artifact_body_renders_sanitized_markdown() {
             "/w/acme/t/KSR-1/artifacts".to_string(),
             format!("/w/acme/t/KSR-1/artifacts/{}/edit", artifact.id),
         ] {
-            let html = request
-                .get(&path)
-                .add_cookie(f.cookie.clone())
-                .await
-                .text();
+            let html = request.get(&path).add_cookie(f.cookie.clone()).await.text();
             assert!(!html.contains("<script>alert(1)"), "{path}: script lolos");
             assert!(!html.contains("<img src=x"), "{path}: img onerror lolos");
-            assert!(!html.contains("href=\"javascript"), "{path}: javascript lolos");
+            assert!(
+                !html.contains("href=\"javascript"),
+                "{path}: javascript lolos"
+            );
         }
         let html = request
             .get("/w/acme/t/KSR-1/artifacts")

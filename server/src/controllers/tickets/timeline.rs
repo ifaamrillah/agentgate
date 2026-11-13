@@ -227,7 +227,9 @@ pub(super) async fn roadmap(
         if !matches(t, q) {
             continue;
         }
-        let sprint = t.sprint_id.and_then(|id| sprint_list.iter().find(|s| s.id == id));
+        let sprint = t
+            .sprint_id
+            .and_then(|id| sprint_list.iter().find(|s| s.id == id));
         if let Some(s) = timeline::span(t, sprint, hours.get(&t.id).copied(), today)
             && s.end >= start
             && s.start <= end
@@ -378,7 +380,12 @@ pub(super) async fn roadmap(
         .filter(ticket_links::Column::ToId.is_in(ids))
         .all(db)
         .await?;
-    let code_of = |id: Uuid| all.iter().find(|t| t.id == id).map(|t| t.code.clone()).unwrap_or_default();
+    let code_of = |id: Uuid| {
+        all.iter()
+            .find(|t| t.id == id)
+            .map(|t| t.code.clone())
+            .unwrap_or_default()
+    };
     let arrows: Vec<serde_json::Value> = links
         .iter()
         .filter_map(|l| {
@@ -388,7 +395,12 @@ pub(super) async fn roadmap(
                 let mx = (x1 + 8).max(x2 - 8);
                 format!("M{x1},{y1} H{mx} V{y2} H{}", x2 - 2)
             } else {
-                format!("M{x1},{y1} h8 V{} H{} V{y2} H{}", (y1 + y2) / 2, x2 - 10, x2 - 2)
+                format!(
+                    "M{x1},{y1} h8 V{} H{} V{y2} H{}",
+                    (y1 + y2) / 2,
+                    x2 - 10,
+                    x2 - 2
+                )
             };
             Some(serde_json::json!({
                 "d": path,
@@ -408,9 +420,14 @@ pub(super) async fn roadmap(
             serde_json::json!({ "key": k, "label": label, "href": href, "current": *k == zoom })
         })
         .collect();
-    let shell = app_shell(&ctx, &access.tenant.user, Some(&access.tenant), Some(&access))
-        .await?
-        .at("project_roadmap");
+    let shell = app_shell(
+        &ctx,
+        &access.tenant.user,
+        Some(&access.tenant),
+        Some(&access),
+    )
+    .await?
+    .at("project_roadmap");
     let data = merge(
         base_data(&access, "roadmap", &base),
         serde_json::json!({
@@ -504,7 +521,10 @@ pub(super) async fn calendar(
         if t.status != "done" && t.due_on.is_none() && forecast.is_none() {
             undated.push(row.clone());
         }
-        if let Some(due) = t.due_on.filter(|d| *d >= first && *d <= last && want("due")) {
+        if let Some(due) = t
+            .due_on
+            .filter(|d| *d >= first && *d <= last && want("due"))
+        {
             let late = t.status != "done" && (due < today || forecast.is_some_and(|f| f > due));
             by_day.entry(due).or_default().push(Event {
                 kind: "due",
@@ -527,7 +547,11 @@ pub(super) async fn calendar(
             let late = t.due_on.is_some_and(|due| f > due);
             by_day.entry(f).or_default().push(Event {
                 kind: "forecast",
-                tip: format!("Perkiraan selesai AI: {}{}", pv::long_day(f), if late { ", melewati tenggat" } else { "" }),
+                tip: format!(
+                    "Perkiraan selesai AI: {}{}",
+                    pv::long_day(f),
+                    if late { ", melewati tenggat" } else { "" }
+                ),
                 code: t.code.clone(),
                 title: t.title.clone(),
                 href: row.href.clone(),
@@ -578,7 +602,11 @@ pub(super) async fn calendar(
                     Day {
                         date: d.to_string(),
                         number: d.day(),
-                        label: if d.day() == 1 { pv::day_month(*d) } else { d.day().to_string() },
+                        label: if d.day() == 1 {
+                            pv::day_month(*d)
+                        } else {
+                            d.day().to_string()
+                        },
                         out,
                         weekend: !planning::is_workday(*d),
                         today: *d == today,
@@ -592,12 +620,18 @@ pub(super) async fn calendar(
 
     let base = format!("{home}/calendar");
     let keep = |month: NaiveDate| {
-        let mut pairs = vec![("month".to_string(), format!("{:04}-{:02}", month.year(), month.month()))];
+        let mut pairs = vec![(
+            "month".to_string(),
+            format!("{:04}-{:02}", month.year(), month.month()),
+        )];
         pairs.extend(kinds.iter().map(|k| ("kind".to_string(), (*k).to_string())));
         if !q.is_empty() {
             pairs.push(("q".into(), q.to_string()));
         }
-        format!("{base}?{}", serde_urlencoded::to_string(&pairs).unwrap_or_default())
+        format!(
+            "{base}?{}",
+            serde_urlencoded::to_string(&pairs).unwrap_or_default()
+        )
     };
     let kind_chips: Vec<serde_json::Value> = KINDS
         .iter()
@@ -620,9 +654,14 @@ pub(super) async fn calendar(
         .collect();
     let undated_count = undated.len();
     undated.truncate(8);
-    let shell = app_shell(&ctx, &access.tenant.user, Some(&access.tenant), Some(&access))
-        .await?
-        .at("project_calendar");
+    let shell = app_shell(
+        &ctx,
+        &access.tenant.user,
+        Some(&access.tenant),
+        Some(&access),
+    )
+    .await?
+    .at("project_calendar");
     let data = merge(
         base_data(&access, "calendar", &base),
         serde_json::json!({

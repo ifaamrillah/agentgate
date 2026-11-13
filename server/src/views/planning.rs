@@ -97,8 +97,18 @@ pub fn month_name(d: NaiveDate) -> &'static str {
 pub fn month_long(d: NaiveDate) -> &'static str {
     use chrono::Datelike;
     const LONG: [&str; 12] = [
-        "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September",
-        "Oktober", "November", "Desember",
+        "Januari",
+        "Februari",
+        "Maret",
+        "April",
+        "Mei",
+        "Juni",
+        "Juli",
+        "Agustus",
+        "September",
+        "Oktober",
+        "November",
+        "Desember",
     ];
     LONG[d.month0() as usize]
 }
@@ -201,7 +211,9 @@ pub fn rows(
                     .cloned()
                     .unwrap_or_else(|| t.stage_key.clone()),
                 ai_points,
-                ai_changed: ai_points.is_some() && t.story_points.is_some() && ai_points != t.story_points,
+                ai_changed: ai_points.is_some()
+                    && t.story_points.is_some()
+                    && ai_points != t.story_points,
                 hours: est.and_then(Latest::hours).map(|(ai, human)| Hours {
                     ai: decimal(ai),
                     human: decimal(human),
@@ -217,7 +229,9 @@ fn pct(part: i32, whole: i32) -> u32 {
     if whole <= 0 {
         return 0;
     }
-    let p = (f64::from(part) / f64::from(whole) * 100.0).round().clamp(0.0, 100.0);
+    let p = (f64::from(part) / f64::from(whole) * 100.0)
+        .round()
+        .clamp(0.0, 100.0);
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     {
         p as u32
@@ -236,7 +250,11 @@ pub fn sprint_block(
     base: &str,
 ) -> SprintBlock {
     let points: i32 = rows.iter().filter_map(|r| r.row.points).sum();
-    let done_points: i32 = rows.iter().filter(|r| r.done).filter_map(|r| r.row.points).sum();
+    let done_points: i32 = rows
+        .iter()
+        .filter(|r| r.done)
+        .filter_map(|r| r.row.points)
+        .sum();
     let state = match sprint.state() {
         SprintState::Planned => "planned",
         SprintState::Active => "active",
@@ -275,9 +293,13 @@ impl SprintBlock {
         let left = self.rows.iter().filter(|r| !r.done).count();
         self.left_count = left;
         self.complete_stats = vec![
-            Stat::new("sprint-complete-done", self.rows.len() - left, "circle-check")
-                .tone("success")
-                .hint("sprint-points-hint", self.done_points),
+            Stat::new(
+                "sprint-complete-done",
+                self.rows.len() - left,
+                "circle-check",
+            )
+            .tone("success")
+            .hint("sprint-points-hint", self.done_points),
             Stat::new("sprint-complete-left", left, "clock")
                 .tone("warn")
                 .hint("sprint-points-hint", self.points - self.done_points),

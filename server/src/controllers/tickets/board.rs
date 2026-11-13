@@ -56,7 +56,10 @@ pub(super) fn ticket_form(pairs: &[(String, String)], current: Option<&TicketFor
             .unwrap_or_default()
     };
     let opt = |name: &str| -> Option<String> {
-        pairs.iter().find(|(k, _)| k == name).map(|(_, v)| v.clone())
+        pairs
+            .iter()
+            .find(|(k, _)| k == name)
+            .map(|(_, v)| v.clone())
     };
     let base = current.cloned().unwrap_or_default();
     let mut custom: BTreeMap<Uuid, String> = base.custom.clone();
@@ -344,7 +347,12 @@ struct BoardState<'a> {
 /// Href board dengan filter `q`, `who`, `sprint`, dan `swim`.
 fn board_href(base: &str, st: BoardState<'_>) -> String {
     let mut pairs = Vec::new();
-    for (k, v) in [("q", st.q), ("who", st.who), ("sprint", st.sprint), ("swim", st.swim)] {
+    for (k, v) in [
+        ("q", st.q),
+        ("who", st.who),
+        ("sprint", st.sprint),
+        ("swim", st.swim),
+    ] {
         if !v.is_empty() {
             pairs.push((k, v));
         }
@@ -369,23 +377,30 @@ async fn swim_lanes(
     list: &[tickets::Model],
     swim: &str,
 ) -> Result<Vec<serde_json::Value>> {
-    let lane = |title: String, sub: &[tickets::Model]| {
-        serde_json::json!({ "title": title, "count": sub.len(), "columns": stage_columns(lookup, definitions, sub) })
-    };
+    let lane = |title: String, sub: &[tickets::Model]| serde_json::json!({ "title": title, "count": sub.len(), "columns": stage_columns(lookup, definitions, sub) });
     let mut groups: Vec<(Option<Uuid>, String)> = Vec::new();
     match swim {
         "assignee" => {
             for t in list {
                 if !groups.iter().any(|(k, _)| *k == t.assignee_id) {
-                    let name = lookup.person(t.assignee_id).map(|p| p.name).unwrap_or_default();
+                    let name = lookup
+                        .person(t.assignee_id)
+                        .map(|p| p.name)
+                        .unwrap_or_default();
                     groups.push((t.assignee_id, name));
                 }
             }
-            groups.sort_by(|a, b| (a.0.is_none(), a.1.to_lowercase()).cmp(&(b.0.is_none(), b.1.to_lowercase())));
+            groups.sort_by(|a, b| {
+                (a.0.is_none(), a.1.to_lowercase()).cmp(&(b.0.is_none(), b.1.to_lowercase()))
+            });
             Ok(groups
                 .iter()
                 .map(|(k, name)| {
-                    let sub: Vec<tickets::Model> = list.iter().filter(|t| t.assignee_id == *k).cloned().collect();
+                    let sub: Vec<tickets::Model> = list
+                        .iter()
+                        .filter(|t| t.assignee_id == *k)
+                        .cloned()
+                        .collect();
                     lane(name.clone(), &sub)
                 })
                 .collect())
@@ -492,11 +507,35 @@ pub(super) async fn board(
     let lookup = lookup(&ctx.db, &access.tenant, &tickets, &[]).await?;
     let home = project_paths(&access).home;
     let paths = BoardPaths::new(&home);
-    let st = BoardState { q: &q, who, sprint: &sprint_param, swim };
+    let st = BoardState {
+        q: &q,
+        who,
+        sprint: &sprint_param,
+        swim,
+    };
     let filter = BoardFilter {
-        mine_href: board_href(&paths.board, BoardState { who: if who == "me" { "" } else { "me" }, ..st }),
-        unassigned_href: board_href(&paths.board, BoardState { who: if who == "none" { "" } else { "none" }, ..st }),
-        clear_href: board_href(&paths.board, BoardState { q: "", who: "", ..st }),
+        mine_href: board_href(
+            &paths.board,
+            BoardState {
+                who: if who == "me" { "" } else { "me" },
+                ..st
+            },
+        ),
+        unassigned_href: board_href(
+            &paths.board,
+            BoardState {
+                who: if who == "none" { "" } else { "none" },
+                ..st
+            },
+        ),
+        clear_href: board_href(
+            &paths.board,
+            BoardState {
+                q: "",
+                who: "",
+                ..st
+            },
+        ),
         mine: who == "me",
         unassigned: who == "none",
         total: tickets.len(),
@@ -509,7 +548,11 @@ pub(super) async fn board(
             "current": selected.is_none(), "active": false,
         }));
         for s in &sprint_list {
-            let param = if Some(s.id) == active.map(|a| a.id) { String::new() } else { s.id.to_string() };
+            let param = if Some(s.id) == active.map(|a| a.id) {
+                String::new()
+            } else {
+                s.id.to_string()
+            };
             sprint_chips.push(serde_json::json!({
                 "label": s.name, "href": board_href(&paths.board, BoardState { sprint: &param, ..st }),
                 "current": selected.is_some_and(|x| x.id == s.id),

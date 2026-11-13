@@ -132,7 +132,12 @@ async fn release_notes(db: &DatabaseConnection, s: &Session, a: &Args) -> Result
     let name = required(&a.release, "release")?;
     let release = releases::by_name(db, wid, project.id, name)
         .await?
-        .ok_or_else(|| ToolError::new(format!("Rilis \"{name}\" tidak ditemukan di {}.", project.key)))?;
+        .ok_or_else(|| {
+            ToolError::new(format!(
+                "Rilis \"{name}\" tidak ditemukan di {}.",
+                project.key
+            ))
+        })?;
     if a.body.trim().is_empty() {
         let types = ticket_types::Model::all_in(db, wid).await?;
         let tickets: Vec<Value> = releases::tickets_of(db, wid, release.id)

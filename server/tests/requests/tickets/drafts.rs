@@ -88,7 +88,10 @@ async fn drafts_are_reviewed_and_created_as_tickets() {
             "form#drafts-create[action=\"/w/acme/p/KSR/drafts/create\"]",
         );
         assert_css_exists(&html, "input[name=draft][form=drafts-create][checked]");
-        assert_css_exists(&html, "[data-draft='Kirim via email'] [data-draft-estimate]");
+        assert_css_exists(
+            &html,
+            "[data-draft='Kirim via email'] [data-draft-estimate]",
+        );
 
         // Ubah: judul kosong → 422 dialog terbuka; valid → tersimpan.
         let edit = format!("/w/acme/p/KSR/drafts/{}", id("Kirim via WhatsApp"));
@@ -169,9 +172,13 @@ async fn drafts_are_reviewed_and_created_as_tickets() {
         assert_eq!(sub.parent_id, Some(story.id));
         assert_eq!(story.story_points, Some(3));
         // Estimasi AI draft ikut tersalin ke tiket.
-        let est = agentgate_server::models::ticket_estimates::Model::of_tickets(&ctx.db, wid, &[story.id, sub.id])
-            .await
-            .unwrap();
+        let est = agentgate_server::models::ticket_estimates::Model::of_tickets(
+            &ctx.db,
+            wid,
+            &[story.id, sub.id],
+        )
+        .await
+        .unwrap();
         assert_eq!(est.len(), 1);
         assert_eq!(est[0].ticket_id, story.id);
         assert_eq!(est[0].totals(), (2.0, 1.5));

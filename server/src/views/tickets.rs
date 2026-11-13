@@ -481,8 +481,13 @@ pub fn stage_columns(
     definitions: &[agentgate_core::workflow::Definition],
     tickets: &[tickets::Model],
 ) -> Vec<StageColumn> {
-    let mut seen: Vec<(String, String, agentgate_core::workflow::Category, usize, Option<u16>)> =
-        Vec::new();
+    let mut seen: Vec<(
+        String,
+        String,
+        agentgate_core::workflow::Category,
+        usize,
+        Option<u16>,
+    )> = Vec::new();
     for d in definitions {
         for (i, s) in d.stages.iter().enumerate() {
             if !seen.iter().any(|(k, ..)| *k == s.key) {

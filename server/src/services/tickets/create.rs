@@ -156,7 +156,10 @@ pub(crate) async fn resolve<C: ConnectionTrait>(
         ("component", planning.component.is_ok()),
     ] {
         if !ok {
-            errors.add(field, ValidationError::new(crate::services::planning::TARGET_INVALID));
+            errors.add(
+                field,
+                ValidationError::new(crate::services::planning::TARGET_INVALID),
+            );
         }
     }
     let mut custom = CustomValues::default();

@@ -32,8 +32,7 @@ use crate::{
         datatable::{ColumnSpec, FilterOption, FilterSpec, TableSpec, TableView},
         flash::Flash,
         form::{FieldErrors, field_errors},
-        nav,
-        planning as pv,
+        nav, planning as pv,
         projects::PROJECT_VIEWS_ACTION,
         tickets::{Lookup, TicketRow},
         ui::Stat,
@@ -110,7 +109,9 @@ static RELEASES_TABLE: TableSpec = TableSpec {
         ColumnSpec::new("release-col-version").sort("name"),
         ColumnSpec::new("release-col-status").sort("status"),
         ColumnSpec::new("release-col-progress").sort("progress"),
-        ColumnSpec::new("release-col-target").sort("target").hide("sm"),
+        ColumnSpec::new("release-col-target")
+            .sort("target")
+            .hide("sm"),
         ColumnSpec::new("release-col-notes").hide("sm"),
     ],
     filters: &[FilterSpec {
@@ -240,7 +241,7 @@ fn release_view(base: &str, r: &model::Model, tickets: &[tickets::Model]) -> Rel
         variant,
         total,
         done,
-        pct: if total == 0 { 0 } else { done * 100 / total },
+        pct: (done * 100).checked_div(total).unwrap_or(0),
         target: r.target_on.map(pv::long_day).unwrap_or_default(),
         target_sort: r.target_on,
         notes_state: notes_state(r),
@@ -249,11 +250,7 @@ fn release_view(base: &str, r: &model::Model, tickets: &[tickets::Model]) -> Rel
 }
 
 /// Rilis project yang dibuka di path; 404 bila bukan milik project ini.
-async fn find(
-    ctx: &AppContext,
-    access: &ProjectAccess,
-    id: Uuid,
-) -> Result<model::Model> {
+async fn find(ctx: &AppContext, access: &ProjectAccess, id: Uuid) -> Result<model::Model> {
     model::Model::find_in(&ctx.db, access.tenant.workspace_id(), id)
         .await?
         .filter(|r| r.project_id == access.project.id)
@@ -311,7 +308,7 @@ async fn render_list(
         rows.retain(|r| statuses.iter().any(|s| s == r.status));
     }
     match state.sort {
-        "name" => rows.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase())),
+        "name" => rows.sort_by_key(|r| r.name.to_lowercase()),
         "status" => rows.sort_by_key(|r| STATUSES.iter().position(|(k, ..)| *k == r.status)),
         "progress" => rows.sort_by_key(|r| r.pct),
         _ => rows.sort_by_key(|r| r.target_sort),
@@ -394,7 +391,11 @@ pub(super) async fn create(
     {
         Ok(r) => {
             let session = flash::set(session, &Flash::success(FLASH_CREATED))?;
-            Ok((session, format::redirect(&format!("{}/{}", base(&access), r.id))?).into_response())
+            Ok((
+                session,
+                format::redirect(&format!("{}/{}", base(&access), r.id))?,
+            )
+                .into_response())
         }
         Err(TicketFailure::Invalid(errors)) => {
             let failed = Failed {
@@ -521,7 +522,10 @@ async fn render_show(
             .hint("release-stat-done-hint", format!("{}%", l.view.pct)),
         Stat::new("release-stat-points", points, "chart-bar").hint("release-stat-points-hint", ""),
     ];
-    let released = matches!(r.status(), ReleaseStatus::Released | ReleaseStatus::Archived);
+    let released = matches!(
+        r.status(),
+        ReleaseStatus::Released | ReleaseStatus::Archived
+    );
     if released {
         stats.push(
             Stat::new("release-stat-forecast", "✓", "rocket")
@@ -553,16 +557,25 @@ async fn render_show(
                 .tone("success")
                 .hint("release-stat-forecast-ready", "")
         } else if hours <= 0.0 {
-            Stat::new("release-stat-forecast", "–", "calendar").hint("release-stat-forecast-none", "")
+            Stat::new("release-stat-forecast", "–", "calendar")
+                .hint("release-stat-forecast-none", "")
         } else {
             let finish = estimates::finish_date(planning::today(), hours);
             let late = r.target_on.is_some_and(|t| finish > t);
-            Stat::new("release-stat-forecast", pv::day_month(finish), if late { "alert-triangle" } else { "calendar" })
-                .tone(if late { "warn" } else { "" })
-                .hint(
-                    if late { "release-stat-forecast-late" } else { "release-stat-forecast-hint" },
-                    r.target_on.map(pv::long_day).unwrap_or_default(),
-                )
+            Stat::new(
+                "release-stat-forecast",
+                pv::day_month(finish),
+                if late { "alert-triangle" } else { "calendar" },
+            )
+            .tone(if late { "warn" } else { "" })
+            .hint(
+                if late {
+                    "release-stat-forecast-late"
+                } else {
+                    "release-stat-forecast-hint"
+                },
+                r.target_on.map(pv::long_day).unwrap_or_default(),
+            )
         };
         stats.push(stat);
     }
@@ -572,7 +585,11 @@ async fn render_show(
         .await?
         .into_iter()
         .filter(|x| {
-            x.id != r.id && !matches!(x.status(), ReleaseStatus::Released | ReleaseStatus::Archived)
+            x.id != r.id
+                && !matches!(
+                    x.status(),
+                    ReleaseStatus::Released | ReleaseStatus::Archived
+                )
         })
         .map(|x| Target {
             id: x.id,
@@ -633,12 +650,7 @@ pub(super) async fn show(
 }
 
 /// Hasil aksi: berhasil → flash sukses; error validasi → flash error kodenya; lain → error.
-fn done<T>(
-    session: Session,
-    result: Result<T, Failure>,
-    ok: &str,
-    back: &str,
-) -> Result<Response> {
+fn done<T>(session: Session, result: Result<T, Failure>, ok: &str, back: &str) -> Result<Response> {
     let flash = match result {
         Ok(_) => Flash::success(ok),
         Err(TicketFailure::Invalid(errors)) => {
@@ -679,7 +691,12 @@ pub(super) async fn update(
             let res = render_show(&ctx, &v, &access, id, None, Some(failed)).await?;
             Ok((session, res).into_response())
         }
-        other => done(session, other, FLASH_SAVED, &format!("{}/{id}", base(&access))),
+        other => done(
+            session,
+            other,
+            FLASH_SAVED,
+            &format!("{}/{id}", base(&access)),
+        ),
     }
 }
 
@@ -740,7 +757,8 @@ pub(super) async fn set_status(
         "unreleased" => (ReleaseStatus::Unreleased, FLASH_REOPENED),
         _ => return Err(Error::BadRequest("status".into())),
     };
-    let result = service::set_status(&ctx.db, &acting(&access.tenant, request_id), r.id, status).await;
+    let result =
+        service::set_status(&ctx.db, &acting(&access.tenant, request_id), r.id, status).await;
     done(session, result, ok, &format!("{}/{id}", base(&access)))
 }
 
@@ -852,7 +870,11 @@ pub(super) async fn save_notes(
     .await;
     match result {
         Err(TicketFailure::Invalid(errors))
-            if errors.errors.values().flatten().any(|e| e.code == planning::NOTES_TOO_LONG) =>
+            if errors
+                .errors
+                .values()
+                .flatten()
+                .any(|e| e.code == planning::NOTES_TOO_LONG) =>
         {
             let res = render_notes(
                 &ctx,
@@ -865,7 +887,12 @@ pub(super) async fn save_notes(
             .await?;
             Ok((session, res).into_response())
         }
-        other => done(session, other, FLASH_NOTES_SAVED, &format!("{}/{id}/notes", base(&access))),
+        other => done(
+            session,
+            other,
+            FLASH_NOTES_SAVED,
+            &format!("{}/{id}/notes", base(&access)),
+        ),
     }
 }
 
@@ -890,7 +917,12 @@ pub(super) async fn restore_notes(
     if matches!(result, Err(TicketFailure::NotFound)) {
         return Err(Error::NotFound);
     }
-    done(session, result, FLASH_NOTES_RESTORED, &format!("{}/{id}/notes", base(&access)))
+    done(
+        session,
+        result,
+        FLASH_NOTES_RESTORED,
+        &format!("{}/{id}/notes", base(&access)),
+    )
 }
 
 /// Terbitkan (`published=1`) atau tarik terbitan release notes.
@@ -909,8 +941,13 @@ pub(super) async fn publish_notes(
     if on && r.notes.trim().is_empty() {
         return Err(Error::BadRequest("notes".into()));
     }
-    let result = service::publish_notes(&ctx.db, &acting(&access.tenant, request_id), r.id, on).await;
-    let ok = if on { FLASH_NOTES_PUBLISHED } else { FLASH_NOTES_UNPUBLISHED };
+    let result =
+        service::publish_notes(&ctx.db, &acting(&access.tenant, request_id), r.id, on).await;
+    let ok = if on {
+        FLASH_NOTES_PUBLISHED
+    } else {
+        FLASH_NOTES_UNPUBLISHED
+    };
     let back = match value(&fields, "back").as_str() {
         "notes" => format!("{}/{id}/notes", base(&access)),
         _ => format!("{}/{id}", base(&access)),

@@ -11,9 +11,7 @@ use crate::{
         extractors::{RequestId, TicketAccess},
         flash,
     },
-    models::{
-        components, permission::Permission, releases, sprints, ticket_estimates::StageHours,
-    },
+    models::{components, permission::Permission, releases, sprints, ticket_estimates::StageHours},
     services::{
         planning::{self, estimates},
         tickets::{TicketFailure, comments, stages::Flow},
@@ -120,11 +118,13 @@ pub async fn panel(ctx: &AppContext, access: &TicketAccess) -> Result<Panel> {
         None => None,
     };
     let component = match t.component_id {
-        Some(id) => components::Model::find_in(db, wid, id).await?.map(|c| Named {
-            href: format!("{home}/settings/components"),
-            hint: String::new(),
-            name: c.name,
-        }),
+        Some(id) => components::Model::find_in(db, wid, id)
+            .await?
+            .map(|c| Named {
+                href: format!("{home}/settings/components"),
+                hint: String::new(),
+                name: c.name,
+            }),
         None => None,
     };
     let flow = Flow::load(db, wid, t).await?;
@@ -150,14 +150,15 @@ pub async fn panel(ctx: &AppContext, access: &TicketAccess) -> Result<Panel> {
         .as_ref()
         .map(crate::models::ticket_estimates::Model::stages)
         .unwrap_or_default();
-    let (forecast, forecast_late) = match estimates::remaining_hours(t, latest.current.as_ref(), &calib) {
-        Some(h) if t.status != "done" && h > 0.0 => {
-            let d = estimates::finish_date(planning::today(), h);
-            (pv::long_day(d), t.due_on.is_some_and(|due| d > due))
-        }
-        _ => (String::new(), false),
-    };
-    let ticket_paths = format!("{}", ticket_href(&access.access.tenant.workspace.slug, &t.code));
+    let (forecast, forecast_late) =
+        match estimates::remaining_hours(t, latest.current.as_ref(), &calib) {
+            Some(h) if t.status != "done" && h > 0.0 => {
+                let d = estimates::finish_date(planning::today(), h);
+                (pv::long_day(d), t.due_on.is_some_and(|due| d > due))
+            }
+            _ => (String::new(), false),
+        };
+    let ticket_paths = ticket_href(&access.access.tenant.workspace.slug, &t.code);
     Ok(Panel {
         sprint,
         release,

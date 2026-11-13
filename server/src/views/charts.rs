@@ -195,7 +195,10 @@ pub fn line_chart(
         );
         if !s.dash {
             for (x, y) in &pts {
-                let _ = write!(out, r#"<circle class="pt" cx="{x:.1}" cy="{y:.1}" r="2.6"/>"#);
+                let _ = write!(
+                    out,
+                    r#"<circle class="pt" cx="{x:.1}" cy="{y:.1}" r="2.6"/>"#
+                );
             }
         }
         out.push_str("</g>");
@@ -301,7 +304,12 @@ pub fn stacked_area(
 ) -> String {
     let n = labels.len();
     let totals: Vec<f64> = (0..n)
-        .map(|i| layers.iter().map(|l| l.2.get(i).copied().unwrap_or(0.0)).sum())
+        .map(|i| {
+            layers
+                .iter()
+                .map(|l| l.2.get(i).copied().unwrap_or(0.0))
+                .sum()
+        })
         .collect();
     let (y_max, step) = nice_max(totals.iter().copied().fold(0.0, f64::max));
     let f = Frame { n, w: width, y_max };
@@ -313,7 +321,11 @@ pub fn stacked_area(
         for (i, b) in base.iter_mut().enumerate() {
             *b += values.get(i).copied().unwrap_or(0.0);
         }
-        let top: Vec<(f64, f64)> = base.iter().enumerate().map(|(i, v)| (f.x(i), f.y(*v))).collect();
+        let top: Vec<(f64, f64)> = base
+            .iter()
+            .enumerate()
+            .map(|(i, v)| (f.x(i), f.y(*v)))
+            .collect();
         let bottom: String = lo
             .iter()
             .enumerate()
@@ -330,12 +342,13 @@ pub fn stacked_area(
     #[allow(clippy::cast_precision_loss)]
     let col = (width - PL - PR) / (n.max(2) - 1) as f64;
     for (i, l) in labels.iter().enumerate() {
-        let tip = std::iter::once(l.clone())
-            .chain(layers.iter().rev().map(|(name, _, v)| {
-                format!("{name}: {}", label(v.get(i).copied().unwrap_or(0.0)))
-            }))
-            .collect::<Vec<_>>()
-            .join("\n");
+        let tip =
+            std::iter::once(l.clone())
+                .chain(layers.iter().rev().map(|(name, _, v)| {
+                    format!("{name}: {}", label(v.get(i).copied().unwrap_or(0.0)))
+                }))
+                .collect::<Vec<_>>()
+                .join("\n");
         let _ = write!(
             out,
             r#"<rect class="hit" x="{x:.1}" y="{PT}" width="{col:.1}" height="{h}"><title>{t}</title></rect>"#,
@@ -390,7 +403,11 @@ pub fn scatter(aria: &str, points: &[(f64, f64, String)], x_label: &str, y_label
             r#"<g data-c="{tone}"><circle class="bx" cx="{:.1}" cy="{:.1}" r="4.5"><title>{}</title></circle></g>"#,
             sx(*e),
             sy(*a),
-            esc(&format!("{code}\nEstimasi {} jam\nAktual {} jam", label(*e), label(*a))),
+            esc(&format!(
+                "{code}\nEstimasi {} jam\nAktual {} jam",
+                label(*e),
+                label(*a)
+            )),
         );
     }
     let h = size + 24.0;
@@ -443,9 +460,20 @@ mod tests {
         assert!(svg.contains("a&quot;b"));
         assert!(svg.contains(r#"class="ln""#));
         assert!(!svg.contains("<script"));
-        let bars = pair_bars("V", &[("S<1".into(), 8.0, Some(5.0))], Some(5.0), "berjalan", 600.0);
+        let bars = pair_bars(
+            "V",
+            &[("S<1".into(), 8.0, Some(5.0))],
+            Some(5.0),
+            "berjalan",
+            600.0,
+        );
         assert!(bars.contains("S&lt;1"));
-        let cfd = stacked_area("C", &["a".into(), "b".into()], &[("Dev".into(), "info", vec![1.0, 2.0])], 600.0);
+        let cfd = stacked_area(
+            "C",
+            &["a".into(), "b".into()],
+            &[("Dev".into(), "info", vec![1.0, 2.0])],
+            600.0,
+        );
         assert!(cfd.contains("Dev: 2"));
         let sc = scatter("K", &[(2.0, 4.0, "KSR-1".into())], "estimasi", "aktual");
         assert!(sc.contains(r#"data-c="warn""#));

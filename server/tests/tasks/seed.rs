@@ -193,9 +193,14 @@ async fn seed_creates_sample_planning() {
         .await
         .unwrap()
         .unwrap();
-    let all = sprints::Model::of_project(&ctx.db, wid, project.id).await.unwrap();
+    let all = sprints::Model::of_project(&ctx.db, wid, project.id)
+        .await
+        .unwrap();
     assert_eq!(all.len(), 2, "seed kedua tidak menggandakan sprint");
-    let active = all.iter().find(|s| s.state() == sprints::SprintState::Active).expect("sprint aktif");
+    let active = all
+        .iter()
+        .find(|s| s.state() == sprints::SprintState::Active)
+        .expect("sprint aktif");
     let in_sprint = tickets::Entity::find()
         .filter(tickets::Column::SprintId.eq(active.id))
         .count(&ctx.db)
