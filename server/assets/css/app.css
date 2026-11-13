@@ -38,6 +38,7 @@
 @import "./components/graph.css";
 @import "./components/knowledge.css";
 @import "./components/planning.css";
+@import "./components/tokens.css";
 
 @source "../views";
 @source "../../src";

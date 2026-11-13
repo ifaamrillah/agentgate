@@ -7,8 +7,8 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 use uuid::Uuid;
 
-use crate::models::token_savings::SavingFeature;
 use super::{Session, ToolError};
+use crate::models::token_savings::SavingFeature;
 
 #[path = "graph_tools.rs"]
 mod graph;
@@ -555,9 +555,36 @@ async fn context(db: &DatabaseConnection, s: &Session, a: &Args) -> Result<Value
         "code_graph": graph::context_section(db, s, &project).await?,
         "knowledge": knowledge::context_section(db, s, &project, &stage_persona).await?,
     });
-    note_saving(db, s, &ticket, SavingFeature::McpRules, "ag_context", other_rules, &Value::Null).await;
-    note_saving(db, s, &ticket, SavingFeature::Layered, "ag_context", skill_bytes, &Value::Null).await;
-    note_saving(db, s, &ticket, SavingFeature::Handoff, "ag_context", artifact_bytes, &Value::Null).await;
+    note_saving(
+        db,
+        s,
+        &ticket,
+        SavingFeature::McpRules,
+        "ag_context",
+        other_rules,
+        &Value::Null,
+    )
+    .await;
+    note_saving(
+        db,
+        s,
+        &ticket,
+        SavingFeature::Layered,
+        "ag_context",
+        skill_bytes,
+        &Value::Null,
+    )
+    .await;
+    note_saving(
+        db,
+        s,
+        &ticket,
+        SavingFeature::Handoff,
+        "ag_context",
+        artifact_bytes,
+        &Value::Null,
+    )
+    .await;
     Ok(res)
 }
 
@@ -742,7 +769,16 @@ async fn artifact_get(db: &DatabaseConnection, s: &Session, a: &Args) -> Result<
     if a.name.trim().is_empty() {
         let (list, withheld) = artifact_list(db, s, &ticket).await?;
         let res = json!({ "artifacts": list });
-        note_saving(db, s, &ticket, SavingFeature::Layered, "ag_artifact", withheld, &res).await;
+        note_saving(
+            db,
+            s,
+            &ticket,
+            SavingFeature::Layered,
+            "ag_artifact",
+            withheld,
+            &res,
+        )
+        .await;
         return Ok(res);
     }
     let wid = s.workspace.workspace_id();

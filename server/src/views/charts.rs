@@ -66,6 +66,8 @@ struct Frame {
     n: usize,
     w: f64,
     y_max: f64,
+    /// Akhiran label sumbu y (mis. " jt"); kosong = angka saja.
+    unit: &'static str,
 }
 
 impl Frame {
@@ -90,7 +92,11 @@ impl Frame {
                 x2 = self.w - PR,
                 tx = PL - 8.0,
                 ty = y + 4.0,
-                l = label(v),
+                l = if v > 0.0 {
+                    format!("{}{}", label(v), self.unit)
+                } else {
+                    label(v)
+                },
             );
             v += step;
         }
@@ -150,6 +156,7 @@ pub fn line_chart(
         n: labels.len(),
         w: width,
         y_max,
+        unit: "",
     };
     let mut out = String::new();
     f.grid(step, labels, &mut out);
@@ -235,6 +242,7 @@ pub fn pair_bars(
         n: 2,
         w: width,
         y_max,
+        unit: "",
     };
     let mut out = String::new();
     f.grid(step, &[], &mut out);
@@ -312,7 +320,12 @@ pub fn stacked_area(
         })
         .collect();
     let (y_max, step) = nice_max(totals.iter().copied().fold(0.0, f64::max));
-    let f = Frame { n, w: width, y_max };
+    let f = Frame {
+        n,
+        w: width,
+        y_max,
+        unit: "",
+    };
     let mut out = String::new();
     f.grid(step, labels, &mut out);
     let mut base = vec![0.0; n];
@@ -426,6 +439,81 @@ pub fn scatter(aria: &str, points: &[(f64, f64, String)], x_label: &str, y_label
     )
 }
 
+/// Satu lapis batang bertumpuk: tone, pucat (`data-soft`), nilai per kolom.
+#[derive(Debug, Clone)]
+pub struct Stack {
+    pub tone: &'static str,
+    pub soft: bool,
+    pub values: Vec<f64>,
+}
+
+/// Batang bertumpuk per kolom (mis. token terpakai + dihemat per minggu). `layers` dari bawah ke
+/// atas; `tips[i]` = tooltip kolom ke-i; `unit` = akhiran label sumbu y.
+#[must_use]
+pub fn stacked_bars(
+    aria: &str,
+    labels: &[String],
+    layers: &[Stack],
+    tips: &[String],
+    unit: &'static str,
+    width: f64,
+) -> String {
+    let n = labels.len();
+    let max = (0..n)
+        .map(|i| {
+            layers
+                .iter()
+                .map(|l| l.values.get(i).copied().unwrap_or(0.0))
+                .sum::<f64>()
+        })
+        .fold(0.0, f64::max);
+    let (y_max, step) = nice_max(max);
+    let f = Frame {
+        n: 2,
+        w: width,
+        y_max,
+        unit,
+    };
+    let mut out = String::new();
+    f.grid(step, &[], &mut out);
+    #[allow(clippy::cast_precision_loss)]
+    let gx = (width - PL - PR) / n.max(1) as f64;
+    let bw = (gx * 0.6).clamp(8.0, 44.0);
+    #[allow(clippy::cast_precision_loss)]
+    for (i, name) in labels.iter().enumerate() {
+        let x = PL + gx * i as f64 + (gx - bw) / 2.0;
+        let mut base = 0.0;
+        let _ = write!(out, "<g>");
+        if let Some(t) = tips.get(i) {
+            let _ = write!(out, "<title>{}</title>", esc(t));
+        }
+        for l in layers {
+            let v = l.values.get(i).copied().unwrap_or(0.0);
+            if v > 0.0 {
+                let (top, bottom) = (f.y(base + v), f.y(base));
+                let _ = write!(
+                    out,
+                    r#"<rect class="bx" data-c="{tone}"{soft} x="{x:.1}" y="{top:.1}" width="{bw:.1}" height="{h:.1}" rx="3"/>"#,
+                    tone = l.tone,
+                    soft = if l.soft { " data-soft" } else { "" },
+                    h = (bottom - top - 1.0).max(1.0),
+                );
+            }
+            base += v;
+        }
+        let _ = write!(
+            out,
+            r#"<rect class="hit" x="{hx:.1}" y="{PT}" width="{gx:.1}" height="{hh:.1}"/><text x="{cx:.1}" y="{y}" text-anchor="middle">{n}</text></g>"#,
+            hx = PL + gx * i as f64,
+            hh = H - PT - PB,
+            cx = x + bw / 2.0,
+            y = H - 8.0,
+            n = esc(name),
+        );
+    }
+    svg(width, aria, &out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -468,6 +556,29 @@ mod tests {
             600.0,
         );
         assert!(bars.contains("S&lt;1"));
+        let stacked = stacked_bars(
+            "T",
+            &["1 Nov".into(), "8<".into()],
+            &[
+                Stack {
+                    tone: "accent",
+                    soft: false,
+                    values: vec![1.5, 0.0],
+                },
+                Stack {
+                    tone: "accent",
+                    soft: true,
+                    values: vec![0.5, 0.0],
+                },
+            ],
+            &["a<b".into()],
+            " jt",
+            600.0,
+        );
+        assert!(stacked.contains("8&lt;"));
+        assert!(stacked.contains("a&lt;b"));
+        assert!(stacked.contains(" jt"));
+        assert_eq!(stacked.matches(r#"class="bx""#).count(), 2);
         let cfd = stacked_area(
             "C",
             &["a".into(), "b".into()],

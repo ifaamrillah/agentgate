@@ -10,16 +10,22 @@ use std::collections::HashMap;
 
 use chrono::{DateTime, Duration, FixedOffset, NaiveDate};
 use sea_orm::{
-    ActiveEnum, ActiveModelTrait, ConnectionTrait, DbBackend, DbErr, FromQueryResult,
-    IntoActiveModel, Iterable, Set, Statement, Value,
+    ActiveEnum, ActiveModelTrait, ConnectionTrait, DatabaseConnection, DbBackend, DbErr,
+    FromQueryResult, IntoActiveModel, Iterable, Set, Statement, TransactionTrait, Value,
 };
-use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+pub use crate::models::token_savings::{JobUsage, TicketUsage, TokenSaver, Usage, Week};
 use crate::models::{
+    permission::Permission,
     projects,
     token_savings::{self, SavingFeature},
     workspaces::WorkspaceId,
+};
+use crate::services::{
+    audit::{self, AuditAction, AuditSubject},
+    tickets::{TicketFailure, access_in},
+    workspaces::Acting,
 };
 
 /// Perkiraan token dari jumlah byte teks.
@@ -28,51 +34,45 @@ pub fn tokens_of_bytes(bytes: i64) -> i64 {
     bytes.max(0) / 4
 }
 
-/// Toggle fitur opsional per project (`projects.token_saver`). Fitur wajib tidak bisa dimatikan
-/// dan tidak disimpan.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub struct TokenSaver {
-    /// Gaya ringkas persona (chat dan log); artifact tetap lengkap.
-    #[serde(default = "yes")]
-    pub concise: bool,
-    /// Model per persona (model murah untuk tugas ringan).
-    #[serde(default = "yes")]
-    pub persona_models: bool,
-}
-
-fn yes() -> bool {
-    true
-}
-
-impl Default for TokenSaver {
-    fn default() -> Self {
-        Self {
-            concise: true,
-            persona_models: true,
-        }
+/// Simpan toggle penghemat token project (Admin project). Tanpa perubahan → tanpa audit.
+///
+/// # Errors
+///
+/// `NotFound` (project/izin), error database.
+pub async fn update_saver(
+    db: &DatabaseConnection,
+    acting: &Acting<'_>,
+    project_id: Uuid,
+    input: TokenSaver,
+) -> Result<TokenSaver, TicketFailure> {
+    let txn = db.begin().await?;
+    let project = projects::Model::lock_in(&txn, acting.workspace_id(), project_id)
+        .await?
+        .ok_or(TicketFailure::NotFound)?;
+    access_in(&txn, acting, project.id, Permission::AdministerProject).await?;
+    let before = TokenSaver::of(&project);
+    if before == input {
+        txn.rollback().await?;
+        return Ok(input);
     }
-}
-
-impl TokenSaver {
-    #[must_use]
-    pub fn of(project: &projects::Model) -> Self {
-        serde_json::from_value(project.token_saver.clone()).unwrap_or_default()
-    }
-
-    /// Simpan toggle project.
-    ///
-    /// # Errors
-    ///
-    /// Error database.
-    pub async fn save<C: ConnectionTrait>(
-        self,
-        db: &C,
-        project: &projects::Model,
-    ) -> Result<projects::Model, DbErr> {
-        let mut m = project.clone().into_active_model();
-        m.token_saver = Set(serde_json::to_value(self).unwrap_or_default());
-        m.update(db).await
-    }
+    let after = serde_json::to_value(input).unwrap_or_default();
+    let mut m = project.clone().into_active_model();
+    m.token_saver = Set(after.clone());
+    m.update(&txn).await?;
+    audit::record(
+        &txn,
+        acting.actor().audit(
+            AuditAction::ProjectTokenSaverUpdated,
+            (AuditSubject::Project, project.id),
+            serde_json::json!({
+                "from": serde_json::to_value(before).unwrap_or_default(),
+                "to": after,
+            }),
+        ),
+    )
+    .await?;
+    txn.commit().await?;
+    Ok(input)
 }
 
 #[derive(Debug, FromQueryResult)]
@@ -161,22 +161,6 @@ pub async fn file_bytes_of_symbols<C: ConnectionTrait>(
     Ok(row.and_then(|r| r.total).unwrap_or(0))
 }
 
-/// Pemakaian token dalam satu rentang (job yang selesai).
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, FromQueryResult)]
-pub struct Usage {
-    pub input: i64,
-    pub output: i64,
-    pub cache_read: i64,
-    pub cache_write: i64,
-    /// Total = jumlah keempatnya, atau `jobs.tokens` bila client hanya melapor total.
-    pub total: i64,
-    pub cost_micros: i64,
-    /// Job yang melaporkan pemakaian.
-    pub jobs: i64,
-    /// Client berbeda yang melapor.
-    pub clients: i64,
-}
-
 const USAGE_COLUMNS: &str = "COALESCE(SUM(j.tokens_input), 0)::bigint AS input, \
      COALESCE(SUM(j.tokens_output), 0)::bigint AS output, \
      COALESCE(SUM(j.tokens_cache_read), 0)::bigint AS cache_read, \
@@ -243,14 +227,6 @@ pub async fn saved_since<C: ConnectionTrait>(
     Ok(out)
 }
 
-/// Satu minggu (mulai Senin) di grafik tren.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct Week {
-    pub start: NaiveDate,
-    pub used: i64,
-    pub saved: i64,
-}
-
 #[derive(Debug, FromQueryResult)]
 struct WeekRow {
     week: NaiveDate,
@@ -270,8 +246,7 @@ pub async fn weeks<C: ConnectionTrait>(
     n: u32,
 ) -> Result<Vec<Week>, DbErr> {
     use chrono::Datelike;
-    let this_monday =
-        today - Duration::days(i64::from(today.weekday().num_days_from_monday()));
+    let this_monday = today - Duration::days(i64::from(today.weekday().num_days_from_monday()));
     let first = this_monday - Duration::weeks(i64::from(n.saturating_sub(1)));
     let since = first
         .and_hms_opt(0, 0, 0)
@@ -297,11 +272,8 @@ pub async fn weeks<C: ConnectionTrait>(
          AND project_id = $2 AND created_at >= $3 GROUP BY 1",
     )
     .await?;
-    let get = |rows: &[WeekRow], d: NaiveDate| {
-        rows.iter()
-            .find(|r| r.week == d)
-            .map_or(0, |r| r.total)
-    };
+    let get =
+        |rows: &[WeekRow], d: NaiveDate| rows.iter().find(|r| r.week == d).map_or(0, |r| r.total);
     Ok((0..n)
         .map(|i| {
             let start = first + Duration::weeks(i64::from(i));
@@ -312,19 +284,6 @@ pub async fn weeks<C: ConnectionTrait>(
             }
         })
         .collect())
-}
-
-/// Pemakaian satu tiket.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, FromQueryResult)]
-pub struct TicketUsage {
-    pub code: String,
-    pub title: String,
-    pub input: i64,
-    pub output: i64,
-    pub cache: i64,
-    pub total: i64,
-    pub cost_micros: i64,
-    pub jobs: i64,
 }
 
 /// Tiket dengan pemakaian terbesar sejak `since`.
@@ -360,24 +319,6 @@ pub async fn per_ticket<C: ConnectionTrait>(
     ))
     .all(db)
     .await
-}
-
-/// Satu job di tabel pemakaian.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, FromQueryResult)]
-pub struct JobUsage {
-    pub id: Uuid,
-    pub code: Option<String>,
-    pub persona: String,
-    pub client: String,
-    pub model: String,
-    pub status: String,
-    pub input: Option<i64>,
-    pub output: Option<i64>,
-    pub cache: Option<i64>,
-    pub total: Option<i64>,
-    pub cost_micros: Option<i64>,
-    pub finished_at: Option<DateTime<FixedOffset>>,
-    pub saved: i64,
 }
 
 /// Job terbaru project yang punya data pemakaian atau sedang berjalan (maks. `limit`).
@@ -429,7 +370,8 @@ mod tests {
             serde_json::from_value::<TokenSaver>(serde_json::json!({})).unwrap(),
             TokenSaver::default()
         );
-        let off: TokenSaver = serde_json::from_value(serde_json::json!({ "concise": false })).unwrap();
+        let off: TokenSaver =
+            serde_json::from_value(serde_json::json!({ "concise": false })).unwrap();
         assert!(!off.concise && off.persona_models);
     }
 }
