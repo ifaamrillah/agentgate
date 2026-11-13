@@ -146,3 +146,8 @@ settings:
     rate_limit_per_minute: 600
     webhook_timeout_seconds: 5
     webhook_allow_loopback: true
+  # Connector Jira (M11): http ke loopback diizinkan untuk Jira palsu lokal; timeout pendek
+  # supaya tes yang salah arah gagal cepat. Production memakai default (https publik saja).
+  jira:
+    timeout_seconds: 5
+    allow_loopback: true
