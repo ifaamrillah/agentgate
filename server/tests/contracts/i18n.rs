@@ -201,6 +201,7 @@ fn every_ticket_enum_and_view_key_has_a_translation() {
     used.extend(views::planning::label_keys());
     used.extend(agentgate_server::controllers::tickets::reports::label_keys());
     used.extend(agentgate_server::controllers::tickets::releases::label_keys());
+    used.extend(agentgate_server::controllers::tickets::advanced::label_keys());
     used.extend(agentgate_server::controllers::tickets::components::label_keys());
     used.extend(agentgate_server::controllers::tickets::timeline::label_keys());
     used.extend(agentgate_server::controllers::knowledge_settings::label_keys());

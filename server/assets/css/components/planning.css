@@ -218,4 +218,26 @@
   .app-board[data-lane-board] { min-height: 0; }
   .app-bcol[data-over] { box-shadow: inset 0 2px 0 var(--ag-warn); }
   .app-bcol-n[data-over] { color: var(--ag-warn); font-weight: 600; }
+
+  /* Pencarian lanjutan (JQL): saved filter kiri + kotak query + hasil */
+  .app-jql { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 16px; align-items: start; min-width: 0; }
+  .app-jql-sf { list-style: none; margin: 0; padding: 4px; display: grid; gap: 2px; }
+  .app-jql-sf li { display: flex; align-items: center; gap: 2px; border-radius: 6px; }
+  .app-jql-sf li[data-current] { background: var(--ag-hover); }
+  .app-jql-sf a { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; padding: 6px 8px; color: var(--ag-fg); font-size: 13px; }
+  .app-jql-sf a span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .app-jql-sf a svg { width: 14px; height: 14px; color: var(--ag-muted); flex: none; }
+  .app-jql-sf li:hover { background: var(--ag-hover); }
+  .app-jql-sf form { margin: 0; }
+  .app-jql-q { display: flex; gap: 8px; min-width: 0; }
+  .app-jql-q .app-input { flex: 1; min-width: 0; font-family: var(--ag-mono); font-size: 13px; }
+  .app-jql-err { display: flex; gap: 6px; align-items: flex-start; margin: 0; color: var(--ag-danger); font-size: 13px; }
+  .app-jql-err svg { width: 14px; height: 14px; flex: none; margin-top: 2px; }
+  .app-jql-help summary { cursor: pointer; font-size: 13px; color: var(--ag-fg2); }
+  .app-jql-help dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; margin: 8px 0; font-size: 12.5px; }
+  .app-jql-help dd { margin: 0; color: var(--ag-fg2); }
+  .app-jql-code { display: block; padding: 8px 10px; border-radius: 6px; background: var(--ag-hover); font-family: var(--ag-mono); font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+  .app-jql-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--ag-line); flex-wrap: wrap; }
+  .app-jql-ck { width: 36px; }
+  @media (max-width: 860px) { .app-jql { grid-template-columns: minmax(0, 1fr); } }
 }

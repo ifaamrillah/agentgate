@@ -380,3 +380,57 @@ board-swim-assignee = Penerima
 board-swim-epic = Epic
 board-no-epic = Tanpa epic
 board-wip-over = Melebihi batas WIP { $wip }
+
+## Pencarian lanjutan, saved filter, edit massal
+search-advanced-title = Pencarian lanjutan
+search-advanced-description = Tulis query ala JQL. Gabungkan syarat dengan AND, pakai =, !=, ~, in (…), is EMPTY, dan ORDER BY.
+search-advanced-link = Pencarian lanjutan
+search-basic = Pencarian dasar
+search-query = Query
+search-query-placeholder = stage = Review AND assignee = currentUser() ORDER BY priority
+search-run = Jalankan
+search-fields = Field yang bisa dipakai
+search-syntax-hint = Nilai berisi spasi ditulis dalam tanda kutip, mis. sprint = "Sprint 4". Fungsi: currentUser(), openSprints(). Tanggal memakai format TTTT-BB-HH.
+search-total = { $total } tiket cocok dengan query.
+search-total-limited = { $total } tiket cocok; { $limit } pertama ditampilkan. Persempit query untuk melihat sisanya.
+search-error-title = Query belum bisa dijalankan
+search-error-hint = Perbaiki query di atas, lalu tekan Jalankan.
+search-advanced-start = Tulis query untuk mulai
+search-advanced-start-hint = Contoh: status != done AND sprint in openSprints(). Atau pilih saved filter di kiri.
+search-advanced-empty = Tidak ada tiket yang cocok
+search-advanced-empty-hint = Ubah query, misalnya hapus syarat penerima atau stage.
+search-filters = Saved filter
+search-filters-empty = Belum ada saved filter
+search-filters-empty-hint = Jalankan query lalu pilih Simpan filter.
+search-filter-save = Simpan filter
+search-filter-save-description = Simpan query ini agar bisa dibuka lagi dengan satu klik.
+search-filter-name = Nama filter
+search-filter-visibility = Siapa yang bisa melihat
+search-visibility-private = Hanya Anda
+search-visibility-private-hint = Filter pribadi.
+search-visibility-team = Tim
+search-visibility-team-hint = Anggota satu tim Anda.
+search-visibility-workspace = Seluruh workspace
+search-visibility-workspace-hint = Semua anggota workspace.
+search-filter-team = Tim
+search-filter-team-hint = Dipakai bila visibilitas Tim.
+search-filter-delete = Hapus filter { $name }
+search-flash-filter-saved = Filter disimpan.
+search-flash-filter-deleted = Filter dihapus.
+search-select = Pilih
+search-select-one = Pilih { $code }
+search-col-stage = Stage
+search-col-sprint = Sprint
+search-backlog = Backlog
+search-bulk = Edit massal
+search-bulk-hint = Centang tiket, lalu ubah sekaligus.
+search-bulk-description = Hanya field yang diisi yang berubah.
+search-bulk-keep = (tidak diubah)
+search-bulk-me = Saya
+search-bulk-release = Fix version
+search-bulk-no-release = Tanpa versi
+search-bulk-label = Tambah label
+search-bulk-note = Sprint dan versi harus milik project tiketnya. Tiket yang tidak cocok atau tidak boleh Anda ubah dilewati.
+search-bulk-apply = Terapkan
+search-flash-bulk-done = Tiket terpilih diperbarui.
+search-flash-bulk-partial = Sebagian tiket dilewati karena tidak cocok atau tidak boleh Anda ubah.

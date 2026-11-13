@@ -6,6 +6,7 @@
 {% block width %}wide{% endblock width %}
 {% block page_attrs %}data-search-page{% endblock page_attrs %}
 {% block heading %}{{ t(key="search-title", lang="id") }}{% endblock heading %}
+{% block head_actions %}<a class="btn" data-variant="outline" href="{{ advanced }}" data-advanced-link>{{ icon(name="filter") }}{{ t(key="search-advanced-link", lang="id") }}</a>{% endblock head_actions %}
 {% block description %}{{ t(key="search-description", lang="id") }}{% endblock description %}
 {% block main %}
 {% <card flush={true}> %}

@@ -153,7 +153,7 @@ pub(super) async fn search(
         &shell,
         "tickets/search.html",
         StatusCode::OK,
-        data!({ "table": table, "tickets": tickets, "searched": searched, "q": state.q }),
+        data!({ "table": table, "tickets": tickets, "searched": searched, "q": state.q, "advanced": format!("/w/{}/search/advanced", tenant.workspace.slug) }),
     )
 }
 

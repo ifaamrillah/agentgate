@@ -16,6 +16,7 @@ use loco_rs::prelude::*;
 use sea_orm::{ColumnTrait, ConnectionTrait, DbErr, EntityTrait, QueryFilter};
 use uuid::Uuid;
 
+pub mod advanced;
 mod artifact;
 mod backlog;
 mod board;
@@ -365,6 +366,10 @@ pub fn routes() -> Routes {
         .add("/w/{slug}/inbox/read-all", post(inbox::read_all))
         .add("/w/{slug}/inbox/{id}/read", post(inbox::read))
         .add("/w/{slug}/search", get(inbox::search))
+        .add("/w/{slug}/search/advanced", get(advanced::index))
+        .add("/w/{slug}/search/advanced/filters", post(advanced::save_filter))
+        .add("/w/{slug}/search/advanced/filters/{id}/delete", post(advanced::delete_filter))
+        .add("/w/{slug}/search/advanced/bulk", post(advanced::bulk))
         // Pengaturan workspace
         .add("/w/{slug}/settings/ticket-types", get(settings::types))
         .add(

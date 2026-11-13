@@ -8,6 +8,7 @@ mod estimate;
 mod mcp;
 mod releases;
 mod reports;
+mod search;
 mod timeline;
 
 use agentgate_server::models::{projects, sprints};
