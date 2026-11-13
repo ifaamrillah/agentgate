@@ -70,6 +70,7 @@ mengisi:
 | `ENCRYPTION_KEY` | base64 dari tepat 32 byte (`openssl rand -base64 32`) untuk enkripsi secret TOTP; mengganti membuat 2FA aktif tak bisa dibuka |
 | `STORAGE_DIR` | folder volume persisten untuk file upload (logo project); sementara disk lokal sampai S3 diaktifkan |
 | `APP_URL` | URL publik, dipakai untuk link di email dan callback OAuth |
+| `PREVIEW_URL` | URL domain pratinjau mockup HTML (M10), mis. `https://preview.example.com`; host wajib berbeda dari `APP_URL` dan diarahkan ke server yang sama |
 | `MAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD` | pengiriman email |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | login Google/GitHub; provider yang `CLIENT_ID`-nya kosong tidak diaktifkan |
 | `PORT`, `BINDING`, `LOG_LEVEL`, `DB_*`, `AUTH_MAX_CONCURRENT_HASHES` | opsional, ada default |

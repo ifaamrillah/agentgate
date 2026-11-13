@@ -9,6 +9,7 @@ pub mod graph;
 pub mod jobs;
 pub mod knowledge;
 pub mod mcp;
+pub mod mockups;
 pub mod oauth;
 pub mod personas;
 pub mod planning;

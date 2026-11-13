@@ -235,6 +235,8 @@ async fn render_index(
             "shown": shown.map(|v| version_view(v, &loaded.lookup, &base_of(a), true)),
             "body": shown.map(|v| v.body.clone()).unwrap_or_default(),
             "edit_href": format!("{}/{}/edit", paths.artifacts, a.id),
+            "mockup_href": crate::services::mockups::is_mockup(&a.name)
+                .then(|| format!("{}/mockup/{}?v={number}", paths.show, a.id)),
             "compare_href": previous.map(|p| format!("{}/{}/compare?from={p}&to={number}", paths.artifacts, a.id)),
         })
     });
@@ -543,4 +545,163 @@ pub(super) async fn compare(
             "action": format!("{}/{}/compare", paths.artifacts, artifact.id),
         }),
     )
+}
+
+#[derive(Debug, Default, Deserialize)]
+pub struct MockupQuery {
+    #[serde(default)]
+    v: Option<i32>,
+    #[serde(default)]
+    dev: String,
+    #[serde(default)]
+    tab: String,
+}
+
+/// Pratinjau mockup HTML (M10): `GET /w/{slug}/t/{code}/mockup/{id}`. Iframe sandbox ke domain
+/// pratinjau (token bertanda tangan 1 jam), Web/Mobile, versi, screenshot evidence tiket,
+/// Bandingkan dengan QA, dan Approve/Minta revisi bila stage artifact sedang menunggu review.
+#[debug_handler]
+#[allow(clippy::too_many_lines)]
+pub(super) async fn mockup(
+    State(ctx): State<AppContext>,
+    ViewEngine(v): ViewEngine<TeraView>,
+    access: TicketAccess,
+    session: Session,
+    Path((_, _, id)): Path<(String, String, String)>,
+    Query(query): Query<MockupQuery>,
+) -> Result<Response> {
+    use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder, QuerySelect};
+
+    use crate::{common::settings::Settings, models::job_evidence, services::mockups};
+
+    let id = Uuid::parse_str(&id).map_err(|_| Error::NotFound)?;
+    let (session, flash) = flash::take(session);
+    let tenant = &access.access.tenant;
+    let wid = tenant.workspace_id();
+    let t = &access.ticket;
+    let paths = TicketPaths::new(&tenant.workspace.slug, &t.code);
+    let loaded = load(&ctx, &access).await?;
+    let artifact = loaded
+        .artifacts
+        .iter()
+        .find(|a| a.id == id && mockups::is_mockup(&a.name))
+        .ok_or(Error::NotFound)?;
+    let versions: Vec<&artifact_versions::Model> = loaded
+        .versions
+        .iter()
+        .filter(|v| v.artifact_id == artifact.id)
+        .collect();
+    let shown = query
+        .v
+        .and_then(|n| versions.iter().find(|v| v.number == n).copied())
+        .or(versions.first().copied())
+        .ok_or(Error::NotFound)?;
+    let mobile = query.dev == "mobile";
+    let compare = query.tab == "compare";
+    let settings = Settings::from_ctx(&ctx)?;
+    let key = mockups::signing_key(&settings.auth.encryption_key_bytes()?);
+    let token = mockups::sign(
+        &key,
+        shown.id,
+        chrono::Utc::now().timestamp() + mockups::TOKEN_TTL_SECONDS,
+    );
+    let frame_src = format!("{}/preview/{token}", settings.preview_base_url);
+    let base = format!("{}/mockup/{}", paths.show, artifact.id);
+    let href = |v: i32, dev: &str, tab: &str| {
+        let mut q = vec![format!("v={v}")];
+        if dev == "mobile" {
+            q.push("dev=mobile".into());
+        }
+        if tab == "compare" {
+            q.push("tab=compare".into());
+        }
+        format!("{base}?{}", q.join("&"))
+    };
+    let dev = if mobile { "mobile" } else { "web" };
+    let tab = if compare { "compare" } else { "preview" };
+    let shots: Vec<views::runner::EvidenceView> = job_evidence::Entity::find()
+        .filter(job_evidence::Column::WorkspaceId.eq(wid.get()))
+        .filter(job_evidence::Column::TicketId.eq(t.id))
+        .filter(job_evidence::Column::Kind.eq("screenshot"))
+        .order_by_desc(job_evidence::Column::CreatedAt)
+        .limit(8)
+        .all(&ctx.db)
+        .await?
+        .iter()
+        .map(|e| views::runner::EvidenceView::of(e, &tenant.workspace.slug))
+        .collect();
+    let stage_panel = stage::panel(&ctx, &access).await?;
+    let in_review = artifact.stage_key == t.stage_key
+        && t.stage_state().ok() == Some(StageState::Review)
+        && shown.number == versions.first().map_or(0, |v| v.number);
+    let events = ticket_events::Model::of_ticket(&ctx.db, wid, t.id).await?;
+    let tabs_nav = vec![
+        serde_json::json!({ "key": "preview", "label_key": "mockup-tab-preview", "icon": "eye", "href": href(shown.number, dev, "preview"), "current": !compare, "count": null }),
+        serde_json::json!({ "key": "compare", "label_key": "mockup-tab-compare", "icon": "arrows-exchange", "href": href(shown.number, "mobile", "compare"), "current": compare, "count": shots.len() }),
+    ];
+    let mut csp_res = {
+        let shell = app_shell(&ctx, &tenant.user, Some(tenant), Some(&access.access))
+            .await?
+            .at("project_ticket");
+        views::tickets::render(
+            &v,
+            &shell,
+            "tickets/mockup.html",
+            StatusCode::OK,
+            data!({
+                "project": summary(&access.access),
+                "ticket": loaded.lookup.row(t),
+                "paths": paths,
+                "board": BoardPaths::new(&super::project_paths(&access.access).home),
+                "tabs": tabs(&paths, "artifacts", events.len() as u64, counts(&ctx, &access).await?, super::pulls::counts(&ctx, &access).await?),
+                "stage": stage_panel,
+                "artifact": { "id": artifact.id, "name": artifact.name, "stage": loaded.flow.rule(&artifact.stage_key).map_or_else(|| artifact.stage_key.clone(), |s| s.name.clone()) },
+                "shown": version_view(shown, &loaded.lookup, &base, true),
+                "versions": versions.iter().map(|x| serde_json::json!({
+                    "number": x.number,
+                    "href": href(x.number, dev, tab),
+                    "current": x.number == shown.number,
+                    "latest": x.number == versions.first().map_or(0, |f| f.number),
+                })).collect::<Vec<_>>(),
+                "mockup_tabs": tabs_nav,
+                "dev": dev,
+                "tab": tab,
+                "web_href": href(shown.number, "web", "preview"),
+                "mobile_href": href(shown.number, "mobile", "preview"),
+                "frame_src": frame_src,
+                "preview_host": settings.preview_host(),
+                "shots": shots,
+                "qa_shot": shots.first(),
+                "in_review": in_review,
+                "return_to": href(shown.number, dev, tab),
+                "artifacts_href": format!("{}?a={}", paths.artifacts, artifact.id),
+                "can_edit": access.can(Permission::EditProject),
+                "errors": { "dialogs": stage::errors_view("", "") },
+                "watching": crate::models::ticket_watchers::Model::user_ids(&ctx.db, wid, t.id)
+                    .await?
+                    .contains(&tenant.user.id),
+                "flash": flash,
+            }),
+        )?
+    };
+    // CSP aplikasi + izin membingkai domain pratinjau (hanya di halaman ini).
+    let app_csp = ctx
+        .config
+        .server
+        .middlewares
+        .secure_headers
+        .as_ref()
+        .and_then(|s| s.overrides.as_ref())
+        .and_then(|o| o.get("Content-Security-Policy"))
+        .cloned()
+        .unwrap_or_else(|| "default-src 'self'".to_string());
+    if let Ok(value) = axum::http::HeaderValue::from_str(&mockups::app_csp_with_frame(
+        &app_csp,
+        &settings.preview_base_url,
+    )) {
+        csp_res
+            .headers_mut()
+            .insert(axum::http::header::CONTENT_SECURITY_POLICY, value);
+    }
+    Ok((session, csp_res).into_response())
 }

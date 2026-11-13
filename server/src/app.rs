@@ -141,13 +141,21 @@ impl Hooks for App {
         Ok(AxumRouter::new().fallback(controllers::middleware::html_errors::not_found))
     }
 
-    async fn after_routes(router: AxumRouter, _ctx: &AppContext) -> Result<AxumRouter> {
+    async fn after_routes(router: AxumRouter, ctx: &AppContext) -> Result<AxumRouter> {
         // CSRF membungkus semua route (di luar stack Loco, sehingga berjalan sebelum gate login
         // di `middlewares`); penolakannya dirender sebagai halaman HTML oleh layer html_errors
-        // yang dipasang view engine di luar layer ini.
-        Ok(router.layer(axum::middleware::from_fn(
-            controllers::middleware::csrf::layer,
-        )))
+        // yang dipasang view engine di luar layer ini. Pemisah domain pratinjau mockup (M10)
+        // paling luar: host pratinjau tidak pernah mencapai route aplikasi lain.
+        let preview_host =
+            std::sync::Arc::new(crate::common::settings::Settings::from_ctx(ctx)?.preview_host());
+        Ok(router
+            .layer(axum::middleware::from_fn(
+                controllers::middleware::csrf::layer,
+            ))
+            .layer(axum::middleware::from_fn_with_state(
+                preview_host,
+                controllers::middleware::preview_host::layer,
+            )))
     }
 
     async fn connect_workers(ctx: &AppContext, queue: &Queue) -> Result<()> {

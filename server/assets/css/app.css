@@ -39,6 +39,7 @@
 @import "./components/knowledge.css";
 @import "./components/planning.css";
 @import "./components/tokens.css";
+@import "./components/mockup.css";
 
 @source "../views";
 @source "../../src";

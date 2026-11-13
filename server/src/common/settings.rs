@@ -13,6 +13,9 @@ pub struct Settings {
     pub app_name: String,
     /// URL publik aplikasi tanpa `/` di akhir, untuk link di email (verifikasi, reset, undangan).
     pub public_base_url: String,
+    /// Basis URL domain pratinjau mockup (M10); host-nya wajib berbeda dari `public_base_url`
+    /// supaya mockup tidak pernah berjalan di origin aplikasi.
+    pub preview_base_url: String,
     /// Pengirim (`From`) semua email aplikasi, mis. `Agent Gate <noreply@example.com>`.
     pub mail_from: String,
     pub auth: AuthSettings,
@@ -111,6 +114,18 @@ impl Settings {
                 "invalid `settings.public_base_url`: must not end with `/`",
             ));
         }
+        if self.preview_base_url.ends_with('/') {
+            return Err(Error::string(
+                "invalid `settings.preview_base_url`: must not end with `/`",
+            ));
+        }
+        if host_of(&self.preview_base_url).is_empty()
+            || host_of(&self.preview_base_url) == host_of(&self.public_base_url)
+        {
+            return Err(Error::string(
+                "invalid `settings.preview_base_url`: host must differ from public_base_url",
+            ));
+        }
         let auth = &self.auth;
         auth.encryption_key_bytes()?;
         argon2::Params::new(
@@ -126,6 +141,31 @@ impl Settings {
             ));
         }
         Ok(())
+    }
+}
+
+/// `host[:port]` dari URL (`http://a.b:5150/x` → `a.b:5150`), huruf kecil.
+#[must_use]
+pub fn host_of(url: &str) -> String {
+    url.split_once("://")
+        .map_or(url, |(_, rest)| rest)
+        .split(['/', '?', '#'])
+        .next()
+        .unwrap_or("")
+        .to_ascii_lowercase()
+}
+
+impl Settings {
+    /// Host domain pratinjau (`preview.localhost:5150`).
+    #[must_use]
+    pub fn preview_host(&self) -> String {
+        host_of(&self.preview_base_url)
+    }
+
+    /// Origin domain pratinjau (`http://preview.localhost:5150`).
+    #[must_use]
+    pub fn preview_origin(&self) -> String {
+        self.preview_base_url.clone()
     }
 }
 

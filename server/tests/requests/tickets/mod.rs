@@ -7,6 +7,7 @@ mod blocks;
 mod comments;
 mod drafts;
 mod flow;
+mod mockup;
 mod pages;
 mod search;
 mod settings;

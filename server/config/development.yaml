@@ -156,6 +156,9 @@ settings:
   app_name: Agent Gate
   # Basis link di email; dev/test dilayani di localhost:PORT.
   public_base_url: http://localhost:<%= get_env(name="PORT") %>
+  # Domain terpisah untuk pratinjau mockup HTML (iframe sandbox, tanpa cookie aplikasi).
+  # Host-nya harus berbeda dari public_base_url.
+  preview_base_url: http://preview.localhost:<%= get_env(name="PORT") %>
   # Pengirim semua email aplikasi (header From); email dev ditangkap Mailpit.
   mail_from: <%= get_env(name="MAIL_FROM", default="Agent Gate <noreply@localhost>") %>
   auth:
