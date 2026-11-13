@@ -69,6 +69,9 @@ pub enum NotificationKind {
     /// Webhook keluar dinonaktifkan otomatis setelah gagal beruntun (M11; tanpa tiket/project).
     #[sea_orm(string_value = "webhook_disabled")]
     WebhookDisabled,
+    /// Sinkron Jira gagal (token ditolak, Jira tidak terjangkau; M11; tanpa tiket/project).
+    #[sea_orm(string_value = "jira_failed")]
+    JiraFailed,
 }
 
 impl TenantEntity for Entity {
