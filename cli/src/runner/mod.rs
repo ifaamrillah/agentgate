@@ -9,6 +9,7 @@
 pub mod claude;
 pub mod evidence;
 pub mod job;
+pub mod slots;
 pub mod terminal;
 pub mod worktree;
 
@@ -18,7 +19,7 @@ use std::{
 };
 
 use agentgate_core::runner::{
-    protocol::{ClientMsg, RegisterRunner, RunnerInfo, ServerMsg},
+    protocol::{ClientMsg, JobSummary, RegisterRunner, RunnerInfo, ServerMsg},
     signing::public_key_b64,
 };
 use futures_util::{
@@ -247,7 +248,35 @@ pub async fn start(paths: &Paths, yes: bool, once: bool, out: &mut impl Write) -
         info.workspace, info.user_email
     );
     let _ = out.flush();
-    run_loop(&ctx, &api, &mut source, once).await
+    let limit = match info.max_parallel {
+        Some(n) => format!("maksimal {n} job paralel"),
+        None => "tanpa batas job paralel".into(),
+    };
+    let _ = writeln!(out, "Batas: {limit}.");
+    let _ = out.flush();
+    run_loop(&ctx, &api, &mut source, once, info.max_parallel).await
+}
+
+/// Kode server: runner sudah menjalankan `max_parallel` job.
+pub const RUNNER_BUSY: &str = "job-runner-busy";
+
+fn spawn_job(
+    tasks: &mut JoinSet<(JobSummary, Result<()>)>,
+    cancels: &mut HashMap<Uuid, watch::Sender<bool>>,
+    ctx: &job::Ctx,
+    job: JobSummary,
+) {
+    println!(
+        "Job {} · {} · {} dimulai",
+        job.ticket, job.stage_name, job.title
+    );
+    let (tx, rx) = watch::channel(false);
+    cancels.insert(job.id, tx);
+    let ctx = ctx.clone();
+    tasks.spawn(async move {
+        let res = job::run(&ctx, job.id, rx).await;
+        (job, res)
+    });
 }
 
 type Sink = SplitSink<Ws, Message>;
@@ -257,8 +286,10 @@ async fn run_loop(
     api: &Api,
     (source, sink): &mut (Source, Option<Sink>),
     once: bool,
+    max_parallel: Option<u32>,
 ) -> Result<()> {
-    let mut tasks: JoinSet<(Uuid, Result<()>)> = JoinSet::new();
+    let mut tasks: JoinSet<(JobSummary, Result<()>)> = JoinSet::new();
+    let mut slots = slots::Slots::new(max_parallel);
     let mut cancels: HashMap<Uuid, watch::Sender<bool>> = HashMap::new();
     let mut seen: HashSet<Uuid> = HashSet::new();
     let mut heartbeat = tokio::time::interval(config::seconds(HEARTBEAT));
@@ -275,19 +306,21 @@ async fn run_loop(
                                     continue;
                                 }
                                 started += 1;
-                                println!("Job {} · {} · {} dimulai", job.ticket, job.stage_name, job.title);
-                                let (tx, rx) = watch::channel(false);
-                                cancels.insert(job.id, tx);
-                                let ctx = ctx.clone();
-                                tasks.spawn(async move {
-                                    let res = job::run(&ctx, job.id, rx).await;
-                                    (job.id, res)
-                                });
+                                let label = format!("{} · {}", job.ticket, job.stage_name);
+                                match slots.offer(job) {
+                                    Some(job) => spawn_job(&mut tasks, &mut cancels, ctx, job),
+                                    None => println!(
+                                        "Job {label} menunggu slot ({} berjalan).",
+                                        slots.running()
+                                    ),
+                                }
                             }
                             ServerMsg::JobCancelled { job_id } => {
                                 if let Some(tx) = cancels.get(&job_id) {
                                     println!("Job {job_id} dibatalkan dari web.");
                                     let _ = tx.send(true);
+                                } else if slots.drop_pending(job_id) {
+                                    println!("Job {job_id} dibatalkan sebelum dimulai.");
                                 }
                             }
                             ServerMsg::PermissionDecided { job_id, status, .. } => {
@@ -315,18 +348,31 @@ async fn run_loop(
                 }
             },
             Some(done) = tasks.join_next(), if !tasks.is_empty() => {
-                if let Ok((id, res)) = done {
+                if let Ok((job, res)) = done {
+                    let id = job.id;
                     cancels.remove(&id);
                     match res {
                         Ok(()) => println!("Job {id} selesai."),
+                        Err(Error::Api(ref e)) if e.code() == Some(RUNNER_BUSY) => {
+                            println!("Server: runner penuh; job {id} kembali ke antrean lokal.");
+                            slots.requeue(job);
+                            continue;
+                        }
                         Err(e) => eprintln!("Job {id} gagal: {}", e.user_message()),
                     }
+                    for next in slots.finish(id) {
+                        spawn_job(&mut tasks, &mut cancels, ctx, next);
+                    }
                 }
-                if once && tasks.is_empty() {
+                if once && tasks.is_empty() && slots.pending() == 0 {
                     break;
                 }
             },
             _ = heartbeat.tick() => {
+                // Job yang ditolak server karena runner penuh dicoba lagi.
+                for next in slots.finish(Uuid::nil()) {
+                    spawn_job(&mut tasks, &mut cancels, ctx, next);
+                }
                 if let Some(tx) = sink.as_mut() {
                     let msg = ClientMsg::Heartbeat { running: cancels.keys().copied().collect() };
                     if let Ok(text) = serde_json::to_string(&msg)

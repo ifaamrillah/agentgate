@@ -1,0 +1,15 @@
+{#- Status CI (M6): ikon + label berwarna tanpa latar (hijau lulus, merah gagal, kuning
+    berjalan, abu belum ada). Prototype: `ciTag` / `.ag4-ci` di screens-m4-m6.js.
+    Parameter:
+      state: map                `views::git::StateView` dari `StateView::ci`
+      label: string             teks pengganti (mis. nama check); "" = label status (default "")
+      href: string              tautan detail check (tab baru); "" = tanpa tautan (default "")
+      compact: bool             ikon saja, label jadi `title` + teks pembaca layar (default false)
+      attrs: string             penanda tes tanpa kutip (default "") -#}
+{% component ci_state(state: map, label: string = "", href: string = "", compact: bool = false, attrs: string = "") %}
+{%- if state.value not in ["none", "pending", "success", "failure"] %}{{ throw(message="ci_state: state tidak dikenal: " ~ state.value) }}{% endif -%}
+{%- if href %}<a class="app-ci" data-state="{{ state.value }}" href="{{ href }}" target="_blank" rel="noopener noreferrer" {{ attrs }}>{% else %}<span class="app-ci" data-state="{{ state.value }}"{% if compact %} title="{{ t(key=state.key, lang="id") }}"{% endif %} {{ attrs }}>{% endif -%}
+{%- if label %}{% set text = label %}{% else %}{% set text = t(key=state.key, lang="id") %}{% endif -%}
+{{ icon(name=state.icon) }}<span{% if compact %} class="sr-only"{% endif %}>{{ text }}</span>
+{%- if href %}</a>{% else %}</span>{% endif %}
+{%- endcomponent ci_state %}

@@ -58,7 +58,9 @@ fn job_spec(base: &str) -> Value {
         "stage": "dev", "stage_name": "Development",
         "persona": "dev", "persona_name": "Dev",
         "model": "claude-test-model", "effort": "", "client": "claude",
-        "command": "/ag-dev", "prompt": PROMPT, "branch": BRANCH,
+        "command": "/ag-dev", "prompt": PROMPT, "branch": BRANCH, "base_branch": "main",
+        "git": { "code_output": "pr", "commit_style": "conventional", "commit_language": "en",
+                 "pr_language": "id", "code_language": "en" },
         "mcp_url": format!("{base}/mcp"),
         "rules": rules::agent_gate_files(base, "KSR"),
         "danger": [{ "action": "deploy", "level": "block" }],
@@ -95,6 +97,10 @@ async fn runner_once_runs_a_job_and_reports_signed_evidence() {
             ("POST", p) if p == format!("{job}evidence") => {
                 (201, json!({ "id": RUNNER, "kind": "test_report" }))
             }
+            ("POST", p) if p == format!("{job}pull-request") => (
+                200,
+                json!({ "number": 142, "url": "https://github.com/pt/kasir/pull/142", "state": "open", "created": true }),
+            ),
             ("POST", p) if p == format!("{job}finish") => {
                 (200, json!({ "id": JOB, "status": "succeeded" }))
             }
@@ -116,6 +122,24 @@ async fn runner_once_runs_a_job_and_reports_signed_evidence() {
     );
     fs::write(&toml, body).unwrap();
     git(&repo, &["commit", "-qam", "tes"]);
+    // Remote origin (bare): branch tiket dibuat dari origin/main lalu di-push.
+    let origin = env.root.join("origin.git");
+    git(
+        &env.root,
+        &[
+            "init",
+            "-q",
+            "--bare",
+            "-b",
+            "main",
+            origin.to_str().unwrap(),
+        ],
+    );
+    git(
+        &repo,
+        &["remote", "add", "origin", origin.to_str().unwrap()],
+    );
+    git(&repo, &["push", "-q", "origin", "main"]);
 
     let bin = env.root.join("bin");
     fs::create_dir_all(&bin).unwrap();
@@ -268,6 +292,27 @@ async fn runner_once_runs_a_job_and_reports_signed_evidence() {
         git(&wt, &["show", "--name-only", "--format=%s", "HEAD"]),
         "feat(KSR-26): Validasi stok\n\nstok.rs"
     );
+    // PR otomatis: branch di-push ke origin, server diminta membuka PR ke base branch.
+    assert_eq!(
+        git(&origin, &["log", "-1", "--format=%s", BRANCH]),
+        "feat(KSR-26): Validasi stok"
+    );
+    let prs = fake.find("POST", "/pull-request");
+    assert_eq!(prs.len(), 1);
+    let pr = prs[0].json();
+    assert_eq!(
+        (
+            pr["repo"].as_str(),
+            pr["branch"].as_str(),
+            pr["base"].as_str()
+        ),
+        (Some("kasir"), Some(BRANCH), Some("main"))
+    );
+    assert_eq!(pr["title"], "feat(KSR-26): Validasi stok");
+    assert!(has("ok", "PR #142 dibuka"), "{lines:?}");
+    let order_finish = order.iter().position(|p| *p == "finish").unwrap();
+    let order_pr = order.iter().position(|p| *p == "pull-request").unwrap();
+    assert!(order_pr < order_finish);
     // State hook dibersihkan setelah job selesai.
     assert!(!env.state.join(format!("jobs/{JOB}.json")).exists());
 }

@@ -24,6 +24,8 @@ const PREFIXES: &[&str] = &[
     "/.well-known",
     // API publik (M11).
     "/api",
+    // Webhook provider git (M6), diautentikasi tanda tangan HMAC.
+    "/webhooks",
 ];
 
 #[must_use]
@@ -50,6 +52,7 @@ mod tests {
             "/api/runner/ws",
             "/.well-known/oauth-authorization-server",
             "/api/v1/tickets",
+            "/webhooks/github/0198",
         ] {
             assert!(is_api(path), "{path}");
         }

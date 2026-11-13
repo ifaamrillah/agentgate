@@ -1,0 +1,14 @@
+{#- Status pull request (M6): pill berwarna dengan ikon git, opsional nomor PR dan tautan ke
+    provider. Prototype: `prState` di screens-m4-m6.js.
+    Parameter:
+      state: map                `views::git::StateView` dari `StateView::pr` (value, key, variant, icon)
+      number: integer           nomor PR; 0 = label status saja (default 0)
+      href: string              tautan ke PR di provider (tab baru); "" = tanpa tautan (default "")
+      compact: bool             ikon + nomor saja, label status jadi `title` (kartu board) (default false)
+      attrs: string             penanda tes tanpa kutip (default "") -#}
+{% component pr_state(state: map, number: integer = 0, href: string = "", compact: bool = false, attrs: string = "") %}
+{%- if state.variant not in ["success", "neutral", "destructive", "info"] %}{{ throw(message="pr_state: variant tidak dikenal: " ~ state.variant) }}{% endif -%}
+{%- if href %}<a class="badge app-pr-state" data-variant="{{ state.variant }}" data-pr-state="{{ state.value }}"{% if compact %} title="{{ t(key=state.key, lang="id") }}"{% endif %} href="{{ href }}" target="_blank" rel="noopener noreferrer" {{ attrs }}>{% else %}<span class="badge app-pr-state" data-variant="{{ state.variant }}" data-pr-state="{{ state.value }}"{% if compact %} title="{{ t(key=state.key, lang="id") }}"{% endif %} {{ attrs }}>{% endif -%}
+{{ icon(name=state.icon) }}{% if number > 0 %}<span class="app-pr-no">#{{ number }}</span>{% endif %}{% if compact %}<span class="sr-only">{{ t(key=state.key, lang="id") }}</span>{% else %}{{ t(key=state.key, lang="id") }}{% endif %}
+{%- if href %}</a>{% else %}</span>{% endif %}
+{%- endcomponent pr_state %}

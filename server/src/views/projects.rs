@@ -68,6 +68,10 @@ pub struct ProjectPaths {
     pub ticket_code: String,
     /// Pengaturan project → Workflow.
     pub workflow: String,
+    /// Pengaturan project → Konvensi git (M6).
+    pub git: String,
+    /// Tab project → Pull request (M6).
+    pub prs: String,
 }
 
 impl ProjectPaths {
@@ -90,6 +94,8 @@ impl ProjectPaths {
             logo_delete: format!("{home}/settings/logo/delete"),
             ticket_code: format!("{home}/settings/ticket-code"),
             workflow: format!("{home}/settings/workflow"),
+            git: format!("{home}/settings/git"),
+            prs: format!("{home}/prs"),
             home,
         }
     }

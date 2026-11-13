@@ -46,6 +46,17 @@ pub enum NotificationKind {
     /// Terminal stage interaktif gagal dibuka; jalankan `/ag-…` sendiri.
     #[sea_orm(string_value = "job_terminal")]
     JobTerminal,
+    /// PR dibuka untuk tiket (M6).
+    #[sea_orm(string_value = "pr_opened")]
+    PrOpened,
+    /// CI PR tiket gagal.
+    #[sea_orm(string_value = "ci_failed")]
+    CiFailed,
+    #[sea_orm(string_value = "pr_merged")]
+    PrMerged,
+    /// Merge otomatis gagal; merge manual di provider.
+    #[sea_orm(string_value = "merge_failed")]
+    MergeFailed,
 }
 
 impl TenantEntity for Entity {

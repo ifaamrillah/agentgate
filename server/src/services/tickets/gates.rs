@@ -7,15 +7,19 @@
 //! - `subtasks_done`: semua subtask aktif sudah berkategori `done`;
 //! - `tests_passed` / `screenshot_exists`: evidence bertanda tangan runner (M5) sejak tiket masuk
 //!   stage ini (`services::jobs::evidence::gate_status`); hasil test = laporan terbaru;
-//! - gate git (PR, CI) dari provider git (M6). Sumber itu belum ada, jadi gate ini selalu belum
-//!   terpenuhi dan transisinya ditolak; Admin bisa memaksa transisi.
+//! - gate git dari PR tiket yang dilacak provider (M6, [`git_status`]): `pr_open` = ada PR yang
+//!   tidak ditutup tanpa merge; `prs_merged` = ada PR dan semuanya merged (multi-repo = semua
+//!   repo); `ci_green` = semua PR itu CI-nya lulus, ditambah setiap check wajib project lulus.
 
-use agentgate_core::workflow::{Gate, Stage};
+use agentgate_core::{
+    git::{CiState, PrState},
+    workflow::{Gate, Stage},
+};
 use sea_orm::{ColumnTrait, ConnectionTrait, DbErr, EntityTrait, QueryFilter};
 use serde::Serialize;
 
 use crate::models::{
-    artifact_versions, ticket_artifacts,
+    artifact_versions, projects, pull_requests, ticket_artifacts,
     tickets::{self, TicketStatus},
     workspaces::WorkspaceId,
 };
@@ -57,6 +61,15 @@ pub async fn check<C: ConnectionTrait>(
     } else {
         (false, false)
     };
+    let git = if stage
+        .gates
+        .iter()
+        .any(|g| matches!(g, Gate::PrOpen | Gate::PrsMerged | Gate::CiGreen))
+    {
+        git_status(db, wid, ticket).await?
+    } else {
+        GitStatus::default()
+    };
     let mut out = Vec::with_capacity(stage.gates.len());
     for gate in &stage.gates {
         let ok = match gate {
@@ -67,11 +80,61 @@ pub async fn check<C: ConnectionTrait>(
             Gate::SubtasksDone => subtasks_done(db, wid, ticket).await?,
             Gate::TestsPassed => evidence.0,
             Gate::ScreenshotExists => evidence.1,
-            Gate::PrOpen | Gate::PrsMerged | Gate::CiGreen => false,
+            Gate::PrOpen => git.open,
+            Gate::PrsMerged => git.merged,
+            Gate::CiGreen => git.ci_green,
         };
         out.push(GateCheck { gate: *gate, ok });
     }
     Ok(out)
+}
+
+/// Keadaan gate git tiket.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct GitStatus {
+    pub open: bool,
+    pub merged: bool,
+    pub ci_green: bool,
+}
+
+/// Nilai gate git dari PR tiket (lihat dokumentasi modul).
+///
+/// # Errors
+///
+/// Error database.
+pub async fn git_status<C: ConnectionTrait>(
+    db: &C,
+    wid: WorkspaceId,
+    ticket: &tickets::Model,
+) -> Result<GitStatus, DbErr> {
+    let prs: Vec<pull_requests::Model> = pull_requests::Model::of_ticket(db, wid, ticket.id)
+        .await?
+        .into_iter()
+        .filter(pull_requests::Model::counts)
+        .collect();
+    if prs.is_empty() {
+        return Ok(GitStatus::default());
+    }
+    let settings = projects::Model::find_in(db, wid, ticket.project_id)
+        .await?
+        .map(|p| p.git_settings())
+        .unwrap_or_default();
+    let required_ok = |pr: &pull_requests::Model| {
+        let checks = pr.checks();
+        !settings.require_ci
+            || settings.required_checks.iter().all(|name| {
+                checks
+                    .iter()
+                    .any(|c| c.name.eq_ignore_ascii_case(name) && c.state == CiState::Success)
+            })
+    };
+    Ok(GitStatus {
+        open: true,
+        merged: prs.iter().all(|p| p.state() == PrState::Merged),
+        ci_green: prs
+            .iter()
+            .all(|p| p.ci() == CiState::Success && required_ok(p)),
+    })
 }
 
 /// Isi versi terbaru artifact output stage, bila ada.

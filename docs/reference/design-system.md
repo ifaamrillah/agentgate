@@ -100,6 +100,8 @@ Semua di `server/assets/views/components/`; parameter lengkap ada di komentar ke
 | `job_steps` | bar progres + daftar langkah job (ok/now/wait/fail, durasi) di `card flush` | `views::runner::StepsView` |
 | `log_view` | log job gaya terminal (gelap di dua tema), warna per aliran, kursor saat berjalan; `job-log.js` menjaga gulir di bawah | `[views::runner::LogLineView]` |
 | `evidence_item` | evidence bertanda tangan runner: ikon jenis, tautan berkas, lulus/gagal + jumlah tes atau ukuran, thumbnail screenshot | `views::runner::EvidenceView` |
+| `pr_state` | status PR (Terbuka hijau, Draft abu, Merged info, Ditutup merah) dengan ikon git, nomor opsional, tautan ke provider; `compact` = ikon + nomor (kartu board) | `views::git::StateView::pr` |
+| `ci_state` | status CI atau satu check (ikon berwarna tanpa latar: lulus, gagal, berjalan berputar, belum ada); `label` = nama check, `compact` = ikon saja | `views::git::StateView::ci` |
 
 Pola isi (class): `app-grid[data-cols=duo|two|three]`, `app-stack-v`, `app-form`, `app-form-row`,
 `app-blk`, `app-lrow` (baris daftar), `app-srow`, `app-props` (dl properti), `app-feed`/`app-fe`
@@ -185,3 +187,18 @@ katalog `/_dev/ui` di commit yang sama.
   "menunggu runner Anda online" (`app-agent-wait`).
 - **Izin aksi**: baris `app-lrow` + dialog Tinjau dengan `app-term-cmd` (perintah gaya terminal),
   satu form dengan tiga tombol submit (`decision=deny|allow|allow_ticket`).
+
+## M6 (Git & PR)
+
+- **Git provider** (`/w/{slug}/settings/git/{cloud|enterprise|repos}`, `ManageIntegrations`):
+  `subpage` varian E + `stats`; provider = `app-lrow` dengan `app-prov-logo`, dialog Hubungkan
+  (token, URL server GHES, daftar akses `app-consent-scopes`), Webhook manual (`app-props`),
+  Putuskan (danger). Repo terhubung = `datatable` (filter/sort di memori).
+- **Konvensi git project** (`/w/{slug}/p/{KEY}/settings/git/{panel}`): `subpage` (env/deploy/jalur
+  kode "segera"), satu `card form` per panel dengan `setting_row` dan `app-choices`.
+- **Pull request project** (`/w/{slug}/p/{KEY}/prs`, tab project `prs`): `stats`, `tabs`
+  Semua/Terbuka/Merged, `datatable` dengan sel `app-pr-cell`, `ci_state`, `pr_state`.
+- **Tab tiket PR & CI** (`/w/{slug}/t/{code}/pr`): satu `app-pr` per PR (kepala `app-pr-head` +
+  daftar check `app-pr-checks`/`app-pr-check`), ukuran diff `app-pr-diff`.
+- **Badge PR**: header tiket (`app-pr-link` → tab PR & CI, + CI) dan kartu board
+  (`app-tcard-pr`, `pr_state compact` + `ci_state compact`). CSS: `components/git.css`.

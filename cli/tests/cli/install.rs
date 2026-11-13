@@ -109,3 +109,59 @@ async fn init_backs_up_legacy_rules_and_uninstall_restores_them() {
     assert!(!repo.join(".agentgate/project.toml").exists());
     assert_eq!(git(&repo, &["status", "--porcelain"]), "");
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn rules_sync_pushes_branch_and_opens_pull_request() {
+    let fake = serve(Arc::new(|fake, req| match req.path.as_str() {
+        "/api/cli/rules" => rules_response(&fake.base, req),
+        "/api/runner/drift" => (204, Value::Null),
+        "/api/cli/rules/pull-request" => (
+            200,
+            json!({ "number": 9, "url": "https://github.com/pt/kasir/pull/9", "state": "open", "created": true }),
+        ),
+        _ => (404, json!({ "error": "not_found" })),
+    }))
+    .await;
+    let env = Env::new("sync");
+    env.login(&fake.base);
+    let repo = env.root.join("kasir");
+    git_repo(&repo);
+    // Remote bernama seperti repo server (`…/kasir.git` → repo `kasir`).
+    let origin = env.root.join("remote/kasir.git");
+    git(
+        &env.root,
+        &[
+            "init",
+            "-q",
+            "--bare",
+            "-b",
+            "main",
+            origin.to_str().unwrap(),
+        ],
+    );
+    git(
+        &repo,
+        &["remote", "add", "origin", origin.to_str().unwrap()],
+    );
+    let out = env.run(&repo, &["init", "--project", "KSR", "--yes"]).await;
+    assert!(out.status.success(), "{}", text(&out));
+    // Aturan diubah lokal → berbeda dari versi server.
+    fs::write(repo.join("AGENTS.md"), "diubah lokal\n").unwrap();
+    git(&repo, &["commit", "-qam", "ubah aturan"]);
+
+    let out = env.run(&repo, &["rules", "sync"]).await;
+    assert!(out.status.success(), "{}", text(&out));
+    assert!(text(&out).contains("PR #9"), "{}", text(&out));
+    assert_eq!(
+        git(
+            &origin,
+            &["log", "-1", "--format=%s", "agentgate/sync-rules"]
+        ),
+        "chore: update aturan Agent Gate"
+    );
+    let reqs = fake.find("POST", "/api/cli/rules/pull-request");
+    assert_eq!(reqs.len(), 1);
+    assert_eq!(reqs[0].json(), json!({ "project": "KSR", "repo": "kasir" }));
+    // Kembali ke branch semula.
+    assert_eq!(git(&repo, &["branch", "--show-current"]), "main");
+}

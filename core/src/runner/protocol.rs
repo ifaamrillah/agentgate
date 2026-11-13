@@ -252,6 +252,12 @@ pub struct JobSpec {
     /// Prompt lengkap (persona, stage, tiket). Tidak pernah lewat shell.
     pub prompt: String,
     pub branch: String,
+    /// Branch dasar worktree dan target PR (branch default repo). Kosong = HEAD repo lokal.
+    #[serde(default)]
+    pub base_branch: String,
+    /// Konvensi git project (hasil kode, gaya dan bahasa commit/PR).
+    #[serde(default)]
+    pub git: crate::git::GitSpec,
     pub mcp_url: String,
     pub rules: Vec<RuleFile>,
     pub danger: Vec<DangerRule>,
@@ -345,6 +351,37 @@ pub struct FinishReport {
     /// Kuota habis: waktu reset (RFC 3339), bila client menyebutkannya.
     #[serde(default)]
     pub quota_reset_at: Option<String>,
+}
+
+/// `POST /api/runner/jobs/{id}/pull-request`: branch tiket sudah di-push; server membuka PR
+/// lewat provider git (atau mengembalikan PR terbuka untuk branch itu).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PullRequestOpen {
+    /// Nama repo project (sama dengan [`JobSpec::repos`]).
+    pub repo: String,
+    pub branch: String,
+    #[serde(default)]
+    pub base: String,
+    pub title: String,
+    #[serde(default)]
+    pub body: String,
+}
+
+/// PR yang dibuka/ditemukan.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PullRequestInfo {
+    pub number: i64,
+    pub url: String,
+    pub state: crate::git::PrState,
+    /// `false` = PR untuk branch ini sudah ada sebelumnya.
+    pub created: bool,
+}
+
+/// `POST /api/cli/rules/pull-request`: branch `agentgate/sync-rules` sudah di-push.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RulesPullRequest {
+    pub project: String,
+    pub repo: String,
 }
 
 /// `POST /api/runner/drift`: hasil cek checksum file aturan satu repo.

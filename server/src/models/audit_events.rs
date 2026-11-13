@@ -165,6 +165,23 @@ pub enum AuditAction {
     /// Permintaan izin aksi berbahaya dijawab.
     #[sea_orm(string_value = "job.permission_decided")]
     JobPermissionDecided,
+    /// Provider git dihubungkan ke workspace (M6; token tidak pernah dicatat).
+    #[sea_orm(string_value = "git.connected")]
+    GitConnected,
+    /// Token provider git diganti.
+    #[sea_orm(string_value = "git.updated")]
+    GitUpdated,
+    #[sea_orm(string_value = "git.disconnected")]
+    GitDisconnected,
+    /// Repo ditautkan ke koneksi provider (+ webhook).
+    #[sea_orm(string_value = "repo.linked")]
+    RepoLinked,
+    /// Konvensi git project diubah.
+    #[sea_orm(string_value = "project.git_updated")]
+    ProjectGitUpdated,
+    /// PR di-merge Agent Gate (mode merge otomatis).
+    #[sea_orm(string_value = "pull_request.merged")]
+    PullRequestMerged,
 }
 
 /// Kelompok aksi untuk filter halaman audit: awalan `<subjek>` dari aksi, kecuali jabatan
@@ -244,7 +261,14 @@ impl AuditAction {
             | Self::ProjectAccessChanged
             | Self::ProjectAccessRevoked
             | Self::ProjectWorkflowsChanged => AuditGroup::Project,
-            Self::RepoAdded | Self::RepoUpdated | Self::RepoRemoved => AuditGroup::Repo,
+            Self::RepoAdded
+            | Self::RepoUpdated
+            | Self::RepoRemoved
+            | Self::RepoLinked
+            | Self::GitConnected
+            | Self::GitUpdated
+            | Self::GitDisconnected
+            | Self::PullRequestMerged => AuditGroup::Repo,
             Self::TicketTrashed
             | Self::TicketRestored
             | Self::TicketPurged
@@ -276,6 +300,7 @@ impl AuditAction {
             | Self::RunnerRevoked
             | Self::JobCancelled
             | Self::JobPermissionDecided => AuditGroup::Agent,
+            Self::ProjectGitUpdated => AuditGroup::Project,
         }
     }
 }
@@ -379,6 +404,10 @@ pub enum AuditSubject {
     Runner,
     #[sea_orm(string_value = "job")]
     Job,
+    #[sea_orm(string_value = "git_connection")]
+    GitConnection,
+    #[sea_orm(string_value = "pull_request")]
+    PullRequest,
 }
 
 /// Data satu baris audit untuk [`ActiveModel::append`].

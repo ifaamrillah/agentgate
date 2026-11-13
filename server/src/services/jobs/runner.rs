@@ -10,7 +10,6 @@ use std::collections::HashSet;
 use agentgate_core::{
     persona::{self, Level},
     runner::{
-        branch_name,
         protocol::{
             DangerRule, DriftReport, FinishReport, JobKind, JobMode, JobSpec, JobStatus,
             JobSummary, LogBatch, LogStream, Outcome, PermissionAsk, PermissionInfo,
@@ -22,7 +21,8 @@ use agentgate_core::{
 use chrono::Duration;
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, ConnectionTrait, DatabaseConnection, DbErr,
-    EntityTrait, IntoActiveModel, QueryFilter, QueryOrder, TransactionTrait, sea_query::Expr,
+    EntityTrait, IntoActiveModel, PaginatorTrait, QueryFilter, QueryOrder, TransactionTrait,
+    sea_query::Expr,
 };
 use uuid::Uuid;
 
@@ -413,6 +413,78 @@ fn job_prompt(
     }
 }
 
+/// Konvensi git project untuk job stage (spec: "dipakai AI saat membuat branch, commit, dan PR").
+fn with_git(
+    prompt: String,
+    job: &jobs::Model,
+    git: &agentgate_core::git::GitSettings,
+    branch: &str,
+    base: &str,
+) -> String {
+    use agentgate_core::git::{CodeOutput, CommitStyle, Language};
+    if job.kind() != JobKind::Stage {
+        return prompt;
+    }
+    let lang = |l: Language| match l {
+        Language::En => "bahasa Inggris",
+        Language::Id => "bahasa Indonesia",
+    };
+    let style = match git.commit_style {
+        CommitStyle::Conventional => "Conventional Commits (feat:, fix:, test:, …)",
+        CommitStyle::Free => "bebas, ringkas",
+    };
+    let output = match git.code_output {
+        CodeOutput::Pr => format!(
+            "Commit perubahan Anda di branch {branch}. Setelah Anda selesai, runner mem-push branch \
+             dan membuka PR ke {base}; jangan push atau membuat PR sendiri."
+        ),
+        CodeOutput::Manual => {
+            "Hasil kode project ini manual: ubah file saja, jangan commit atau push.".to_string()
+        }
+    };
+    format!(
+        "{prompt}\n\nKonvensi git project:\n\
+         - Branch kerja: {branch} (dari {base}).\n\
+         - Pesan commit: {style}, dalam {commit}.\n\
+         - Deskripsi PR dalam {pr}; komentar kode dalam {code}.\n\
+         - {output}",
+        commit = lang(git.commit_language),
+        pr = lang(git.pr_language),
+        code = lang(git.code_language),
+    )
+}
+
+/// "Job paralel maksimal" pemilik runner: job baru tidak dimulai bila runner ini sudah
+/// menjalankan (`running`/`paused`) sebanyak batasnya. Melanjutkan job yang sudah berjalan
+/// selalu boleh.
+async fn runner_has_room(
+    db: &DatabaseConnection,
+    session: &Session,
+    runner: &runners::Model,
+    job: &jobs::Model,
+) -> Result<(), TicketFailure> {
+    if job.status().is_active() && job.runner_id == Some(runner.id) {
+        return Ok(());
+    }
+    let prefs =
+        runner_prefs::Model::of(db, session.workspace.workspace_id(), session.user.id).await?;
+    let Some(max) = prefs.max_parallel else {
+        return Ok(());
+    };
+    let active = jobs::Entity::find()
+        .filter(jobs::Column::RunnerId.eq(runner.id))
+        .filter(
+            jobs::Column::Status.is_in([JobStatus::Running.as_str(), JobStatus::Paused.as_str()]),
+        )
+        .filter(jobs::Column::Id.ne(job.id))
+        .count(db)
+        .await?;
+    if active >= u64::try_from(max.max(1)).unwrap_or(1) {
+        return Err(invalid(super::RUNNER_BUSY));
+    }
+    Ok(())
+}
+
 /// Mulai (atau lanjutkan) job di runner: kunci ke runner ini, status `running`, dan semua yang
 /// dibutuhkan runner.
 ///
@@ -439,6 +511,7 @@ pub async fn start(
     ) {
         return Err(invalid(CLOSED));
     }
+    runner_has_room(db, session, runner, &job).await?;
     let ticket = tickets::Model::find_in(db, wid, job.ticket_id)
         .await?
         .ok_or(TicketFailure::NotFound)?;
@@ -453,7 +526,21 @@ pub async fn start(
         .rule(&job.stage_key)
         .or_else(|| flow.current.stage(&job.stage_key))
         .map_or_else(|| job.stage_key.clone(), |s| s.name.clone());
-    let branch = branch_name(&ticket.code, &ticket.title);
+    let git = project.git_settings();
+    let kind = crate::models::ticket_types::Model::find_in(db, wid, ticket.type_id)
+        .await?
+        .map(|t| t.key)
+        .unwrap_or_default();
+    let branch = if job.branch.is_empty() || job.status() == JobStatus::Claimed {
+        agentgate_core::git::render_branch(&git.branch_pattern, &ticket.code, &ticket.title, &kind)
+    } else {
+        job.branch.clone()
+    };
+    let project_repos = repos::Model::of_project(db, wid, project.id).await?;
+    let base_branch = project_repos
+        .first()
+        .map(|r| r.default_branch.clone())
+        .unwrap_or_default();
     let txn = db.begin().await?;
     let updated = jobs::Entity::update_many()
         .col_expr(jobs::Column::RunnerId, Expr::value(runner.id))
@@ -524,11 +611,7 @@ pub async fn start(
         title: ticket.title.clone(),
         url: format!("{base_url}/w/{}/t/{}", session.workspace.slug, ticket.code),
         project: project.key.clone(),
-        repos: repos::Model::of_project(db, wid, project.id)
-            .await?
-            .into_iter()
-            .map(|r| r.name)
-            .collect(),
+        repos: project_repos.into_iter().map(|r| r.name).collect(),
         stage: job.stage_key.clone(),
         stage_name: stage_name.clone(),
         persona: persona
@@ -539,8 +622,16 @@ pub async fn start(
         effort: choice.map(|c| c.effort).unwrap_or_default(),
         client,
         command: format!("/{}", prompts::stage_prompt_name(&job.stage_key)),
-        prompt: job_prompt(&stage_name, &ticket, &persona_name, &job),
+        prompt: with_git(
+            job_prompt(&stage_name, &ticket, &persona_name, &job),
+            &job,
+            &git,
+            &branch,
+            &base_branch,
+        ),
         branch,
+        base_branch,
+        git: git.spec(),
         mcp_url: format!("{base_url}/mcp"),
         rules: rule_files(base_url, &project.key),
         danger: danger

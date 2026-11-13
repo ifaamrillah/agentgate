@@ -38,6 +38,8 @@ pub struct Model {
     #[sea_orm(column_type = "Text", nullable)]
     pub team_code: Option<String>,
     pub allow_force_transition: bool,
+    #[sea_orm(column_type = "JsonBinary")]
+    pub git: Json,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

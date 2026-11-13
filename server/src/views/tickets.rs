@@ -104,6 +104,8 @@ pub struct TicketPaths {
     pub admin_move: String,
     pub people: String,
     pub artifacts: String,
+    /// Tab PR & CI (M6).
+    pub prs: String,
 }
 
 impl TicketPaths {
@@ -125,6 +127,7 @@ impl TicketPaths {
             admin_move: format!("{show}/stage/admin-move"),
             people: format!("{show}/stage/people"),
             artifacts: format!("{show}/artifacts"),
+            prs: format!("{show}/pr"),
             show,
         }
     }
@@ -326,6 +329,8 @@ pub struct Lookup {
     /// id project → (nama, key).
     pub projects: HashMap<Uuid, (String, String)>,
     pub today: Option<NaiveDate>,
+    /// Badge PR per tiket (M6).
+    pub prs: HashMap<Uuid, crate::views::git::PrBadge>,
 }
 
 impl Lookup {
@@ -337,7 +342,15 @@ impl Lookup {
             people: people.iter().map(|u| (u.id, PersonView::of(u))).collect(),
             projects: HashMap::new(),
             today: Some(chrono::Utc::now().date_naive()),
+            prs: HashMap::new(),
         }
+    }
+
+    /// Badge PR dari PR tiket-tiket yang ditampilkan.
+    #[must_use]
+    pub fn with_prs(mut self, prs: &[crate::models::pull_requests::Model]) -> Self {
+        self.prs = crate::views::git::PrBadge::by_ticket(prs);
+        self
     }
 
     #[must_use]
@@ -395,6 +408,7 @@ impl Lookup {
                 .unwrap_or_default(),
             stage_key: t.stage_key.clone(),
             stage_state: t.stage_state.clone(),
+            pr: self.prs.get(&t.id).cloned(),
         }
     }
 }
@@ -429,6 +443,8 @@ pub struct TicketRow {
     /// Kunci stage sekarang dan keadaannya (`active`/`review`/`decision`).
     pub stage_key: String,
     pub stage_state: String,
+    /// Badge PR (kartu board, header tiket); `None` = tiket tanpa PR.
+    pub pr: Option<crate::views::git::PrBadge>,
 }
 
 // ---------------------------------------------------------------------------------------------

@@ -20,6 +20,7 @@ mod artifact;
 mod board;
 mod drafts;
 mod inbox;
+mod pulls;
 mod settings;
 mod stage;
 mod ticket;
@@ -68,7 +69,17 @@ async fn lookup<C: ConnectionTrait>(
         .chain(extra_people.iter().copied())
         .collect();
     let people = users_by_id(db, ids).await?;
-    Ok(Lookup::new(&tenant.workspace.slug, &types, &people))
+    let ticket_ids: Vec<Uuid> = tickets.iter().map(|t| t.id).collect();
+    let prs = if ticket_ids.is_empty() {
+        Vec::new()
+    } else {
+        crate::models::pull_requests::Entity::find()
+            .filter(crate::models::pull_requests::Column::WorkspaceId.eq(wid.get()))
+            .filter(crate::models::pull_requests::Column::TicketId.is_in(ticket_ids))
+            .all(db)
+            .await?
+    };
+    Ok(Lookup::new(&tenant.workspace.slug, &types, &people).with_prs(&prs))
 }
 
 async fn users_by_id<C: ConnectionTrait>(
@@ -238,6 +249,7 @@ pub fn routes() -> Routes {
         // Tiket
         .add("/w/{slug}/t/{code}", get(ticket::show).post(ticket::update))
         .add("/w/{slug}/t/{code}/activity", get(ticket::activity))
+        .add("/w/{slug}/t/{code}/pr", get(pulls::index))
         .add("/w/{slug}/t/{code}/status", post(ticket::status))
         .add("/w/{slug}/t/{code}/comments", post(ticket::comment))
         .add(

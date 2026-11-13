@@ -102,6 +102,7 @@ pub const SETTINGS_SECTIONS: &[&str] = &[
     "personas",
     "skills",
     "runner",
+    "git",
 ];
 /// Bagian Akun.
 pub const ACCOUNT_SECTIONS: &[&str] = &["profile", "password", "two_factor", "connect"];
@@ -112,6 +113,7 @@ pub const PROJECT_SETTINGS_SECTIONS: &[&str] = &[
     "project_repos",
     "project_workflow",
     "project_ticket_code",
+    "project_git",
 ];
 
 /// Menu kiri Pengaturan workspace: Umum selalu ada (indeks Pengaturan), sisanya menurut izin role.
@@ -165,6 +167,7 @@ pub fn settings_nav(settings_href: &str, links: &SettingsLinks) -> Vec<NavItem> 
         ),
         ("skills", "settings-skills-title", "package", &links.skills),
         ("runner", "runner-title", "device-laptop", &links.runner),
+        ("git", "git-title", "git-pull-request", &links.git),
     ];
     items.extend(optional.into_iter().filter_map(|(key, label, icon, href)| {
         href.as_deref().map(|h| NavItem::link(key, label, icon, h))
@@ -223,6 +226,7 @@ pub fn project_settings_nav(paths: &ProjectPaths, current: &str) -> Vec<NavItem>
                 "hash",
                 &paths.ticket_code,
             ),
+            NavItem::link("git", "project-git-title", "git-branch", &paths.git),
         ],
         current,
     )
@@ -460,6 +464,7 @@ pub const PROJECT_VIEWS: &[(&str, &str, &str)] = &[
     ("backlog", "project-view-backlog", "stack-2"),
     ("roadmap", "project-view-roadmap", "timeline"),
     ("calendar", "project-view-calendar", "calendar"),
+    ("prs", "project-view-prs", "git-pull-request"),
     ("releases", "project-view-releases", "rocket"),
     ("reports", "project-view-reports", "chart-line"),
 ];
@@ -512,7 +517,9 @@ pub fn project_views(home_href: &str, pinned: &[String], current: &str) -> Proje
             .unwrap_or(PROJECT_VIEWS[0]);
         let mut nav = match key {
             "overview" => NavItem::link(key, label, icon, home_href),
-            "board" | "list" => NavItem::link(key, label, icon, &format!("{home_href}/{key}")),
+            "board" | "list" | "prs" => {
+                NavItem::link(key, label, icon, &format!("{home_href}/{key}"))
+            }
             _ => NavItem::soon(key, label, icon),
         };
         nav.current = key == current;

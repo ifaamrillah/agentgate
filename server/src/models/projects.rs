@@ -111,6 +111,12 @@ impl ActiveModelBehavior for ActiveModel {
 }
 
 impl Model {
+    /// Konvensi git project (`projects.git`, bawaan bila kosong/rusak).
+    #[must_use]
+    pub fn git_settings(&self) -> agentgate_core::git::GitSettings {
+        serde_json::from_value(self.git.clone()).unwrap_or_default()
+    }
+
     #[must_use]
     pub fn is_archived(&self) -> bool {
         self.archived_at.is_some()

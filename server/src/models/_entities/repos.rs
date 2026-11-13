@@ -19,12 +19,29 @@ pub struct Model {
     pub url: String,
     #[sea_orm(column_type = "Text")]
     pub default_branch: String,
+    pub connection_id: Option<Uuid>,
+    #[sea_orm(column_type = "Text")]
+    pub full_name: String,
+    pub webhook_id: Option<i64>,
+    #[sea_orm(column_type = "Text")]
+    pub webhook_error: String,
+    pub last_event_at: Option<DateTimeWithTimeZone>,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
+    #[sea_orm(
+        belongs_to = "super::git_connections::Entity",
+        from = "Column::ConnectionId",
+        to = "super::git_connections::Column::Id",
+        on_update = "NoAction",
+        on_delete = "SetNull"
+    )]
+    GitConnections,
+    #[sea_orm(has_many = "super::pull_requests::Entity")]
+    PullRequests,
     #[sea_orm(
         belongs_to = "super::projects::Entity",
         from = "(Column::ProjectId, Column::WorkspaceId)",
@@ -52,5 +69,17 @@ impl Related<super::projects::Entity> for Entity {
 impl Related<super::workspaces::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Workspaces.def()
+    }
+}
+
+impl Related<super::git_connections::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::GitConnections.def()
+    }
+}
+
+impl Related<super::pull_requests::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::PullRequests.def()
     }
 }

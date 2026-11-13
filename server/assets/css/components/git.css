@@ -1,0 +1,51 @@
+/* Git & PR (M6): status PR (`pr_state`), status CI (`ci_state`), baris PR, koneksi provider.
+   Prototype: docs/reference/ui-prototype/screens-m4-m6.js (.ag4-ci, .ag4-prov) dan
+   screens-m2-m3.js (prBody). */
+@layer components {
+  a.badge.app-pr-state { text-decoration: none; }
+  a.badge.app-pr-state:hover { filter: brightness(0.96); }
+  .app-pr-no { font-family: var(--ag-mono); font-size: 11.5px; }
+
+  .app-ci { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 500; white-space: nowrap; color: var(--ag-muted); text-decoration: none; }
+  .app-ci svg { width: 14px; height: 14px; flex-shrink: 0; }
+  .app-ci[data-state='success'] { color: var(--ag-success); }
+  .app-ci[data-state='failure'] { color: var(--ag-danger); }
+  .app-ci[data-state='pending'] { color: var(--ag-warn); }
+  .app-ci[data-state='pending'] svg { animation: app-spin 1.2s linear infinite; }
+  a.app-ci:hover span { text-decoration: underline; }
+  @media (prefers-reduced-motion: reduce) { .app-ci[data-state='pending'] svg { animation: none; } }
+
+  /* PR di tab tiket "PR & CI": kepala (judul, repo, branch) + daftar check. */
+  .app-pr { border: 1px solid var(--ag-line); border-radius: 9px; background: var(--ag-raised); overflow: hidden; }
+  .app-pr + .app-pr { margin-top: 12px; }
+  .app-pr-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 14px; }
+  .app-pr-main { flex: 1 1 220px; min-width: 0; display: grid; gap: 2px; }
+  .app-pr-main b { font-weight: 500; overflow-wrap: anywhere; }
+  .app-pr-main small { color: var(--ag-muted); display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+  .app-pr-checks { border-top: 1px solid var(--ag-line); padding: 8px 14px 12px; display: grid; gap: 2px; }
+  .app-pr-checks > .app-hint { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; margin: 2px 0 4px; }
+  .app-pr-check { display: flex; align-items: center; gap: 8px; min-height: 26px; }
+  .app-pr-check > :first-child { flex: 1; min-width: 0; }
+  .app-pr-diff { font-family: var(--ag-mono); font-size: 11.5px; white-space: nowrap; }
+  .app-pr-diff ins { color: var(--ag-success); text-decoration: none; }
+  .app-pr-diff del { color: var(--ag-danger); text-decoration: none; }
+
+  /* Sel PR di tabel daftar PR project. */
+  .app-pr-cell { display: flex; align-items: flex-start; gap: 10px; min-width: 220px; }
+  .app-pr-cell > .app-code { min-width: 40px; color: var(--ag-faint); }
+  .app-pr-cell > span { display: grid; gap: 2px; min-width: 0; }
+  .app-pr-cell b { font-weight: 500; overflow-wrap: anywhere; }
+  .app-pr-cell small { color: var(--ag-muted); display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+
+  /* Koneksi provider (Pengaturan → Git provider). */
+  .app-prov-logo { width: 36px; height: 36px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; background: var(--ag-hover); color: var(--ag-fg); flex-shrink: 0; }
+  .app-prov-logo svg { width: 20px; height: 20px; }
+  .app-secret { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .app-secret code { overflow-wrap: anywhere; }
+
+  /* Badge PR di header tiket dan kartu board. */
+  .app-pr-link { display: inline-flex; align-items: center; gap: 8px; vertical-align: middle; text-decoration: none; color: inherit; }
+  .app-pr-link:hover .badge { filter: brightness(0.96); }
+  .app-tcard-pr { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; }
+  .app-tcard-pr .badge { height: 20px; padding: 0 6px; }
+}

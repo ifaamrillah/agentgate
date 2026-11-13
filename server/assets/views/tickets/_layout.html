@@ -7,7 +7,8 @@
 {% block crumb %}{{ <crumb label={t(key="project-view-board", lang="id")} href={board.board}/> }}{{ <crumb label={ticket.code}/> }}{% endblock crumb %}
 {% block leading %}{{ <type_icon icon={ticket.ticket_type.icon} color={ticket.ticket_type.color} label={ticket.ticket_type.name} tile={true}/> }}{% endblock leading %}
 {% block heading %}{{ ticket.title }}{% endblock heading %}
-{% block description %}<span class="app-code" data-ticket-code>{{ ticket.code }}</span> · <span class="app-status-pill" data-status="{{ ticket.status.value }}">{{ icon(name=ticket.status.icon) }}{{ t(key=ticket.status.label_key, lang="id") }}</span>{% endblock description %}
+{% block description %}<span class="app-code" data-ticket-code>{{ ticket.code }}</span> · <span class="app-status-pill" data-status="{{ ticket.status.value }}">{{ icon(name=ticket.status.icon) }}{{ t(key=ticket.status.label_key, lang="id") }}</span>
+  {%- if ticket.pr %} <a class="app-pr-link" href="{{ paths.prs }}" data-ticket-pr>{{ <pr_state state={ticket.pr.state} number={ticket.pr.number}/> }}{% if ticket.pr.count > 1 %}<span class="app-hint">{{ t(key="pr-more", lang="id", n=ticket.pr.count - 1) }}</span>{% endif %}{% if ticket.pr.ci.value != "none" %}{{ <ci_state state={ticket.pr.ci}/> }}{% endif %}</a>{% endif %}{% endblock description %}
 {% block head_actions %}
   <form method="post" action="{{ paths.watch }}">
     <input type="hidden" name="watch" value="{% if watching %}0{% else %}1{% endif %}">

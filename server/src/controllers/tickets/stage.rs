@@ -9,6 +9,7 @@ use uuid::Uuid;
 
 use super::{acting, board::people_options, ticket::render_with_stage_error};
 use crate::{
+    common::settings::Settings,
     controllers::{
         extractors::{RequestId, TicketAccess},
         flash,
@@ -337,11 +338,27 @@ pub(super) async fn approve(
 ) -> Result<Response> {
     let r = stages::approve(
         &ctx.db,
-        &acting(&access.access.tenant, request_id),
+        &acting(&access.access.tenant, request_id.clone()),
         access.ticket.id,
         &form.note,
     )
     .await;
+    if r.is_ok() {
+        let settings = Settings::from_ctx(&ctx)?;
+        let tenant = &access.access.tenant;
+        if let Err(e) = crate::services::git::pulls::after_approve(
+            &ctx.db,
+            &settings,
+            tenant.workspace.workspace_id(),
+            tenant.user.id,
+            &access.ticket,
+            request_id,
+        )
+        .await
+        {
+            tracing::warn!(error = %e, "auto merge after approve failed");
+        }
+    }
     done(&ctx, &access, session, r, "", &v, FLASH_APPROVED).await
 }
 

@@ -43,6 +43,7 @@
     {%- for l in ticket.labels %}<span class="app-label-pill">{{ l }}</span>{% endfor %}
     {%- if ticket.points is not none %}<span class="app-points" title="{{ t(key="ticket-field-story-points", lang="id") }}">{{ ticket.points }}</span>{% endif %}
     {%- if ticket.due %}<span class="app-due"{% if ticket.overdue %} data-overdue{% endif %}>{{ icon(name="calendar") }}{{ ticket.due }}</span>{% endif %}
+    {%- if ticket.pr %}<span class="app-tcard-pr" data-ticket-pr>{{ <pr_state state={ticket.pr.state} number={ticket.pr.number} compact={true}/> }}{% if ticket.pr.ci.value != "none" %}{{ <ci_state state={ticket.pr.ci} compact={true}/> }}{% endif %}</span>{% endif %}
   </div>
 </article>
 {%- endcomponent ticket_card %}

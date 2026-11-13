@@ -5,6 +5,7 @@ mod csrf;
 mod dev_ui;
 mod device;
 mod errors;
+mod git;
 mod health;
 mod home;
 mod mcp;
