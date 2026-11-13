@@ -160,6 +160,21 @@ async fn fully_populated(ctx: &AppContext, slug: &str) -> workspaces::Model {
     )
     .await
     .unwrap();
+    // Ekspor data dan impor CSV (M11).
+    for sql in [
+        "INSERT INTO data_exports (workspace_id, parts) VALUES ($1, ARRAY['tickets'])",
+        "INSERT INTO ticket_imports (workspace_id, filename, size_bytes, delimiter) \
+         VALUES ($1, 'a.csv', 1, 'comma')",
+    ] {
+        ctx.db
+            .execute_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                sql,
+                [workspace.id.into()],
+            ))
+            .await
+            .unwrap();
+    }
     for table in TENANT_TABLES {
         assert!(rows_of(ctx, table, &workspace).await > 0, "{table} kosong");
     }

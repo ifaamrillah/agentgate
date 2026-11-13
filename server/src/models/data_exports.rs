@@ -376,7 +376,7 @@ impl ActiveModel {
         wid: WorkspaceId,
         id: Uuid,
     ) -> Result<bool, DbErr> {
-        Self::requeue(db, wid.get(), id, ExportStatus::Failed, true).await
+        Self::requeue(db, wid.get(), id, ExportStatus::Failed, true, None).await
     }
 
     /// Kembalikan baris tertahan (`queued`/`running`) ke `queued` (sapuan).
@@ -385,7 +385,15 @@ impl ActiveModel {
     ///
     /// Error database.
     pub async fn requeue_stuck<C: ConnectionTrait>(db: &C, row: &Model) -> Result<bool, DbErr> {
-        Self::requeue(db, row.workspace_id, row.id, row.status(), false).await
+        Self::requeue(
+            db,
+            row.workspace_id,
+            row.id,
+            row.status(),
+            false,
+            Some(row.updated_at),
+        )
+        .await
     }
 
     async fn requeue<C: ConnectionTrait>(
@@ -394,6 +402,8 @@ impl ActiveModel {
         id: Uuid,
         from: ExportStatus,
         reset_attempts: bool,
+        // Sapuan: hanya bila baris tidak berubah sejak dibaca (worker yang masih hidup menang).
+        unchanged_since: Option<chrono::DateTime<chrono::FixedOffset>>,
     ) -> Result<bool, DbErr> {
         let now: chrono::DateTime<chrono::FixedOffset> = Utc::now().into();
         let mut update = Entity::update_many()
@@ -409,12 +419,14 @@ impl ActiveModel {
         if reset_attempts {
             update = update.col_expr(Column::Attempts, Expr::value(0));
         }
-        let res = update
+        let mut update = update
             .filter(Column::Id.eq(id))
             .filter(Column::WorkspaceId.eq(workspace_id))
-            .filter(Column::Status.eq(from.to_value()))
-            .exec(db)
-            .await?;
+            .filter(Column::Status.eq(from.to_value()));
+        if let Some(at) = unchanged_since {
+            update = update.filter(Column::UpdatedAt.eq(at));
+        }
+        let res = update.exec(db).await?;
         Ok(res.rows_affected == 1)
     }
 
