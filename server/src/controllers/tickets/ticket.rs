@@ -90,6 +90,9 @@ fn current_form(t: &tickets::Model, parent_code: Option<&str>) -> TicketForm {
         parent: view.parent,
         custom: t.custom_values().0,
         stage: String::new(),
+        sprint: None,
+        release: None,
+        component: None,
     }
 }
 

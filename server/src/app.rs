@@ -657,6 +657,9 @@ async fn seed_tickets(ctx: &AppContext) -> Result<()> {
             parent: parent.map(|i| codes[i].clone()).unwrap_or_default(),
             custom: std::collections::BTreeMap::new(),
             stage: String::new(),
+            sprint: None,
+            release: None,
+            component: None,
         };
         let ticket = ticket_service::create::run(&ctx.db, &acting, project.id, &form)
             .await
@@ -763,6 +766,9 @@ async fn seed_workflows(ctx: &AppContext) -> Result<()> {
         parent: String::new(),
         custom: std::collections::BTreeMap::new(),
         stage: "brainstorm".to_string(),
+        sprint: None,
+        release: None,
+        component: None,
     };
     // Artifact output stage sekarang lalu minta review.
     let to_review = |ticket_id: uuid::Uuid, body: &'static str| {
@@ -1545,6 +1551,9 @@ async fn seed_runner(ctx: &AppContext) -> Result<()> {
             parent: String::new(),
             custom: std::collections::BTreeMap::new(),
             stage: "brainstorm".into(),
+            sprint: None,
+            release: None,
+            component: None,
         };
         let t = ticket_service::create::run(&ctx.db, &acting, project.id, &form)
             .await

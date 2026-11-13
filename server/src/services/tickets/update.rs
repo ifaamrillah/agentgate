@@ -73,6 +73,17 @@ pub async fn run(
         "story_points",
         audit::change(&before.story_points, &valid.story_points),
     );
+    let names = crate::services::planning::refs::names(
+        &work.txn,
+        work.wid,
+        [before.sprint_id, resolved.sprint_id],
+        [before.release_id, resolved.release_id],
+        [before.component_id, resolved.component_id],
+    )
+    .await?;
+    put("sprint", names.sprint);
+    put("release", names.release);
+    put("component", names.component);
     put(
         "custom_values",
         (before.custom_values() != resolved.custom).then(|| serde_json::json!({})),
@@ -93,7 +104,18 @@ pub async fn run(
     model.due_on = Set(valid.due_on);
     model.story_points = Set(valid.story_points);
     model.custom_values = Set(resolved.custom.to_json());
+    model.sprint_id = Set(resolved.sprint_id);
+    model.release_id = Set(resolved.release_id);
+    model.component_id = Set(resolved.component_id);
     let mut updated = model.update(&work.txn).await?;
+    crate::services::planning::scope::sprint_changed(
+        &work.txn,
+        work.wid,
+        &updated,
+        before.sprint_id,
+        updated.sprint_id,
+    )
+    .await?;
     if before.story_points != valid.story_points {
         crate::services::planning::scope::points_changed(
             &work.txn,

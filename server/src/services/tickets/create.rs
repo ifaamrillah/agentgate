@@ -53,6 +53,11 @@ pub struct TicketForm {
     pub custom: BTreeMap<Uuid, String>,
     /// Kunci stage awal (hanya saat membuat); kosong = stage pertama berkategori `status`.
     pub stage: String,
+    /// Planning (M9): id sprint, rilis (Fix version), component. `None` = tidak diubah (ubah
+    /// tiket) atau kosong (buat); `Some("")` = dikosongkan.
+    pub sprint: Option<String>,
+    pub release: Option<String>,
+    pub component: Option<String>,
 }
 
 /// Isian yang sudah divalidasi dan di-resolve ke baris database.
@@ -63,6 +68,9 @@ pub(crate) struct Resolved {
     pub assignee_id: Option<Uuid>,
     pub parent_id: Option<Uuid>,
     pub custom: CustomValues,
+    pub sprint_id: Option<Uuid>,
+    pub release_id: Option<Uuid>,
+    pub component_id: Option<Uuid>,
 }
 
 /// Validasi semua isian sekaligus. `current` = tiket yang diubah (induk tidak boleh dirinya).
@@ -125,6 +133,32 @@ pub(crate) async fn resolve<C: ConnectionTrait>(
             parent.map(|t| t.id)
         }
     };
+    let pick = |raw: &Option<String>, now: Option<Uuid>| -> Result<Option<Uuid>, ()> {
+        match raw.as_deref().map(str::trim) {
+            None => Ok(now),
+            Some("") => Ok(None),
+            Some(v) => Uuid::parse_str(v).map(Some).map_err(|_| ()),
+        }
+    };
+    let planning = crate::services::planning::refs::check(
+        db,
+        wid,
+        project.id,
+        pick(&form.sprint, current.and_then(|t| t.sprint_id)),
+        pick(&form.release, current.and_then(|t| t.release_id)),
+        pick(&form.component, current.and_then(|t| t.component_id)),
+        current,
+    )
+    .await?;
+    for (field, ok) in [
+        ("sprint", planning.sprint.is_ok()),
+        ("release", planning.release.is_ok()),
+        ("component", planning.component.is_ok()),
+    ] {
+        if !ok {
+            errors.add(field, ValidationError::new(crate::services::planning::TARGET_INVALID));
+        }
+    }
     let mut custom = CustomValues::default();
     let mut custom_errors: Vec<(String, ValidationError)> = Vec::new();
     if let Some(ticket_type) = &ticket_type {
@@ -168,6 +202,9 @@ pub(crate) async fn resolve<C: ConnectionTrait>(
         assignee_id,
         parent_id,
         custom,
+        sprint_id: planning.sprint.unwrap_or(None),
+        release_id: planning.release.unwrap_or(None),
+        component_id: planning.component.unwrap_or(None),
     })
 }
 
@@ -294,6 +331,13 @@ pub(crate) async fn run_in(
     let (number, code) =
         chosen.ok_or_else(|| TicketFailure::field("title", ticket_code::CODE_COLLISION))?;
     let valid = &resolved.valid;
+    // Aturan component: pemilik jadi penerima default tiket baru tanpa penerima.
+    let assignee_id = match (resolved.assignee_id, resolved.component_id) {
+        (None, Some(c)) => {
+            crate::services::planning::components::default_assignee(txn, wid, &project, c).await?
+        }
+        (a, _) => a,
+    };
     let ticket = tickets::ActiveModel {
         workspace_id: Set(wid.get()),
         project_id: Set(project.id),
@@ -307,8 +351,11 @@ pub(crate) async fn run_in(
         stage_key: Set(stage.key.clone()),
         stage_version: Set(flow.workflow.version),
         priority: Set(valid.priority.to_value()),
-        assignee_id: Set(resolved.assignee_id),
+        assignee_id: Set(assignee_id),
         reporter_id: Set(Some(acting.user.id)),
+        sprint_id: Set(resolved.sprint_id),
+        release_id: Set(resolved.release_id),
+        component_id: Set(resolved.component_id),
         parent_id: Set(resolved.parent_id),
         labels: Set(valid.labels.clone()),
         due_on: Set(valid.due_on),
@@ -337,6 +384,8 @@ pub(crate) async fn run_in(
     )
     .await?;
     ticket_watchers::ActiveModel::watch(txn, wid, ticket.id, acting.user.id).await?;
+    crate::services::planning::scope::sprint_changed(txn, wid, &ticket, None, ticket.sprint_id)
+        .await?;
     stages::seed_people(txn, wid, ticket.id, &stage).await?;
     if let Some(assignee) = ticket.assignee_id {
         watch_if_member(txn, wid, ticket.id, assignee).await?;

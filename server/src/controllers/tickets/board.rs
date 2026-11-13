@@ -54,6 +54,9 @@ pub(super) fn ticket_form(pairs: &[(String, String)], current: Option<&TicketFor
             .or_else(|| fallback.cloned())
             .unwrap_or_default()
     };
+    let opt = |name: &str| -> Option<String> {
+        pairs.iter().find(|(k, _)| k == name).map(|(_, v)| v.clone())
+    };
     let base = current.cloned().unwrap_or_default();
     let mut custom: BTreeMap<Uuid, String> = base.custom.clone();
     for (key, value) in pairs {
@@ -80,6 +83,9 @@ pub(super) fn ticket_form(pairs: &[(String, String)], current: Option<&TicketFor
         parent: get("parent", current.map(|_| &base.parent)),
         custom,
         stage: get("stage", None),
+        sprint: opt("sprint").or(base.sprint.clone()),
+        release: opt("release").or(base.release.clone()),
+        component: opt("component").or(base.component.clone()),
     }
 }
 

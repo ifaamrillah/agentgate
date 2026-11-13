@@ -5,6 +5,8 @@
 //! Izin: membaca `ViewProject`; merencanakan (sprint, pindah tiket, estimasi, rilis, release notes)
 //! `EditProject`; components `AdministerProject`. Saved filter milik user (dibagikan ke tim/
 //! workspace); mengubah/menghapus hanya pemiliknya.
+pub mod components;
+pub mod refs;
 pub mod scope;
 pub mod sprints;
 
