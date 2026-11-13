@@ -217,8 +217,110 @@ impl Hooks for App {
         seed_workflows(ctx).await?;
         seed_agents(ctx).await?;
         seed_runner(ctx).await?;
-        seed_git(ctx).await
+        seed_git(ctx).await?;
+        seed_graph(ctx, base).await
     }
+}
+
+/// Code graph contoh (M7): index `fixtures/graph/{kasir-api,kasir-web}` lewat jalur index server
+/// yang sama, plus statistik git sintetis (arsip tidak membawa riwayat). Dilewati bila sudah ada.
+async fn seed_graph(ctx: &AppContext, base: &Path) -> Result<()> {
+    use agentgate_graph::history::{Coupling, GitStats, Hotspot, Owner};
+
+    use crate::{
+        models::{graph_repos, repos},
+        services::graph::ingest::{self, DirIndex},
+    };
+    let Some(workspace) = workspaces::Model::find_by_slug(&ctx.db, SEED_WORKSPACE_SLUG).await?
+    else {
+        return Ok(());
+    };
+    let wid = workspace.workspace_id();
+    let Some(project) = projects::Model::find_by_key(&ctx.db, wid, SEED_PROJECT.0).await? else {
+        return Ok(());
+    };
+    let owner = users::Model::find_by_email(&ctx.db, SEED_MARKER_EMAIL).await?;
+    for repo in repos::Model::of_project(&ctx.db, wid, project.id).await? {
+        let root = base.join("graph").join(&repo.name);
+        if !root.is_dir() {
+            continue;
+        }
+        let done = graph_repos::Model::of_repo(&ctx.db, wid, repo.id)
+            .await?
+            .is_some_and(|r| r.indexed_at.is_some());
+        if done {
+            tracing::info!("seed graph dilewati: {} sudah ter-index", repo.name);
+            continue;
+        }
+        let git = (repo.name == "kasir-api").then(|| GitStats {
+            window_days: 90,
+            commits: 64,
+            hotspots: vec![
+                Hotspot {
+                    path: "src/payments/qris.ts".into(),
+                    commits: 23,
+                    churn: 812,
+                    top_author: "Dewi Lestari".into(),
+                },
+                Hotspot {
+                    path: "src/orders/handlers.ts".into(),
+                    commits: 17,
+                    churn: 430,
+                    top_author: "Olivia Putri".into(),
+                },
+                Hotspot {
+                    path: "src/stock/guard.ts".into(),
+                    commits: 9,
+                    churn: 156,
+                    top_author: "Olivia Putri".into(),
+                },
+            ],
+            coupling: vec![
+                Coupling {
+                    a: "src/orders/handlers.ts".into(),
+                    b: "src/stock/guard.ts".into(),
+                    together: 8,
+                    percent: 89,
+                },
+                Coupling {
+                    a: "src/payments/qris.ts".into(),
+                    b: "src/server.ts".into(),
+                    together: 5,
+                    percent: 42,
+                },
+            ],
+            owners: vec![
+                Owner {
+                    module: "src/payments".into(),
+                    author: "Dewi Lestari".into(),
+                    email: "dewi@pt-contoh.id".into(),
+                    percent: 71,
+                    commits: 25,
+                },
+                Owner {
+                    module: "src/orders".into(),
+                    author: "Olivia Putri".into(),
+                    email: "olivia@pt-contoh.id".into(),
+                    percent: 64,
+                    commits: 18,
+                },
+            ],
+        });
+        ingest::index_dir(
+            &ctx.db,
+            wid,
+            &repo,
+            DirIndex {
+                root: &root,
+                full: true,
+                commit: "9f2c4e1a7b3d5f6081a2b3c4d5e6f708192a3b4c",
+                git,
+                by: owner.as_ref().map(|o| o.id),
+            },
+        )
+        .await?;
+    }
+    Ok(())
 }
 
 /// Tiket contoh di KSR (sekali: dilewati bila KSR sudah punya tiket): epic dengan story dan
