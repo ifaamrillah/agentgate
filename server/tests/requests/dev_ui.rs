@@ -76,6 +76,16 @@ async fn component_catalog_renders_shared_components() {
             &html,
             "[data-catalog-kb] .app-kb-donut circle[data-tone='warn']",
         );
+        // Ekspor & impor (M11).
+        assert_css_exists(
+            &html,
+            "[data-catalog-transfer] [data-wizard-steps] a[data-state='done']",
+        );
+        assert_css_exists(&html, "[data-catalog-transfer] [aria-current='step']");
+        assert_css_exists(
+            &html,
+            "[data-catalog-transfer] [data-file-drop] input[type='file']",
+        );
         // Visual (M10).
         assert_css_exists(&html, "[data-catalog-visual] .app-tk-feat .app-switch");
         assert_css_exists(&html, "[data-catalog-visual] .app-of-lb.dng .k");
