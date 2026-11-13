@@ -113,6 +113,10 @@ async fn component_catalog_renders_shared_components() {
         assert_css_exists(&html, "#lists .app-card .app-seeall");
         assert_css_exists(&html, ".app-card[data-variant=\"danger\"]");
         assert_css_exists(&html, ".app-card[data-variant=\"accent\"]");
+        // copy_value (penuh + ringkas) dan tombol aksi kartu yang membuka dialog.
+        assert_css_exists(&html, "[data-catalog-copy-full] [data-copy][hidden]");
+        assert_css_exists(&html, ".app-copy[data-compact] [data-copy][data-size=\"icon-sm\"]");
+        assert_css_exists(&html, "[data-catalog-copy] .app-card-a [data-card-action][data-dialog-open]");
         assert_css_exists(&html, "#form form .app-savebar [data-save]");
         // stats: empat kartu, salah satu tautan.
         assert_count(&html, "#stats [data-stat]", 4);

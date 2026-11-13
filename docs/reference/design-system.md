@@ -76,7 +76,8 @@ Semua di `server/assets/views/components/`; parameter lengkap ada di komentar ke
 | `color_picker` | 18 warna palet + warna lain (hex) | `palette()` |
 | `uploader` | unggah logo/gambar (klik atau tarik-lepas, langsung submit), hapus | — |
 | `md_editor` | editor markdown Milkdown Crepe dengan Batal/Simpan; tanpa JS jadi textarea | — |
-| `card` | kartu seksi: judul, deskripsi, `count`, tautan "lihat semua", varian danger/accent, `flush` untuk daftar/tabel; `form="<action>"` membungkus kartu dengan `savebar` | — |
+| `card` | kartu seksi: judul, deskripsi, `count`, tautan "lihat semua", tombol aksi kecil di kepala (`action_label` + `action_dialog`, mis. "Token baru"), varian danger/accent, `flush` untuk daftar/tabel; `form="<action>"` membungkus kartu dengan `savebar` | — |
+| `copy_value` | nilai mono yang bisa disalin (token, secret, URL) + tombol Salin (`static/js/copy.js`, tersembunyi tanpa JS/clipboard); `compact` = tombol ikon di baris daftar | — |
 | `savebar` | footer Batal + Simpan perubahan | — |
 | `setting_row` | baris pengaturan (judul + penjelasan kiri, kontrol kanan) di card flush | — |
 | `subpage` | halaman bertab vertikal (varian E): menu kiri + isi satu panel; tiap item = rute server | `[NavItem]` (`desc_key`, `count`, `alert`) |
@@ -313,3 +314,17 @@ katalog `/_dev/ui` di commit yang sama.
   Dialog Kustom karakter `app-of-look` (pratinjau besar + `color_picker` + chip `app-of-chip`).
   Warna status kanvas = warna `badge`: bekerja ai, butuh approval gate, butuh keputusan
   destructive, rapat info, menganggur/jeda neutral, online success.
+
+## M11 (Integrasi)
+
+- **API & webhook** (`/w/{slug}/settings/api/{tokens,hooks,log,docs}`, ManageIntegrations,
+  `components/api.css`): `subpage` + `card flush` + `datatable` per panel. Tombol buat
+  (Token baru, Webhook baru) memakai `card action_label`. Token/secret baru dirender sekali di
+  dialog `data-open-on-load` dengan `copy_value` + `alert[data-variant=warn]`, bukan PRG.
+- Pola: sel dua baris `app-cell2` (nama + keterangan mono), daftar cakupan bercentang
+  `app-scopes` (juga dipakai sebagai kotak daftar `app-lrow`), status pengiriman terakhir
+  `app-hook-st[data-state=ok|fail|off|none]`, dua kolom isian `app-api-grid2` (satu kolom
+  < 640px), blok kode payload/respons `app-codeblock app-api-pre` (dibungkus, maks. 260px).
+- Switch aktif webhook = `app-switch` di form kecil dengan `data-submit-on-change`; menu ⋯
+  (`action_menu`) berisi Riwayat pengiriman, Kirim event uji, Rotasi secret, Hapus (dialog
+  konfirmasi `tone=danger`).
