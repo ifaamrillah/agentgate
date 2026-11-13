@@ -5,9 +5,10 @@
 //!   bila stage tanpa nama output) punya minimal satu versi;
 //! - `acceptance_criteria`: deskripsi tiket atau artifact output memuat checklist (`- [ ] …`);
 //! - `subtasks_done`: semua subtask aktif sudah berkategori `done`;
-//! - gate evidence (screenshot, hasil test, PR, CI) hanya bisa dipenuhi evidence yang
-//!   ditandatangani runner (M5) atau status dari provider git (M6). Sumber itu belum ada, jadi
-//!   gate ini selalu belum terpenuhi dan transisinya ditolak; Admin bisa memaksa transisi.
+//! - `tests_passed` / `screenshot_exists`: evidence bertanda tangan runner (M5) sejak tiket masuk
+//!   stage ini (`services::jobs::evidence::gate_status`); hasil test = laporan terbaru;
+//! - gate git (PR, CI) dari provider git (M6). Sumber itu belum ada, jadi gate ini selalu belum
+//!   terpenuhi dan transisinya ditolak; Admin bisa memaksa transisi.
 
 use agentgate_core::workflow::{Gate, Stage};
 use sea_orm::{ColumnTrait, ConnectionTrait, DbErr, EntityTrait, QueryFilter};
@@ -47,6 +48,11 @@ pub async fn check<C: ConnectionTrait>(
         return Ok(Vec::new());
     }
     let output = output_body(db, wid, ticket, stage).await?;
+    let evidence = if stage.gates.iter().any(|g| matches!(g, Gate::TestsPassed | Gate::ScreenshotExists)) {
+        crate::services::jobs::evidence::gate_status(db, wid, ticket).await?
+    } else {
+        (false, false)
+    };
     let mut out = Vec::with_capacity(stage.gates.len());
     for gate in &stage.gates {
         let ok = match gate {
@@ -55,9 +61,9 @@ pub async fn check<C: ConnectionTrait>(
                 has_checklist(&ticket.description) || output.as_deref().is_some_and(has_checklist)
             }
             Gate::SubtasksDone => subtasks_done(db, wid, ticket).await?,
-            Gate::ScreenshotExists
-            | Gate::TestsPassed
-            | Gate::PrOpen
+            Gate::TestsPassed => evidence.0,
+            Gate::ScreenshotExists => evidence.1,
+            Gate::PrOpen
             | Gate::PrsMerged
             | Gate::CiGreen => false,
         };

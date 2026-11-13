@@ -63,6 +63,7 @@ pub async fn post(
             .await?;
         }
     }
+    crate::services::jobs::on_agent_mentions(&work.txn, work.wid, &work.ticket, &comment).await?;
     work.txn.commit().await?;
     Ok(comment)
 }
