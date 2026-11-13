@@ -22,6 +22,7 @@ mod board;
 mod drafts;
 mod inbox;
 mod pulls;
+pub mod reports;
 mod settings;
 mod stage;
 mod ticket;
@@ -232,6 +233,7 @@ pub fn routes() -> Routes {
         .add("/w/{slug}/p/{key}/board", get(board::board))
         .add("/w/{slug}/p/{key}/list", get(board::list))
         .add("/w/{slug}/p/{key}/backlog", get(backlog::index))
+        .add("/w/{slug}/p/{key}/reports", get(reports::index))
         .add("/w/{slug}/p/{key}/backlog/sprints", post(backlog::create))
         .add("/w/{slug}/p/{key}/backlog/sprints/{id}", post(backlog::update))
         .add(

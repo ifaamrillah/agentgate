@@ -151,3 +151,17 @@
     .app-chart { min-width: 0; }
   }
 }
+
+/* Batang horizontal dua bagian (cycle time: AI + manusia). */
+@layer components {
+  .app-hbars { display: grid; gap: 10px; }
+  .app-hbar { display: grid; grid-template-columns: 140px minmax(0, 1fr) 56px; gap: 12px; align-items: center; font-size: 13px; }
+  .app-hbar > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .app-hbar > span:last-child { text-align: right; color: var(--ag-muted); }
+  .app-hbar-t { display: flex; height: 14px; border-radius: 4px; overflow: hidden; background: var(--ag-hover); min-width: 24px; }
+  .app-hbar-t i { display: block; height: 100%; }
+  .app-hbar-t i[data-c='accent'] { background: var(--ag-accent); }
+  .app-hbar-t i[data-c='warn'] { background: var(--ag-warn); opacity: 0.75; flex: 1; }
+  td[data-tone='warn'] { color: var(--ag-warn); }
+  @media (max-width: 899px) { .app-hbar { grid-template-columns: 96px minmax(0, 1fr) 48px; } }
+}

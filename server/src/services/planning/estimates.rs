@@ -393,7 +393,7 @@ impl Calibration {
     }
 }
 
-fn median(mut v: Vec<f64>) -> f64 {
+pub fn median(mut v: Vec<f64>) -> f64 {
     if v.is_empty() {
         return 0.0;
     }

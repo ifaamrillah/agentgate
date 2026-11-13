@@ -2,6 +2,7 @@
 pub mod account;
 pub mod audit;
 pub mod auth;
+pub mod charts;
 pub mod datatable;
 pub mod dev;
 pub mod device;

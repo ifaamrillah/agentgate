@@ -8,6 +8,7 @@
 pub mod components;
 pub mod estimates;
 pub mod refs;
+pub mod reports;
 pub mod scope;
 pub mod sprints;
 

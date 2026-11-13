@@ -2,6 +2,7 @@
 //! kalender, rilis + release notes, components, pencarian lanjutan, saved filter, bulk edit.
 
 mod backlog;
+mod reports;
 
 use agentgate_server::models::{projects, sprints};
 use loco_rs::app::AppContext;

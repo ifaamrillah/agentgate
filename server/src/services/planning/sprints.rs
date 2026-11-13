@@ -397,11 +397,28 @@ pub async fn complete(
     let added = sprint
         .started_at
         .map_or(0, |s| scope::added_after(&events, s.with_timezone(&chrono::Utc)).0);
+    let ids: Vec<Uuid> = done.iter().map(|t| t.id).collect();
+    let est = super::estimates::latest(&txn, wid, &ids).await?;
+    let act = super::estimates::actuals(&txn, wid, &done).await?;
+    let round = |v: f64| (v * 10.0).round() / 10.0;
     let report = SprintReport {
         committed: sprint.committed_points,
         completed: points(&done),
         added,
-        done: done.iter().map(|t| report_ticket(t, &types)).collect(),
+        done: done
+            .iter()
+            .map(|t| {
+                let mut r = report_ticket(t, &types);
+                r.estimate_hours = est
+                    .get(&t.id)
+                    .and_then(super::estimates::Latest::hours)
+                    .map(|(a, h)| round(a + h));
+                r.actual_hours = act
+                    .get(&t.id)
+                    .map(|m| round(m.values().map(|(a, h)| a + h).sum()));
+                r
+            })
+            .collect(),
         not_done: not_done.iter().map(|t| report_ticket(t, &types)).collect(),
         moved_to: to.as_ref().map(|s| s.name.clone()).unwrap_or_default(),
     };
