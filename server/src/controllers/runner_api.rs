@@ -1,7 +1,8 @@
 //! API CLI dan runner (token bearer dari `agentgate login`), selalu JSON:
 //!
 //! - `GET /api/cli/me`, `GET /api/cli/rules?project=KEY`, `GET /api/cli/jobs`,
-//!   `POST /api/cli/jobs/{id}/claim|release|cancel`;
+//!   `POST /api/cli/jobs/{id}/claim|release|cancel`, `POST /api/cli/permissions/{id}`
+//!   (`{"status": "allowed|allowed_ticket|denied"}`);
 //! - `POST /api/runner/register`, `GET /api/runner/ws?runner=…` (WebSocket kontrol),
 //!   `GET /api/runner/events?runner=…` (event yang sama tanpa WebSocket);
 //! - `POST /api/runner/jobs/{id}/start|logs|steps|evidence|permissions|finish|terminal-failed`,
@@ -14,7 +15,7 @@ use std::time::Duration;
 use agentgate_core::runner::{
     protocol::{
         ClientMsg, DriftReport, EvidenceUpload, FinishReport, LogBatch, PermissionAsk,
-        RegisterRunner, RunnerInfo, ServerMsg, StepsUpdate,
+        PermissionStatus, RegisterRunner, RunnerInfo, ServerMsg, StepsUpdate,
     },
     rules,
 };
@@ -169,6 +170,24 @@ async fn cancel(
 ) -> Result<Response> {
     let job = tri!(jobs::cancel(&ctx.db, &auth.session.acting(), id).await);
     Ok(Json(serde_json::json!({ "id": job.id, "status": job.status })).into_response())
+}
+
+#[derive(Debug, Deserialize)]
+struct DecisionBody {
+    status: PermissionStatus,
+}
+
+/// Jawab permintaan izin dari CLI (pemegang lock atau Admin project), sama dengan tombol web.
+#[debug_handler]
+async fn decide_permission(
+    State(ctx): State<AppContext>,
+    auth: BearerSession,
+    Path(id): Path<Uuid>,
+    Json(body): Json<DecisionBody>,
+) -> Result<Response> {
+    let perm =
+        tri!(jobs::decide_permission(&ctx.db, &auth.session.acting(), id, body.status).await);
+    Ok(Json(serde_json::json!({ "id": perm.id, "status": perm.status })).into_response())
 }
 
 #[debug_handler]
@@ -437,6 +456,7 @@ pub fn routes() -> Routes {
         .add("/api/cli/jobs/{id}/claim", post(claim))
         .add("/api/cli/jobs/{id}/release", post(release))
         .add("/api/cli/jobs/{id}/cancel", post(cancel))
+        .add("/api/cli/permissions/{id}", post(decide_permission))
         .add("/api/runner/register", post(register))
         .add("/api/runner/events", get(events))
         .add("/api/runner/ws", get(ws))

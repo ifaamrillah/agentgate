@@ -205,6 +205,7 @@ pub(crate) fn links(tenant: &Tenant) -> SettingsLinks {
     SettingsLinks {
         personas,
         skills,
+        runner: Some(crate::controllers::runner::base(&tenant.workspace.slug)),
         members: members::settings_link(tenant),
         roles: roles::settings_link(tenant),
         job_titles: job_titles::settings_link(tenant),

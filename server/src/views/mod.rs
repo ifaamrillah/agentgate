@@ -19,6 +19,7 @@ pub mod palette;
 pub mod personas;
 pub mod projects;
 pub mod roles;
+pub mod runner;
 pub mod skills;
 pub mod teams;
 pub mod tickets;

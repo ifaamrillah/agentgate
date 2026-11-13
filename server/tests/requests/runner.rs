@@ -645,6 +645,18 @@ async fn dangerous_actions_pause_the_job_until_decided() {
         let row = jobs::Entity::find_by_id(job_id).one(&ctx.db).await.unwrap().unwrap();
         assert_eq!(row.status, "running");
 
+        // Jawaban dari CLI: izin yang sudah dijawab tidak bisa dijawab lagi.
+        let (status, body) = post_json(
+            &request,
+            &token,
+            None,
+            &format!("/api/cli/permissions/{pid}"),
+            &json!({ "status": "denied" }),
+        )
+        .await;
+        assert_eq!(status, 422, "{body}");
+        assert_eq!(body["error"], "job-permission-closed");
+
         // Aksi yang sama di tiket ini langsung diizinkan.
         let (_, again) = post_json(&request, &token, Some(&runner), &perm_url, &json!({ "command": "npx prisma migrate deploy", "action": "db_migrate" })).await;
         assert_eq!(again["status"], "allowed_ticket");
@@ -826,6 +838,334 @@ async fn register_rejects_bad_keys_and_reuses_known_runner() {
         assert_eq!(status, 200, "{again}");
         assert_eq!(again["id"], id.as_str());
         assert_eq!(again["name"], "MacBook Baru");
+    })
+    .await;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Web: Runner & CLI, Log job, kartu job di tiket.
+
+async fn web_post(
+    request: &TestServer,
+    cookie: &loco_rs::auth::cookies::Cookie<'static>,
+    url: &str,
+    form: &[(&str, &str)],
+) -> axum_test::TestResponse {
+    request
+        .post(url)
+        .add_cookie(cookie.clone())
+        .form(form)
+        .await
+}
+
+/// Job berjalan di runner owner dengan log, langkah, dan evidence.
+async fn running_job(
+    request: &TestServer,
+    ctx: &AppContext,
+    f: &Fixture,
+) -> (String, String, String) {
+    let (job, token) = ticket_in_dev(request, ctx, f).await;
+    let runner = register(request, &token, &SECRET).await;
+    post_json(
+        request,
+        &token,
+        None,
+        &format!("/api/cli/jobs/{job}/claim"),
+        &json!({ "runner_id": runner }),
+    )
+    .await;
+    post_json(
+        request,
+        &token,
+        Some(&runner),
+        &format!("/api/runner/jobs/{job}/start"),
+        &json!({}),
+    )
+    .await;
+    post_json(
+        request,
+        &token,
+        Some(&runner),
+        &format!("/api/runner/jobs/{job}/logs"),
+        &json!({ "lines": [{ "stream": "tool", "text": "ag_context KSR-1" }] }),
+    )
+    .await;
+    post_json(
+        request,
+        &token,
+        Some(&runner),
+        &format!("/api/runner/jobs/{job}/steps"),
+        &json!({ "steps": [{ "name": "Baca konteks", "state": "ok", "seconds": 4 }, { "name": "Tulis kode", "state": "now" }] }),
+    )
+    .await;
+    let shot = evidence(
+        &job,
+        EvidenceKind::Screenshot,
+        "checkout.png",
+        "image/png",
+        PNG,
+        &EvidenceSummary::default(),
+        &SECRET,
+    );
+    let (status, _) = post_json(
+        request,
+        &token,
+        Some(&runner),
+        &format!("/api/runner/jobs/{job}/evidence"),
+        &shot,
+    )
+    .await;
+    assert_eq!(status, 201);
+    (job, token, runner)
+}
+
+#[tokio::test]
+async fn runner_pages_render_every_panel() {
+    request::<App, _, _>(|request, ctx| async move {
+        let f = fixture(&request, &ctx).await;
+        let (job, _token, runner) = running_job(&request, &ctx, &f).await;
+        let res = request
+            .get("/w/acme/runner")
+            .add_cookie(f.cookie.clone())
+            .await;
+        assert_eq!(res.status_code(), 303);
+        assert_eq!(res.header("location"), "/w/acme/runner/mine");
+        let res = request.get("/runner").add_cookie(f.cookie.clone()).await;
+        assert_eq!(res.header("location"), "/w/acme/runner");
+        for panel in ["perm", "queue", "mine", "team", "settings", "drift", "cli"] {
+            let res = request
+                .get(&format!("/w/acme/runner/{panel}"))
+                .add_cookie(f.cookie.clone())
+                .await;
+            assert_eq!(res.status_code(), 200, "{panel}: {}", res.text());
+            let html = res.text();
+            assert_css_exists(&html, &format!("[data-runner-page='{panel}']"));
+            assert_css_exists(&html, "[data-subnav] [data-nav='queue']");
+            assert_css_exists(&html, "[data-nav='runner'][aria-current='page']");
+        }
+        let html = request
+            .get("/w/acme/runner/mine")
+            .add_cookie(f.cookie.clone())
+            .await
+            .text();
+        assert_css_exists(
+            &html,
+            &format!("[data-runner='{runner}'][data-state='busy']"),
+        );
+        assert_css_exists(&html, &format!("[data-held] [data-job='{job}']"));
+        let html = request
+            .get("/w/acme/runner/queue")
+            .add_cookie(f.cookie.clone())
+            .await
+            .text();
+        assert_css_exists(
+            &html,
+            &format!("tr[data-job='{job}'][data-status='running']"),
+        );
+        let res = request
+            .get("/w/acme/runner/nope")
+            .add_cookie(f.cookie.clone())
+            .await;
+        assert_eq!(res.status_code(), 404);
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn job_page_shows_steps_log_evidence_and_live_partial() {
+    request::<App, _, _>(|request, ctx| async move {
+        let f = fixture(&request, &ctx).await;
+        let (job, _, _) = running_job(&request, &ctx, &f).await;
+        let res = request
+            .get(&format!("/w/acme/jobs/{job}"))
+            .add_cookie(f.cookie.clone())
+            .await;
+        assert_eq!(res.status_code(), 200);
+        let html = res.text();
+        assert_css_exists(&html, &format!("[data-job-page='{job}']"));
+        assert_css_exists(&html, "#job-live[hx-trigger]");
+        assert_css_exists(&html, "[data-job-steps] li[data-state='ok']");
+        assert_css_exists(&html, "[data-log] [data-stream='tool']");
+        assert_css_exists(&html, "[data-evidence='screenshot']");
+        assert_css_exists(&html, "[data-release]");
+        assert_css_exists(&html, "[data-cancel]");
+        let res = request
+            .get(&format!("/w/acme/jobs/{job}/live"))
+            .add_cookie(f.cookie.clone())
+            .await;
+        assert_eq!(res.status_code(), 200);
+        assert_css_exists(&res.text(), "#job-live [data-log]");
+
+        // Evidence: gambar inline dengan nosniff.
+        let id = job_evidence::Entity::find()
+            .filter(job_evidence::Column::JobId.eq(Uuid::parse_str(&job).unwrap()))
+            .one(&ctx.db)
+            .await
+            .unwrap()
+            .unwrap()
+            .id;
+        let res = request
+            .get(&format!("/w/acme/evidence/{id}"))
+            .add_cookie(f.cookie.clone())
+            .await;
+        assert_eq!(res.status_code(), 200);
+        assert_eq!(res.header("content-type"), "image/png");
+        assert_eq!(res.header("x-content-type-options"), "nosniff");
+
+        // Tiket: kartu stage menampilkan job dan evidence.
+        let html = request
+            .get("/w/acme/t/KSR-1")
+            .add_cookie(f.cookie.clone())
+            .await
+            .text();
+        assert_css_exists(&html, "[data-stage-job='running'] [data-job-link]");
+        assert_css_exists(&html, "[data-stage-evidence] [data-evidence='screenshot']");
+
+        // Workspace lain → 404.
+        let other = a_user().name("Oscar Other").create(&ctx).await;
+        a_workspace(&other).slug("lain").create(&ctx).await;
+        let cookie = sign_in_as(&request, &other).await;
+        let res = request
+            .get(&format!("/w/lain/jobs/{job}"))
+            .add_cookie(cookie.clone())
+            .await;
+        assert_eq!(res.status_code(), 404);
+        let res = request
+            .get(&format!("/w/lain/evidence/{id}"))
+            .add_cookie(cookie)
+            .await;
+        assert_eq!(res.status_code(), 404);
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn web_claim_release_cancel_and_permission() {
+    request::<App, _, _>(|request, ctx| async move {
+        let f = fixture(&request, &ctx).await;
+        let (job, token) = ticket_in_dev(&request, &ctx, &f).await;
+        let job_id = Uuid::parse_str(&job).unwrap();
+        let status = |ctx: AppContext| async move {
+            jobs::Entity::find_by_id(job_id).one(&ctx.db).await.unwrap().unwrap().status
+        };
+
+        // Kartu stage: tombol Ambil untuk executor.
+        let html = request.get("/w/acme/t/KSR-1").add_cookie(f.cookie.clone()).await.text();
+        assert_css_exists(&html, "[data-stage-job='queued'] [data-claim]");
+        let res = web_post(&request, &f.cookie, &format!("/w/acme/jobs/{job}/claim"), &[("next", "/w/acme/t/KSR-1"), ("runner", "")]).await;
+        assert_eq!(res.status_code(), 303);
+        assert_eq!(res.header("location"), "/w/acme/t/KSR-1");
+        assert_eq!(status(ctx.clone()).await, "claimed");
+        // Klaim kedua → flash error, tetap redirect.
+        let res = web_post(&request, &f.cookie, &format!("/w/acme/jobs/{job}/claim"), &[("next", "https://evil.test/")]).await;
+        assert_eq!(res.status_code(), 303);
+        assert_eq!(res.header("location"), format!("/w/acme/jobs/{job}"));
+
+        // Izin dari runner → muncul di panel izin → izinkan dari web.
+        let runner = register(&request, &token, &SECRET).await;
+        post_json(&request, &token, Some(&runner), &format!("/api/runner/jobs/{job}/start"), &json!({})).await;
+        let (_, perm) = post_json(
+            &request,
+            &token,
+            Some(&runner),
+            &format!("/api/runner/jobs/{job}/permissions"),
+            &json!({ "command": "npm install left-pad", "action": "install_package", "reason": "butuh paket" }),
+        )
+        .await;
+        let pid = perm["id"].as_str().unwrap().to_string();
+        let res = request.get("/w/acme/runner").add_cookie(f.cookie.clone()).await;
+        assert_eq!(res.header("location"), "/w/acme/runner/perm");
+        let html = request.get("/w/acme/runner/perm").add_cookie(f.cookie.clone()).await.text();
+        assert_css_exists(&html, &format!("[data-permission='{pid}'] [data-deny]"));
+        let res = web_post(&request, &f.cookie, &format!("/w/acme/runner/permissions/{pid}"), &[("decision", "allow"), ("next", "/w/acme/runner/perm")]).await;
+        assert_eq!(res.status_code(), 303);
+        assert_eq!(status(ctx.clone()).await, "running");
+        let p = agentgate_server::models::job_permissions::Entity::find_by_id(Uuid::parse_str(&pid).unwrap())
+            .one(&ctx.db)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(p.status, "allowed");
+
+        // Lepas lalu batalkan.
+        let res = web_post(&request, &f.cookie, &format!("/w/acme/jobs/{job}/release"), &[("note", "pindah laptop")]).await;
+        assert_eq!(res.status_code(), 303);
+        assert_eq!(status(ctx.clone()).await, "queued");
+        let res = web_post(&request, &f.cookie, &format!("/w/acme/jobs/{job}/cancel"), &[]).await;
+        assert_eq!(res.status_code(), 303);
+        assert_eq!(status(ctx.clone()).await, "cancelled");
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn runner_settings_and_revoke() {
+    request::<App, _, _>(|request, ctx| async move {
+        let f = fixture(&request, &ctx).await;
+        let token = device_login(&request, &f.cookie, &f.workspace.id.to_string()).await;
+        let runner = register(&request, &token, &SECRET).await;
+        let res = web_post(
+            &request,
+            &f.cookie,
+            "/w/acme/runner/prefs",
+            &[
+                ("auto_claim", "1"),
+                ("max_parallel", "3"),
+                ("default_client", "claude"),
+                ("quota_policy", "release"),
+                ("terminal_linux", "kitty"),
+                ("terminal_macos", "rm -rf /"),
+            ],
+        )
+        .await;
+        assert_eq!(res.status_code(), 303);
+        let prefs = agentgate_server::models::runner_prefs::Model::of(
+            &ctx.db,
+            f.workspace.workspace_id(),
+            f.owner.id,
+        )
+        .await
+        .unwrap();
+        assert!(prefs.auto_claim);
+        assert_eq!(prefs.max_parallel, Some(3));
+        assert_eq!(prefs.terminals["linux"], "kitty");
+        assert_eq!(prefs.terminals["macos"], "");
+        let html = request
+            .get("/w/acme/runner/settings")
+            .add_cookie(f.cookie.clone())
+            .await
+            .text();
+        assert_css_exists(&html, "input[name='auto_claim'][checked]");
+        assert_css_exists(
+            &html,
+            "input[name='quota_policy'][value='release'][checked]",
+        );
+
+        // Member lain tidak bisa mencabut runner owner.
+        let (_, mia) = member(&request, &ctx, &f, "Mia Member").await;
+        let res = web_post(
+            &request,
+            &mia,
+            &format!("/w/acme/runner/runners/{runner}/revoke"),
+            &[],
+        )
+        .await;
+        assert_eq!(res.status_code(), 404);
+        let res = web_post(
+            &request,
+            &f.cookie,
+            &format!("/w/acme/runner/runners/{runner}/revoke"),
+            &[],
+        )
+        .await;
+        assert_eq!(res.status_code(), 303);
+        let (status, _) = get_json(
+            &request,
+            &token,
+            &format!("/api/runner/events?runner={runner}"),
+        )
+        .await;
+        assert_eq!(status, 404, "runner dicabut");
     })
     .await;
 }

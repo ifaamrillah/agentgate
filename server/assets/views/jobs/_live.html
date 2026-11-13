@@ -1,0 +1,45 @@
+{#- Bagian live halaman Log job. Selama job terbuka, elemen ini memuat dirinya ulang lewat HTMX
+    (GET live_href, outerMorph) tiap 2 dtk; job selesai → polling berhenti. -#}
+<div id="job-live" class="app-job" data-job-status="{{ job.status }}"{% if job.open %} hx-get="{{ live_href }}" hx-trigger="every 2s" hx-swap="outerMorph" hx-select="#job-live"{% endif %}>
+  <div>
+    {% <card title={t(key="job-steps", lang="id")} description={t(key="job-steps-done", lang="id", done=steps.done, total=steps.items | length)} flush={true} attrs="data-steps"> %}
+      {{ <job_steps steps={steps} empty={t(key="job-steps-empty", lang="id")}/> }}
+    {% </card> %}
+    {% <card title={t(key="job-log", lang="id")} flush={true} attrs="data-log-card"> %}
+      <div class="app-blk app-job-loghead">{% if job.open %}{{ <live_dot state="busy" label={t(key=job.status_key, lang="id")}/> }}{% else %}{{ <badge label={t(key=job.status_key, lang="id")} variant={job.status_variant}/> }}{% endif %}</div>
+      {{ <log_view lines={logs} live={job.status == "running"} empty={t(key="job-log-empty", lang="id")}/> }}
+    {% </card> %}
+    {%- if job.summary %}
+    {% <card title={t(key="job-summary", lang="id")} attrs="data-summary"> %}<div class="app-prose">{{ job.summary }}</div>{% </card> %}
+    {%- endif %}
+  </div>
+  <aside>
+    {% <card title={t(key="job-detail", lang="id")} flush={true} attrs="data-job-detail"> %}
+    <dl class="app-props">
+      <dt>{{ t(key="job-col-status", lang="id") }}</dt><dd>{{ <badge label={t(key=job.status_key, lang="id")} variant={job.status_variant}/> }}</dd>
+      <dt>{{ t(key="job-runner", lang="id") }}</dt><dd>{% if job.runner %}{{ job.runner }}{% else %}<span class="app-hint">—</span>{% endif %}</dd>
+      <dt>{{ t(key="stage-role-executor", lang="id") }}</dt><dd>{% if job.holder %}{{ <avatar initials={job.holder.initials} color={job.holder.color} label={job.holder.name} size="sm"/> }}{{ job.holder.name }}{% else %}<span class="app-hint">{{ t(key="job-unclaimed", lang="id") }}</span>{% endif %}</dd>
+      <dt>{{ t(key="job-mode", lang="id") }}</dt><dd>{{ t(key=job.mode_key, lang="id") }}</dd>
+      <dt>{{ t(key="job-client", lang="id") }}</dt><dd>{% if job.client %}{{ job.client }}{% else %}<span class="app-hint">—</span>{% endif %}</dd>
+      {%- if job.model %}<dt>{{ t(key="job-model", lang="id") }}</dt><dd class="app-code">{{ job.model }}</dd>{% endif %}
+      {%- if job.branch %}<dt>{{ t(key="job-branch", lang="id") }}</dt><dd class="app-code">{{ job.branch }}</dd>{% endif %}
+      {%- if job.started %}<dt>{{ t(key="job-started", lang="id") }}</dt><dd>{{ job.started }}</dd>{% endif %}
+      {%- if job.finished %}<dt>{{ t(key="job-finished", lang="id") }}</dt><dd>{{ job.finished }}</dd>{% endif %}
+      {%- if job.tokens %}<dt>{{ t(key="job-tokens", lang="id") }}</dt><dd class="app-num">{{ job.tokens }}</dd>{% endif %}
+    </dl>
+    {% </card> %}
+    {% <card title={t(key="job-evidence", lang="id")} description={t(key="job-evidence-description", lang="id")} count={evidence | length ~ ""} link_label={t(key="job-open-ticket", lang="id")} link_href={job.ticket_href} flush={true} attrs="data-evidence-card"> %}
+      {%- if evidence %}<div class="app-evs">{% for e in evidence %}{{ <evidence_item item={e} thumb={true}/> }}{% endfor %}</div>
+      {%- else %}<p class="app-blk app-hint">{{ t(key="job-evidence-empty", lang="id") }}</p>{% endif %}
+    {% </card> %}
+    {%- if permissions %}
+    {% <card title={t(key="job-permissions", lang="id")} flush={true} attrs="data-job-permissions"> %}
+      {%- for p in permissions %}
+      {%- if p.status == "pending" %}{% include "runner/_permission.html" %}{% else %}
+      <div class="app-job-perm"><span><code class="app-perm-cmd">{{ p.command }}</code></span><small class="app-hint">{{ t(key=p.status_key, lang="id") }}{% if p.decided_by %} · {{ p.decided_by }}{% endif %}</small></div>
+      {%- endif %}
+      {%- endfor %}
+    {% </card> %}
+    {%- endif %}
+  </aside>
+</div>

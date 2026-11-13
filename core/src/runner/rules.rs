@@ -35,7 +35,7 @@ pub fn agent_gate_files(server_url: &str, project_key: &str) -> Vec<RuleFile> {
     let settings = "{\n  \"hooks\": {\n    \"SessionStart\": [\n      {\n        \"hooks\": [\n          \
         { \"type\": \"command\", \"command\": \"agentgate hook session-start\" }\n        ]\n      }\n    ],\n    \
         \"PreToolUse\": [\n      {\n        \"matcher\": \"Bash\",\n        \"hooks\": [\n          \
-        { \"type\": \"command\", \"command\": \"agentgate hook pre-tool\" }\n        ]\n      }\n    ]\n  }\n}\n"
+        { \"type\": \"command\", \"command\": \"agentgate hook pre-tool\", \"timeout\": 1800 }\n        ]\n      }\n    ]\n  }\n}\n"
         .to_string();
     vec![
         RuleFile {
@@ -145,6 +145,11 @@ mod tests {
         assert_eq!(
             settings["hooks"]["PreToolUse"][0]["hooks"][0]["command"],
             "agentgate hook pre-tool"
+        );
+        // Izin aksi menunggu jawaban manusia: batas bawaan hook Claude Code (60 dtk) terlalu pendek.
+        assert_eq!(
+            settings["hooks"]["PreToolUse"][0]["hooks"][0]["timeout"],
+            1800
         );
         let mcp: serde_json::Value = serde_json::from_str(&files[2].body).unwrap();
         assert_eq!(mcp["mcpServers"]["agentgate"]["type"], "http");

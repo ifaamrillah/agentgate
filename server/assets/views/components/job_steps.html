@@ -1,0 +1,17 @@
+{#- Langkah job: bar progres lalu daftar langkah (selesai hijau bercentang, berjalan aksen
+    berputar, menunggu redup), durasi di kanan. Letakkan di `card flush={true}`.
+    Parameter:
+      steps: map                views::runner::StepsView (items[name,state,seconds], done, percent)
+      empty: string             teks bila runner belum mengirim langkah (sudah diterjemahkan) -#}
+{% component job_steps(steps: map, empty: string = "") %}
+{%- if steps.items %}
+<div class="app-blk"><div class="app-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ steps.percent }}"><i style="width: {{ steps.percent }}%"></i></div></div>
+<ol class="app-jsteps" data-job-steps>
+  {%- for s in steps.items %}
+  <li data-state="{{ s.state }}">{% if s.state == "ok" %}{{ icon(name="circle-check") }}{% elif s.state == "now" %}{{ icon(name="loader-2") }}{% elif s.state == "fail" %}{{ icon(name="circle-x") }}{% else %}{{ icon(name="circle-dashed") }}{% endif %}<span>{{ s.name }}</span>{% if s.seconds %}<small>{{ s.seconds }}</small>{% endif %}</li>
+  {%- endfor %}
+</ol>
+{%- else %}
+<p class="app-blk app-hint" data-job-steps-empty>{{ empty }}</p>
+{%- endif %}
+{%- endcomponent job_steps %}

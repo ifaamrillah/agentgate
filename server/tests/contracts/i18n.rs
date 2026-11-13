@@ -140,6 +140,7 @@ fn every_auth_message_key_has_a_translation() {
         views::projects::MESSAGE_KEYS,
         views::tickets::MESSAGE_KEYS,
         views::workflow::MESSAGE_KEYS,
+        views::runner::MESSAGE_KEYS,
         oauth::ERROR_CODES,
     ]
     .concat()

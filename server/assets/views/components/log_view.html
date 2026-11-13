@@ -1,0 +1,14 @@
+{#- Log job gaya terminal (gelap di kedua tema): stempel waktu redup, warna per aliran
+    (info, out, err, tool, ok, warn, fail). Baris terakhir di bawah; `job-log.js` menjaga
+    gulir di bawah saat isi diganti polling.
+    Parameter:
+      lines: array              [views::runner::LogLineView] (stream, at, text)
+      live: bool                kursor berkedip (job masih berjalan) (default false)
+      empty: string             teks bila belum ada baris (sudah diterjemahkan; default "")
+      attrs: string             penanda tes tanpa kutip (default "") -#}
+{% component log_view(lines: array, live: bool = false, empty: string = "", attrs: string = "") %}
+<pre class="app-log" tabindex="0" aria-live="polite" data-log {{ attrs }}>
+{%- for l in lines %}<span class="app-log-l" data-stream="{{ l.stream }}"><time>{{ l.at }}</time> {{ l.text }}</span>
+{% else %}{% if empty %}<span class="app-log-l" data-stream="info">{{ empty }}</span>
+{% endif %}{% endfor %}{% if live %}<span class="app-log-cursor" aria-hidden="true"></span>{% endif %}</pre>
+{%- endcomponent log_view %}

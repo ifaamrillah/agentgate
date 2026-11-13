@@ -290,7 +290,7 @@ pub async fn can_claim<C: ConnectionTrait>(
 }
 
 /// Pelaku memegang `AdministerProject` di project job.
-async fn is_project_admin<C: ConnectionTrait>(
+pub async fn is_project_admin<C: ConnectionTrait>(
     db: &C,
     acting: &Acting<'_>,
     job: &jobs::Model,
@@ -887,6 +887,70 @@ pub async fn of_comments<C: ConnectionTrait>(
         .filter(jobs::Column::TicketId.eq(ticket_id))
         .filter(jobs::Column::Kind.eq(JobKind::Comment.as_str()))
         .order_by_asc(jobs::Column::CreatedAt)
+        .all(db)
+        .await
+}
+
+/// Log job, `limit` baris terakhir (urut lama → baru).
+///
+/// # Errors
+///
+/// Error database.
+pub async fn logs_of<C: ConnectionTrait>(
+    db: &C,
+    wid: WorkspaceId,
+    job_id: Uuid,
+    limit: u64,
+) -> Result<Vec<job_logs::Model>, DbErr> {
+    use sea_orm::QuerySelect;
+    let mut rows = job_logs::Entity::find()
+        .filter(job_logs::Column::WorkspaceId.eq(wid.get()))
+        .filter(job_logs::Column::JobId.eq(job_id))
+        .order_by_desc(job_logs::Column::Id)
+        .limit(limit)
+        .all(db)
+        .await?;
+    rows.reverse();
+    Ok(rows)
+}
+
+/// Permintaan izin satu job, terbaru dulu.
+///
+/// # Errors
+///
+/// Error database.
+pub async fn permissions_of_job<C: ConnectionTrait>(
+    db: &C,
+    wid: WorkspaceId,
+    job_id: Uuid,
+) -> Result<Vec<job_permissions::Model>, DbErr> {
+    job_permissions::Entity::find()
+        .filter(job_permissions::Column::WorkspaceId.eq(wid.get()))
+        .filter(job_permissions::Column::JobId.eq(job_id))
+        .order_by_desc(job_permissions::Column::CreatedAt)
+        .all(db)
+        .await
+}
+
+/// Job yang sedang berjalan di runner-runner ini (`runner_id`, job).
+///
+/// # Errors
+///
+/// Error database.
+pub async fn running_on<C: ConnectionTrait>(
+    db: &C,
+    wid: WorkspaceId,
+    runner_ids: &[Uuid],
+) -> Result<Vec<jobs::Model>, DbErr> {
+    if runner_ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    jobs::Entity::find()
+        .filter(jobs::Column::WorkspaceId.eq(wid.get()))
+        .filter(jobs::Column::RunnerId.is_in(runner_ids.iter().copied()))
+        .filter(
+            jobs::Column::Status.is_in([JobStatus::Running.as_str(), JobStatus::Paused.as_str()]),
+        )
         .all(db)
         .await
 }

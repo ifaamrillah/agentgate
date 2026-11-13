@@ -756,6 +756,19 @@ pub struct CommentView {
     pub mine: bool,
     pub edit_action: String,
     pub delete_action: String,
+    /// Job `@agent` dari komentar ini (M5).
+    pub agent_jobs: Vec<AgentJobView>,
+}
+
+/// Job `@agent` di bawah komentar: status, tautan, dan penanda runner penulis offline.
+#[derive(Debug, Serialize)]
+pub struct AgentJobView {
+    pub persona: String,
+    pub status_key: &'static str,
+    pub status_variant: &'static str,
+    pub href: String,
+    /// Job masih menunggu dan runner pelaku (penulis komentar) sedang offline.
+    pub waiting: bool,
 }
 
 #[derive(Debug, Serialize)]

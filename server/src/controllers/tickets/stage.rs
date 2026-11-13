@@ -19,9 +19,12 @@ use crate::{
         ticket_stage_people::{self, StagePeople},
         tickets::{self, StageState},
     },
-    services::tickets::{
-        TicketFailure, gates,
-        stages::{self, AdminMove, Decision, Flow},
+    services::{
+        jobs,
+        tickets::{
+            TicketFailure, gates,
+            stages::{self, AdminMove, Decision, Flow},
+        },
     },
     views::{
         self,
@@ -82,6 +85,13 @@ pub struct StagePanel {
     pub rounds: Vec<RoundView>,
     pub cancelled: bool,
     pub decisions: Vec<serde_json::Value>,
+    /// Job stage terbaru tiket (M5) dan evidence stage sekarang.
+    pub job: Option<views::runner::JobView>,
+    pub evidence: Vec<views::runner::EvidenceView>,
+    /// Runner milik pelaku (pilihan di dialog Ambil job).
+    pub my_runners: Vec<views::runner::RunnerView>,
+    /// Path kembali untuk aksi job.
+    pub back: String,
 }
 
 /// Id penugasan sebagai string (nilai combo).
@@ -155,6 +165,24 @@ pub(super) async fn panel(ctx: &AppContext, access: &TicketAccess) -> Result<Sta
         })
         .collect();
     let labels = crate::models::personas::Model::labels(db, wid).await?;
+    let job = match jobs::latest_of_ticket(db, wid, t.id).await? {
+        Some(j) if j.stage_key == t.stage_key => {
+            crate::controllers::runner::job_views(db, tenant, &[(j, t.clone())])
+                .await?
+                .pop()
+        }
+        _ => None,
+    };
+    let evidence: Vec<views::runner::EvidenceView> = jobs::evidence::of_stage(db, wid, t)
+        .await?
+        .iter()
+        .map(|e| views::runner::EvidenceView::of(e, &tenant.workspace.slug))
+        .collect();
+    let my_runners = if job.as_ref().is_some_and(|j| j.can_claim) {
+        crate::controllers::runner::my_runners(db, tenant).await?
+    } else {
+        Vec::new()
+    };
     let mut current = StageView::of(&rule, &flow.current, &labels);
     current.state = "current";
     let options = if access.can(Permission::EditProject) {
@@ -224,6 +252,10 @@ pub(super) async fn panel(ctx: &AppContext, access: &TicketAccess) -> Result<Sta
             })
             .collect(),
         current,
+        job,
+        evidence,
+        my_runners,
+        back: ticket_href(&tenant.workspace.slug, &t.code),
     })
 }
 
