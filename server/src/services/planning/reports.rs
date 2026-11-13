@@ -74,7 +74,9 @@ pub fn burndown(sprint: &sprints::Model, events: &[ScopeEvent], today: NaiveDate
         let ideal = f64::from(committed) * (1.0 - i as f64 / last as f64);
         let happened = *day <= end_day && sprint.state() != SprintState::Planned;
         let (remaining, scope_pts, added) = if happened {
-            let at = scope::end_of_day(*day).min(until);
+            // Sprint yang dimulai setelah tanggal mulainya: hari sebelum mulai memakai keadaan
+            // saat mulai (komitmen), bukan scope kosong yang lalu terhitung "ditambah".
+            let at = scope::end_of_day(*day).max(start_at).min(until);
             let states = scope::state_at(events, at);
             let snap = scope::snapshot(&states);
             let mut added = 0;
@@ -332,5 +334,19 @@ mod tests {
         assert!(b.days[9].ideal.abs() < 1e-9);
         assert_eq!(b.added, 2);
         assert_eq!(b.today, None);
+    }
+
+    #[test]
+    fn late_start_counts_planned_tickets_as_commitment() {
+        let mut s = sprint("completed");
+        // Tanggal mulai 2 Nov, tetapi baru dimulai 4 Nov; tiket direncanakan 4 Nov pagi.
+        s.started_at = Some(chrono::DateTime::parse_from_rfc3339("2026-11-04T05:00:00Z").unwrap());
+        let events = vec![
+            ev(1, ScopeKind::Added, 5, "2026-11-04T03:00:00Z"),
+            ev(2, ScopeKind::Added, 3, "2026-11-04T04:00:00Z"),
+        ];
+        let b = burndown(&s, &events, NaiveDate::from_ymd_opt(2026, 11, 20).unwrap());
+        assert_eq!(b.days[0].remaining, Some(8));
+        assert_eq!(b.added, 0);
     }
 }
