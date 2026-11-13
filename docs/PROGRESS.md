@@ -17,7 +17,7 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 | M7 Code graph | selesai (2026-11-13) | Crate `graph`: tree-sitter 10 bahasa, fakta per file, build graph (call/import/inherit/route, keyakinan pasti/dugaan), modul + node pusat, kode mati, kompleksitas, trace/dampak dari diff, kueri Cypher-subset, SCIP (`agentgate graph scip`), riwayat git (hotspot/coupling/pemilik), relasi lintas repo HTTP/event/package; index inkremental dari CLI (`agentgate graph index|scip|status`, file rahasia tidak pernah dibaca) dan dari server (arsip tarball provider, tombol Index ulang, otomatis setelah PR di-merge ke branch utama); MCP `ag_search`/`ag_trace`/`ag_snippet`/`ag_impact`/`ag_graph` + bagian `code_graph` di `ag_context` dan prompt job; UI Cari simbol, detail simbol, Status index (repo, lintas repo, git, kualitas, benchmark); benchmark vs codebase-memory di `docs/benchmarks/2026-11-13-code-graph.md` (recall/presisi 100%/100% vs codebase-memory 89,9%/93,7% pada 149 pasangan pemanggil); 601 tes |
 | M8 Knowledge base | selesai (2026-11-13) | Dokumen project per kelompok/jenis (bawaan + custom), versi + diff + pulihkan, editor md per dokumen, cari; usulan AI (scan ulang, minta AI perbarui, tiket Done, graph di-index ulang, audit mingguan, repo) dengan Tinjau usulan side-by-side (A/R/J/K) dan batalkan; pemilik knowledge + notifikasi kotak masuk; dokumen workspace (berlaku per project/persona), jenis custom, update otomatis; MCP `ag_knowledge` + konteks job + knowledge per persona; CLI `agentgate knowledge pull|status|sync`, backup `init` diunggah ke server (panel drift); komponen `diff_sbs` dan `donut`; 626 tes |
 | M9 Planning & laporan | selesai (2026-11-13) | Backlog & sprint (rencana/mulai/selesaikan dengan pemindahan sisa, kapasitas dari velocity, seret-lepas, log scope per tiket), story point + estimasi AI per stage (draft → tiket, MCP `ag_planning`, minta estimasi, kalibrasi), laporan burndown/burnup/velocity/sprint report/CFD/kalibrasi/cycle time (SVG server-side, cetak/PDF), Roadmap (Gantt sprint/progres/estimasi/rilis/blocks) dan Kalender (tenggat, perkiraan selesai AI, rilis), Rilis + release notes berversi (susun AI, terbitkan, pulihkan, rilis sekarang), Components (modul code graph, pemilik, penerima default), board Scrum (sprint aktif, swimlane penerima/epic, batas WIP), pencarian lanjutan ala JQL + saved filter (pribadi/tim/workspace) + edit massal; 656 tes |
-| M10 Visual | belum mulai | |
+| M10 Visual | selesai (2026-11-13) | AI Office isometrik A1 live dari job/runner/tiket (kanvas Canvas 2D tanpa PixiJS, denah parametris per project + Ruang rapat/Pantry/Lounge, geser/zoom/pinch/keyboard, mini-map, label, tab ruangan, panel ringkasan/detail dengan log live, approve/reject kembali ke kantor, kustom karakter teraudit); graph viewer berlapis Project → Repo → Modul → File → Fungsi (SVG server-side, sorot tiket dari file berubah job, analisis dampak, filter layer/bahasa, cari); pratinjau mockup HTML di domain sandbox terpisah (token HMAC 1 jam, CSP sandbox, Web/Mobile, versi, bandingkan dengan screenshot QA, approve/revisi); Penghemat token (ringkasan, fitur wajib/opsional dengan toggle teraudit, per tiket, per job; rincian token + biaya + file berubah dari runner, pencatat penghematan di tool MCP); 693 tes |
 | M11 Multi-client & integrasi | belum mulai | |
 | M12 Rilis | belum mulai | |
 
@@ -182,6 +182,18 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
   atau jenis dengan pemicu Done aktif (belum menelusuri dampak lewat code graph).
   Event knowledge belum masuk audit log. Estimasi biaya scan hanya token (tanpa Rupiah).
 
+- **M10 Visual (2026-11-13)**: AI Office: pekerjaan antre (`queued`) tidak tampil; persona yang punya beberapa job
+  muncul sebagai beberapa karakter; maks. 8 ruangan project (sisanya dihitung "tersembunyi") dan 12 tiket menunggu
+  per project; semua ruangan project memakai satu template perabot; label ruangan bisa tersembunyi bila bertabrakan
+  dengan overlay (aturan prototype); kanvas tetap terang di mode gelap (hanya latar dan label yang gelap, sama dengan
+  prototype A1); state dipolling 3 dtk (belum lewat WebSocket/SSE); karakter yang hilang saat jalan (job selesai)
+  langsung lenyap tanpa animasi pulang. Lantai kantor tidak bisa diubah (prototype punya opsi gaya A2/A3; hanya A1
+  yang dipilih). Graph viewer: layout berlapis sederhana (bisa bersilang pada graf padat), maks. 40 node per level.
+  Penghemat token: atribusi penghematan ke tiket/job heuristik (job terbuka terakhir pelaku), biaya dalam USD,
+  "Token ≈ byte/4". Mockup: screenshot otomatis = evidence screenshot stage (bukan render server), bandingkan memakai
+  screenshot QA terbaru. `markdown.js` dan `md-editor.js` masih memakai pola `htmx.onLoad` saja (bisa terlewat bila
+  htmx memproses body lebih dulu; `office.js` dan `graph-viewer.js` sudah juga memindai dokumen).
+
 - **M9 Planning & laporan (2026-11-13)**: teks tooltip grafik, roadmap, dan kalender serta pesan error JQL ditulis
   bahasa Indonesia langsung di Rust (belum Fluent). Query JQL hanya `AND` (tanpa `OR`/kurung) dan tanpa autocomplete
   di kotak query (prototype punya saran field/nilai); evaluasi di memori atas maks. 5.000 tiket terbaru, tampil 200.
@@ -296,7 +308,29 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
   tiket, sprint/versi harus milik project tiketnya, yang gagal dilewati dan dilaporkan).
 - M9: burndown sprint yang dimulai setelah tanggal mulainya memakai keadaan saat mulai untuk hari-hari sebelumnya.
 
+- M10: AI Office digambar Canvas 2D vanilla (mesin prototype A1 di-port ke `static/js/office-engine.mjs`, dimuat lazy),
+  bukan PixiJS seperti di spec. Denah parametris: kolom 17 ubin per dua project (paling ramai dulu), kolom terakhir
+  Ruang rapat + Pantry, slot kosong jadi Lounge; satu karakter per job terbuka (persona bisa muncul lebih dari sekali).
+- M10: manusia di kantor = pemilik runner online (pakai `runners::is_online`, 60 dtk; spec menyebut 2 menit) yang
+  memegang job terbuka; duduk di Ruang rapat bila ada job interaktif, selain itu di ruangan dengan job terbanyak.
+- M10: "Butuh approval" = tiket `review` dengan job terakhir stage itu sukses, atau job dengan izin aksi `pending`
+  (detail mengarah ke halaman job untuk menjawab izin); "Butuh keputusan" = tiket `decision`. Aktivitas terbaru = 6
+  job terakhir yang berubah. Kustom karakter diaudit sebagai `office_look_updated` dengan subjek Workspace; persona
+  butuh `manage_ticket_settings`, manusia dirinya sendiri atau Admin di semua project.
+- M10: graph viewer dirender SVG server-side (model level di crate `graph`), tanpa library graf; layer node ditebak
+  dari path/jenis. Sorot tiket = `jobs.changed_files` (git diff base…HEAD dari runner).
+- M10: mockup = artifact `*.html`; pratinjau di `PREVIEW_URL` (`settings.preview_base_url`, dev
+  `http://preview.localhost:<PORT>`) dengan token HMAC 1 jam; CSP aplikasi menambah `frame-src` hanya di halaman
+  mockup; Approve/Minta revisi memakai endpoint stage dengan `return_to` (path relatif workspace yang sama saja).
+- M10: penghematan token terukur server dicatat per kejadian (`token_savings`) dari tool MCP; RTK dan prefix stabil
+  tampil "tidak terukur"; toggle per project hanya fitur opsional (Gaya ringkas, Model per persona).
+
 ## Perlu dari user (dikumpulkan untuk akhir)
+
+- M10: konfirmasi PixiJS tidak wajib (AI Office memakai Canvas 2D, ringan dan tanpa dependensi); batas online
+  runner 60 dtk vs 2 menit di spec; kurs USD → Rupiah bila biaya token perlu tampil dalam Rupiah; apakah antrean job
+  perlu tampil di kantor (mis. karakter menunggu di lorong) dan apakah perlu lebih dari 8 ruangan project; domain
+  pratinjau produksi (`PREVIEW_URL`, harus origin berbeda dari aplikasi, idealnya domain terpisah dengan TLS).
 
 - M9: konfirmasi apakah JQL perlu `OR`/kurung dan autocomplete sebelum rilis; apakah batas WIP perlu ditegakkan
   (menolak pindah kartu) atau cukup penanda; apakah rilis perlu membuat git tag lewat provider git; apakah roadmap
@@ -373,3 +407,8 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
   `/w/pt-contoh/p/KSR/knowledge`. Uji CLI: `agentgate knowledge pull|status|sync` di repo yang terhubung KSR.
 - CSS hasil Tailwind (`server/assets/static/css/app.css`) di-gitignore; setelah menambah file CSS komponen jalankan
   `bin/tailwind` (atau `bin/dev` yang watch) sebelum screenshot.
+- Seed dev M10 (`seed_visual`): 9 job selesai/gagal 4 minggu terakhir dengan rincian token, biaya, dan file berubah,
+  36 baris penghematan, job terakhir KSR-11 (review) dan KSR-12 (keputusan), mockup `checkout-qris.html` di KSR-11.
+  Dilewati bila workspace sudah punya data penghematan. Buka `/w/pt-contoh/office`, `/w/pt-contoh/p/KSR/settings/tokens`,
+  `/w/pt-contoh/p/KSR/graph/viewer`, dan tab Artifact KSR-11. Pratinjau mockup harus dibuka lewat
+  `http://localhost:5150` (bukan `127.0.0.1`), karena `frame-ancestors` domain pratinjau memakai origin aplikasi.
