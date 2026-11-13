@@ -98,6 +98,13 @@ ammonia = "4"
 # Prompt password tanpa echo untuk task user:set_password.
 rpassword = "7"
 
+# Ekspor data workspace (M11): arsip ZIP (deflate lewat flate2, tanpa codec lain) dan YAML
+# persona/skill pack (parser yang sama dengan workflow di crate core).
+zip = { version = "9", default-features = false, features = ["deflate-flate2"] }
+serde_yaml_ng = "0.10"
+# Impor tiket dari CSV (M11): pemisah koma/titik koma, kolom berkutip dan baris ganda.
+csv = "1"
+
 [dev-dependencies]
 # Helper tes request/boot dan assertion selector HTML (`assert_css_*`).
 loco-rs = { workspace = true, features = ["testing"] }

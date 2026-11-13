@@ -237,6 +237,10 @@ pub struct SettingsLinks {
     pub git: Option<String>,
     /// API & webhook (M11): `ManageIntegrations`.
     pub api: Option<String>,
+    /// Impor CSV tiket (M11): `ManageIntegrations`.
+    pub import_csv: Option<String>,
+    /// Ekspor data (M11): Owner/Admin.
+    pub export: Option<String>,
 }
 
 impl AppShell {

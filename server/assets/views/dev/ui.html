@@ -80,6 +80,26 @@
     {{ <uploader action="/_dev/echo" title="Logo project" hint="PNG, JPG, atau WebP. Maks 1 MB." upload_label="Unggah logo" initials="WE" color="#5b5bd6"/> }}
   </div>
 {% </card> %}
+{% <card title="wizard_steps, file_drop (M11)" description="Langkah wizard bernomor dan area pilih/seret berkas tanpa JS; catatan baris app-note."> %}
+  {%- set wsteps = [
+    {"label": "Unggah", "state": "done", "href": "/_dev/ui"},
+    {"label": "Pemetaan kolom", "state": "current", "href": ""},
+    {"label": "Pratinjau", "state": "todo", "href": ""},
+    {"label": "Impor", "state": "todo", "href": ""}
+  ] %}
+  <div class="app-stack-v" data-catalog-transfer>
+    {{ <wizard_steps steps={wsteps} label="Langkah impor"/> }}
+    <form method="post" action="/_dev/echo" enctype="multipart/form-data">
+      {{ <file_drop id="catalog-drop" name="file" title="Seret berkas CSV ke sini, atau klik untuk memilih" hint="UTF-8, maksimal 20 MB" accept=".csv"/> }}
+    </form>
+    <span class="app-notes">
+      <span class="app-note" data-tone="success">{{ icon(name="check") }}<span>Siap</span></span>
+      <span class="app-note" data-tone="warn">{{ icon(name="alert-triangle") }}<span>Status “Analysis” dipetakan ke Brainstorming</span></span>
+      <span class="app-note" data-tone="danger">{{ icon(name="circle-x") }}<span>Judul kosong, dilewati</span></span>
+    </span>
+    <span class="app-bar" role="progressbar" aria-valuenow="62" aria-valuemin="0" aria-valuemax="100" aria-label="Progres ekspor"><i style="width:62%"></i></span>
+  </div>
+{% </card> %}
 </div>
 
 <div id="table">

@@ -1,0 +1,80 @@
+{#- Pengaturan → Ekspor data (M11, Owner/Admin): subpage varian E (Ekspor baru, Riwayat ekspor).
+    Prototype: "Ekspor data" di screens-m9-m11-m12.js.
+    Variabel: panel (new|hist), subnav, flash, workspace_name;
+      new: action, audit_href, parts ([{key, checked}]), project_options, projects_value,
+           recipient_options, recipient, error_field, error_code;
+      hist: table, rows ([ExportRow]), pending (ada ekspor antre/berjalan → polling 3 detik),
+            new_href. -#}
+{% extends "layouts/settings.html" %}
+{% block title %}{{ t(key="export-title", lang="id") }}{% endblock title %}
+{% block crumb_label %}{{ t(key="export-title", lang="id") }}{% endblock crumb_label %}
+{% block page_attrs %}data-export-page="{{ panel }}"{% endblock page_attrs %}
+{% block settings %}
+{% <subpage title={t(key="export-title", lang="id")} description={t(key="export-description", lang="id", workspace=workspace_name)} items={subnav}> %}
+{%- if panel == "new" %}
+{% <card title={t(key="export-new-title", lang="id")} description={t(key="export-new-description", lang="id")} form={action} save_label={t(key="export-submit", lang="id")} note={t(key="export-submit-note", lang="id")} attrs="data-export-form"> %}
+  <div class="app-stack-v">
+    {% <flash kind="neutral" message={t(key="export-admin-only", lang="id")}> %}<p><a href="{{ audit_href }}">{{ t(key="export-audit-link", lang="id") }}</a></p>{% </flash> %}
+    {%- if error_field == "parts" %}{{ <flash kind="error" message={t(key=error_code, lang="id")}/> }}{% endif %}
+    <fieldset class="app-stack-v">
+      <legend class="app-srow-t">{{ t(key="export-parts-title", lang="id") }}</legend>
+      <div class="app-box" data-export-parts>
+        {%- for p in parts %}
+        <label class="app-lrow" data-part="{{ p.key }}">
+          <input type="checkbox" class="app-check" name="parts" value="{{ p.key }}"{% if p.checked %} checked{% endif %}>
+          <span class="app-lrow-main"><b>{{ t(key=p.label_key, lang="id") }}</b><small>{{ t(key=p.desc_key, lang="id") }}</small></span>
+        </label>
+        {%- endfor %}
+      </div>
+    </fieldset>
+    <fieldset class="app-stack-v">
+      <legend class="app-srow-t">{{ t(key="export-scope-title", lang="id") }}</legend>
+      <div class="app-box">
+        {% <setting_row title={t(key="export-projects", lang="id")} description={t(key="export-projects-hint", lang="id")}> %}
+          {%- if error_field == "projects" %}{% set pe = error_code %}{% else %}{% set pe = "" %}{% endif %}
+          {{ <combo id="export-projects" name="projects" label={t(key="export-projects", lang="id")} options={project_options} values={projects_value} multiple={true} hide_label={true} error={pe}/> }}
+        {% </setting_row> %}
+        {% <setting_row title={t(key="export-recipient", lang="id")} description={t(key="export-recipient-hint", lang="id")}> %}
+          {%- if error_field == "recipient" %}{% set re = error_code %}{% else %}{% set re = "" %}{% endif %}
+          {{ <combo id="export-recipient" name="recipient" label={t(key="export-recipient", lang="id")} options={recipient_options} value={recipient} required={true} hide_label={true} error={re}/> }}
+        {% </setting_row> %}
+      </div>
+    </fieldset>
+  </div>
+{% </card> %}
+{%- else %}
+<div id="export-live"{% if pending %} hx-get="{{ table.action }}" hx-trigger="every 3s" hx-select="#export-live" hx-swap="outerMorph"{% endif %} data-export-live{% if pending %} data-pending{% endif %}>
+{% <card title={t(key="export-hist-title", lang="id")} description={t(key="export-hist-description", lang="id")} flush={true} attrs="data-export-hist"> %}
+  {% <datatable table={table} empty_title={t(key="export-hist-empty", lang="id")} empty_description={t(key="export-hist-empty-description", lang="id")} empty_icon="file-export"> %}
+  {%- for r in rows %}
+  <tr data-export="{{ r.id }}" data-status="{{ r.status }}">
+    <td><b>{{ r.created }}</b>{% if r.expires %}<br><small class="app-hint">{{ t(key="export-expires", lang="id", at=r.expires) }}</small>{% endif %}</td>
+    <td data-hide="sm">{% if r.by %}{{ <person name={r.by.name} initials={r.by.initials} color={r.by.color} size="default"/> }}{% else %}<span class="app-hint">—</span>{% endif %}</td>
+    <td>
+      {%- if r.status == "queued" or r.status == "running" %}
+      <span class="app-stack-v" data-progress="{{ r.progress }}">
+        <span class="app-bar" style="max-width:160px" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ r.progress }}" aria-label="{{ t(key=r.status_key, lang="id") }}"><i style="width:{{ r.progress }}%"></i></span>
+        <small class="app-hint">{{ r.progress }}%{% if r.phase %} · {{ t(key=r.phase, lang="id") }}{% else %} · {{ t(key=r.status_key, lang="id") }}{% endif %}</small>
+      </span>
+      {%- else %}
+      <span{% if r.error %} title="{{ t(key=r.error, lang="id") }}"{% endif %}>{{ <badge label={t(key=r.status_key, lang="id")} variant={r.variant}/> }}</span>
+      {%- endif %}
+    </td>
+    <td data-hide="sm" data-align="right"><span class="app-hint app-num">{{ r.size }}</span></td>
+    <td>
+      <div class="app-cell-acts">
+      {%- if r.download_action %}
+      <form method="post" action="{{ r.download_action }}" hx-boost="false">{{ <button label={t(key="export-download", lang="id")} icon="download" variant="outline" size="sm" type="submit" attrs="data-download"/> }}</form>
+      {%- elif r.retry_action %}
+      <form method="post" action="{{ r.retry_action }}">{{ <button label={t(key="export-retry", lang="id")} icon="refresh" variant="ghost" size="sm" type="submit" attrs="data-retry"/> }}</form>
+      {%- endif %}
+      </div>
+    </td>
+  </tr>
+  {%- endfor %}
+  {% </datatable> %}
+{% </card> %}
+</div>
+{%- endif %}
+{% </subpage> %}
+{% endblock settings %}

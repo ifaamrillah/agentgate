@@ -177,6 +177,15 @@ impl Hooks for App {
         queue
             .register(crate::workers::webhook_delivery::WebhookDeliveryWorker::build(ctx))
             .await?;
+        // Ekspor data workspace dan impor CSV tiket (M11).
+        queue
+            .register(crate::workers::data_export::DataExportWorker::build(ctx))
+            .await?;
+        queue
+            .register(crate::workers::ticket_import::TicketImportWorker::build(
+                ctx,
+            ))
+            .await?;
         Ok(())
     }
 
@@ -184,6 +193,7 @@ impl Hooks for App {
         #[cfg(debug_assertions)]
         tasks.register(crate::tasks::dev_login::DevLogin);
         tasks.register(crate::tasks::cleanup::Cleanup);
+        tasks.register(crate::tasks::export_sweep::ExportSweep);
         tasks.register(crate::tasks::knowledge_audit::KnowledgeAudit);
         tasks.register(crate::tasks::webhooks::Webhooks);
         tasks.register(crate::tasks::user_create::UserCreate);
