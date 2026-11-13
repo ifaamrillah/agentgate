@@ -9,6 +9,7 @@ pub mod facts;
 pub mod history;
 pub mod lang;
 pub mod manifest;
+pub mod query;
 #[cfg(feature = "scip")]
 pub mod scip;
 pub mod walk;
