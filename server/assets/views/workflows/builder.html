@@ -111,6 +111,7 @@
         {{ <field id="stage-fail-limit" name="fail_limit" type="number" label={t(key="workflow-fail-limit", lang="id")} value={stage.fail_limit ~ ""} error={errors.fail_limit} hint={t(key="workflow-fail-limit-hint", lang="id")}/> }}
         {{ <select_field id="stage-fail-to" name="fail_to" label={t(key="workflow-fail-to", lang="id")} options={earlier} empty_label={t(key="workflow-fail-to-none", lang="id")} value={stage.fail_to} error={errors.fail_to}/> }}
       </div>
+      {{ <field id="stage-wip" name="wip" type="number" label={t(key="workflow-wip", lang="id")} value={stage.wip} optional={t(key="field-optional", lang="id")} hint={t(key="workflow-wip-hint", lang="id")}/> }}
     </div>
   {% </card> %}
   <div class="app-inline-form app-stage-tools">

@@ -58,6 +58,9 @@ pub fn label_keys() -> Vec<String> {
             "sprint-points-hint",
             "estimate-flash-saved",
             "estimate-flash-requested",
+            "board-swim-none",
+            "board-swim-assignee",
+            "board-swim-epic",
         ])
         .map(|k| (*k).to_string())
         .collect()

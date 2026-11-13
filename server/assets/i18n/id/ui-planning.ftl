@@ -370,3 +370,13 @@ calendar-empty = Tidak ada acara di bulan ini.
 calendar-undated = Tanpa tanggal
 calendar-undated-description = { $count } tiket belum punya tenggat maupun estimasi, jadi tidak muncul di kalender.
 calendar-undated-link = Atur di backlog
+
+## Board Scrum
+board-sprint = Sprint
+board-sprint-all = Semua tiket
+board-swim = Swimlane
+board-swim-none = Tanpa swimlane
+board-swim-assignee = Penerima
+board-swim-epic = Epic
+board-no-epic = Tanpa epic
+board-wip-over = Melebihi batas WIP { $wip }

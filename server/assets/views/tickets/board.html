@@ -1,8 +1,12 @@
 {#- Project → Board (board C): kolom per stage workflow (M3; gabungan stage workflow project) dengan jumlah, kartu tiket,
     filter cepat (cari, Saya, Belum ada penerima), drag-drop antar kolom (static/js/board-dnd.js:
     drop mengisi form tersembunyi lalu submit biasa) dan menu ⋯ per kartu tanpa JS.
+    Board Scrum (M9): chip sprint (bawaan sprint aktif; "Semua tiket"), batas WIP per kolom
+    (melebihi = ditandai), swimlane per penerima/epic (`?swim=`).
     Variabel: project, views, views_action, return_to (layouts/project.html), columns
-    ([StageColumn {key, name, status, cards}]), filter (BoardFilter), who, paths (BoardPaths), can_edit,
+    ([StageColumn {key, name, status, cards, wip, over}]; untuk menu pindah kartu), lanes
+    ([{title, count, columns}]), swim, swims, sprints (chip), sprint (terpilih: name, goal, range),
+    filter (BoardFilter), who, paths (BoardPaths), can_edit,
     drafts (jumlah draft tiket brainstorming; 0 = tautan disembunyikan), flash. -#}
 {% extends "layouts/project.html" %}
 {% block title %}{{ t(key="project-view-board", lang="id") }} · {{ project.name }}{% endblock title %}
@@ -18,6 +22,7 @@
 <form class="app-fr app-board-bar" method="get" action="{{ paths.board }}" role="search" data-board-filter>
   <label class="app-fsearch">{{ icon(name="search") }}<input type="search" name="q" value="{{ filter.q }}" placeholder="{{ t(key="board-search-placeholder", lang="id") }}" aria-label="{{ t(key="board-search-placeholder", lang="id") }}"></label>
   {%- if who %}<input type="hidden" name="who" value="{{ who }}">{% endif %}
+  {%- if swim %}<input type="hidden" name="swim" value="{{ swim }}">{% endif %}
   <a class="app-chip" href="{{ filter.mine_href }}"{% if filter.mine %} aria-pressed="true"{% endif %} data-filter-mine>{{ icon(name="user") }}{{ t(key="ticket-filter-me", lang="id") }}</a>
   <a class="app-chip" href="{{ filter.unassigned_href }}"{% if filter.unassigned %} aria-pressed="true"{% endif %}>{{ icon(name="circle-dashed") }}{{ t(key="ticket-unassigned", lang="id") }}</a>
   {%- if filter.q or who %}<a class="app-fclear" href="{{ filter.clear_href }}">{{ icon(name="x") }}{{ t(key="table-filter-clear", lang="id") }}</a>{% endif %}
@@ -28,13 +33,32 @@
   {{ <button label={t(key="trash-title", lang="id")} icon="trash" variant="ghost" size="sm" href={paths.trash} attrs="data-trash-link"/> }}
 </form>
 
-<div class="app-board" data-board{% if can_edit %} data-board-dnd{% endif %}>
-  {%- for col in columns %}
-  <section class="app-bcol" data-column="{{ col.key }}" data-category="{{ col.status.value }}" aria-labelledby="col-{{ col.key }}">
+{%- if sprints %}
+<div class="app-fr app-board-sprints">
+  <nav class="app-chips" aria-label="{{ t(key="board-sprint", lang="id") }}" data-board-sprints>
+    {%- for c in sprints %}<a class="app-chip" href="{{ c.href }}"{% if c.current %} aria-pressed="true"{% endif %}>{% if c.active %}{{ icon(name="player-play") }}{% endif %}{% if c.label %}{{ c.label }}{% else %}{{ t(key="board-sprint-all", lang="id") }}{% endif %}</a>{% endfor %}
+  </nav>
+  {%- if sprint and sprint.goal %}<span class="app-hint app-board-goal" data-board-goal>{{ icon(name="target") }}{{ sprint.goal }}</span>{% endif %}
+  <span data-grow></span>
+  <nav class="app-seg" aria-label="{{ t(key="board-swim", lang="id") }}" data-board-swims>{% for o in swims %}<a href="{{ o.href }}"{% if o.current %} aria-current="true"{% endif %}>{{ t(key=o.label, lang="id") }}</a>{% endfor %}</nav>
+</div>
+{%- else %}
+<div class="app-fr app-board-sprints">
+  <span data-grow></span>
+  <nav class="app-seg" aria-label="{{ t(key="board-swim", lang="id") }}" data-board-swims>{% for o in swims %}<a href="{{ o.href }}"{% if o.current %} aria-current="true"{% endif %}>{{ t(key=o.label, lang="id") }}</a>{% endfor %}</nav>
+</div>
+{%- endif %}
+
+{%- for lane in lanes %}
+{%- if loop.first %}{% set lid = "" %}{% else %}{% set lid = loop.index ~ "-" %}{% endif %}
+{%- if swim %}<h2 class="app-lane-h" data-lane>{% if lane.title %}{{ lane.title }}{% elif swim == "assignee" %}{{ t(key="ticket-unassigned", lang="id") }}{% else %}{{ t(key="board-no-epic", lang="id") }}{% endif %} <span class="app-bcol-n">{{ lane.count }}</span></h2>{% endif %}
+<div class="app-board"{% if swim %} data-lane-board{% endif %} data-board{% if can_edit %} data-board-dnd{% endif %}>
+  {%- for col in lane.columns %}
+  <section class="app-bcol" data-column="{{ col.key }}" data-category="{{ col.status.value }}"{% if col.over %} data-over{% endif %} aria-labelledby="col-{{ lid }}{{ col.key }}">
     <header class="app-bcol-h">
       <span class="app-status" data-status="{{ col.status.value }}">{{ icon(name=col.status.icon) }}</span>
-      <h2 id="col-{{ col.key }}">{{ col.name }}</h2>
-      <span class="app-bcol-n">{{ col.cards | length }}</span>
+      <h2 id="col-{{ lid }}{{ col.key }}">{{ col.name }}</h2>
+      <span class="app-bcol-n"{% if col.over %} data-over title="{{ t(key="board-wip-over", lang="id", wip=col.wip) }}"{% endif %} data-wip>{{ col.cards | length }}{% if col.wip %} / {{ col.wip }}{% endif %}</span>
       {%- if can_edit %}<a class="app-bcol-add" href="{{ paths.new_ticket }}?stage={{ col.key }}&amp;status={{ col.status.value }}" aria-label="{{ t(key="board-add-in", lang="id", column=col.name) }}">{{ icon(name="plus") }}</a>{% endif %}
     </header>
     <div class="app-bcol-cards" data-cards>
@@ -46,6 +70,7 @@
   </section>
   {%- endfor %}
 </div>
+{%- endfor %}
 {%- if can_edit %}
 <form method="post" hidden data-board-move-form>
   <input type="hidden" name="stage"><input type="hidden" name="before"><input type="hidden" name="return_to" value="{{ return_to }}">

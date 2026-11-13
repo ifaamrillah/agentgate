@@ -208,3 +208,14 @@
   .app-mod svg { width: 14px; height: 14px; color: var(--ag-faint); flex-shrink: 0; }
   .app-mod span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
+
+@layer components {
+  /* Board Scrum: chip sprint, tujuan sprint, judul swimlane, kolom melebihi WIP. */
+  .app-board-sprints { margin-bottom: 4px; }
+  .app-board-goal { display: inline-flex; align-items: center; gap: 4px; }
+  .app-board-goal svg { width: 14px; height: 14px; }
+  .app-lane-h { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; margin-top: 8px; }
+  .app-board[data-lane-board] { min-height: 0; }
+  .app-bcol[data-over] { box-shadow: inset 0 2px 0 var(--ag-warn); }
+  .app-bcol-n[data-over] { color: var(--ag-warn); font-weight: 600; }
+}

@@ -3,6 +3,7 @@ use std::collections::{BTreeMap, HashMap};
 
 use axum::http::StatusCode;
 use loco_rs::{prelude::*, validation::ModelValidationErrors};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -31,7 +32,7 @@ use crate::{
         nav,
         projects::PROJECT_VIEWS_ACTION,
         tickets::{
-            BoardFilter, BoardPaths, LIST_TABLE, TicketFormView, TypeView, custom_inputs,
+            BoardFilter, BoardPaths, LIST_TABLE, Lookup, TicketFormView, TypeView, custom_inputs,
             priority_options, stage_columns, status_options, ticket_href,
         },
         ui::ComboOption,
@@ -323,16 +324,30 @@ pub struct BoardQuery {
     q: String,
     #[serde(default)]
     who: String,
+    /// Sprint board Scrum: id sprint, `all` (semua tiket), kosong = sprint aktif bila ada.
+    #[serde(default)]
+    sprint: String,
+    /// Swimlane: `assignee`, `epic`, atau kosong.
+    #[serde(default)]
+    swim: String,
 }
 
-/// Href board dengan filter `q` dan `who`.
-fn board_href(base: &str, q: &str, who: &str) -> String {
+/// Keadaan filter board untuk membangun tautan.
+#[derive(Clone, Copy)]
+struct BoardState<'a> {
+    q: &'a str,
+    who: &'a str,
+    sprint: &'a str,
+    swim: &'a str,
+}
+
+/// Href board dengan filter `q`, `who`, `sprint`, dan `swim`.
+fn board_href(base: &str, st: BoardState<'_>) -> String {
     let mut pairs = Vec::new();
-    if !q.is_empty() {
-        pairs.push(("q", q));
-    }
-    if !who.is_empty() {
-        pairs.push(("who", who));
+    for (k, v) in [("q", st.q), ("who", st.who), ("sprint", st.sprint), ("swim", st.swim)] {
+        if !v.is_empty() {
+            pairs.push((k, v));
+        }
     }
     if pairs.is_empty() {
         base.to_string()
@@ -341,6 +356,74 @@ fn board_href(base: &str, q: &str, who: &str) -> String {
             "{base}?{}",
             serde_urlencoded::to_string(&pairs).unwrap_or_default()
         )
+    }
+}
+
+/// Swimlane board: satu lajur tanpa judul (tanpa swimlane), per penerima, atau per epic
+/// (induk tiket bertipe epic).
+async fn swim_lanes(
+    ctx: &AppContext,
+    access: &ProjectAccess,
+    lookup: &Lookup,
+    definitions: &[agentgate_core::workflow::Definition],
+    list: &[tickets::Model],
+    swim: &str,
+) -> Result<Vec<serde_json::Value>> {
+    let lane = |title: String, sub: &[tickets::Model]| {
+        serde_json::json!({ "title": title, "count": sub.len(), "columns": stage_columns(lookup, definitions, sub) })
+    };
+    let mut groups: Vec<(Option<Uuid>, String)> = Vec::new();
+    match swim {
+        "assignee" => {
+            for t in list {
+                if !groups.iter().any(|(k, _)| *k == t.assignee_id) {
+                    let name = lookup.person(t.assignee_id).map(|p| p.name).unwrap_or_default();
+                    groups.push((t.assignee_id, name));
+                }
+            }
+            groups.sort_by(|a, b| (a.0.is_none(), a.1.to_lowercase()).cmp(&(b.0.is_none(), b.1.to_lowercase())));
+            Ok(groups
+                .iter()
+                .map(|(k, name)| {
+                    let sub: Vec<tickets::Model> = list.iter().filter(|t| t.assignee_id == *k).cloned().collect();
+                    lane(name.clone(), &sub)
+                })
+                .collect())
+        }
+        "epic" => {
+            let wid = access.tenant.workspace_id();
+            let parent_ids: Vec<Uuid> = list.iter().filter_map(|t| t.parent_id).collect();
+            let parents = tickets::Entity::find()
+                .filter(tickets::Column::WorkspaceId.eq(wid.get()))
+                .filter(tickets::Column::Id.is_in(parent_ids))
+                .all(&ctx.db)
+                .await?;
+            let epic_of = |t: &tickets::Model| {
+                t.parent_id
+                    .and_then(|p| parents.iter().find(|x| x.id == p))
+                    .filter(|p| lookup.ticket_type(p.type_id).key == "epic")
+                    .map(|p| (p.id, format!("{} · {}", p.code, p.title)))
+            };
+            for t in list {
+                let (k, title) = epic_of(t).map_or((None, String::new()), |(id, s)| (Some(id), s));
+                if !groups.iter().any(|(x, _)| *x == k) {
+                    groups.push((k, title));
+                }
+            }
+            groups.sort_by_key(|g| g.0.is_none());
+            Ok(groups
+                .iter()
+                .map(|(k, title)| {
+                    let sub: Vec<tickets::Model> = list
+                        .iter()
+                        .filter(|t| epic_of(t).map(|e| e.0) == *k)
+                        .cloned()
+                        .collect();
+                    lane(title.clone(), &sub)
+                })
+                .collect())
+        }
+        _ => Ok(vec![lane(String::new(), list)]),
     }
 }
 
@@ -365,7 +448,7 @@ pub(super) async fn board(
         "none" => vec![PersonFilter::Unassigned],
         _ => Vec::new(),
     };
-    let tickets = tickets::Model::board(
+    let mut tickets = tickets::Model::board(
         &ctx.db,
         wid,
         &TicketQuery {
@@ -377,18 +460,71 @@ pub(super) async fn board(
         },
     )
     .await?;
+    // Board Scrum: tiket sprint terpilih (bawaan sprint aktif bila ada).
+    let sprint_list: Vec<crate::models::sprints::Model> =
+        crate::models::sprints::Model::of_project(&ctx.db, wid, access.project.id)
+            .await?
+            .into_iter()
+            .filter(|s| s.state() != crate::models::sprints::SprintState::Completed)
+            .collect();
+    let active = sprint_list
+        .iter()
+        .find(|s| s.state() == crate::models::sprints::SprintState::Active);
+    let selected = match query.sprint.as_str() {
+        "all" => None,
+        "" => active,
+        raw => Uuid::parse_str(raw)
+            .ok()
+            .and_then(|id| sprint_list.iter().find(|s| s.id == id)),
+    };
+    if let Some(s) = selected {
+        tickets.retain(|t| t.sprint_id == Some(s.id));
+    }
+    let sprint_param = match (query.sprint.as_str(), selected) {
+        ("all", _) => "all".to_string(),
+        (_, Some(s)) if Some(s.id) != active.map(|a| a.id) => s.id.to_string(),
+        _ => String::new(),
+    };
+    let swim = match query.swim.as_str() {
+        "assignee" | "epic" => query.swim.as_str(),
+        _ => "",
+    };
     let lookup = lookup(&ctx.db, &access.tenant, &tickets, &[]).await?;
     let home = project_paths(&access).home;
     let paths = BoardPaths::new(&home);
+    let st = BoardState { q: &q, who, sprint: &sprint_param, swim };
     let filter = BoardFilter {
-        mine_href: board_href(&paths.board, &q, if who == "me" { "" } else { "me" }),
-        unassigned_href: board_href(&paths.board, &q, if who == "none" { "" } else { "none" }),
-        clear_href: paths.board.clone(),
+        mine_href: board_href(&paths.board, BoardState { who: if who == "me" { "" } else { "me" }, ..st }),
+        unassigned_href: board_href(&paths.board, BoardState { who: if who == "none" { "" } else { "none" }, ..st }),
+        clear_href: board_href(&paths.board, BoardState { q: "", who: "", ..st }),
         mine: who == "me",
         unassigned: who == "none",
         total: tickets.len(),
-        q,
+        q: q.clone(),
     };
+    let mut sprint_chips: Vec<serde_json::Value> = Vec::new();
+    if !sprint_list.is_empty() {
+        sprint_chips.push(serde_json::json!({
+            "label": "", "href": board_href(&paths.board, BoardState { sprint: "all", ..st }),
+            "current": selected.is_none(), "active": false,
+        }));
+        for s in &sprint_list {
+            let param = if Some(s.id) == active.map(|a| a.id) { String::new() } else { s.id.to_string() };
+            sprint_chips.push(serde_json::json!({
+                "label": s.name, "href": board_href(&paths.board, BoardState { sprint: &param, ..st }),
+                "current": selected.is_some_and(|x| x.id == s.id),
+                "active": s.state() == crate::models::sprints::SprintState::Active,
+            }));
+        }
+    }
+    let swims: Vec<serde_json::Value> = [("", "board-swim-none"), ("assignee", "board-swim-assignee"), ("epic", "board-swim-epic")]
+        .iter()
+        .map(|(k, label)| serde_json::json!({
+            "label": label, "href": board_href(&paths.board, BoardState { swim: k, ..st }), "current": *k == swim,
+        }))
+        .collect();
+    let definitions = project_definitions(&ctx, &access, &tickets).await?;
+    let lanes = swim_lanes(&ctx, &access, &lookup, &definitions, &tickets, swim).await?;
     let shell = app_shell(
         &ctx,
         &access.tenant.user,
@@ -407,7 +543,14 @@ pub(super) async fn board(
             "views": nav::project_views(&home, &access.tenant.user.project_views, "board"),
             "views_action": PROJECT_VIEWS_ACTION,
             "return_to": paths.board,
-            "columns": stage_columns(&lookup, &project_definitions(&ctx, &access, &tickets).await?, &tickets),
+            "columns": stage_columns(&lookup, &definitions, &tickets),
+            "lanes": lanes,
+            "swim": swim,
+            "swims": swims,
+            "sprints": sprint_chips,
+            "sprint": selected.map(|s| serde_json::json!({
+                "name": s.name, "goal": s.goal, "range": crate::views::planning::range(s.starts_on, s.ends_on),
+            })),
             "filter": filter,
             "who": who,
             "paths": paths,

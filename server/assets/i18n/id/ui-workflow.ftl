@@ -366,3 +366,5 @@ flash-stage-decided = Keputusan disimpan.
 flash-stage-people-saved = Penugasan stage disimpan.
 flash-artifact-saved = Versi baru disimpan.
 flash-artifact-created = Artifact dibuat.
+workflow-wip = Batas WIP kolom board
+workflow-wip-hint = Jumlah tiket maksimal di stage ini. Melebihi batas hanya diberi tanda di board. Kosongkan bila tanpa batas.
