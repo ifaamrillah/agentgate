@@ -5,6 +5,7 @@ pub mod cleanup;
 pub mod dev_login;
 pub mod knowledge_audit;
 pub mod user_create;
+pub mod webhooks;
 pub mod user_set_password;
 
 use loco_rs::{Error, Result, task::Vars};

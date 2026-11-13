@@ -1,0 +1,36 @@
+/* API & webhook (M11): nilai yang bisa disalin (komponen copy_value), daftar cakupan token,
+   sel tujuan webhook, dan status pengiriman. Prototype: "M11 · API & webhook" di
+   docs/reference/ui-prototype/screens-m9-m11-m12.js (.pz-tok, .pz-cell). */
+@layer components {
+  .app-copy {
+    display: flex; align-items: center; gap: 8px; min-width: 0;
+    background: var(--ag-code-bg); border: 1px solid var(--ag-line); border-radius: 8px; padding: 6px 6px 6px 12px;
+  }
+  .app-copy-v { flex: 1; min-width: 0; font-family: var(--ag-mono); font-size: 12px; color: var(--ag-fg); overflow-wrap: anywhere; user-select: all; }
+  .app-copy[data-compact] { background: transparent; border: 0; padding: 0; }
+  .app-copy[data-compact] .app-copy-v { color: var(--ag-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; }
+  .app-copy [data-copy][data-done] { color: var(--ag-success); }
+
+  /* Sel dua baris: nama + keterangan mono kecil. */
+  .app-cell2 { display: grid; gap: 2px; min-width: 0; }
+  .app-cell2 > b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .app-cell2 > small { color: var(--ag-muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .app-cell2 > .app-code { font-size: 12px; }
+
+  /* Daftar cakupan token di dialog: checkbox + kode + keterangan. */
+  .app-scopes { border: 1px solid var(--ag-line); border-radius: 8px; }
+  .app-scopes > label { display: flex; align-items: center; gap: 10px; min-height: 42px; padding: 6px 12px; border-top: 1px solid var(--ag-line); cursor: pointer; }
+  .app-scopes > label:first-child { border-top: 0; }
+  .app-scopes > label > span { min-width: 0; }
+  .app-scopes .app-code { font-size: 12px; }
+
+  /* Status pengiriman terakhir webhook. */
+  .app-hook-st { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--ag-muted); }
+  .app-hook-st svg { width: 14px; height: 14px; flex-shrink: 0; }
+  .app-hook-st[data-state='ok'] { color: var(--ag-success); }
+  .app-hook-st[data-state='fail'] { color: var(--ag-danger); }
+
+  .app-api-grid2 { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (max-width: 640px) { .app-api-grid2 { grid-template-columns: minmax(0, 1fr); } }
+  .app-api-pre { white-space: pre-wrap; word-break: break-all; max-height: 260px; overflow: auto; }
+}

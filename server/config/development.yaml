@@ -84,6 +84,13 @@ scheduler:
       run: knowledge_audit
       schedule: "0 0 2 * * *"
       tags: ["knowledge"]
+    # Jaring pengaman webhook (task `webhooks`, M11): kirim delivery yang tertahan (worker mati
+    # atau enqueue gagal) dan yang jatuh tempo retry. Tiap menit; claim bersyarat membuat
+    # sapuan yang tumpang tindih tidak mengirim dua kali.
+    webhooks:
+      run: webhooks
+      schedule: "0 * * * * *"
+      tags: ["webhooks"]
 
 mailer:
   smtp:

@@ -1146,3 +1146,104 @@ async fn visual_enum_checks_match_enums() {
     }
     assert!(!update_ok(db, "office_looks", "subject", look, "bot").await);
 }
+
+#[tokio::test]
+async fn api_webhook_enum_checks_match_enums() {
+    use agentgate_server::models::{
+        api_tokens::ApiScope, outbox_events::WebhookEvent, webhook_deliveries::DeliveryStatus,
+    };
+
+    use crate::support::{a_project, a_user, a_workspace};
+
+    let boot = boot_test::<App>().await.unwrap();
+    let ctx = &boot.app_context;
+    let db = &ctx.db;
+    let owner = a_user().create(ctx).await;
+    let workspace = a_workspace(&owner).create(ctx).await;
+    let project = a_project(ctx, &workspace, "API").await;
+    let run = |sql: &str, values: Vec<Value>| {
+        let stmt = Statement::from_sql_and_values(DbBackend::Postgres, sql, values);
+        async move { db.execute_raw(stmt).await.is_ok() }
+    };
+    let token = |scopes: Vec<String>| {
+        run(
+            "INSERT INTO api_tokens (workspace_id, user_id, name, prefix, digest, scopes) \
+             VALUES ($1, $2, 'T', 'ag_pat_x', $3, $4)",
+            vec![
+                workspace.id.into(),
+                owner.id.into(),
+                Uuid::now_v7().to_string().into(),
+                scopes.into(),
+            ],
+        )
+    };
+    for s in ApiScope::iter() {
+        assert!(token(vec![s.as_str()]).await, "{s:?}");
+    }
+    assert!(token(ApiScope::iter().map(ApiScope::as_str).collect()).await);
+    assert!(!token(vec!["tiket:hapus".to_string()]).await);
+    assert!(!token(Vec::new()).await);
+
+    let hook = |events: Vec<String>| {
+        run(
+            "INSERT INTO webhooks (workspace_id, url, secret_encrypted, events) \
+             VALUES ($1, 'https://contoh.id/h', '\\x00', $2)",
+            vec![workspace.id.into(), events.into()],
+        )
+    };
+    for e in WebhookEvent::subscribable() {
+        assert!(hook(vec![e.as_str()]).await, "{e:?}");
+    }
+    assert!(!hook(vec![WebhookEvent::Ping.as_str()]).await);
+    assert!(!hook(vec!["ticket.exploded".to_string()]).await);
+
+    let outbox = |event: String| {
+        run(
+            "INSERT INTO outbox_events (workspace_id, project_id, event, subject_id) \
+             VALUES ($1, $2, $3, $4)",
+            vec![
+                workspace.id.into(),
+                project.id.into(),
+                event.into(),
+                Uuid::now_v7().into(),
+            ],
+        )
+    };
+    for e in WebhookEvent::subscribable() {
+        assert!(outbox(e.as_str()).await, "{e:?}");
+    }
+    assert!(!outbox("ping".to_string()).await);
+
+    let hook_id = db
+        .query_one_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "INSERT INTO webhooks (workspace_id, url, secret_encrypted, events) \
+             VALUES ($1, 'https://contoh.id/x', '\\x00', ARRAY['ticket.created']) RETURNING id",
+            [workspace.id.into()],
+        ))
+        .await
+        .unwrap()
+        .unwrap()
+        .try_get::<Uuid>("", "id")
+        .unwrap();
+    let delivery = |event: String, status: String| {
+        run(
+            "INSERT INTO webhook_deliveries (workspace_id, webhook_id, event, body, status) \
+             VALUES ($1, $2, $3, '{}', $4)",
+            vec![
+                workspace.id.into(),
+                hook_id.into(),
+                event.into(),
+                status.into(),
+            ],
+        )
+    };
+    for e in WebhookEvent::iter() {
+        assert!(delivery(e.as_str(), "pending".into()).await, "{e:?}");
+    }
+    for s in DeliveryStatus::iter() {
+        assert!(delivery("ping".into(), s.to_value()).await, "{s:?}");
+    }
+    assert!(!delivery("ping".into(), "sent".into()).await);
+    assert!(!delivery("job.started".into(), "pending".into()).await);
+}

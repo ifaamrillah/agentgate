@@ -241,6 +241,21 @@ async fn render_page(
             { "id": "never", "name": "api-expiry-never" },
         ],
     });
+    data["token_form"] = data["extra"]["token_failed"].clone();
+    if data["token_form"].is_null() {
+        data["token_form"] = serde_json::json!({
+            "name": "", "scopes": ["tiket:baca"], "expiry": TokenExpiry::Days90.key(),
+            "project": "all", "field": "", "code": "",
+        });
+    }
+    data["hook_form"] = data["extra"]["hook_failed"].clone();
+    if data["hook_form"].is_null() {
+        data["hook_form"] = serde_json::json!({
+            "id": null, "url": "", "events": [], "projects": ["all"], "field": "", "code": "",
+        });
+    } else if data["hook_form"]["projects"].as_array().is_some_and(Vec::is_empty) {
+        data["hook_form"]["projects"] = serde_json::json!(["all"]);
+    }
     let token_scopes: Vec<String> = data["extra"]["token_failed"]["scopes"]
         .as_array()
         .map(|a| a.iter().filter_map(|s| s.as_str().map(str::to_string)).collect())
@@ -432,16 +447,17 @@ async fn create_token(
     let input = TokenInput {
         name: value(&form, "name"),
         scopes: values(&form, "scopes"),
-        expiry: {
-            let e = value(&form, "expiry");
-            if TokenExpiry::parse(&e).is_some() { e } else { e.clone() }
-        },
+        expiry: value(&form, "expiry"),
         project: value(&form, "project"),
     };
     match token_svc::create(&ctx.db, &acting(&tenant, request_id), &input).await {
         Ok((token, raw)) => {
             let extra = Extra {
-                token_created: Some(serde_json::json!({ "name": token.name, "raw": raw })),
+                token_created: Some(serde_json::json!({
+                    "name": token.name,
+                    "preview": format!("{}…", raw.chars().take(14).collect::<String>()),
+                    "raw": raw,
+                })),
                 ..Extra::default()
             };
             render_page(&ctx, &v, &tenant, "tokens", &[], None, extra).await

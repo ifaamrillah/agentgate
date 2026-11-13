@@ -1,0 +1,8 @@
+{#- Isian webhook (dialog baru/ubah). Variabel: prefix (awalan id), f_url, f_events, f_projects,
+    f_field, f_code (isian yang ditolak), event_options, project_options. -#}
+{%- if f_field == "url" %}{% set url_error = f_code %}{% else %}{% set url_error = "" %}{% endif %}
+{{ <field id={prefix ~ "-url"} name="url" type="url" label={t(key="api-hook-url", lang="id")} value={f_url} placeholder="https://contoh.id/hooks/agentgate" mono={true} required={true} error={url_error} hint={t(key="api-hook-url-hint", lang="id")}/> }}
+{%- if f_field == "events" %}{% set events_error = f_code %}{% else %}{% set events_error = "" %}{% endif %}
+{{ <combo id={prefix ~ "-events"} name="events" label={t(key="api-col-event", lang="id")} options={event_options} values={f_events} multiple={true} placeholder={t(key="api-hook-events-placeholder", lang="id")} error={events_error}/> }}
+{%- if f_field == "projects" %}{% set projects_error = f_code %}{% else %}{% set projects_error = "" %}{% endif %}
+{{ <combo id={prefix ~ "-projects"} name="projects" label={t(key="api-project", lang="id")} options={project_options} values={f_projects} multiple={true} error={projects_error} hint={t(key="api-hook-projects-hint", lang="id")}/> }}

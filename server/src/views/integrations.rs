@@ -71,6 +71,8 @@ pub fn label_keys() -> Vec<String> {
     .map(|k| (*k).to_string())
     .collect();
     keys.extend(<ApiScope as sea_orm::Iterable>::iter().map(ApiScope::label_key));
+    keys.extend(DELIVERY_ERRORS.iter().map(|c| error_key(c)));
+    keys.push(error_key(""));
     keys
 }
 
@@ -158,6 +160,8 @@ pub struct HookRow {
     pub events: Vec<String>,
     pub projects: Vec<String>,
     pub project_keys: Vec<String>,
+    /// Nilai awal combo project di dialog ubah (`["all"]` bila tanpa filter).
+    pub form_projects: Vec<String>,
     pub active: bool,
     /// `ok` / `fail` / `off` / `none`.
     pub state: &'static str,
@@ -186,6 +190,11 @@ impl HookRow {
         };
         let mut events = h.events.clone();
         events.sort();
+        let project_keys: Vec<String> = h
+            .project_ids
+            .iter()
+            .filter_map(|p| project_names.get(p).map(|(k, _)| k.clone()))
+            .collect();
         Self {
             id: h.id,
             url: h.url.clone(),
@@ -196,11 +205,12 @@ impl HookRow {
                 .iter()
                 .filter_map(|p| project_names.get(p).map(|(_, n)| n.clone()))
                 .collect(),
-            project_keys: h
-                .project_ids
-                .iter()
-                .filter_map(|p| project_names.get(p).map(|(k, _)| k.clone()))
-                .collect(),
+            project_keys: project_keys.clone(),
+            form_projects: if project_keys.is_empty() {
+                vec!["all".to_string()]
+            } else {
+                project_keys
+            },
             active: h.is_active(),
             state,
             last_status: h.last_status,
@@ -220,6 +230,8 @@ impl HookRow {
 #[derive(Debug, Serialize)]
 pub struct DeliveryRow {
     pub id: Uuid,
+    /// Judul dialog detail: `event · status`.
+    pub title: String,
     pub at: String,
     pub event: String,
     pub host: String,
@@ -230,6 +242,8 @@ pub struct DeliveryRow {
     pub duration_ms: Option<i32>,
     pub attempts: i32,
     pub error: String,
+    /// Kunci Fluent penjelasan `error` (`api-error-*`).
+    pub error_key: String,
     pub payload: String,
     pub response: String,
     pub resend_action: String,
@@ -249,6 +263,11 @@ impl DeliveryRow {
             .unwrap_or_else(|| d.body.clone());
         Self {
             id: d.id,
+            title: format!(
+                "{} · {}",
+                d.event,
+                d.response_status.map_or_else(|| "–".to_string(), |s| s.to_string())
+            ),
             at: super::time::wib_datetime(&d.created_at),
             event: d.event.clone(),
             host: hook.map(webhooks::Model::host).unwrap_or_default(),
@@ -258,10 +277,33 @@ impl DeliveryRow {
             duration_ms: d.duration_ms,
             attempts: d.attempts,
             error: d.error.clone(),
+            error_key: error_key(&d.error),
             payload,
             response: d.response_body.clone(),
             resend_action: format!("{base}/log/{}/resend", d.id),
         }
+    }
+}
+
+/// Kode galat pengiriman (`dispatch`, `url_guard`) yang punya penjelasan.
+pub const DELIVERY_ERRORS: &[&str] = &[
+    "timeout",
+    "connect_failed",
+    "request_failed",
+    "client_error",
+    "secret_unavailable",
+    "webhook_disabled",
+    "webhook-url-invalid",
+    "webhook-url-forbidden",
+];
+
+/// `api-error-<kode>`; kode tak dikenal → `api-error-other`.
+#[must_use]
+pub fn error_key(code: &str) -> String {
+    if DELIVERY_ERRORS.contains(&code) {
+        format!("api-error-{}", code.replace('_', "-").trim_start_matches("webhook-"))
+    } else {
+        "api-error-other".to_string()
     }
 }
 

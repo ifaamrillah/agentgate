@@ -185,6 +185,7 @@ impl Hooks for App {
         tasks.register(crate::tasks::dev_login::DevLogin);
         tasks.register(crate::tasks::cleanup::Cleanup);
         tasks.register(crate::tasks::knowledge_audit::KnowledgeAudit);
+        tasks.register(crate::tasks::webhooks::Webhooks);
         tasks.register(crate::tasks::user_create::UserCreate);
         tasks.register(crate::tasks::user_set_password::UserSetPassword);
     }

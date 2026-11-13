@@ -479,3 +479,23 @@ impl Model {
             .await
     }
 }
+
+/// Hapus event outbox lebih tua dari [`webhook_deliveries::RETENTION_DAYS`] hari (job
+/// pembersihan). Delivery yang merujuknya memakai `ON DELETE SET NULL`.
+///
+/// # Errors
+///
+/// Error database.
+pub async fn delete_expired<C: ConnectionTrait>(
+    db: &C,
+    now: chrono::DateTime<chrono::Utc>,
+    dry_run: bool,
+) -> Result<u64, DbErr> {
+    let cutoff =
+        DateTimeWithTimeZone::from(now - chrono::Duration::days(webhook_deliveries::RETENTION_DAYS));
+    let filter = Column::CreatedAt.lt(cutoff);
+    if dry_run {
+        return Entity::find().filter(filter).count(db).await;
+    }
+    Ok(Entity::delete_many().filter(filter).exec(db).await?.rows_affected)
+}
