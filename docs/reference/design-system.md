@@ -282,3 +282,34 @@ katalog `/_dev/ui` di commit yang sama.
 - **Pencarian lanjutan** `app-jql`: saved filter kiri `app-jql-sf` (`li[data-current]`), kotak
   query mono `app-jql-q`, error `app-jql-err`, bantuan field `app-jql-help`, bar edit massal
   `app-jql-bar`; checkbox baris memakai atribut `form` ke dialog Edit massal. < 860px satu kolom.
+
+## M10 (Visual)
+
+- **Tanpa komponen Tera baru**; pola CSS per fitur, katalog `/_dev/ui` kartu "Visual (M10)".
+- **Penghemat token** (tab project `tokens`, `components/tokens.css`): `stats`, baris fitur
+  `app-tk-feat` (nama + keterangan, badge Wajib terkunci / Opsional, hemat 30 hari, `app-switch`;
+  fitur wajib = switch `disabled` dengan `title`), catatan `app-tk-note`, grafik minggu
+  `views::charts` di `app-tk-ch` + `app-leg`, batang bertumpuk per tiket `app-hbar-t[data-stack]`,
+  `datatable` per job. < 900px kolom jenis/hemat disembunyikan.
+- **Graph viewer** (`/graph/viewer`, `components/graph.css`): kanvas SVG server-side
+  `app-gv-stage`/`app-gv-svg` (node `app-gv-n[data-kind][data-hl]`, sisi `app-gv-e`, penanda
+  `app-gv-mk`), breadcrumb level `app-gv-bc`, toolbar `app-gv-tool` (filter layer, cari `app-gv-srch`),
+  panel samping `app-gv-side`. Geser/zoom `static/js/graph-viewer.js` lewat `viewBox`; tanpa JS
+  kanvas digulir dan semua aksi berupa tautan.
+- **Pratinjau mockup** (`/t/{code}/mockup/{id}`, `components/mockup.css`): bingkai peramban
+  `app-mk-frame[data-dev=web|mobile]` (bar `app-mk-bar` + `app-mk-url`), iframe `sandbox` dari
+  domain `PREVIEW_URL`, bandingkan dengan screenshot QA `app-mk-cmp`, thumbnail `app-mk-thumbs`,
+  kartu keputusan lengket `app-mk-side`.
+- **AI Office** (`/w/{slug}/office`, menu samping, `components/office.css`): `app-of` = panggung
+  `app-of-stage` (kanvas `static/js/office-engine.mjs`, dimuat lazy oleh `office.js`) + panel
+  `app-of-side` (344px; < 1200px di bawah kanvas). Di atas kanvas: overlay `app-of-ov[data-pos]`
+  berisi kartu `app-of-card` (ringkasan `app-of-sum`, tombol `app-of-tbtn`, zoom `app-of-zoom`,
+  mini-map `app-of-mm`), petunjuk `app-of-hint`. Label HTML: karakter `app-of-lb`
+  (`plain|warn|dng|gray`, `.sel`, `.cmp` saat zoom kecil; warn/dng mengambang + ping kecuali
+  `prefers-reduced-motion`) dan ruangan `app-of-rl` (`.on` saat difokus). Tab ruangan =
+  `app-tabs app-of-tabs` dengan tombol `aria-pressed`. Panel: kartu `card` (Perlu tindakan
+  `app-of-todo`, Runner `app-of-run`, Aktivitas `app-of-feed`) atau detail `app-of-dcard`
+  (pratinjau `app-of-pv`, `app-props`, progres + `log_view` dipolling, aksi `app-of-acts`).
+  Dialog Kustom karakter `app-of-look` (pratinjau besar + `color_picker` + chip `app-of-chip`).
+  Warna status kanvas = warna `badge`: bekerja ai, butuh approval gate, butuh keputusan
+  destructive, rapat info, menganggur/jeda neutral, online success.
