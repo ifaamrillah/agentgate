@@ -144,7 +144,8 @@ pub async fn collect_pending<F: Future>(fut: F) -> (F::Output, Vec<Uuid>) {
         .await
 }
 
-fn note_pending(ids: &[Uuid]) {
+/// Catat delivery yang baru ditulis untuk dikirim setelah request selesai (setelah commit).
+pub(crate) fn note_pending(ids: &[Uuid]) {
     // Di luar scope `collect_pending`, `try_with` gagal: diabaikan (sapuan scheduler).
     let _ = PENDING.try_with(|p| p.borrow_mut().extend_from_slice(ids));
 }
@@ -208,9 +209,8 @@ pub async fn publish<C: ConnectionTrait>(db: &C, new: NewEvent) -> Result<Model,
         return Ok(row);
     }
     let body = payload.to_string();
-    let mut ids = Vec::with_capacity(hooks.len());
     for hook in &hooks {
-        let d = webhook_deliveries::ActiveModel::enqueue(
+        webhook_deliveries::ActiveModel::enqueue(
             db,
             new.workspace_id,
             hook.id,
@@ -219,9 +219,7 @@ pub async fn publish<C: ConnectionTrait>(db: &C, new: NewEvent) -> Result<Model,
             body.clone(),
         )
         .await?;
-        ids.push(d.id);
     }
-    note_pending(&ids);
     Ok(row)
 }
 

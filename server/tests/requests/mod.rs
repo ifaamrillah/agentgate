@@ -1,5 +1,6 @@
 mod account;
 mod agents;
+mod api;
 mod auth;
 mod csrf;
 mod dev_ui;

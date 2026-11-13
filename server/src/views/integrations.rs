@@ -293,15 +293,16 @@ pub const DELIVERY_ERRORS: &[&str] = &[
     "client_error",
     "secret_unavailable",
     "webhook_disabled",
-    "webhook-url-invalid",
-    "webhook-url-forbidden",
+    "url_invalid",
+    "url_forbidden",
+    "dns_failed",
 ];
 
 /// `api-error-<kode>`; kode tak dikenal → `api-error-other`.
 #[must_use]
 pub fn error_key(code: &str) -> String {
     if DELIVERY_ERRORS.contains(&code) {
-        format!("api-error-{}", code.replace('_', "-").trim_start_matches("webhook-"))
+        format!("api-error-{}", code.replace('_', "-"))
     } else {
         "api-error-other".to_string()
     }

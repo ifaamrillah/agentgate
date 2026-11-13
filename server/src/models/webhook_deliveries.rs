@@ -212,7 +212,7 @@ impl ActiveModel {
         event: WebhookEvent,
         body: String,
     ) -> Result<Model, DbErr> {
-        Self {
+        let d = Self {
             workspace_id: Set(wid.get()),
             webhook_id: Set(webhook_id),
             event_id: Set(event_id),
@@ -223,7 +223,10 @@ impl ActiveModel {
             ..Default::default()
         }
         .insert(db)
-        .await
+        .await?;
+        // Dikirim worker setelah request (dan transaksinya) selesai; di luar request, sapuan.
+        super::outbox_events::note_pending(&[d.id]);
+        Ok(d)
     }
 
     /// Catat hasil percobaan pada baris yang sudah di-claim: berhasil → `succeeded`; gagal →

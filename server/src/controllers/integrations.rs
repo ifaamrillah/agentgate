@@ -399,6 +399,24 @@ async fn index(State(_ctx): State<AppContext>, tenant: Tenant) -> Result<Respons
     format::redirect(&format!("{}/tokens", base(&tenant.workspace.slug)))
 }
 
+async fn show(
+    ctx: &AppContext,
+    v: &TeraView,
+    tenant: &Tenant,
+    session: Session,
+    panel: &str,
+    query: &[(String, String)],
+) -> Result<Response> {
+    require(tenant)?;
+    if !PANELS.iter().any(|(k, ..)| *k == panel) {
+        return Err(Error::NotFound);
+    }
+    let (session, flash) = flash::take(session);
+    let res = render_page(ctx, v, tenant, panel, query, flash, Extra::default()).await?;
+    Ok((session, res).into_response())
+}
+
+/// `GET …/settings/api/{log|docs}`.
 #[debug_handler]
 async fn page(
     State(ctx): State<AppContext>,
@@ -408,13 +426,31 @@ async fn page(
     Path((_, panel)): Path<(String, String)>,
     Query(query): Query<Vec<(String, String)>>,
 ) -> Result<Response> {
-    require(&tenant)?;
-    if !PANELS.iter().any(|(k, ..)| *k == panel) {
-        return Err(Error::NotFound);
-    }
-    let (session, flash) = flash::take(session);
-    let res = render_page(&ctx, &v, &tenant, &panel, &query, flash, Extra::default()).await?;
-    Ok((session, res).into_response())
+    show(&ctx, &v, &tenant, session, &panel, &query).await
+}
+
+/// `GET …/settings/api/tokens` (path yang sama dengan POST buat token).
+#[debug_handler]
+async fn tokens_page(
+    State(ctx): State<AppContext>,
+    ViewEngine(v): ViewEngine<TeraView>,
+    tenant: Tenant,
+    session: Session,
+    Query(query): Query<Vec<(String, String)>>,
+) -> Result<Response> {
+    show(&ctx, &v, &tenant, session, "tokens", &query).await
+}
+
+/// `GET …/settings/api/hooks` (path yang sama dengan POST buat webhook).
+#[debug_handler]
+async fn hooks_page(
+    State(ctx): State<AppContext>,
+    ViewEngine(v): ViewEngine<TeraView>,
+    tenant: Tenant,
+    session: Session,
+    Query(query): Query<Vec<(String, String)>>,
+) -> Result<Response> {
+    show(&ctx, &v, &tenant, session, "hooks", &query).await
 }
 
 fn values(form: &[(String, String)], key: &str) -> Vec<String> {
@@ -665,9 +701,12 @@ async fn resend(
 pub fn routes() -> Routes {
     Routes::new()
         .add("/w/{slug}/settings/api", get(index))
-        .add("/w/{slug}/settings/api/tokens", post(create_token))
+        .add(
+            "/w/{slug}/settings/api/tokens",
+            get(tokens_page).post(create_token),
+        )
         .add("/w/{slug}/settings/api/tokens/{id}/revoke", post(revoke_token))
-        .add("/w/{slug}/settings/api/hooks", post(create_hook))
+        .add("/w/{slug}/settings/api/hooks", get(hooks_page).post(create_hook))
         .add("/w/{slug}/settings/api/hooks/{id}", post(update_hook))
         .add("/w/{slug}/settings/api/hooks/{id}/toggle", post(toggle_hook))
         .add("/w/{slug}/settings/api/hooks/{id}/ping", post(ping_hook))
