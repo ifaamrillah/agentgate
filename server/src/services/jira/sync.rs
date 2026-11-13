@@ -24,7 +24,7 @@ use axum::body::Bytes;
 use chrono::{DateTime, Utc};
 use loco_rs::storage::Storage;
 use sea_orm::{
-    ActiveEnum, ActiveModelTrait, ActiveValue::Set, ColumnTrait, DatabaseConnection, DbErr,
+    ActiveModelTrait, ActiveValue::Set, ColumnTrait, DatabaseConnection, DbErr,
     EntityTrait, IntoActiveModel, QueryFilter, QueryOrder, TransactionTrait,
 };
 use uuid::Uuid;

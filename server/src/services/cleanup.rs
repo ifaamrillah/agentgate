@@ -13,7 +13,7 @@
 //! 6. Tiket yang di sampah lebih dari [`tickets::trash::RETENTION_DAYS`] hari, beserta file
 //!    lampirannya (`services::tickets::trash::purge_expired`).
 //! 7. Log webhook (M11): delivery selesai dan event outbox lebih dari 30 hari, serta baris
-//!    rate limit API yang jendelanya sudah lewat.
+//!    rate limit API yang jendelanya sudah lewat, dan log sinkron Jira lebih dari 30 hari.
 //! 8. Ekspor data `ready` yang lewat 7 hari → `expired`, berkas ZIP-nya dihapus (M11).
 //! 9. Laporan baris dilewati impor CSV yang lewat 30 hari dikosongkan (M11).
 //! 10. Draf impor CSV yang ditinggal lebih dari 7 hari dibatalkan, berkas sumbernya dihapus.
@@ -175,7 +175,8 @@ pub async fn run(ctx: &AppContext, mode: CleanupMode) -> CleanupReport {
         Ok::<_, loco_rs::Error>(
             webhook_deliveries::delete_expired(&ctx.db, now, dry).await?
                 + outbox_events::delete_expired(&ctx.db, now, dry).await?
-                + api_rate_limits::delete_stale(&ctx.db, now, dry).await?,
+                + api_rate_limits::delete_stale(&ctx.db, now, dry).await?
+                + crate::models::jira_sync_logs::delete_expired(&ctx.db, now, dry).await?,
         )
     };
     report.push(CleanupStep::Webhooks, webhooks.await);

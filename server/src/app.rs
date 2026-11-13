@@ -186,6 +186,10 @@ impl Hooks for App {
                 ctx,
             ))
             .await?;
+        // Sinkron Jira (M11).
+        queue
+            .register(crate::workers::jira_sync::JiraSyncWorker::build(ctx))
+            .await?;
         Ok(())
     }
 
@@ -194,6 +198,7 @@ impl Hooks for App {
         tasks.register(crate::tasks::dev_login::DevLogin);
         tasks.register(crate::tasks::cleanup::Cleanup);
         tasks.register(crate::tasks::export_sweep::ExportSweep);
+        tasks.register(crate::tasks::jira_sync::JiraSync);
         tasks.register(crate::tasks::knowledge_audit::KnowledgeAudit);
         tasks.register(crate::tasks::webhooks::Webhooks);
         tasks.register(crate::tasks::user_create::UserCreate);
