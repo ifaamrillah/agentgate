@@ -1,6 +1,6 @@
 //! Log sinkron Jira (M11): satu baris per perubahan yang dikirim/ditarik, ditolak gate, atau
 //! gagal. Pesan disimpan sebagai kunci Fluent (`message`) + argumen (`args`: `detail`, `status`,
-//! `stage`, `size`, `email`), diterjemahkan saat dirender, bukan kalimat jadi.
+//! `stage`, `size`, `email`, `reason`, `back`), diterjemahkan saat dirender, bukan kalimat jadi.
 
 use chrono::{DateTime, Duration, Utc};
 use sea_orm::{
@@ -59,6 +59,12 @@ pub struct LogArgs {
     pub size: String,
     #[serde(default)]
     pub email: String,
+    /// Kunci Fluent alasan (mis. kode gate yang ditolak); `""` = tanpa.
+    #[serde(default)]
+    pub reason: String,
+    /// Status Jira tujuan pengembalian.
+    #[serde(default)]
+    pub back: String,
 }
 
 /// Baris log baru.
