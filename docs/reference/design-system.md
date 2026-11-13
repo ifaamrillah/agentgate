@@ -247,3 +247,38 @@ katalog `/_dev/ui` di commit yang sama.
   properti/outline/terhubung/riwayat). CSS: `components/knowledge.css`.
 - **Pengaturan → Knowledge workspace**: `subpage` Dokumen workspace / Jenis dokumen / Update
   otomatis; dokumen dan jenis custom = halaman sendiri (editor + pengaturan di samping).
+
+## M9 (Planning & laporan)
+
+- **Tanpa komponen Tera baru**; pola CSS di `components/planning.css` (nama berawalan unik agar
+  tidak bentrok dengan `subpage`/`agent`: `app-spr*`, `app-choice`, `app-boxlist`). Katalog
+  `/_dev/ui`, kartu "Planning (M9)".
+- **Grafik** `views::charts` (SVG server-side, di-escape, `| safe`): `line_chart` (burndown,
+  burnup; seri `tone` muted/accent/success/warn, `dash`, `area`, `Mark` "Hari ini"),
+  `pair_bars` (velocity komitmen vs selesai), `stacked_area` (CFD), `scatter` (kalibrasi
+  estimasi). Legenda `app-leg` (`<i data-c data-dash>`). Tooltip `<title>` per kolom.
+- **Backlog** (tab project `backlog`): blok sprint `app-spr` (kepala `app-spr-h`: judul + badge
+  keadaan + rentang, tujuan `app-spr-goal`, kapasitas `app-spr-cap` + `app-bar[data-over]`),
+  baris tiket `app-tr` (grip `app-tr-grip`, seret-lepas `static/js/backlog-dnd.js` dengan
+  `data-drop-target`; tanpa JS: menu Pindahkan), `app-spr-add`, `app-spr-empty`. Mulai/Selesaikan
+  sprint = `dialog` dengan pilihan `app-choice` (radio/checkbox berjudul + keterangan).
+- **Estimasi AI** di detail tiket: `app-est-grid` (poin, jam per stage `app-est-stages`), aksi
+  `app-est-acts`; poin di kartu/baris `app-pts`.
+- **Laporan** (tab `reports`): `tabs` burndown/burnup/velocity/sprint/CFD/kalibrasi, `stats`,
+  `app-chart` (gulir horizontal `app-chart-w` di layar sempit), bar horizontal `app-hbars`.
+  "Cetak / PDF" lewat `static/js/print.js` (stylesheet cetak menyembunyikan shell).
+- **Rilis**: `datatable` versi (progres `app-rel-prog` + `app-bar`), detail dengan tiket
+  `app-boxlist`, release notes = `md_editor` + riwayat versi (pulihkan, terbitkan, susun AI).
+- **Components** (Pengaturan project): `subpage` Daftar/Aturan, modul code graph `app-mod`.
+- **Roadmap** `app-tl`: label kiri lengket (`--tl-lab`), header bulan/minggu `app-tl-h`/`app-tl-hd`,
+  baris `app-tl-r`, batang `app-tl-bar[data-est][data-late]`, penanda rilis/hari ini `app-tl-mk`,
+  pita sprint `app-tl-spb`, panah blocks SVG `app-tl-ov`. Zoom minggu/bulan/kuartal = `tabs`;
+  `static/js/timeline.js` menggulir ke hari ini.
+- **Kalender** `app-cal`: grid 6 minggu mulai Senin (`app-cal-w`, `app-cal-d[data-today][data-out]`),
+  acara `app-cal-ev[data-kind=due|forecast|release]`, pita sprint `app-cal-band`; < 640px menjadi
+  daftar per hari (`app-cal-mon`).
+- **Board Scrum**: chip sprint `app-board-sprints` + tujuan `app-board-goal`, swimlane
+  `app-lane-h` (penerima/epic), kolom melewati batas WIP `.app-bcol[data-over]` + angka `n / wip`.
+- **Pencarian lanjutan** `app-jql`: saved filter kiri `app-jql-sf` (`li[data-current]`), kotak
+  query mono `app-jql-q`, error `app-jql-err`, bantuan field `app-jql-help`, bar edit massal
+  `app-jql-bar`; checkbox baris memakai atribut `form` ke dialog Edit massal. < 860px satu kolom.

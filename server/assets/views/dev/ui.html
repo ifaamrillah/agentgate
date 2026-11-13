@@ -224,6 +224,20 @@
   <div class="app-lrow">{{ <lang_bar parts={graph.langs}/> }}</div>
   {{ <code_view lines={graph.lines} label="kasir-api/src/refund.ts"/> }}
 {% </card> %}
+{% <card title="Planning (M9)" description="app-spr: blok sprint (judul, tujuan, kapasitas + app-bar). views::charts: grafik SVG server-side (burndown/burnup/velocity/CFD) + app-leg. app-choice: pilihan radio/checkbox berjudul. app-jql-err: pesan query JQL." flush={true} attrs="data-catalog-planning"> %}
+  <section class="app-spr" aria-label="Sprint 4">
+    <header class="app-spr-h">
+      <div class="app-spr-t"><div><h2>Sprint 4</h2>{{ <badge label="Aktif" variant="info"/> }}<span class="app-hint">9–22 Des</span></div><span class="app-spr-goal">{{ icon(name="target") }}Kasir tetap jalan saat offline</span></div>
+      <div class="app-spr-cap"><div><span class="app-hint">5 tiket</span><span class="tabular-nums">19 / 30 poin</span></div><div class="app-bar"><i style="width: 37%; --c: var(--ag-success)"></i></div></div>
+    </header>
+  </section>
+  <div class="app-blk">{{ planning.chart | safe }}<div class="app-leg"><span><i data-c="muted" data-dash></i>Ideal</span><span><i data-c="accent"></i>Sisa poin</span></div></div>
+  <div class="app-blk">
+    <label class="app-choice"><input type="radio" name="catalog-choice" checked><span><b>Pindahkan ke Sprint 5</b><small>Tiket belum selesai ikut ke sprint berikutnya.</small></span></label>
+    <label class="app-choice"><input type="radio" name="catalog-choice"><span><b>Kembalikan ke backlog</b><small>Tanpa sprint.</small></span></label>
+  </div>
+  <div class="app-blk"><p class="app-jql-err">{{ icon(name="alert-circle") }}<span>Field “warna” tidak dikenal. Coba: project, stage, status, assignee, type, sprint.</span></p></div>
+{% </card> %}
 </div>
 
 <div id="editor">
