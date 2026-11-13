@@ -10,7 +10,7 @@
       {{ <log_view lines={logs} live={job.status == "running"} empty={t(key="job-log-empty", lang="id")}/> }}
     {% </card> %}
     {%- if job.summary %}
-    {% <card title={t(key="job-summary", lang="id")} attrs="data-summary"> %}<div class="app-prose">{{ job.summary }}</div>{% </card> %}
+    {% <card title={t(key="job-summary", lang="id")} attrs="data-summary"> %}{{ <md_view text={job.summary}/> }}{% </card> %}
     {%- endif %}
   </div>
   <aside>

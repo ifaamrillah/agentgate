@@ -27,7 +27,7 @@
     {% </card> %}
     {%- else %}
     {% <card title={t(key="ticket-field-description", lang="id")}> %}
-      {%- if description %}<div class="app-prose" data-ticket-description>{{ description }}</div>{% else %}<p class="app-hint">{{ t(key="ticket-description-empty", lang="id") }}</p>{% endif %}
+      {{ <md_view text={description} attrs="data-ticket-description" empty={t(key="ticket-description-empty", lang="id")}/> }}
     {% </card> %}
     {%- endif %}
     </div>
@@ -115,7 +115,7 @@
         {%- if c.author %}{{ <avatar initials={c.author.initials} color={c.author.color} label={c.author.name} size="md"/> }}{% else %}<span class="app-av-empty"></span>{% endif %}
         <span>
           <b>{% if c.author %}{{ c.author.name }}{% else %}{{ t(key="person-removed", lang="id") }}{% endif %}</b> <time>{{ c.at }}{% if c.edited %} · {{ t(key="ticket-comment-edited", lang="id") }}{% endif %}</time>
-          <div class="app-prose">{{ c.body }}</div>
+          {{ <md_view text={c.body}/> }}
           {%- for a in c.agent_jobs %}
           <div class="app-agent-wait" data-agent-job>{{ <badge label={t(key=a.status_key, lang="id")} variant={a.status_variant}/> }}<a class="app-link" href="{{ a.href }}">{{ t(key="job-agent", lang="id", persona=a.persona) }}</a>{% if a.waiting %}<span data-agent-waiting>{{ icon(name="clock") }}{{ t(key="agent-waiting-runner", lang="id") }}</span>{% endif %}</div>
           {%- endfor %}

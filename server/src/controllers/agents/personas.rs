@@ -272,6 +272,7 @@ struct Draft {
     tools: Option<ToolsDraft>,
     models: Option<BTreeMap<String, ModelChoice>>,
     skills: Option<Vec<String>>,
+    knowledge: Option<Vec<String>>,
 }
 
 async fn find_active(ctx: &AppContext, tenant: &Tenant, id: Uuid) -> Result<personas::Model> {
@@ -296,7 +297,7 @@ async fn render_edit(
     let slug = &tenant.workspace.slug;
     let base = base(slug);
     let href = format!("{base}/{}", persona.id);
-    let section = if views::personas::SECTIONS.contains(&section) && section != "knowledge" {
+    let section = if views::personas::SECTIONS.contains(&section) {
         section
     } else {
         "identity"
@@ -339,6 +340,13 @@ async fn render_edit(
         ),
     };
     let models = draft.models.unwrap_or_else(|| persona.model_choices());
+    let knowledge_sel = draft
+        .knowledge
+        .unwrap_or_else(|| persona.knowledge_types.clone());
+    let knowledge_groups = views::personas::knowledge_groups(
+        &crate::models::knowledge_types::Model::active_in(&ctx.db, wid).await?,
+        &knowledge_sel,
+    );
     let usage = stage_usage(ctx, tenant).await?;
     let active = personas::Model::active_in(&ctx.db, wid).await?;
     let shell = app_shell(ctx, &tenant.user, Some(tenant), None)
@@ -369,10 +377,14 @@ async fn render_edit(
             "skills": skills,
             "skill_options": skill_options(&approved),
             "selected_skills": selected_skills,
+            "knowledge_all": knowledge_sel.is_empty(),
+            "knowledge_groups": knowledge_groups,
+            "knowledge_href": format!("/w/{slug}/settings/knowledge"),
             "replacements": persona_options(&active, Some(persona.id)),
             "errors": field_errors(
                 &["name", "summary", "color", "icon", "instructions", "mcp_tools",
-                  "client_tools", "danger", "models", "skills", "replacement"],
+                  "client_tools", "danger", "models", "skills", "replacement",
+                  "knowledge_types"],
                 errors,
             ),
             "flash": flash,
@@ -471,6 +483,20 @@ fn parse_section(section: &str, pairs: &[(String, String)]) -> Option<(Edit, Dra
                 },
             ))
         }
+        "knowledge" => {
+            let types = if get(pairs, "knowledge_all") == "on" {
+                Vec::new()
+            } else {
+                all(pairs, "knowledge_types")
+            };
+            Some((
+                Edit::Knowledge(types.clone()),
+                Draft {
+                    knowledge: Some(types),
+                    ..Draft::default()
+                },
+            ))
+        }
         "skills" => {
             let raw = all(pairs, "skills");
             let ids = raw.iter().filter_map(|s| Uuid::try_parse(s).ok()).collect();
@@ -557,6 +583,7 @@ section_handler!(save_instructions, "instructions");
 section_handler!(save_tools, "tools");
 section_handler!(save_models, "models");
 section_handler!(save_skills, "skills");
+section_handler!(save_knowledge, "knowledge");
 
 #[debug_handler]
 pub(super) async fn delete(

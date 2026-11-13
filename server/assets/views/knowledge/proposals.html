@@ -1,0 +1,85 @@
+{#- Project → Knowledge → Tinjau usulan (M8, mode fokus berdampingan). Prototype: kBReview.
+    Pintasan A/R/J/K: static/js/kb-review.js. Variabel: project, views, views_action, return_to,
+    paths, base, kb_tabs, can_edit, can_approve, queue ([ProposalRow]), decided ([ProposalRow]),
+    current (opsional {row, index, path, group, base_version, doc_version, outdated, sbs,
+    approve_action, reject_action, edit_href, prev_href, next_href}), steps, flash. -#}
+{% extends "layouts/project.html" %}
+{% block title %}{{ t(key="kb-tab-proposals", lang="id") }} · {{ project.name }}{% endblock title %}
+{% block width %}wide{% endblock width %}
+{% block crumb %}{{ <crumb label={t(key="project-view-knowledge", lang="id")} href={base}/> }}{{ <crumb label={t(key="kb-tab-proposals", lang="id")}/> }}{% endblock crumb %}
+{% block page_attrs %}data-kb-proposals{% endblock page_attrs %}
+{% block description %}{{ t(key="kb-review-description", lang="id") }}{% endblock description %}
+{% block main %}
+{{ <tabs label={t(key="project-view-knowledge", lang="id")} items={kb_tabs}/> }}
+{%- if current %}
+{%- set p = current.row %}
+<div class="app-kb-rv" data-kb-review data-proposal="{{ p.id }}">
+  <div class="app-kb-rvbar">
+    <b>{{ t(key="kb-review-title", lang="id") }}</b>
+    <span class="app-hint">{{ t(key="kb-review-pos", lang="id", i=current.index, n=queue | length) }}</span>
+    <span class="app-kb-steps" aria-hidden="true">{% for s in steps %}<i{% if s %} data-on{% endif %}></i>{% endfor %}</span>
+    <span class="app-grow"></span>
+    {%- if current.prev_href %}<a class="btn" data-variant="outline" data-size="icon-sm" href="{{ current.prev_href }}" data-kb-prev aria-label="{{ t(key="kb-review-prev", lang="id") }}">{{ icon(name="chevron-up") }}</a>{% else %}{{ <button icon="chevron-up" variant="outline" size="icon-sm" disabled={true} aria_label={t(key="kb-review-prev", lang="id")}/> }}{% endif %}
+    {%- if current.next_href %}<a class="btn" data-variant="outline" data-size="icon-sm" href="{{ current.next_href }}" data-kb-next aria-label="{{ t(key="kb-review-next", lang="id")}}">{{ icon(name="chevron-down") }}</a>{% else %}{{ <button icon="chevron-down" variant="outline" size="icon-sm" disabled={true} aria_label={t(key="kb-review-next", lang="id")}/> }}{% endif %}
+  </div>
+  <div class="app-kb-rvgrid">
+    <aside class="card app-kb-aside" data-kb-aside>
+      <div class="app-stack-v" style="gap: 4px">
+        {%- if current.group %}<a class="app-hint app-link" href="{{ current.group.href }}">{{ current.group.name }}</a>{% endif %}
+        <b>{% if p.new_doc %}{{ p.title }}{% else %}<a class="app-link" href="{{ p.doc_href }}">{{ p.title }}</a>{% endif %}</b>
+        <span class="app-code app-hint">{{ current.path }}</span>
+      </div>
+      {%- if p.reason %}<div class="app-stack-v" style="gap: 4px"><span class="app-hint">{{ t(key="kb-why", lang="id") }}</span>{{ <md_view text={p.reason}/> }}</div>{% endif %}
+      <dl class="app-props">
+        <dt>{{ t(key="kb-triggered", lang="id") }}</dt><dd>{{ icon(name=p.trigger_icon) }}{{ t(key=p.trigger_key, lang="id") }}{% if p.trigger_ref %}<small class="app-hint">{{ p.trigger_ref }}</small>{% endif %}</dd>
+        <dt>{{ t(key="kb-by", lang="id") }}</dt><dd>{{ p.persona }}</dd>
+        <dt>{{ t(key="kb-when", lang="id") }}</dt><dd>{{ p.created }}</dd>
+        {%- if p.tokens %}<dt>{{ t(key="kb-cost", lang="id") }}</dt><dd>{{ t(key="kb-tokens", lang="id", n=p.tokens) }}</dd>{% endif %}
+        <dt>{{ t(key="kb-changes", lang="id") }}</dt><dd><span class="app-diffstat"><span data-tone="add">+{{ p.added }}</span><span data-tone="del">−{{ p.removed }}</span></span>{% if p.new_doc %}{{ <badge label={t(key="kb-new-doc", lang="id")} variant="info"/> }}{% endif %}</dd>
+      </dl>
+      {%- if can_approve %}<div class="app-kb-kbd"><span><kbd>A</kbd>{{ t(key="kb-approve", lang="id") }}</span><span><kbd>R</kbd>{{ t(key="kb-reject", lang="id") }}</span><span><kbd>J</kbd><kbd>K</kbd>{{ t(key="kb-move", lang="id") }}</span></div>{% endif %}
+    </aside>
+    <div class="card" data-kb-diff>
+      {%- if current.outdated %}<div class="app-blk">{{ <flash kind="warn" message={t(key="kb-review-outdated", lang="id", base=current.base_version, now=current.doc_version)}/> }}</div>{% endif %}
+      {{ <diff_sbs rows={current.sbs} left_label={t(key="kb-before", lang="id")} right_label={t(key="kb-after", lang="id")} right_icon="sparkles"/> }}
+    </div>
+  </div>
+  {%- if can_approve %}
+  <div class="app-kb-rvfoot">
+    <span class="app-kb-note">{{ icon(name="git-commit") }}{{ t(key="kb-approve-note", lang="id") }}</span>
+    {{ <button label={t(key="kb-reject", lang="id")} icon="x" variant="outline" dialog="kb-reject"/> }}
+    {%- if not p.new_doc %}{{ <button label={t(key="kb-edit-first", lang="id")} icon="pencil" variant="outline" href={current.edit_href}/> }}{% endif %}
+    <form method="post" action="{{ current.approve_action }}" id="kb-approve">{% if queue | length > 1 %}{{ <button label={t(key="kb-approve-next", lang="id")} icon="check" type="submit"/> }}{% else %}{{ <button label={t(key="kb-approve", lang="id")} icon="check" type="submit"/> }}{% endif %}</form>
+  </div>
+  {% <dialog id="kb-reject" title={t(key="kb-reject-title", lang="id")} description={t(key="kb-reject-description", lang="id")} icon="x" tone="danger"> %}
+  <form method="post" action="{{ current.reject_action }}">
+    <section>{{ <textarea_field id="kb-reject-note" name="note" label={t(key="kb-reject-note", lang="id")} rows={3} required={true}/> }}</section>
+    <footer>
+      <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+      {{ <button label={t(key="kb-reject", lang="id")} variant="danger" type="submit"/> }}
+    </footer>
+  </form>
+  {% </dialog> %}
+  {%- else %}
+  {{ <flash kind="neutral" message={t(key="kb-review-readonly", lang="id")}/> }}
+  {%- endif %}
+</div>
+{%- else %}
+{% <empty_state title={t(key="kb-review-empty", lang="id")} description={t(key="kb-review-empty-description", lang="id")} icon="circle-check" attrs="data-kb-review-empty"> %}
+  {{ <button label={t(key="kb-back-home", lang="id")} icon="arrow-left" variant="outline" href={base}/> }}
+{% </empty_state> %}
+{%- endif %}
+{%- if decided | length > 0 %}
+{% <card title={t(key="kb-decided-title", lang="id")} description={t(key="kb-decided-description", lang="id")} flush={true} attrs="data-kb-decided"> %}
+  {%- for d in decided %}
+  <div class="app-lrow" data-wrap data-decided="{{ d.status }}">
+    {%- if d.status == "approved" %}<span class="app-tile" data-tone="success">{{ icon(name="check") }}</span>{% elif d.status == "rejected" %}<span class="app-tile" data-tone="danger">{{ icon(name="x") }}</span>{% else %}<span class="app-tile">{{ icon(name="arrows-exchange") }}</span>{% endif %}
+    <span class="app-lrow-main"><b>{{ d.title }}</b><small>{% set status_key = "kb-status-" ~ d.status %}{{ t(key=status_key, lang="id") }}{% if d.decided_by %} · {{ d.decided_by.name }}{% endif %}{% if d.decision_note %} · {{ d.decision_note }}{% endif %}</small></span>
+    {%- if can_approve and d.status in ["approved", "rejected"] %}
+    <span class="app-lrow-acts"><form method="post" action="{{ base }}/proposals/{{ d.id }}/undo">{{ <button label={t(key="kb-undo", lang="id")} icon="arrow-back-up" size="sm" variant="ghost" type="submit"/> }}</form></span>
+    {%- endif %}
+  </div>
+  {%- endfor %}
+{% </card> %}
+{%- endif %}
+{% endblock main %}

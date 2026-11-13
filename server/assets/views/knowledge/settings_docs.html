@@ -1,0 +1,24 @@
+{#- Pengaturan → Knowledge workspace → Dokumen workspace (ManageTicketSettings). Variabel: base,
+    subnav, rows ([{slug, title, href, applies, personas, updated, owner}]), flash. -#}
+{% extends "layouts/settings.html" %}
+{% block title %}{{ t(key="settings-knowledge-title", lang="id") }}{% endblock title %}
+{% block crumb_label %}{{ t(key="settings-knowledge-title", lang="id") }}{% endblock crumb_label %}
+{% block page_attrs %}data-kb-settings="docs"{% endblock page_attrs %}
+{% block settings %}
+{% <subpage title={t(key="settings-knowledge-title", lang="id")} description={t(key="kb-settings-description", lang="id")} items={subnav}> %}
+{% <card title={t(key="kb-ws-docs", lang="id")} description={t(key="kb-ws-docs-description", lang="id")} count={rows | length ~ ""} flush={true} link_label={t(key="kb-new", lang="id")} link_href={base ~ "/docs/new"} attrs="data-kb-ws-docs"> %}
+  {%- for d in rows %}
+  <a class="app-lrow" href="{{ d.href }}" data-doc="{{ d.slug }}">
+    <span class="app-tile">{{ icon(name="file-text") }}</span>
+    <span class="app-lrow-main"><b>{{ d.title }}</b><small>{% if d.applies %}{{ t(key="kb-applies-to", lang="id", projects=d.applies) }}{% else %}{{ t(key="kb-applies-all", lang="id") }}{% endif %} · {{ d.updated }}</small></span>
+    {%- if d.owner %}{{ <avatar initials={d.owner.initials} color={d.owner.color} label={d.owner.name} size="sm"/> }}{% endif %}
+    {{ icon(name="chevron-right") }}
+  </a>
+  {%- else %}
+  {% <empty_state title={t(key="kb-ws-docs-empty", lang="id")} description={t(key="kb-ws-docs-empty-description", lang="id")} icon="file-text" variant="plain"> %}
+    {{ <button label={t(key="kb-new", lang="id")} icon="plus" variant="outline" href={base ~ "/docs/new"}/> }}
+  {% </empty_state> %}
+  {%- endfor %}
+{% </card> %}
+{% </subpage> %}
+{% endblock settings %}

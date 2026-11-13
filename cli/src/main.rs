@@ -11,6 +11,7 @@ mod graph;
 mod hook;
 mod install;
 mod jobs;
+mod knowledge;
 mod runner;
 mod ui;
 
@@ -86,8 +87,35 @@ enum Cmd {
         #[command(subcommand)]
         action: GraphCmd,
     },
+    /// Dokumen knowledge project di .agentgate/knowledge/: tarik, status, sinkron.
+    Knowledge {
+        #[command(subcommand)]
+        action: KnowledgeCmd,
+    },
     /// Periksa kesiapan perangkat ini.
     Doctor,
+}
+
+#[derive(Subcommand)]
+enum KnowledgeCmd {
+    /// Tulis dokumen server ke .agentgate/knowledge/ (file yang diubah di repo dilewati).
+    Pull {
+        #[arg(long)]
+        project: Option<String>,
+        /// Timpa juga file yang diubah di repo.
+        #[arg(long)]
+        force: bool,
+    },
+    /// Bandingkan file lokal dengan server.
+    Status {
+        #[arg(long)]
+        project: Option<String>,
+    },
+    /// Kirim perubahan lokal (versi baru atau usulan), tarik versi server, lalu commit.
+    Sync {
+        #[arg(long)]
+        project: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -247,6 +275,20 @@ async fn run(cmd: Cmd, paths: &Paths) -> Result<ExitCode> {
             HookCmd::PreTool => hook::pre_tool(paths).await,
             HookCmd::SessionStart => hook::session_start(paths),
         },
+        Cmd::Knowledge { action } => {
+            let (api, _) = auth::session(paths).await?;
+            match action {
+                KnowledgeCmd::Pull { project, force } => {
+                    knowledge::pull(&api, project.as_deref(), force, &mut out).await?;
+                }
+                KnowledgeCmd::Status { project } => {
+                    knowledge::status(&api, project.as_deref(), &mut out).await?;
+                }
+                KnowledgeCmd::Sync { project } => {
+                    knowledge::sync(&api, project.as_deref(), &mut out).await?;
+                }
+            }
+        }
         Cmd::Graph { action } => {
             let (api, _) = auth::session(paths).await?;
             match action {

@@ -29,6 +29,9 @@ use crate::{
 /// Kegagalan kelola persona (bentuknya sama dengan kegagalan tiket).
 pub type PersonaFailure = TicketFailure;
 
+/// Jenis dokumen knowledge tidak dikenal.
+pub const KNOWLEDGE_UNKNOWN: &str = "persona-knowledge-unknown";
+
 /// Satu bagian halaman Edit persona.
 #[derive(Debug, Clone)]
 pub enum Edit {
@@ -45,6 +48,8 @@ pub enum Edit {
     Models(BTreeMap<String, ModelChoice>),
     /// Skill pack terpasang (hanya yang sudah di-approve).
     Skills(Vec<Uuid>),
+    /// Jenis dokumen knowledge yang boleh dibaca (kosong = semua).
+    Knowledge(Vec<String>),
 }
 
 impl Edit {
@@ -55,6 +60,7 @@ impl Edit {
             Self::Tools { .. } => "tools",
             Self::Models(_) => "models",
             Self::Skills(_) => "skills",
+            Self::Knowledge(_) => "knowledge",
         }
     }
 }
@@ -306,6 +312,31 @@ pub async fn update(
                 audit::change(&current.models, &models),
             );
             row.models = Set(models);
+        }
+        Edit::Knowledge(types) => {
+            let custom =
+                crate::models::knowledge_types::Model::active_in(&txn, acting.workspace_id())
+                    .await?;
+            let mut wanted: Vec<String> = Vec::new();
+            for t in types {
+                let t = t.trim().to_string();
+                if t.is_empty() || wanted.contains(&t) {
+                    continue;
+                }
+                if crate::models::knowledge_catalog::builtin(&t).is_none()
+                    && !custom.iter().any(|c| c.key == t)
+                {
+                    return Err(TicketFailure::field("knowledge_types", KNOWLEDGE_UNKNOWN));
+                }
+                wanted.push(t);
+            }
+            wanted.sort();
+            put(
+                &mut changes,
+                "knowledge_types",
+                audit::change(&current.knowledge_types, &wanted),
+            );
+            row.knowledge_types = Set(wanted);
         }
         Edit::Skills(packs) => {
             let before: Vec<Uuid> = persona_skills::Model::of_persona(&txn, current.id)

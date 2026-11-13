@@ -1,0 +1,28 @@
+{#- Pengaturan → Knowledge workspace → Jenis dokumen: jenis custom + katalog bawaan (baca saja).
+    Variabel: base, subnav, rows ([{name, key, group, projects, href}]), builtin, flash. -#}
+{% extends "layouts/settings.html" %}
+{% block title %}{{ t(key="kb-ws-types", lang="id") }} · {{ t(key="settings-knowledge-title", lang="id") }}{% endblock title %}
+{% block crumb_label %}{{ t(key="settings-knowledge-title", lang="id") }}{% endblock crumb_label %}
+{% block page_attrs %}data-kb-settings="types"{% endblock page_attrs %}
+{% block settings %}
+{% <subpage title={t(key="settings-knowledge-title", lang="id")} description={t(key="kb-settings-description", lang="id")} items={subnav}> %}
+{% <card title={t(key="kb-types-custom", lang="id")} description={t(key="kb-types-custom-description", lang="id")} count={rows | length ~ ""} flush={true} link_label={t(key="kb-type-new", lang="id")} link_href={base ~ "/types/new"} attrs="data-kb-types"> %}
+  {%- for r in rows %}
+  <a class="app-lrow" href="{{ r.href }}" data-type="{{ r.key }}">
+    <span class="app-tile" data-tone="accent">{{ icon(name="category") }}</span>
+    <span class="app-lrow-main"><b>{{ r.name }}</b><small>{{ r.group }} · {% if r.projects %}{{ r.projects }}{% else %}{{ t(key="kb-applies-all", lang="id") }}{% endif %}</small></span>
+    {{ icon(name="chevron-right") }}
+  </a>
+  {%- else %}
+  {% <empty_state title={t(key="kb-types-empty", lang="id")} description={t(key="kb-types-empty-description", lang="id")} icon="category" variant="plain"> %}
+    {{ <button label={t(key="kb-type-new", lang="id")} icon="plus" variant="outline" href={base ~ "/types/new"}/> }}
+  {% </empty_state> %}
+  {%- endfor %}
+{% </card> %}
+{% <card title={t(key="kb-types-builtin", lang="id")} description={t(key="kb-types-builtin-description", lang="id")} flush={true} attrs="data-kb-builtin"> %}
+  {%- for g in builtin %}
+  <div class="app-lrow" data-align="top"><span class="app-tile">{{ icon(name=g.icon) }}</span><span class="app-lrow-main"><b>{{ g.name }}</b><small class="app-kb-wrap">{{ g.types }}</small></span></div>
+  {%- endfor %}
+{% </card> %}
+{% </subpage> %}
+{% endblock settings %}

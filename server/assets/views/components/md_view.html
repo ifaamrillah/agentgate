@@ -1,0 +1,12 @@
+{#- Markdown tersanitasi (fungsi `markdown()` → common::markdown::render): heading ber-id, tabel,
+    checklist, blok kode, diagram Mermaid (dirender static/js/markdown.js; tanpa JS kodenya tetap
+    tampil). Isi kosong → teks `empty` (bila diisi).
+    Parameter:
+      text: string        Markdown mentah dari user/AI (aman: HTML mentah tidak diteruskan)
+      size: string        "" (komentar, deskripsi) | "doc" (dokumen panjang, lebar baca 78ch)
+      empty: string       teks bila kosong (sudah diterjemahkan; default "")
+      attrs: string       atribut tambahan (mis. data-*) -#}
+{% component md_view(text: string = "", size: string = "", empty: string = "", attrs: string = "") %}
+{%- if text | trim %}<div class="app-md"{% if size %} data-size="{{ size }}"{% endif %}{% if attrs %} {{ attrs }}{% endif %}>{{ markdown(text=text) }}</div>
+{%- elif empty %}<p class="app-hint"{% if attrs %} {{ attrs }}{% endif %}>{{ empty }}</p>{% endif -%}
+{%- endcomponent md_view %}

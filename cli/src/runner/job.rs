@@ -10,8 +10,8 @@ use std::{
 use agentgate_core::{
     git::CodeOutput,
     runner::protocol::{
-        FinishReport, JobMode, JobSpec, LogBatch, LogLine, LogStream, Outcome, PullRequestInfo,
-        PullRequestOpen, Step, StepState, StepsUpdate,
+        FinishReport, JobKind, JobMode, JobSpec, LogBatch, LogLine, LogStream, Outcome,
+        PullRequestInfo, PullRequestOpen, Step, StepState, StepsUpdate,
     },
 };
 use tokio::{
@@ -392,6 +392,10 @@ async fn wrap_up(ctx: &Ctx, spec: &JobSpec, wt: &Path, log: &mut Logger, steps: 
         upload(ctx, spec.id, shot, log).await;
     }
     steps.evidence = StepState::Ok;
+    if spec.kind == JobKind::Knowledge {
+        // Hasil job knowledge = usulan di server (lewat MCP); tidak ada commit/PR.
+        return;
+    }
     let message = format!("feat({}): {}", spec.ticket, spec.title);
     match worktree::commit_work(wt, &spec.rules, &message) {
         Ok(true) => log.push(

@@ -9,6 +9,7 @@ mod git;
 mod graph;
 mod health;
 mod home;
+mod knowledge;
 mod mcp;
 mod oauth;
 mod projects;

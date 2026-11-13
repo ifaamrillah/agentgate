@@ -26,7 +26,7 @@ use sea_orm::{
 };
 use uuid::Uuid;
 
-use super::{CLOSED, NOT_HOLDER, QueueRow, claim, find, invalid, log, notify_users, now, queue};
+use super::{CLOSED, NOT_HOLDER, QueueRow, claim, find, invalid, log, now, queue};
 use crate::{
     models::{
         job_permissions, jobs,
@@ -182,8 +182,12 @@ fn summary(row: &QueueRow, user: Uuid, stage_name: String) -> JobSummary {
         kind: row.job.kind(),
         mode: row.job.mode(),
         status: row.job.status(),
-        ticket: row.ticket.code.clone(),
-        title: row.ticket.title.clone(),
+        ticket: row
+            .ticket
+            .as_ref()
+            .map(|t| t.code.clone())
+            .unwrap_or_default(),
+        title: row.title(),
         stage: row.job.stage_key.clone(),
         stage_name,
         persona: row.job.persona.clone(),
@@ -197,9 +201,12 @@ fn summary(row: &QueueRow, user: Uuid, stage_name: String) -> JobSummary {
 async fn stage_name<C: ConnectionTrait>(
     db: &C,
     wid: WorkspaceId,
-    ticket: &tickets::Model,
+    ticket: Option<&tickets::Model>,
     key: &str,
 ) -> String {
+    let Some(ticket) = ticket else {
+        return "Knowledge".to_string();
+    };
     match stages::Flow::load(db, wid, ticket).await {
         Ok(flow) => flow
             .rule(key)
@@ -219,7 +226,7 @@ pub async fn list(db: &DatabaseConnection, session: &Session) -> Result<Vec<JobS
     let wid = acting.workspace_id();
     let mut out = Vec::new();
     for row in queue(db, &acting).await? {
-        let name = stage_name(db, wid, &row.ticket, &row.job.stage_key).await;
+        let name = stage_name(db, wid, row.ticket.as_ref(), &row.job.stage_key).await;
         out.push(summary(&row, session.user.id, name));
     }
     Ok(out)
@@ -265,11 +272,20 @@ pub async fn events(
         if !state.ready.insert(job.id) {
             continue;
         }
-        let Some(ticket) = tickets::Model::find_in(db, wid, job.ticket_id).await? else {
-            continue;
+        let ticket = match job.ticket_id {
+            Some(tid) => {
+                let Some(t) = tickets::Model::find_in(db, wid, tid).await? else {
+                    continue;
+                };
+                Some(t)
+            }
+            None => None,
         };
-        let name = stage_name(db, wid, &ticket, &job.stage_key).await;
-        let priority = ticket.priority().map_or(3, tickets::TicketPriority::rank);
+        let name = stage_name(db, wid, ticket.as_ref(), &job.stage_key).await;
+        let priority = ticket
+            .as_ref()
+            .and_then(|t| t.priority().ok())
+            .map_or(3, tickets::TicketPriority::rank);
         let project = projects::Model::find_in(db, wid, job.project_id).await?;
         let Some(project) = project else { continue };
         let row = QueueRow {
@@ -348,11 +364,12 @@ async fn auto_claim(
     if busy >= limit {
         return Ok(());
     }
-    if let Some(row) = queue(db, &acting)
-        .await?
-        .into_iter()
-        .find(|r| r.can_claim && r.job.status() == JobStatus::Queued)
-    {
+    if let Some(row) = queue(db, &acting).await?.into_iter().find(|r| {
+        r.can_claim
+                && r.job.status() == JobStatus::Queued
+                // Job knowledge hanya auto-diambil runner peminta/pemilik knowledge.
+                && (r.job.ticket_id.is_some() || r.job.requested_by == Some(session.user.id))
+    }) {
         match claim(db, &acting, row.job.id, Some(runner.id)).await {
             Ok(_) | Err(TicketFailure::Invalid(_) | TicketFailure::NotFound) => {}
             Err(TicketFailure::Db(e)) => return Err(e),
@@ -385,6 +402,8 @@ fn job_prompt(
     job: &jobs::Model,
 ) -> String {
     match job.kind() {
+        // Prompt job knowledge dibangun services::knowledge (start → knowledge_spec).
+        JobKind::Knowledge => job.prompt_note.clone(),
         JobKind::Comment => format!(
             "Anda adalah Agent {persona_name} di Agent Gate. Seseorang menyebut Anda di komentar tiket {code} ({title}).\n\n\
              Komentar:\n{note}\n\n\
@@ -411,6 +430,10 @@ fn job_prompt(
             key = job.stage_key,
         ),
     }
+}
+
+fn with_knowledge(prompt: String, section: &str) -> String {
+    format!("{prompt}{section}")
 }
 
 /// Petunjuk code graph (M7) bila ada repo project yang sudah di-index: AI menjelajah lewat
@@ -528,7 +551,10 @@ pub async fn start(
         return Err(invalid(CLOSED));
     }
     runner_has_room(db, session, runner, &job).await?;
-    let ticket = tickets::Model::find_in(db, wid, job.ticket_id)
+    let Some(ticket_id) = job.ticket_id else {
+        return knowledge_spec(db, session, runner, &job, base_url).await;
+    };
+    let ticket = tickets::Model::find_in(db, wid, ticket_id)
         .await?
         .ok_or(TicketFailure::NotFound)?;
     let project = projects::Model::find_in(db, wid, job.project_id)
@@ -600,7 +626,7 @@ pub async fn start(
     .await?;
     txn.commit().await?;
     let allowed_actions = job_permissions::Entity::find()
-        .filter(job_permissions::Column::TicketId.eq(ticket.id))
+        .filter(job_permissions::Column::TicketId.eq(Some(ticket.id)))
         .filter(job_permissions::Column::Status.eq(PermissionStatus::AllowedTicket.as_str()))
         .all(db)
         .await?
@@ -631,6 +657,10 @@ pub async fn start(
             .map(|r| r.name.clone())
             .collect()
     };
+    let knowledge = crate::services::knowledge::context::prompt_section(
+        &crate::services::knowledge::context::briefs(db, wid, project.id, &job.persona).await?,
+        &project.key,
+    );
     Ok(JobSpec {
         id: job.id,
         kind: job.kind(),
@@ -650,16 +680,19 @@ pub async fn start(
         effort: choice.map(|c| c.effort).unwrap_or_default(),
         client,
         command: format!("/{}", prompts::stage_prompt_name(&job.stage_key)),
-        prompt: with_graph(
-            with_git(
-                job_prompt(&stage_name, &ticket, &persona_name, &job),
-                &job,
-                &git,
-                &branch,
-                &base_branch,
+        prompt: with_knowledge(
+            with_graph(
+                with_git(
+                    job_prompt(&stage_name, &ticket, &persona_name, &job),
+                    &job,
+                    &git,
+                    &branch,
+                    &base_branch,
+                ),
+                &project.key,
+                &graph_repos,
             ),
-            &project.key,
-            &graph_repos,
+            &knowledge,
         ),
         branch,
         base_branch,
@@ -678,6 +711,126 @@ pub async fn start(
             }))
             .collect(),
         allowed_actions,
+    })
+}
+
+/// Spec job knowledge (scan/update/audit, tanpa tiket): agent membaca code graph dan kode, lalu
+/// menulis usulan lewat `ag_knowledge propose`. Tidak ada branch kerja dan tidak ada PR: hasil kode
+/// "manual" (agent tidak mengubah file repo).
+async fn knowledge_spec(
+    db: &DatabaseConnection,
+    session: &Session,
+    runner: &runners::Model,
+    job: &jobs::Model,
+    base_url: &str,
+) -> Result<JobSpec, TicketFailure> {
+    let wid = session.workspace.workspace_id();
+    let project = projects::Model::find_in(db, wid, job.project_id)
+        .await?
+        .ok_or(TicketFailure::NotFound)?;
+    let persona = personas::Model::resolve(db, wid, &job.persona).await?;
+    let client = runner.client.clone();
+    let choice = persona.as_ref().and_then(|p| p.model_for(&client));
+    let project_repos = repos::Model::of_project(db, wid, project.id).await?;
+    let base_branch = project_repos
+        .first()
+        .map(|r| r.default_branch.clone())
+        .unwrap_or_default();
+    let prompt = crate::services::knowledge::runs::prompt(db, wid, job, &project).await?;
+    let updated = jobs::Entity::update_many()
+        .col_expr(jobs::Column::RunnerId, Expr::value(runner.id))
+        .col_expr(
+            jobs::Column::Status,
+            Expr::value(JobStatus::Running.as_str()),
+        )
+        .col_expr(jobs::Column::Client, Expr::value(client.clone()))
+        .col_expr(
+            jobs::Column::Model,
+            Expr::value(choice.as_ref().map(|c| c.model.clone()).unwrap_or_default()),
+        )
+        .col_expr(
+            jobs::Column::StartedAt,
+            Expr::value(job.started_at.unwrap_or_else(now)),
+        )
+        .col_expr(jobs::Column::UpdatedAt, Expr::value(now()))
+        .filter(jobs::Column::Id.eq(job.id))
+        .filter(jobs::Column::ClaimedBy.eq(session.user.id))
+        .filter(
+            sea_orm::Condition::any()
+                .add(jobs::Column::RunnerId.is_null())
+                .add(jobs::Column::RunnerId.eq(runner.id)),
+        )
+        .exec(db)
+        .await?;
+    if updated.rows_affected != 1 {
+        return Err(invalid(NOT_HOLDER));
+    }
+    crate::services::knowledge::runs::job_started(db, wid, job).await?;
+    log(
+        db,
+        wid,
+        job.id,
+        LogStream::Info,
+        &format!(
+            "Job knowledge {} · {} · runner {} ({})",
+            project.key, job.prompt_note, runner.name, session.user.name
+        ),
+    )
+    .await?;
+    let danger = persona.as_ref().map_or_else(
+        || {
+            persona::DANGER_ACTIONS
+                .iter()
+                .map(|(a, l)| (*a, *l))
+                .collect::<Vec<_>>()
+        },
+        personas::Model::danger_levels,
+    );
+    let mut git = project.git_settings();
+    git.code_output = agentgate_core::git::CodeOutput::Manual;
+    Ok(JobSpec {
+        id: job.id,
+        kind: job.kind(),
+        mode: job.mode(),
+        ticket: String::new(),
+        title: job.prompt_note.clone(),
+        url: format!(
+            "{base_url}/w/{}/p/{}/knowledge",
+            session.workspace.slug, project.key
+        ),
+        project: project.key.clone(),
+        repos: project_repos.into_iter().map(|r| r.name).collect(),
+        stage: job.stage_key.clone(),
+        stage_name: "Knowledge".into(),
+        persona: persona
+            .as_ref()
+            .map_or_else(|| job.persona.clone(), |p| p.key.clone()),
+        persona_name: persona
+            .as_ref()
+            .map_or_else(|| job.persona.clone(), |p| p.name.clone()),
+        model: choice.as_ref().map(|c| c.model.clone()).unwrap_or_default(),
+        effort: choice.map(|c| c.effort).unwrap_or_default(),
+        client,
+        command: "/ag-knowledge-sync".into(),
+        prompt,
+        // Worktree baca-saja untuk agent; runner tidak meng-commit job knowledge.
+        branch: format!("agentgate/knowledge-{}", &job.id.simple().to_string()[24..]),
+        base_branch,
+        git: git.spec(),
+        mcp_url: format!("{base_url}/mcp"),
+        rules: rule_files(base_url, &project.key),
+        danger: danger
+            .into_iter()
+            .map(|(action, level)| DangerRule {
+                action: action.to_string(),
+                level,
+            })
+            .chain(persona::ALWAYS_BLOCKED.iter().map(|a| DangerRule {
+                action: (*a).to_string(),
+                level: Level::Block,
+            }))
+            .collect(),
+        allowed_actions: Vec::new(),
     })
 }
 
@@ -754,12 +907,19 @@ pub async fn ask_permission(
     if persona::ALWAYS_BLOCKED.contains(&action.as_str()) {
         return Err(TicketFailure::field("action", super::ACTION_BLOCKED));
     }
-    let standing = job_permissions::Entity::find()
-        .filter(job_permissions::Column::TicketId.eq(job.ticket_id))
-        .filter(job_permissions::Column::Action.eq(action.clone()))
-        .filter(job_permissions::Column::Status.eq(PermissionStatus::AllowedTicket.as_str()))
-        .one(db)
-        .await?;
+    let standing = match job.ticket_id {
+        Some(tid) => {
+            job_permissions::Entity::find()
+                .filter(job_permissions::Column::TicketId.eq(tid))
+                .filter(job_permissions::Column::Action.eq(action.clone()))
+                .filter(
+                    job_permissions::Column::Status.eq(PermissionStatus::AllowedTicket.as_str()),
+                )
+                .one(db)
+                .await?
+        }
+        None => None,
+    };
     if let Some(p) = standing {
         return Ok(PermissionInfo {
             id: p.id,
@@ -790,13 +950,13 @@ pub async fn ask_permission(
         &format!("⏸ izin {}", perm.command),
     )
     .await?;
-    notify_users(
+    super::notify_job(
         &txn,
         wid,
         None,
         job.claimed_by,
         NotificationKind::JobPermission,
-        job.ticket_id,
+        job,
     )
     .await?;
     txn.commit().await?;
@@ -875,18 +1035,17 @@ pub async fn finish(
     match outcome {
         Outcome::Succeeded => {
             log(db, wid, job.id, LogStream::Ok, "✓ Job selesai").await?;
-            match job.kind() {
-                JobKind::Stage => complete_stage(db, session, &job).await?,
-                JobKind::Comment => {
+            match (job.kind(), job.ticket_id) {
+                (JobKind::Stage, _) => complete_stage(db, session, &job).await?,
+                (JobKind::Knowledge, _) | (_, None) => {
+                    crate::services::knowledge::runs::job_finished(db, wid, &job).await?;
+                }
+                (JobKind::Comment, Some(ticket_id)) => {
                     if !summary.is_empty() {
                         let body = format!("**Agent {}**\n\n{summary}", job.persona);
-                        if let Err(e) = crate::services::tickets::comments::post(
-                            db,
-                            &acting,
-                            job.ticket_id,
-                            &body,
-                        )
-                        .await
+                        if let Err(e) =
+                            crate::services::tickets::comments::post(db, &acting, ticket_id, &body)
+                                .await
                         {
                             tracing::warn!(error = %e, "agent reply comment failed");
                         }
@@ -896,25 +1055,28 @@ pub async fn finish(
         }
         Outcome::Failed => {
             log(db, wid, job.id, LogStream::Fail, "✗ Job gagal").await?;
-            notify_users(
+            super::notify_job(
                 db,
                 wid,
                 None,
                 job.claimed_by,
                 NotificationKind::JobFailed,
-                job.ticket_id,
+                &job,
             )
             .await?;
+            if job.ticket_id.is_none() {
+                crate::services::knowledge::runs::job_finished(db, wid, &job).await?;
+            }
         }
         Outcome::Quota => {
             log(db, wid, job.id, LogStream::Warn, "Kuota AI habis").await?;
-            notify_users(
+            super::notify_job(
                 db,
                 wid,
                 None,
                 job.claimed_by,
                 NotificationKind::JobQuota,
-                job.ticket_id,
+                &job,
             )
             .await?;
             let prefs = runner_prefs::Model::of(db, wid, session.user.id).await?;
@@ -924,6 +1086,9 @@ pub async fn finish(
         }
         Outcome::Cancelled => {
             log(db, wid, job.id, LogStream::Fail, "Job dihentikan runner").await?;
+            if job.ticket_id.is_none() {
+                crate::services::knowledge::runs::job_finished(db, wid, &job).await?;
+            }
         }
     }
     Ok(job)
@@ -936,7 +1101,10 @@ async fn complete_stage(
     job: &jobs::Model,
 ) -> Result<(), TicketFailure> {
     let wid = session.workspace.workspace_id();
-    let Some(ticket) = tickets::Model::find_in(db, wid, job.ticket_id).await? else {
+    let Some(ticket_id) = job.ticket_id else {
+        return Ok(());
+    };
+    let Some(ticket) = tickets::Model::find_in(db, wid, ticket_id).await? else {
         return Ok(());
     };
     if ticket.stage_key != job.stage_key || ticket.stage_state()? != StageState::Active {
@@ -1040,13 +1208,13 @@ pub async fn terminal_failed(
         ),
     )
     .await?;
-    notify_users(
+    super::notify_job(
         db,
         wid,
         None,
         job.claimed_by,
         NotificationKind::JobTerminal,
-        job.ticket_id,
+        job,
     )
     .await?;
     Ok(())

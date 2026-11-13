@@ -168,7 +168,7 @@ pub(super) async fn panel(ctx: &AppContext, access: &TicketAccess) -> Result<Sta
     let labels = crate::models::personas::Model::labels(db, wid).await?;
     let job = match jobs::latest_of_ticket(db, wid, t.id).await? {
         Some(j) if j.stage_key == t.stage_key => {
-            crate::controllers::runner::job_views(db, tenant, &[(j, t.clone())])
+            crate::controllers::runner::job_views(db, tenant, &[(j, Some(t.clone()))])
                 .await?
                 .pop()
         }

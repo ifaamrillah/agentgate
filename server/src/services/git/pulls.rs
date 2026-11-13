@@ -225,7 +225,7 @@ pub async fn open_for_job(
             true,
         ),
     };
-    let (pr, _) = upsert(db, wid, &repo, &info, Some(job.ticket_id), Some(job.id)).await?;
+    let (pr, _) = upsert(db, wid, &repo, &info, job.ticket_id, Some(job.id)).await?;
     log(
         db,
         wid,
@@ -240,12 +240,12 @@ pub async fn open_for_job(
         ),
     )
     .await?;
-    if created {
+    if let (true, Some(ticket_id)) = (created, job.ticket_id) {
         notify_ticket(
             db,
             wid,
             job.claimed_by,
-            job.ticket_id,
+            ticket_id,
             NotificationKind::PrOpened,
         )
         .await?;

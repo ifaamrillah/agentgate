@@ -117,12 +117,12 @@ async fn project_key_unique_case_insensitive_and_normalized_upper() {
         let html = res.text();
         assert_css_exists(&html, "[data-project-home]");
         assert_css_exists(&html, "[data-ticket-stats]");
-        // Sidebar: project aktif dengan menu "segera".
+        // Sidebar: project aktif dengan menunya.
         assert_css_exists(
             &html,
             "[data-project-list] a[href=\"/w/acme/p/KSR\"][aria-current=\"page\"]",
         );
-        assert_css_exists(&html, "[data-project-list] a[aria-disabled=\"true\"]");
+        assert_css_exists(&html, "[data-project-list] a[data-nav=\"knowledge\"]");
         // Pembuat (Admin project) melihat tautan pengaturan project.
         assert_css_exists(&html, "a[href=\"/w/acme/p/KSR/settings\"]");
     })

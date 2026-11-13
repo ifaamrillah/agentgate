@@ -11,6 +11,8 @@ use super::{Session, ToolError};
 
 #[path = "graph_tools.rs"]
 mod graph;
+#[path = "knowledge_tools.rs"]
+mod knowledge;
 use crate::{
     models::{
         artifact_versions,
@@ -221,6 +223,26 @@ pub fn definitions() -> Vec<ToolDef> {
             ),
             read_only: true,
         },
+        ToolDef {
+            name: "ag_knowledge",
+            description: "Knowledge base project (dokumen arsitektur, aturan bisnis, API, konvensi, dll.). action=list: dokumen yang boleh Anda baca + jenis dokumen. action=read: isi satu dokumen (`slug`). action=propose: usulkan isi baru dokumen (`slug` yang ada) atau dokumen baru (`title` + `type`); usulan menunggu persetujuan pemilik knowledge, dokumen tidak langsung berubah. Sertakan `reason` dan `sources` (repo + path yang Anda baca).",
+            schema: schema(
+                json!({
+                    "project": project,
+                    "action": { "type": "string", "enum": ["list", "read", "propose"] },
+                    "slug": { "type": "string", "description": "Slug dokumen, mis. arsitektur-sistem" },
+                    "title": { "type": "string" },
+                    "type": { "type": "string", "description": "Kunci jenis dokumen (dari action=list), wajib untuk dokumen baru" },
+                    "body": { "type": "string", "description": "Isi Markdown lengkap (bukan diff)" },
+                    "reason": { "type": "string", "description": "Alasan singkat perubahan" },
+                    "sources": { "type": "array", "items": { "type": "object", "properties": { "repo": { "type": "string" }, "path": { "type": "string" } }, "required": ["path"] } },
+                    "run": { "type": "string", "description": "Id run knowledge dari prompt job (bila ada)" },
+                    "persona": { "type": "string", "description": "Kunci persona Anda; membatasi dokumen yang boleh dibaca" },
+                }),
+                &["action"],
+            ),
+            read_only: false,
+        },
     ]
 }
 
@@ -276,6 +298,16 @@ struct Args {
     diff: String,
     #[serde(default)]
     include_tests: bool,
+    #[serde(default)]
+    slug: String,
+    #[serde(default)]
+    reason: String,
+    #[serde(default)]
+    run: String,
+    #[serde(default)]
+    persona: String,
+    #[serde(default)]
+    sources: Vec<crate::services::knowledge::docs::SourceRef>,
 }
 
 fn required<'a>(value: &'a str, field: &str) -> Result<&'a str, ToolError> {
@@ -322,6 +354,7 @@ pub async fn call(
         "ag_snippet" => graph::snippet(db, s, &a).await,
         "ag_impact" => graph::impact(db, s, &a).await,
         "ag_graph" => graph::overview(db, s, &a).await,
+        "ag_knowledge" => knowledge::call(db, s, &a).await,
         _ => Err(ToolError::new(format!("Tool tidak dikenal: {name}"))),
     }
 }
@@ -389,6 +422,10 @@ async fn context(db: &DatabaseConnection, s: &Session, a: &Args) -> Result<Value
     let wid = s.workspace.workspace_id();
     let flow = Flow::load(db, wid, &ticket).await?;
     let stage = flow.rule(&ticket.stage_key).cloned();
+    let stage_persona = stage
+        .as_ref()
+        .and_then(|st| st.persona.clone())
+        .unwrap_or_default();
     let gates = stages::current_gates(db, wid, &ticket, &flow).await?;
     let artifacts = artifact_list(db, s, &ticket).await?;
     let mut persona_json = Value::Null;
@@ -449,6 +486,7 @@ async fn context(db: &DatabaseConnection, s: &Session, a: &Args) -> Result<Value
         "artifacts": artifacts,
         "stages": next,
         "code_graph": graph::context_section(db, s, &project).await?,
+        "knowledge": knowledge::context_section(db, s, &project, &stage_persona).await?,
     }))
 }
 

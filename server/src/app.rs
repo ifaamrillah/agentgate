@@ -166,6 +166,7 @@ impl Hooks for App {
         #[cfg(debug_assertions)]
         tasks.register(crate::tasks::dev_login::DevLogin);
         tasks.register(crate::tasks::cleanup::Cleanup);
+        tasks.register(crate::tasks::knowledge_audit::KnowledgeAudit);
         tasks.register(crate::tasks::user_create::UserCreate);
         tasks.register(crate::tasks::user_set_password::UserSetPassword);
     }
@@ -218,8 +219,148 @@ impl Hooks for App {
         seed_agents(ctx).await?;
         seed_runner(ctx).await?;
         seed_git(ctx).await?;
-        seed_graph(ctx, base).await
+        seed_graph(ctx, base).await?;
+        seed_knowledge(ctx).await
     }
+}
+
+/// Knowledge contoh (M8) di KSR: dokumen terbaru, satu basi, usulan AI (perubahan + dokumen baru),
+/// pemilik knowledge, dan satu dokumen workspace. Dilewati bila project sudah punya dokumen.
+async fn seed_knowledge(ctx: &AppContext) -> Result<()> {
+    use crate::{
+        models::{knowledge_docs, knowledge_proposals::ProposalTrigger, workspace_members},
+        services::{
+            knowledge::{docs, proposals},
+            workspaces::Acting,
+        },
+    };
+    let Some(workspace) = workspaces::Model::find_by_slug(&ctx.db, SEED_WORKSPACE_SLUG).await?
+    else {
+        return Ok(());
+    };
+    let wid = workspace.workspace_id();
+    let Some(project) = projects::Model::find_by_key(&ctx.db, wid, SEED_PROJECT.0).await? else {
+        return Ok(());
+    };
+    if !knowledge_docs::Model::of_project(&ctx.db, wid, project.id)
+        .await?
+        .is_empty()
+    {
+        tracing::info!("seed knowledge dilewati: dokumen sudah ada");
+        return Ok(());
+    }
+    let Some(owner) = users::Model::find_by_email(&ctx.db, SEED_MARKER_EMAIL).await? else {
+        return Ok(());
+    };
+    let Some((_, role)) = workspace_members::Model::find_with_role(&ctx.db, wid, owner.id).await?
+    else {
+        return Ok(());
+    };
+    let acting = Acting {
+        workspace: &workspace,
+        user: &owner,
+        role: &role,
+        request_id: None,
+    };
+    let fail = |e: crate::services::knowledge::Failure| {
+        loco_rs::Error::string(&format!("seed knowledge: {e:?}"))
+    };
+    let samples: [(&str, &str, &str); 6] = [
+        (
+            "overview",
+            "Overview Kasir Online",
+            "# Kasir Online\n\nAplikasi kasir untuk toko retail: transaksi, shift, refund, dan laporan harian.\n\n## Pengguna\n\n- Kasir\n- Supervisor toko\n- Admin pusat\n",
+        ),
+        (
+            "peta-repo",
+            "Peta Repo",
+            "## Repo\n\n| Repo | Isi |\n| --- | --- |\n| kasir-api | API Go: transaksi, stok, refund |\n| kasir-web | Web kasir (TypeScript) |\n",
+        ),
+        (
+            "arsitektur",
+            "Arsitektur Sistem",
+            "## Komponen\n\n```mermaid\nflowchart LR\n  Web[kasir-web] --> API[kasir-api] --> DB[(Postgres)]\n```\n",
+        ),
+        (
+            "aturan-bisnis",
+            "Aturan Bisnis Refund",
+            "## Refund\n\nKasir boleh refund sampai Rp500.000. Di atas itu wajib persetujuan supervisor.\n",
+        ),
+        (
+            "api",
+            "Dokumentasi API",
+            "## Endpoint\n\n- `POST /v1/orders/:id` checkout\n- `POST /v1/refunds` refund\n",
+        ),
+        (
+            "testing",
+            "Strategi Testing",
+            "## Tes\n\n- Unit test di setiap package\n- E2E Playwright untuk alur kasir\n",
+        ),
+    ];
+    let mut created = Vec::new();
+    for (type_key, title, body) in samples {
+        let doc = docs::create(
+            &ctx.db,
+            &acting,
+            &docs::NewDoc {
+                project_id: Some(project.id),
+                title: title.into(),
+                type_key: type_key.into(),
+                body: body.into(),
+                slug: String::new(),
+            },
+        )
+        .await
+        .map_err(fail)?;
+        created.push(doc);
+    }
+    docs::set_owner(&ctx.db, &acting, project.id, Some(owner.id))
+        .await
+        .map_err(fail)?;
+    if let Some(api) = created.iter().find(|d| d.type_key == "api") {
+        docs::mark_stale(
+            &ctx.db,
+            wid,
+            &[api.id],
+            "Endpoint refund berubah di kasir-api sejak dokumen diperbarui",
+        )
+        .await?;
+    }
+    let mut change = proposals::NewProposal::new(project.id, ProposalTrigger::Done);
+    change.slug = "aturan-bisnis-refund".into();
+    change.body = "## Refund\n\nKasir boleh refund sampai Rp500.000. Di atas itu wajib persetujuan supervisor.\n\n## Refund parsial\n\nRefund parsial dicatat per item; total refund tidak boleh melebihi nilai transaksi.\n".into();
+    change.reason = "Tiket KSR-1 menambah refund parsial".into();
+    change.trigger_ref = "Tiket KSR-1 selesai".into();
+    change.persona = "writer".into();
+    change.tokens = Some(18_400);
+    proposals::propose(&ctx.db, wid, change)
+        .await
+        .map_err(fail)?;
+    let mut new_doc = proposals::NewProposal::new(project.id, ProposalTrigger::Scan);
+    new_doc.title = "Glosarium Retail".into();
+    new_doc.type_key = "glosarium".into();
+    new_doc.body = "## Istilah\n\n- **Shift**: periode kerja satu kasir\n- **Void**: pembatalan item sebelum dibayar\n".into();
+    new_doc.reason = "Istilah domain yang sering muncul di kode".into();
+    new_doc.persona = "writer".into();
+    new_doc.tokens = Some(9_200);
+    proposals::propose(&ctx.db, wid, new_doc)
+        .await
+        .map_err(fail)?;
+    docs::create(
+        &ctx.db,
+        &acting,
+        &docs::NewDoc {
+            project_id: None,
+            title: "Standar coding perusahaan".into(),
+            type_key: "konvensi".into(),
+            body: "## Penamaan\n\n- Fungsi camelCase, file kebab-case\n\n## Wajib di setiap PR\n\n- [x] Test untuk setiap perubahan logika\n- [x] Tanpa secret di kode\n".into(),
+            slug: String::new(),
+        },
+    )
+    .await
+    .map_err(fail)?;
+    tracing::info!("seed knowledge: 6 dokumen, 2 usulan, 1 dokumen workspace");
+    Ok(())
 }
 
 /// Code graph contoh (M7): index `fixtures/graph/{kasir-api,kasir-web}` lewat jalur index server

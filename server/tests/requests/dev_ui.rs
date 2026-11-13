@@ -70,6 +70,13 @@ async fn component_catalog_renders_shared_components() {
         // Code graph (M7).
         assert_css_exists(&html, "[data-catalog-graph] [data-confidence=\"inferred\"]");
         assert_css_exists(&html, "[data-catalog-graph] .app-langbar-bar i");
+        assert_css_exists(&html, "[data-catalog-kb] .app-md table");
+        assert_css_exists(&html, "[data-catalog-kb] [data-kb-sbs] [data-kind='del']");
+        assert_css_exists(
+            &html,
+            "[data-catalog-kb] .app-kb-donut circle[data-tone='warn']",
+        );
+        assert!(!html.contains("<script>alert(1)"));
         assert_css_exists(&html, "[data-catalog-graph] .app-codelines .app-codeline-n");
         assert_css_exists(&html, ".app-topbar [data-crumbs] [aria-current=\"page\"]");
         assert_css_eq(&html, ".app-page-head h1", "Katalog UI");

@@ -225,6 +225,59 @@ pub fn skill_options(approved: &[skill_packs::Model]) -> Vec<ComboOption> {
         .collect()
 }
 
+/// Satu jenis dokumen di panel Knowledge persona.
+#[derive(Debug, Clone, Serialize)]
+pub struct KnowledgeTypeRow {
+    pub key: String,
+    pub name: String,
+    pub hint: String,
+    pub on: bool,
+}
+
+/// Jenis dokumen per kelompok untuk panel Knowledge persona.
+#[derive(Debug, Clone, Serialize)]
+pub struct KnowledgeGroupRow {
+    pub key: &'static str,
+    pub name: &'static str,
+    pub icon: &'static str,
+    pub types: Vec<KnowledgeTypeRow>,
+}
+
+/// Kelompok + jenis (bawaan dan custom) dengan tanda terpilih.
+#[must_use]
+pub fn knowledge_groups(
+    custom: &[crate::models::knowledge_types::Model],
+    selected: &[String],
+) -> Vec<KnowledgeGroupRow> {
+    crate::models::knowledge_catalog::GROUPS
+        .iter()
+        .map(|g| KnowledgeGroupRow {
+            key: g.key,
+            name: g.name,
+            icon: g.icon,
+            types: crate::models::knowledge_catalog::types_in(g.key)
+                .map(|t| KnowledgeTypeRow {
+                    key: t.key.into(),
+                    name: t.name.into(),
+                    hint: t.hint.into(),
+                    on: selected.iter().any(|s| s == t.key),
+                })
+                .chain(
+                    custom
+                        .iter()
+                        .filter(|c| c.group_key == g.key)
+                        .map(|c| KnowledgeTypeRow {
+                            key: c.key.clone(),
+                            name: c.name.clone(),
+                            hint: String::new(),
+                            on: selected.contains(&c.key),
+                        }),
+                )
+                .collect(),
+        })
+        .collect()
+}
+
 /// Menu kiri halaman Edit persona.
 #[must_use]
 pub fn subnav(base: &str, current: &str, skills: usize) -> Vec<NavItem> {
@@ -257,7 +310,12 @@ pub fn subnav(base: &str, current: &str, skills: usize) -> Vec<NavItem> {
             "shield-lock",
             "persona-section-tools-desc",
         ),
-        NavItem::soon("knowledge", "persona-section-knowledge", "book"),
+        link(
+            "knowledge",
+            "persona-section-knowledge",
+            "book",
+            "persona-section-knowledge-desc",
+        ),
         link(
             "models",
             "persona-section-models",

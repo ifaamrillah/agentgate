@@ -101,6 +101,7 @@ pub const SETTINGS_SECTIONS: &[&str] = &[
     "ticket_code",
     "personas",
     "skills",
+    "knowledge",
     "runner",
     "git",
 ];
@@ -166,6 +167,12 @@ pub fn settings_nav(settings_href: &str, links: &SettingsLinks) -> Vec<NavItem> 
             &links.personas,
         ),
         ("skills", "settings-skills-title", "package", &links.skills),
+        (
+            "knowledge",
+            "settings-knowledge-title",
+            "book",
+            &links.knowledge,
+        ),
         ("runner", "runner-title", "device-laptop", &links.runner),
         ("git", "git-title", "git-pull-request", &links.git),
     ];
@@ -384,12 +391,14 @@ fn project_side_views(home: &str, section: &str) -> Vec<NavItem> {
         &format!("{home}/graph"),
     );
     graph.current = section == "project_graph";
-    vec![
-        board,
-        list,
-        NavItem::soon("knowledge", "nav-knowledge", "book"),
-        graph,
-    ]
+    let mut knowledge = NavItem::link(
+        "knowledge",
+        "nav-knowledge",
+        "book",
+        &format!("{home}/knowledge"),
+    );
+    knowledge.current = section == "project_knowledge";
+    vec![board, list, knowledge, graph]
 }
 
 fn settings_side(shell: &AppShell) -> Vec<SideGroup> {
@@ -473,6 +482,7 @@ pub const PROJECT_VIEWS: &[(&str, &str, &str)] = &[
     ("calendar", "project-view-calendar", "calendar"),
     ("prs", "project-view-prs", "git-pull-request"),
     ("graph", "project-view-graph", "topology-star-3"),
+    ("knowledge", "project-view-knowledge", "book"),
     ("releases", "project-view-releases", "rocket"),
     ("reports", "project-view-reports", "chart-line"),
 ];
@@ -525,7 +535,7 @@ pub fn project_views(home_href: &str, pinned: &[String], current: &str) -> Proje
             .unwrap_or(PROJECT_VIEWS[0]);
         let mut nav = match key {
             "overview" => NavItem::link(key, label, icon, home_href),
-            "board" | "list" | "prs" | "graph" => {
+            "board" | "list" | "prs" | "graph" | "knowledge" => {
                 NavItem::link(key, label, icon, &format!("{home_href}/{key}"))
             }
             _ => NavItem::soon(key, label, icon),

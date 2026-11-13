@@ -1,0 +1,110 @@
+{#- Project → Knowledge → Beranda (M8, varian B "Beranda + kartu kelompok"). Prototype: kBHome di
+    screens-opsi-kb-office.js. Variabel: project, views, views_action, return_to, paths, base,
+    kb_tabs, can_edit, can_approve, can_admin, owner, owner_options, q, results, stats, cards,
+    stale_rows ([DocRow]), pending_rows ([ProposalRow]), action_count, doc_count, donut, open_run, last_run,
+    hidden_groups, settings_href, flash + data dialog (_dialogs.html). -#}
+{% extends "layouts/project.html" %}
+{% block title %}{{ t(key="project-view-knowledge", lang="id") }} · {{ project.name }}{% endblock title %}
+{% block width %}wide{% endblock width %}
+{% block crumb %}{{ <crumb label={t(key="project-view-knowledge", lang="id")}/> }}{% endblock crumb %}
+{% block actions %}
+  {%- if can_edit %}{{ <button label={t(key="kb-new", lang="id")} icon="plus" variant="outline" size="sm" dialog="kb-new"/> }}{{ <button label={t(key="kb-scan", lang="id")} icon="refresh" variant="primary" size="sm" dialog="kb-scan"/> }}{% endif -%}
+{% endblock actions %}
+{% block page_attrs %}data-kb-home{% endblock page_attrs %}
+{% block description %}{{ t(key="kb-description", lang="id") }}{% endblock description %}
+{% block main %}
+{{ <tabs label={t(key="project-view-knowledge", lang="id")} items={kb_tabs}/> }}
+<form class="app-fr" method="get" action="{{ base }}" role="search" data-kb-search>
+  <label class="app-fsearch" data-grow>{{ icon(name="search") }}<input type="search" name="q" value="{{ q }}" placeholder="{{ t(key="kb-search-placeholder", lang="id") }}" aria-label="{{ t(key="kb-search-placeholder", lang="id") }}"></label>
+  {%- if q %}<a class="app-fclear" href="{{ base }}">{{ icon(name="x") }}{{ t(key="table-filter-clear", lang="id") }}</a>{% endif %}
+</form>
+{%- if q %}
+{% <card title={t(key="kb-results", lang="id", q=q)} count={results | length ~ ""} flush={true} attrs="data-kb-results"> %}
+  {%- for r in results %}
+  {%- if r.href %}<a class="app-lrow app-kb-hit" href="{{ r.href }}">{% else %}<div class="app-lrow app-kb-hit">{% endif %}
+    <span class="app-tile">{{ icon(name="file-text") }}</span>
+    <span class="app-lrow-main"><b>{{ r.title }}</b><small>{{ r.snippet }}</small></span>
+    {%- if r.workspace %}{{ <badge label={t(key="kb-workspace-doc", lang="id")} variant="neutral"/> }}{% else %}<span class="app-hint" data-hide="sm">{{ t(key=r.group, lang="id") }}</span>{% endif %}
+  {%- if r.href %}</a>{% else %}</div>{% endif %}
+  {%- else %}
+  {{ <empty_state title={t(key="kb-results-empty", lang="id")} description={t(key="kb-results-empty-description", lang="id")} icon="search" variant="plain"/> }}
+  {%- endfor %}
+{% </card> %}
+{%- endif %}
+{%- if doc_count == 0 and pending_rows | length == 0 and not open_run %}
+{% <empty_state title={t(key="kb-empty", lang="id")} description={t(key="kb-empty-description", lang="id")} icon="book" attrs="data-kb-empty"> %}
+  {%- if can_edit %}{{ <button label={t(key="kb-scan-first", lang="id")} icon="sparkles" variant="primary" dialog="kb-scan"/> }}{% endif %}
+{% </empty_state> %}
+{%- else %}
+{{ <stats items={stats}/> }}
+<div class="app-kb-top">
+{%- if pending_rows | length > 0 %}{% set review_label = t(key="kb-review-all", lang="id", n=pending_rows | length) %}{% else %}{% set review_label = "" %}{% endif %}
+{% <card title={t(key="kb-actions-title", lang="id")} count={action_count ~ ""} flush={true} link_label={review_label} link_href={base ~ "/proposals"} attrs="data-kb-actions"> %}
+  {%- for p in pending_rows %}
+  <div class="app-lrow" data-wrap data-kb-action="proposal">
+    <span class="app-tile" data-tone="accent">{{ icon(name="git-pull-request") }}</span>
+    <span class="app-lrow-main"><b>{{ p.title }}</b><small>{% if p.new_doc %}{{ t(key="kb-new-doc", lang="id") }}{% else %}{{ t(key="kb-proposal", lang="id") }}{% endif %} · {{ t(key=p.trigger_key, lang="id") }}{% if p.reason %} · {{ p.reason }}{% endif %}</small></span>
+    <span class="app-lrow-acts"><span class="app-diffstat"><span data-tone="add">+{{ p.added }}</span><span data-tone="del">−{{ p.removed }}</span></span>{{ <button label={t(key="kb-review", lang="id")} size="sm" variant="outline" href={p.href}/> }}</span>
+  </div>
+  {%- endfor %}
+  {%- for d in stale_rows %}
+  <div class="app-lrow" data-wrap data-kb-action="stale" data-doc="{{ d.slug }}">
+    <span class="app-tile" data-tone="warn">{{ icon(name="clock") }}</span>
+    <span class="app-lrow-main"><b><a class="app-link" href="{{ d.href }}">{{ d.title }}</a></b><small>{{ d.stale_reason }}</small></span>
+    {%- if can_edit %}
+    <span class="app-lrow-acts">
+      <form method="post" action="{{ d.href }}/fresh"><input type="hidden" name="next" value="{{ base }}">{{ <button label={t(key="kb-still-true", lang="id")} size="sm" variant="ghost" type="submit"/> }}</form>
+      <form method="post" action="{{ base }}/scan"><input type="hidden" name="doc" value="{{ d.slug }}"><input type="hidden" name="next" value="{{ base }}">{{ <button label={t(key="kb-ask-ai", lang="id")} icon="sparkles" size="sm" variant="outline" type="submit"/> }}</form>
+    </span>
+    {%- endif %}
+  </div>
+  {%- endfor %}
+  {%- if action_count == 0 %}
+  {{ <empty_state title={t(key="kb-actions-none", lang="id")} description={t(key="kb-actions-none-description", lang="id")} icon="circle-check" variant="plain"/> }}
+  {%- endif %}
+{% </card> %}
+{% <card title={t(key="kb-health-title", lang="id")} flush={true} attrs="data-kb-health"> %}
+  <div class="app-kb-health">
+    {{ <donut donut={donut} label={t(key="kb-health-aria", lang="id", pct=donut.center)}/> }}
+    {%- if open_run %}
+    <div class="app-kb-note" data-kb-run="{{ open_run.status }}">{{ icon(name="loader-2") }}<span>{{ t(key="kb-run-open", lang="id", kind=open_run.kind, depth=open_run.depth_label, status=open_run.status) }}</span></div>
+    {%- elif last_run %}
+    <div class="app-kb-note">{{ icon(name="history") }}<span>{{ t(key="kb-run-last", lang="id", kind=last_run.kind, when=last_run.created, n=last_run.proposals) }}</span></div>
+    {%- endif %}
+  </div>
+  {%- if can_admin %}
+  {%- if owner %}{% set owner_value = owner.id ~ "" %}{% else %}{% set owner_value = "" %}{% endif %}
+  <form method="post" action="{{ base }}/owner" class="app-blk" data-kb-owner>
+    <input type="hidden" name="next" value="{{ base }}">
+    {{ <combo id="kb-owner" name="owner" label={t(key="kb-owner", lang="id")} options={owner_options} value={owner_value} placeholder={t(key="kb-owner-none", lang="id")} submit={true} hint={t(key="kb-owner-hint", lang="id")}/> }}
+  </form>
+  {%- else %}
+  <div class="app-blk">{% if owner %}{{ <person name={owner.name} initials={owner.initials} color={owner.color} detail={t(key="kb-owner", lang="id")} size="default"/> }}{% else %}<span class="app-hint">{{ t(key="kb-owner-none-admin", lang="id") }}</span>{% endif %}</div>
+  {%- endif %}
+{% </card> %}
+</div>
+<div class="app-kb-sh"><div><h2>{{ t(key="kb-groups-title", lang="id") }}</h2><p>{{ t(key="kb-groups-description", lang="id") }}</p></div></div>
+<div class="app-kb-grid" data-kb-groups>
+  {%- for c in cards %}
+  <a class="app-kb-card" href="{{ c.href }}" data-group="{{ c.key }}">
+    <span class="app-kb-card-h"><span class="app-tile">{{ icon(name=c.icon) }}</span><b>{{ c.name }}</b><span>{{ c.total }}</span></span>
+    <span class="app-kb-seg" title="{{ t(key="kb-seg-title", lang="id", fresh=c.fresh, proposal=c.proposal, stale=c.stale) }}">{% if c.fresh %}<i data-tone="success" style="flex: {{ c.fresh }}"></i>{% endif %}{% if c.proposal %}<i data-tone="accent" style="flex: {{ c.proposal }}"></i>{% endif %}{% if c.stale %}<i data-tone="warn" style="flex: {{ c.stale }}"></i>{% endif %}</span>
+    <span class="app-kb-dl">
+      {%- for d in c.docs %}<span><span class="app-kb-dot" data-state="{{ d.state }}"></span><span>{{ d.title }}</span></span>{% endfor %}
+      {%- if c.more > 0 %}<small>{{ t(key="kb-more-docs", lang="id", n=c.more) }}</small>{% endif %}
+      {%- if c.total == 0 %}<small>{{ c.desc }}</small>{% endif %}
+    </span>
+    <span class="app-kb-cf"{% if c.stale %} data-tone="warn"{% elif c.proposal %} data-tone="accent"{% endif %}>
+      <span>{% if c.total == 0 %}{{ t(key="kb-card-empty", lang="id") }}{% elif c.stale %}{{ t(key="kb-card-stale", lang="id", n=c.stale) }}{% elif c.proposal %}{{ t(key="kb-card-proposal", lang="id", n=c.proposal) }}{% else %}{{ t(key="kb-card-fresh", lang="id") }}{% endif %}</span>
+      <span class="app-kb-stack">{% for o in c.owners %}{{ <avatar initials={o.initials} color={o.color} label={o.name} size="sm"/> }}{% endfor %}</span>
+    </span>
+  </a>
+  {%- endfor %}
+  {%- if can_edit %}
+  <button type="button" class="app-kb-card" data-add data-dialog-open="kb-new" aria-haspopup="dialog">{{ icon(name="plus") }}<b>{{ t(key="kb-card-add", lang="id") }}</b><span class="app-hint">{{ t(key="kb-card-add-hint", lang="id") }}</span></button>
+  {%- endif %}
+</div>
+{%- if hidden_groups %}<p class="app-kb-note">{{ icon(name="info-circle") }}<span>{{ t(key="kb-hidden-groups", lang="id", groups=hidden_groups) }}{% if settings_href %} <a class="app-link" href="{{ settings_href }}">{{ t(key="kb-settings-link", lang="id") }}</a>{% endif %}</span></p>{% endif %}
+{%- endif %}
+{%- if can_edit %}{% include "knowledge/_dialogs.html" %}{% endif %}
+{% endblock main %}

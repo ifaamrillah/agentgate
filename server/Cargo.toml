@@ -89,6 +89,11 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 flate2 = "1"
 tar = "0.4"
 
+# Render Markdown (GFM: tabel, checklist, coret) untuk deskripsi tiket, komentar, artifact, dan
+# knowledge (M8), lalu disanitasi allowlist sebelum tampil.
+pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
+ammonia = "4"
+
 # Prompt password tanpa echo untuk task user:set_password.
 rpassword = "7"
 

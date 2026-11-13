@@ -32,3 +32,4 @@ editor-group-advanced = Lanjutan
 editor-image = Gambar
 editor-code-block = Blok kode
 editor-table = Tabel
+editor-mermaid-error = Diagram Mermaid tidak valid

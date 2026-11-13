@@ -105,7 +105,8 @@ pub async fn upload(
     if !type_allowed(up.kind, &content_type, &data) {
         return Err(bad(TYPE_INVALID));
     }
-    let ticket = tickets::Model::find_in(db, wid, job.ticket_id)
+    let ticket_id = job.ticket_id.ok_or(TicketFailure::NotFound)?;
+    let ticket = tickets::Model::find_in(db, wid, ticket_id)
         .await?
         .ok_or(TicketFailure::NotFound)?;
     let id = Uuid::now_v7();

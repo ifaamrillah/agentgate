@@ -13,6 +13,7 @@ pub mod git;
 pub mod graph;
 pub mod invitations;
 pub mod job_titles;
+pub mod knowledge;
 pub mod layout;
 pub mod members;
 pub mod nav;

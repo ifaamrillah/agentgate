@@ -40,6 +40,7 @@ pub struct Model {
     pub allow_force_transition: bool,
     #[sea_orm(column_type = "JsonBinary")]
     pub git: Json,
+    pub knowledge_owner_id: Option<Uuid>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

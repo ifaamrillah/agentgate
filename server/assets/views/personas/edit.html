@@ -104,6 +104,25 @@
   </fieldset>
 {% </card> %}
 
+{%- elif section == "knowledge" %}
+{% <card title={t(key="persona-knowledge-title", lang="id")} description={t(key="persona-knowledge-description", lang="id")} link_label={t(key="persona-knowledge-manage", lang="id")} link_href={knowledge_href} form={href ~ "/knowledge"} cancel_href={href ~ "?section=knowledge"} attrs="data-persona-knowledge"> %}
+  {%- if errors.knowledge_types.code %}<p class="app-field-error" role="alert">{{ t(key=errors.knowledge_types.code, lang="id") }}</p>{% endif %}
+  <label class="app-check-row app-concise">
+    <input type="checkbox" class="app-switch" role="switch" name="knowledge_all" data-knowledge-all{% if knowledge_all %} checked{% endif %}>
+    <span><b>{{ t(key="persona-knowledge-all", lang="id") }}</b><small>{{ t(key="persona-knowledge-all-hint", lang="id") }}</small></span>
+  </label>
+  {%- for g in knowledge_groups %}{% if g.types %}
+  <fieldset class="app-toolset" data-knowledge-group="{{ g.key }}">
+    <legend>{{ g.name }}</legend>
+    <div class="app-checks">
+      {%- for ty in g.types %}
+      <label><input type="checkbox" class="app-check" name="knowledge_types" value="{{ ty.key }}"{% if ty.on %} checked{% endif %}><span><b>{{ ty.name }}</b>{% if ty.hint %}<small>{{ ty.hint }}</small>{% endif %}</span></label>
+      {%- endfor %}
+    </div>
+  </fieldset>
+  {%- endif %}{% endfor %}
+{% </card> %}
+
 {%- elif section == "models" %}
 {% <card title={t(key="persona-section-models", lang="id")} description={t(key="persona-models-description", lang="id")} flush={true} form={href ~ "/models"} cancel_href={href ~ "?section=models"} attrs="data-persona-models"> %}
   {%- if errors.models.code %}<div class="app-pad"><p class="app-field-error" role="alert">{{ t(key=errors.models.code, lang="id") }}</p></div>{% endif %}

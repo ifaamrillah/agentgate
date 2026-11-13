@@ -1,0 +1,36 @@
+{#- Project → Knowledge → satu kelompok (M8). Prototype: kBGroup. Variabel: project, views,
+    views_action, return_to, paths, base, kb_tabs, can_edit, group {key, name, icon, desc},
+    group_tabs, rows ([DocRow]), stats, flash + data dialog. -#}
+{% extends "layouts/project.html" %}
+{% block title %}{{ group.name }} · {{ t(key="project-view-knowledge", lang="id") }} · {{ project.name }}{% endblock title %}
+{% block width %}wide{% endblock width %}
+{% block crumb %}{{ <crumb label={t(key="project-view-knowledge", lang="id")} href={base}/> }}{{ <crumb label={group.name}/> }}{% endblock crumb %}
+{% block actions %}
+  {%- if can_edit %}{{ <button label={t(key="kb-new", lang="id")} icon="plus" variant="outline" size="sm" dialog="kb-new"/> }}{{ <button label={t(key="kb-scan", lang="id")} icon="refresh" variant="primary" size="sm" dialog="kb-scan"/> }}{% endif -%}
+{% endblock actions %}
+{% block page_attrs %}data-kb-group="{{ group.key }}"{% endblock page_attrs %}
+{% block description %}{{ t(key="kb-description", lang="id") }}{% endblock description %}
+{% block main %}
+{{ <tabs label={t(key="project-view-knowledge", lang="id")} items={kb_tabs}/> }}
+{% <subpage title={group.name} description={group.desc} items={group_tabs}> %}
+{{ <stats items={stats}/> }}
+{% <card title={t(key="kb-group-docs", lang="id")} count={rows | length ~ ""} flush={true}> %}
+  {%- for d in rows %}
+  <div class="app-lrow" data-wrap data-doc="{{ d.slug }}" data-state="{{ d.state }}">
+    <span class="app-kb-dot" data-state="{{ d.state }}"></span>
+    <span class="app-lrow-main"><b><a class="app-link" href="{{ d.href }}">{{ d.title }}</a></b>
+      <small>{% if d.state == "stale" %}{{ d.stale_reason }}{% else %}<span class="app-code">{{ d.path }}</span>{% endif %}</small></span>
+    <span class="app-lrow-acts">
+      {%- if d.proposal %}{{ <button label={t(key="kb-review-proposal", lang="id")} size="sm" variant="outline" href={base ~ "/proposals?p=" ~ d.proposal}/> }}{% else %}{{ <badge label={t(key=d.state_key, lang="id")} variant={d.state_variant}/> }}{% endif %}
+      <span class="app-hint" data-hide="sm">{% if d.owner %}{{ <avatar initials={d.owner.initials} color={d.owner.color} label={d.owner.name} size="sm"/> }}{% endif %} {{ d.updated }}</span>
+    </span>
+  </div>
+  {%- else %}
+  {% <empty_state title={t(key="kb-group-empty", lang="id")} description={t(key="kb-group-empty-description", lang="id")} icon={group.icon} variant="plain"> %}
+    {%- if can_edit %}{{ <button label={t(key="kb-new", lang="id")} icon="plus" variant="outline" dialog="kb-new"/> }}{% endif %}
+  {% </empty_state> %}
+  {%- endfor %}
+{% </card> %}
+{% </subpage> %}
+{%- if can_edit %}{% include "knowledge/_dialogs.html" %}{% endif %}
+{% endblock main %}

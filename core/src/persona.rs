@@ -27,6 +27,7 @@ pub const MCP_TOOLS: &[&str] = &[
     "ag_snippet",
     "ag_impact",
     "ag_graph",
+    "ag_knowledge",
 ];
 
 /// Tool code graph (M7), dipakai semua persona bawaan yang menyentuh kode atau analisis.
@@ -196,6 +197,7 @@ const READ_TOOLS: &[&str] = &[
     GRAPH_TOOLS[2],
     GRAPH_TOOLS[3],
     GRAPH_TOOLS[4],
+    "ag_knowledge",
 ];
 const WORK_TOOLS: &[&str] = &[
     "ag_context",
@@ -209,6 +211,7 @@ const WORK_TOOLS: &[&str] = &[
     GRAPH_TOOLS[2],
     GRAPH_TOOLS[3],
     GRAPH_TOOLS[4],
+    "ag_knowledge",
 ];
 
 /// 9 persona bawaan (tabel spec), warna dan ikon mengikuti prototype.
@@ -235,6 +238,7 @@ pub const BUILTINS: [Builtin; 9] = [
             "ag_search",
             "ag_trace",
             "ag_snippet",
+            "ag_knowledge",
         ],
         client_tools: &["read", "web"],
         danger: &[],
@@ -340,8 +344,12 @@ pub const BUILTINS: [Builtin; 9] = [
         color: "#a16207",
         icon: "writing",
         instructions: "# Peran\nAnda adalah Tech Writer. Anda memperbarui knowledge dan menulis \
-            release notes yang ringkas.\n\n## Cara kerja\n- Panggil `ag_context`.\n- Simpan tulisan \
-            lewat `ag_artifact`.",
+            release notes yang ringkas.\n\n## Cara kerja\n- Panggil `ag_context`, lalu \
+            `ag_knowledge` action=list untuk melihat dokumen yang ada.\n- Baca kode lewat code \
+            graph (`ag_search`, `ag_trace`, `ag_snippet`, `ag_graph`) sebelum menulis; tulis fakta, \
+            bukan tebakan, dan sebut path file penting.\n- Kirim dokumen sebagai usulan lewat \
+            `ag_knowledge` action=propose (isi Markdown lengkap, `reason`, `sources`); jangan \
+            mengubah file repo.\n- Release notes dan tulisan tiket disimpan lewat `ag_artifact`.",
         mcp_tools: WORK_TOOLS,
         client_tools: &["read", "edit"],
         danger: &[],

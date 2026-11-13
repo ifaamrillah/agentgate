@@ -57,6 +57,15 @@ pub enum NotificationKind {
     /// Merge otomatis gagal; merge manual di provider.
     #[sea_orm(string_value = "merge_failed")]
     MergeFailed,
+    /// Usulan knowledge baru menunggu persetujuan pemilik knowledge (M8, `project_id`).
+    #[sea_orm(string_value = "knowledge_proposal")]
+    KnowledgeProposal,
+    /// Job knowledge (scan/update) diumumkan ke pemilik knowledge.
+    #[sea_orm(string_value = "knowledge_job")]
+    KnowledgeJob,
+    /// Usulan knowledge yang diajukan pengguna ini ditolak.
+    #[sea_orm(string_value = "knowledge_rejected")]
+    KnowledgeRejected,
 }
 
 impl TenantEntity for Entity {
@@ -77,6 +86,8 @@ pub struct NewNotification {
     pub kind: NotificationKind,
     pub ticket_id: Option<Uuid>,
     pub comment_id: Option<Uuid>,
+    /// Project untuk notifikasi tanpa tiket (knowledge, M8).
+    pub project_id: Option<Uuid>,
 }
 
 impl Model {
@@ -179,6 +190,7 @@ impl ActiveModel {
             kind: Set(new.kind.to_value()),
             ticket_id: Set(new.ticket_id),
             comment_id: Set(new.comment_id),
+            project_id: Set(new.project_id),
             ..Default::default()
         }
         .insert(db)

@@ -28,6 +28,7 @@
 @import "./components/color-picker.css";
 @import "./components/uploader.css";
 @import "./components/md-editor.css";
+@import "./components/markdown.css";
 @import "./components/ticket.css";
 @import "./components/workflow.css";
 @import "./components/agent.css";
@@ -35,6 +36,7 @@
 @import "./components/runner.css";
 @import "./components/git.css";
 @import "./components/graph.css";
+@import "./components/knowledge.css";
 
 @source "../views";
 @source "../../src";

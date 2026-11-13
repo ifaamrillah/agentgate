@@ -212,6 +212,39 @@ pub fn backup(root: &Path, files: &[String], project: &str) -> Result<Manifest> 
     Ok(manifest)
 }
 
+/// Unggah arsip backup + isi teks aturan lama ke server (`POST /api/cli/backups`).
+///
+/// # Errors
+///
+/// Gagal membaca arsip, server menolak.
+pub async fn upload_backup(
+    api: &Api,
+    root: &Path,
+    manifest: &Manifest,
+    files: &[String],
+) -> Result<()> {
+    use base64::Engine;
+    let path = root.join(BACKUP_DIR).join(&manifest.archive);
+    let data = fs::read(&path).map_err(io_at(&path))?;
+    let texts: Vec<serde_json::Value> = files
+        .iter()
+        .filter_map(|rel| {
+            let content = fs::read_to_string(root.join(rel)).ok()?;
+            Some(serde_json::json!({ "path": rel, "content": content }))
+        })
+        .collect();
+    let body = serde_json::json!({
+        "project": manifest.project,
+        "repo": crate::git::repo_name(root),
+        "archive": manifest.archive,
+        "data": base64::engine::general_purpose::STANDARD.encode(data),
+        "manifest": manifest,
+        "texts": texts,
+    });
+    let _: serde_json::Value = api.post("/api/cli/backups", &body).await?;
+    Ok(())
+}
+
 /// Manifest backup terbaru.
 ///
 /// # Errors
@@ -418,7 +451,16 @@ pub async fn init(
     }
     let mut touched: Vec<String> = Vec::new();
     if !legacy.is_empty() {
-        backup(&root, &legacy, &server_rules.project)?;
+        let manifest = backup(&root, &legacy, &server_rules.project)?;
+        // Salinan di server (unduh di Runner & CLI → Aturan & drift) + usulan Konvensi.
+        match upload_backup(api, &root, &manifest, &legacy).await {
+            Ok(()) => {
+                let _ = writeln!(out, "Backup aturan lama diunggah ke server.");
+            }
+            Err(e) => {
+                let _ = writeln!(out, "Peringatan: backup tidak terunggah ke server ({e}).");
+            }
+        }
         remove_files(&root, &legacy)?;
         touched.extend(legacy.iter().cloned());
         touched.push(BACKUP_DIR.into());

@@ -10,7 +10,7 @@ pub struct Model {
     pub id: Uuid,
     pub workspace_id: Uuid,
     pub job_id: Uuid,
-    pub ticket_id: Uuid,
+    pub ticket_id: Option<Uuid>,
     #[sea_orm(column_type = "Text")]
     pub action: String,
     #[sea_orm(column_type = "Text")]

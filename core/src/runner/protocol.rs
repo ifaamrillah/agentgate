@@ -62,10 +62,12 @@ impl JobStatus {
 }
 
 str_enum!(
-    /// Asal job: stage tiket, atau `@agent-…` di komentar.
+    /// Asal job: stage tiket, `@agent-…` di komentar, atau scan/update knowledge (tanpa tiket,
+    /// `JobSpec::ticket` kosong).
     JobKind {
         Stage => "stage",
         Comment => "comment",
+        Knowledge => "knowledge",
     }
 );
 

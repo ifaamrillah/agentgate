@@ -223,3 +223,27 @@ katalog `/_dev/ui` di commit yang sama.
   `datatable` (status, sumber CLI/server, commit, `lang_bar`, cakupan `app-gi-*`), lintas repo dan
   kode mati = `datatable`, git = hotspot/coupling/pemilik, benchmark = hasil korpus bawaan.
   Index ulang lewat dialog `graph-reindex` (`EditProject`). CSS: `components/graph.css`.
+
+## M8 (Knowledge base)
+
+- **Komponen baru** (katalog `/_dev/ui`, kartu "Knowledge & Markdown (M8)"):
+  - `md_view text size=""|doc empty`: Markdown tersanitasi (`common::markdown::render`: GFM tabel,
+    checklist, coret; HTML mentah dibuang; tautan eksternal `rel=noopener nofollow`). Blok
+    ```` ```mermaid ```` dirender `static/js/markdown.js` (Mermaid lazy, `securityLevel: strict`).
+    Dipakai di deskripsi tiket, komentar, artifact, dokumen knowledge, alasan usulan.
+  - `diff_sbs rows left_label right_label right_icon`: diff berdampingan Sebelum | Sesudah (baris
+    dari `services::knowledge::proposals::side_by_side`; kind `same|del|add|gap`). < 640px satu
+    kolom (unified). Dipakai di Tinjau usulan dan Riwayat versi.
+  - `donut donut label`: kesehatan dokumen (persen terbaru di tengah, segmen terbaru/usulan/basi
+    dari `views::knowledge::Donut`) + legenda bertitik `app-kb-dot[data-state]`.
+- **Project → Knowledge** (varian B, tab project `knowledge`): Beranda = `tabs` (Beranda / Tinjau
+  usulan + angka), cari (`app-fr`), `stats`, `app-kb-top` (kartu Perlu tindakan: usulan + dokumen
+  basi dengan aksi Masih benar / Minta AI perbarui; kartu Kesehatan: `donut`, run berjalan, pemilik
+  knowledge `combo`), grid `app-kb-grid` kartu kelompok `app-kb-card` (bar segmen `app-kb-seg`, 4
+  dokumen pertama, pemilik bertumpuk), kartu tambah `[data-add]`. Kelompok = `subpage` + daftar
+  `app-lrow`. Tinjau usulan = mode fokus `app-kb-rv` (bar posisi + titik langkah, aside properti,
+  `diff_sbs`, footer lengket Tolak / Edit dulu / Approve; pintasan A/R/J/K `static/js/kb-review.js`).
+  Editor dokumen = halaman sendiri `app-kb-doc` (judul `app-kb-title` + `md_editor`, panel samping
+  properti/outline/terhubung/riwayat). CSS: `components/knowledge.css`.
+- **Pengaturan → Knowledge workspace**: `subpage` Dokumen workspace / Jenis dokumen / Update
+  otomatis; dokumen dan jenis custom = halaman sendiri (editor + pengaturan di samping).

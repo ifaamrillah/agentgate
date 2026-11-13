@@ -311,6 +311,7 @@ async fn ticket_enum_checks_match_enums() {
             kind: NotificationKind::Assigned,
             ticket_id: Some(ids[0]),
             comment_id: None,
+            project_id: None,
         },
     )
     .await
@@ -624,7 +625,14 @@ async fn runner_job_enum_checks_match_enums() {
             "jobs",
             "kind",
             job,
-            strs(&JobKind::ALL.iter().map(|v| v.as_str()).collect::<Vec<_>>()),
+            // `knowledge` wajib tanpa tiket (jobs_ticket_kind_check), diuji terpisah di bawah.
+            strs(
+                &JobKind::ALL
+                    .iter()
+                    .filter(|v| **v != JobKind::Knowledge)
+                    .map(|v| v.as_str())
+                    .collect::<Vec<_>>(),
+            ),
         ),
         (
             "jobs",
@@ -695,6 +703,24 @@ async fn runner_job_enum_checks_match_enums() {
             "{table}.{column}"
         );
     }
+    // Job knowledge = tanpa tiket; job tiket tidak boleh berjenis knowledge.
+    assert!(!update_ok(db, "jobs", "kind", job, "knowledge").await);
+    let unlinked = db
+        .execute_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "UPDATE jobs SET kind = 'knowledge', ticket_id = NULL WHERE id = $1",
+            [Value::from(job)],
+        ))
+        .await;
+    assert!(unlinked.is_ok(), "{unlinked:?}");
+    let stage_without_ticket = db
+        .execute_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "UPDATE jobs SET kind = 'stage' WHERE id = $1",
+            [Value::from(job)],
+        ))
+        .await;
+    assert!(stage_without_ticket.is_err());
 }
 
 #[tokio::test]

@@ -273,8 +273,15 @@ pub async fn store(
                         graph_files::Column::SkipReason,
                         graph_files::Column::Content,
                         graph_files::Column::Facts,
-                        graph_files::Column::UpdatedAt,
                     ])
+                    // `updated_at` hanya maju bila isi berubah (deteksi dokumen knowledge basi).
+                    .value(
+                        graph_files::Column::UpdatedAt,
+                        sea_orm::sea_query::Expr::cust(
+                            "CASE WHEN graph_files.sha = excluded.sha \
+                             THEN graph_files.updated_at ELSE excluded.updated_at END",
+                        ),
+                    )
                     .to_owned(),
             )
             .exec_without_returning(db)

@@ -186,9 +186,12 @@ fn done<T>(
 async fn stage_name(
     db: &DatabaseConnection,
     tenant: &Tenant,
-    t: &tickets::Model,
+    t: Option<&tickets::Model>,
     key: &str,
 ) -> String {
+    let Some(t) = t else {
+        return "Knowledge".into();
+    };
     match Flow::load(db, tenant.workspace_id(), t).await {
         Ok(flow) => flow
             .rule(key)
@@ -233,7 +236,7 @@ async fn runners_map(
 pub(crate) async fn job_views(
     db: &DatabaseConnection,
     tenant: &Tenant,
-    rows: &[(jobs::Model, tickets::Model)],
+    rows: &[(jobs::Model, Option<tickets::Model>)],
 ) -> Result<Vec<JobView>> {
     let acting = acting(tenant, None);
     let labels: PersonaLabels = personas::Model::labels(db, tenant.workspace_id()).await?;
@@ -247,18 +250,23 @@ pub(crate) async fn job_views(
     let now = chrono::Utc::now();
     let mut out = Vec::with_capacity(rows.len());
     for (job, ticket) in rows {
-        let name = stage_name(db, tenant, ticket, &job.stage_key).await;
+        let name = stage_name(db, tenant, ticket.as_ref(), &job.stage_key).await;
         let can_claim = svc::can_claim(db, &acting, job).await?;
         let is_admin = svc::is_project_admin(db, &acting, job).await;
         out.push(JobView::of(
             job,
             &JobContext {
                 slug: &tenant.workspace.slug,
-                ticket_code: &ticket.code,
-                ticket_title: &ticket.title,
+                ticket_code: ticket.as_ref().map_or("KB", |t| t.code.as_str()),
+                ticket_title: ticket
+                    .as_ref()
+                    .map_or(job.prompt_note.as_str(), |t| t.title.as_str()),
                 stage_name: name,
                 labels: &labels,
-                priority: ticket.priority().map_or(3, tickets::TicketPriority::rank),
+                priority: ticket
+                    .as_ref()
+                    .and_then(|t| t.priority().ok())
+                    .map_or(3, tickets::TicketPriority::rank),
                 holder: job.claimed_by.and_then(|u| users.get(&u)),
                 runner: job.runner_id.and_then(|r| runner_map.get(&r)),
                 viewer: tenant.user.id,
@@ -274,7 +282,7 @@ pub(crate) async fn job_views(
 async fn permission_views(
     db: &DatabaseConnection,
     tenant: &Tenant,
-    rows: &[(job_permissions::Model, jobs::Model, tickets::Model)],
+    rows: &[(job_permissions::Model, jobs::Model, Option<tickets::Model>)],
 ) -> Result<Vec<PermissionView>> {
     let labels = personas::Model::labels(db, tenant.workspace_id()).await?;
     let runner_map = runners_map(
@@ -295,7 +303,9 @@ async fn permission_views(
             PermissionView::of(
                 p,
                 j,
-                (&t.code, &t.title),
+                t.as_ref().map_or(("KB", j.prompt_note.as_str()), |t| {
+                    (t.code.as_str(), t.title.as_str())
+                }),
                 &PermissionContext {
                     slug: &tenant.workspace.slug,
                     labels: &labels,
@@ -324,12 +334,14 @@ async fn runner_views(
             continue;
         };
         let job = match running.iter().find(|j| j.runner_id == Some(r.id)) {
-            Some(j) => tickets::Model::find_in(db, wid, j.ticket_id)
-                .await?
-                .map(|t| RunnerJob {
-                    ticket: t.code,
-                    href: format!("/w/{}/jobs/{}", tenant.workspace.slug, j.id),
-                }),
+            Some(j) => match j.ticket_id {
+                Some(tid) => tickets::Model::find_in(db, wid, tid).await?.map(|t| t.code),
+                None => Some("KB".into()),
+            }
+            .map(|code| RunnerJob {
+                ticket: code,
+                href: format!("/w/{}/jobs/{}", tenant.workspace.slug, j.id),
+            }),
             None => None,
         };
         out.push(RunnerView::of(
@@ -456,7 +468,7 @@ async fn page(
                 serde_json::to_value(permission_views(db, &tenant, &pending).await?)?;
         }
         "queue" => {
-            let rows: Vec<(jobs::Model, tickets::Model)> = queue
+            let rows: Vec<(jobs::Model, Option<tickets::Model>)> = queue
                 .iter()
                 .map(|r| (r.job.clone(), r.ticket.clone()))
                 .collect();
@@ -509,7 +521,7 @@ async fn page(
             let list =
                 svc::runners_of(db, wid, (panel == "mine").then_some(tenant.user.id)).await?;
             let views = runner_views(db, &tenant, &list).await?;
-            let held: Vec<(jobs::Model, tickets::Model)> = queue
+            let held: Vec<(jobs::Model, Option<tickets::Model>)> = queue
                 .iter()
                 .filter(|r| r.job.claimed_by == Some(tenant.user.id))
                 .map(|r| (r.job.clone(), r.ticket.clone()))
@@ -574,6 +586,35 @@ async fn page(
                 })
                 .collect();
             data["checks"] = serde_json::Value::from(checks);
+            // Backup aturan lama dari `agentgate init` di project yang boleh dibuka.
+            let projects =
+                crate::models::projects::Model::accessible_for(db, &tenant.accessor()).await?;
+            let backups = crate::models::rule_backups::Entity::find()
+                .filter(crate::models::rule_backups::Column::WorkspaceId.eq(wid.get()))
+                .filter(
+                    crate::models::rule_backups::Column::ProjectId
+                        .is_in(projects.iter().map(|p| p.id).collect::<Vec<_>>()),
+                )
+                .all(db)
+                .await?;
+            let mut backups: Vec<serde_json::Value> = backups
+                .iter()
+                .rev()
+                .take(30)
+                .map(|b| {
+                    serde_json::json!({
+                        "archive": b.archive,
+                        "repo": b.repo,
+                        "project": projects.iter().find(|p| p.id == b.project_id).map(|p| p.name.clone()),
+                        "files": b.files,
+                        "kb": (b.size + 1023) / 1024,
+                        "at": views::time::wib_datetime(&b.created_at),
+                        "href": format!("/w/{}/backups/{}", tenant.workspace.slug, b.id),
+                    })
+                })
+                .collect();
+            backups.sort_by(|a, b| b["at"].as_str().cmp(&a["at"].as_str()));
+            data["backups"] = serde_json::Value::from(backups);
         }
         _ => {
             let base_url = Settings::from_ctx(&ctx)?.public_base_url;
@@ -784,7 +825,7 @@ async fn live_data(
     ctx: &AppContext,
     tenant: &Tenant,
     job: &jobs::Model,
-    ticket: &tickets::Model,
+    ticket: &Option<tickets::Model>,
 ) -> Result<serde_json::Value> {
     let db = &ctx.db;
     let wid = tenant.workspace_id();
@@ -832,7 +873,7 @@ async fn show(
         Err(TicketFailure::Db(e)) => return Err(e.into()),
         Err(_) => return Err(Error::NotFound),
     };
-    let project = projects::Model::find_in(&ctx.db, tenant.workspace_id(), ticket.project_id)
+    let project = projects::Model::find_in(&ctx.db, tenant.workspace_id(), job.project_id)
         .await?
         .ok_or(Error::NotFound)?;
     let mut data = live_data(&ctx, &tenant, &job, &ticket).await?;
@@ -865,6 +906,50 @@ async fn live(
     let mut data = live_data(&ctx, &tenant, &job, &ticket).await?;
     data["next"] = serde_json::Value::from(format!("/w/{}/jobs/{}", tenant.workspace.slug, job.id));
     format::render().view(&v, "jobs/_live.html", data)
+}
+
+#[debug_handler]
+async fn download_backup(
+    State(ctx): State<AppContext>,
+    tenant: Tenant,
+    id: IdOr404<crate::models::rule_backups::Entity>,
+) -> Result<Response> {
+    use crate::models::rule_backups;
+    let wid = tenant.workspace_id();
+    let row = rule_backups::Entity::find_by_id(id.id)
+        .filter(rule_backups::Column::WorkspaceId.eq(wid.get()))
+        .one(&ctx.db)
+        .await?
+        .ok_or(Error::NotFound)?;
+    let projects =
+        crate::models::projects::Model::accessible_for(&ctx.db, &tenant.accessor()).await?;
+    if !projects.iter().any(|p| p.id == row.project_id) {
+        return Err(Error::NotFound);
+    }
+    let data: Vec<u8> = ctx
+        .storage
+        .download(std::path::Path::new(&row.storage_key))
+        .await
+        .map_err(|e| {
+            tracing::error!(error = %e, "backup tidak ada di storage");
+            Error::NotFound
+        })?;
+    let mut res = Response::new(Body::from(data));
+    let headers = res.headers_mut();
+    headers.insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("application/gzip"),
+    );
+    headers.insert(
+        header::CONTENT_DISPOSITION,
+        HeaderValue::from_str(&format!("attachment; filename=\"{}\"", row.archive))
+            .unwrap_or(HeaderValue::from_static("attachment")),
+    );
+    headers.insert(
+        header::X_CONTENT_TYPE_OPTIONS,
+        HeaderValue::from_static("nosniff"),
+    );
+    Ok(res)
 }
 
 #[debug_handler]
@@ -948,4 +1033,5 @@ pub fn routes() -> Routes {
         .add("/w/{slug}/jobs/{id}/cancel", post(cancel))
         .add("/w/{slug}/jobs/{id}/quota", post(quota))
         .add("/w/{slug}/evidence/{id}", get(download_evidence))
+        .add("/w/{slug}/backups/{id}", get(download_backup))
 }
