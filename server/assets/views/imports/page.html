@@ -43,7 +43,7 @@
   <form method="post" action="{{ base }}/new" enctype="multipart/form-data" class="app-form" data-import-upload>
     <div class="app-pad app-stack-v">
       {{ <file_drop id="import-file" name="file" title={t(key="import-drop-title", lang="id")} hint={t(key="import-drop-hint", lang="id")} accept=".csv,text/csv" error={error} required={true}/> }}
-      <p class="app-hint">{{ icon(name="download") }} <a href="{{ base }}/template.csv" hx-boost="false" download data-template>{{ t(key="import-template", lang="id") }}</a> · {{ t(key="import-template-hint", lang="id") }}</p>
+      <p class="app-hint app-wtemplate">{{ icon(name="download") }} <a href="{{ base }}/template.csv" hx-boost="false" download data-template>{{ t(key="import-template", lang="id") }}</a> · {{ t(key="import-template-hint", lang="id") }}</p>
     </div>
     <div class="app-wfoot"><span data-grow></span>{{ <button label={t(key="import-upload-submit", lang="id")} type="submit" icon="arrow-right" attrs="data-next"/> }}</div>
   </form>

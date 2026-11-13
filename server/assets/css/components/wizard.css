@@ -36,4 +36,6 @@
   /* Aksi di sel kanan tabel (unduh/ulangi). */
   .app-cell-acts { display: flex; justify-content: flex-end; gap: 6px; }
   .app-cell-acts > form { display: contents; }
+  .app-wtemplate { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+  .app-wtemplate > svg { width: 14px; height: 14px; flex: none; }
 }

@@ -251,8 +251,139 @@ impl Hooks for App {
         seed_graph(ctx, base).await?;
         seed_knowledge(ctx).await?;
         seed_planning(ctx).await?;
-        seed_visual(ctx).await
+        seed_visual(ctx).await?;
+        seed_integrations(ctx).await
     }
+}
+
+/// Data integrasi (M11): dua token API, dua webhook dengan riwayat pengiriman (satu gagal
+/// beruntun), dan satu ekspor data siap diunduh. Dilewati bila workspace sudah punya token API.
+async fn seed_integrations(ctx: &AppContext) -> Result<()> {
+    use sea_orm::{ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter};
+
+    use crate::{
+        models::{api_tokens, webhook_deliveries},
+        services::{api_tokens as tokens_svc, exports, webhooks, workspaces::Acting},
+    };
+    let Some(workspace) = workspaces::Model::find_by_slug(&ctx.db, SEED_WORKSPACE_SLUG).await?
+    else {
+        return Ok(());
+    };
+    let wid = workspace.workspace_id();
+    if api_tokens::Entity::find()
+        .filter(api_tokens::Column::WorkspaceId.eq(wid.get()))
+        .one(&ctx.db)
+        .await?
+        .is_some()
+    {
+        tracing::info!("seed integrasi dilewati: token API sudah ada");
+        return Ok(());
+    }
+    let Some(owner) = users::Model::find_by_email(&ctx.db, SEED_MARKER_EMAIL).await? else {
+        return Ok(());
+    };
+    let Some((_, role)) = workspace_members::Model::find_with_role(&ctx.db, wid, owner.id).await?
+    else {
+        return Ok(());
+    };
+    let acting = Acting {
+        workspace: &workspace,
+        user: &owner,
+        role: &role,
+        request_id: None,
+    };
+    let fail = |e: &dyn std::fmt::Debug| loco_rs::Error::string(&format!("seed integrasi: {e:?}"));
+    for (name, scopes, expiry, project) in [
+        ("Dashboard BI toko", vec!["tiket:baca", "laporan:baca"], "365", ""),
+        ("Script migrasi stok", vec!["tiket:baca", "tiket:tulis"], "30", SEED_PROJECT.0),
+    ] {
+        let input = tokens_svc::TokenInput {
+            name: name.into(),
+            scopes: scopes.into_iter().map(String::from).collect(),
+            expiry: expiry.into(),
+            project: project.into(),
+        };
+        tokens_svc::create(&ctx.db, &acting, &input)
+            .await
+            .map_err(|e| fail(&e))?;
+    }
+    let settings = Settings::from_ctx(ctx)?;
+    let now = chrono::Utc::now();
+    // (url, event, [(menit lalu, status HTTP)])
+    #[allow(clippy::type_complexity)]
+    let hooks: [(&str, &str, &[(i64, i32)]); 2] = [
+        (
+            "https://bi.sevima-retail.id/hooks/agentgate",
+            "ticket.updated",
+            &[(2, 200), (14, 200), (33, 200), (61, 200), (95, 200)],
+        ),
+        (
+            "https://hooks.slack-relay.internal/ksr",
+            "release.published",
+            &[(40, 500), (45, 500), (50, 500)],
+        ),
+    ];
+    for (url, event, sends) in hooks {
+        let input = webhooks::WebhookInput {
+            url: url.into(),
+            events: vec![event.into()],
+            projects: Vec::new(),
+        };
+        let (hook, _) = webhooks::create(&ctx.db, &acting, &settings, &input)
+            .await
+            .map_err(|e| fail(&e))?;
+        let last = sends.first().map(|(m, c)| (now - chrono::Duration::minutes(*m), *c));
+        let failures = i32::try_from(sends.iter().filter(|(_, c)| *c >= 300).count()).unwrap_or(0);
+        let mut summary: crate::models::webhooks::ActiveModel = hook.clone().into();
+        summary.last_delivery_at = Set(last.map(|(at, _)| at.into()));
+        summary.last_status = Set(last.map(|(_, c)| c));
+        summary.consecutive_failures = Set(failures);
+        summary.update(&ctx.db).await?;
+        for (minutes, code) in sends {
+            let at = now - chrono::Duration::minutes(*minutes);
+            let ok = (200..300).contains(code);
+            let body = serde_json::json!({
+                "event": event,
+                "project": SEED_PROJECT.0,
+                "ticket": { "key": "KSR-2", "stage": "review" },
+                "at": at.to_rfc3339(),
+            });
+            webhook_deliveries::ActiveModel {
+                workspace_id: Set(wid.get()),
+                webhook_id: Set(hook.id),
+                event: Set(event.into()),
+                body: Set(body.to_string()),
+                status: Set(if ok { "succeeded" } else { "failed" }.into()),
+                attempts: Set(if ok { 1 } else { 5 }),
+                response_status: Set(Some(*code)),
+                response_body: Set(if ok {
+                    "{\"received\": true}".into()
+                } else {
+                    "upstream relay timeout".into()
+                }),
+                duration_ms: Set(Some(if ok { 170 } else { 3010 })),
+                delivered_at: Set(ok.then(|| at.into())),
+                created_at: Set(at.into()),
+                updated_at: Set(at.into()),
+                ..Default::default()
+            }
+            .insert(&ctx.db)
+            .await?;
+        }
+    }
+    let form = exports::ExportForm {
+        parts: ["tickets", "artifacts", "knowledge", "config"]
+            .into_iter()
+            .map(String::from)
+            .collect(),
+        projects: Vec::new(),
+        recipient: owner.id.to_string(),
+    };
+    let export = exports::request(ctx, &acting, &form)
+        .await
+        .map_err(|e| fail(&e))?;
+    exports::run(ctx, export.id).await?;
+    Ok(())
 }
 
 /// Data visual (M10) di KSR: riwayat job selesai 4 minggu terakhir dengan rincian token, biaya,
