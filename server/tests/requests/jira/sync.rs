@@ -475,3 +475,37 @@ async fn unreachable_jira_sets_last_error_and_notifies_once() {
     })
     .await;
 }
+
+#[tokio::test]
+async fn data_center_uses_rest_v2_and_bearer_token() {
+    request::<App, _, _>(|request, ctx| async move {
+        let fake = fake_jira::start().await;
+        let f = fixture(&request, &ctx).await;
+        create_ticket(
+            &request,
+            &f.cookie,
+            &[("title", "Checkout QRIS"), ("description", "Pakai QRIS")],
+        )
+        .await;
+        let res = request
+            .post("/w/acme/settings/jira/conn")
+            .add_cookie(f.cookie.clone())
+            .form(&[
+                ("env", "data_center"),
+                ("base_url", fake.url.as_str()),
+                ("email", ""),
+                ("token", fake_jira::TOKEN),
+                ("jira_project", "SR"),
+                ("project", "KSR"),
+            ])
+            .await;
+        assert_eq!(res.status_code(), 303, "{}", res.text());
+        set_mode(&request, &f.cookie, "mirror").await;
+        let reqs = fake.requests();
+        assert!(reqs.iter().all(|r| !r.path.contains("/rest/api/3/")), "{reqs:?}");
+        let link = link_of(&ctx, &f, "KSR-1").await;
+        // Data Center: deskripsi teks wiki, bukan ADF.
+        assert_eq!(fake.issue(&link.issue_key).fields["description"], "Pakai QRIS");
+    })
+    .await;
+}
