@@ -21,8 +21,7 @@ use agentgate_core::{
 use chrono::Utc;
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, ConnectionTrait, DatabaseConnection, DbErr,
-    EntityTrait, IntoActiveModel, QueryFilter, QueryOrder, TransactionTrait,
-    sea_query::Expr,
+    EntityTrait, IntoActiveModel, QueryFilter, QueryOrder, TransactionTrait, sea_query::Expr,
 };
 use uuid::Uuid;
 
@@ -47,6 +46,7 @@ pub const CLOSED: &str = "job-closed";
 pub const RUNNER_INVALID: &str = "job-runner-invalid";
 pub const NOT_QUOTA: &str = "job-not-quota";
 pub const PERMISSION_CLOSED: &str = "job-permission-closed";
+pub const ACTION_BLOCKED: &str = "job-action-blocked";
 pub const ERROR_CODES: &[&str] = &[
     NOT_QUEUED,
     NOT_EXECUTOR,
@@ -55,6 +55,7 @@ pub const ERROR_CODES: &[&str] = &[
     RUNNER_INVALID,
     NOT_QUOTA,
     PERMISSION_CLOSED,
+    ACTION_BLOCKED,
 ];
 
 fn invalid(code: &'static str) -> TicketFailure {
@@ -128,7 +129,10 @@ pub async fn cancel_open_stage_jobs<C: ConnectionTrait>(
     ticket_id: Uuid,
 ) -> Result<(), DbErr> {
     jobs::Entity::update_many()
-        .col_expr(jobs::Column::Status, Expr::value(JobStatus::Cancelled.as_str()))
+        .col_expr(
+            jobs::Column::Status,
+            Expr::value(JobStatus::Cancelled.as_str()),
+        )
         .col_expr(jobs::Column::FinishedAt, Expr::value(now()))
         .col_expr(jobs::Column::UpdatedAt, Expr::value(now()))
         .filter(jobs::Column::WorkspaceId.eq(wid.get()))
@@ -253,11 +257,14 @@ async fn is_executor<C: ConnectionTrait>(
     if job.kind() == JobKind::Comment {
         return Ok(job.requested_by == Some(acting.user.id));
     }
-    let people = ticket_stage_people::Model::of_stage(db, wid, job.ticket_id, &job.stage_key).await?;
+    let people =
+        ticket_stage_people::Model::of_stage(db, wid, job.ticket_id, &job.stage_key).await?;
     if people.executors.is_empty() {
-        return Ok(access_in(db, acting, job.project_id, Permission::EditProject)
-            .await
-            .is_ok());
+        return Ok(
+            access_in(db, acting, job.project_id, Permission::EditProject)
+                .await
+                .is_ok(),
+        );
     }
     Ok(people.executors.contains(&acting.user.id))
 }
@@ -283,7 +290,11 @@ pub async fn can_claim<C: ConnectionTrait>(
 }
 
 /// Pelaku memegang `AdministerProject` di project job.
-async fn is_project_admin<C: ConnectionTrait>(db: &C, acting: &Acting<'_>, job: &jobs::Model) -> bool {
+async fn is_project_admin<C: ConnectionTrait>(
+    db: &C,
+    acting: &Acting<'_>,
+    job: &jobs::Model,
+) -> bool {
     access_in(db, acting, job.project_id, Permission::AdministerProject)
         .await
         .is_ok()
@@ -328,7 +339,10 @@ pub async fn claim(
     }
     let txn = db.begin().await?;
     let updated = jobs::Entity::update_many()
-        .col_expr(jobs::Column::Status, Expr::value(JobStatus::Claimed.as_str()))
+        .col_expr(
+            jobs::Column::Status,
+            Expr::value(JobStatus::Claimed.as_str()),
+        )
         .col_expr(jobs::Column::ClaimedBy, Expr::value(acting.user.id))
         .col_expr(jobs::Column::RunnerId, Expr::value(runner))
         .col_expr(jobs::Column::ClaimedAt, Expr::value(now()))
@@ -388,9 +402,17 @@ pub async fn release(
         line.push_str(" · ");
         line.extend(note.chars().take(500));
     }
-    log(&txn, wid, job.id, agentgate_core::runner::protocol::LogStream::Warn, &line).await?;
+    log(
+        &txn,
+        wid,
+        job.id,
+        agentgate_core::runner::protocol::LogStream::Warn,
+        &line,
+    )
+    .await?;
     if job.kind() == JobKind::Stage {
-        let people = ticket_stage_people::Model::of_stage(&txn, wid, job.ticket_id, &job.stage_key).await?;
+        let people =
+            ticket_stage_people::Model::of_stage(&txn, wid, job.ticket_id, &job.stage_key).await?;
         notify_users(
             &txn,
             wid,
@@ -743,7 +765,10 @@ pub async fn revoke_runner(
     }
     let txn = db.begin().await?;
     jobs::Entity::update_many()
-        .col_expr(jobs::Column::Status, Expr::value(JobStatus::Queued.as_str()))
+        .col_expr(
+            jobs::Column::Status,
+            Expr::value(JobStatus::Queued.as_str()),
+        )
         .col_expr(jobs::Column::RunnerId, Expr::value(Option::<Uuid>::None))
         .col_expr(jobs::Column::ClaimedBy, Expr::value(Option::<Uuid>::None))
         .col_expr(jobs::Column::UpdatedAt, Expr::value(now()))
@@ -776,7 +801,12 @@ pub async fn revoke_runner(
 pub fn agent_mentions(body: &str) -> Vec<String> {
     let mut out: Vec<String> = Vec::new();
     for (i, _) in body.match_indices("@agent-") {
-        if i > 0 && body[..i].chars().next_back().is_some_and(|c| c.is_alphanumeric()) {
+        if i > 0
+            && body[..i]
+                .chars()
+                .next_back()
+                .is_some_and(|c| c.is_alphanumeric())
+        {
             continue;
         }
         let key: String = body[i + "@agent-".len()..]

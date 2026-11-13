@@ -1,0 +1,831 @@
+//! API CLI & runner (M5): job dibuat saat tiket masuk stage berpersona, klaim oleh executor
+//! (atomik), daftar runner, start → `JobSpec`, log/langkah, evidence bertanda tangan Ed25519
+//! membuka gate `tests_passed`/`screenshot_exists`, finish → stage diajukan review, izin aksi
+//! berbahaya, lepas/batal, `@agent` di komentar, dan isolasi antar user/workspace.
+
+use agentgate_core::runner::{
+    protocol::{EvidenceKind, EvidenceSummary},
+    sha256_hex,
+    signing::{evidence_payload, public_key_b64, sign},
+};
+use agentgate_server::{
+    app::App,
+    models::{job_evidence, job_logs, jobs},
+};
+use base64::{Engine, engine::general_purpose::STANDARD};
+use loco_rs::{TestServer, app::AppContext, testing::prelude::*};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+use serde_json::{Value, json};
+use uuid::Uuid;
+
+use super::tickets::{
+    Fixture, create_ticket, fixture,
+    stages::{member, use_workflow},
+    ticket,
+};
+use crate::support::{a_user, a_workspace, oauth_flow::device_login, sign_in_as};
+
+const SECRET: [u8; 32] = [7; 32];
+const PNG: &[u8] = b"\x89PNG\r\n\x1a\n\0\0\0\rIHDRfake";
+
+fn flow_yaml(executor: &str) -> String {
+    format!(
+        r"workflow: runner
+nama: Alur Runner
+stages:
+  - id: todo
+    nama: To do
+    kategori: todo
+  - id: dev
+    nama: Development
+    kategori: in_progress
+    persona: dev
+    mode: otomatis
+    gate: [tests_passed, screenshot_exists]
+    transisi: tunggu_approve
+    penugasan:
+      executor: [{executor}]
+  - id: done
+    nama: Selesai
+    kategori: done
+"
+    )
+}
+
+async fn get_json(request: &TestServer, token: &str, url: &str) -> (u16, Value) {
+    let res = request
+        .get(url)
+        .add_header("authorization", format!("Bearer {token}"))
+        .await;
+    let status = res.status_code().as_u16();
+    (
+        status,
+        serde_json::from_str(&res.text()).unwrap_or(Value::Null),
+    )
+}
+
+async fn post_json(
+    request: &TestServer,
+    token: &str,
+    runner: Option<&str>,
+    url: &str,
+    body: &Value,
+) -> (u16, Value) {
+    let mut req = request
+        .post(url)
+        .add_header("authorization", format!("Bearer {token}"));
+    if let Some(r) = runner {
+        req = req.add_header("x-agentgate-runner", r.to_string());
+    }
+    let res = req.json(body).await;
+    let status = res.status_code().as_u16();
+    (
+        status,
+        serde_json::from_str(&res.text()).unwrap_or(Value::Null),
+    )
+}
+
+async fn register(request: &TestServer, token: &str, secret: &[u8; 32]) -> String {
+    let (status, body) = post_json(
+        request,
+        token,
+        None,
+        "/api/runner/register",
+        &json!({
+            "name": "MacBook Olivia",
+            "os": "macos",
+            "client": "claude",
+            "version": "0.1.0",
+            "public_key": public_key_b64(secret),
+        }),
+    )
+    .await;
+    assert_eq!(status, 200, "{body}");
+    body["id"].as_str().unwrap().to_string()
+}
+
+fn evidence(
+    job: &str,
+    kind: EvidenceKind,
+    name: &str,
+    content_type: &str,
+    data: &[u8],
+    summary: &EvidenceSummary,
+    secret: &[u8; 32],
+) -> Value {
+    let sha = sha256_hex(data);
+    let payload = evidence_payload(Uuid::parse_str(job).unwrap(), kind, name, &sha, summary);
+    json!({
+        "kind": kind.as_str(),
+        "name": name,
+        "content_type": content_type,
+        "content": STANDARD.encode(data),
+        "sha256": sha,
+        "summary": summary,
+        "signature": sign(secret, &payload),
+    })
+}
+
+/// Tiket KSR-1 di stage `dev` (job stage `queued`) + token CLI owner.
+async fn ticket_in_dev(request: &TestServer, ctx: &AppContext, f: &Fixture) -> (String, String) {
+    use_workflow(request, ctx, f, &flow_yaml(&f.owner.email)).await;
+    create_ticket(request, &f.cookie, &[("title", "Checkout QRIS")]).await;
+    let res = request
+        .post("/w/acme/t/KSR-1/stage/complete")
+        .add_cookie(f.cookie.clone())
+        .form(&[("x", "")])
+        .await;
+    assert_eq!(res.status_code(), 303, "{}", res.text());
+    let token = device_login(request, &f.cookie, &f.workspace.id.to_string()).await;
+    let (status, list) = get_json(request, &token, "/api/cli/jobs").await;
+    assert_eq!(status, 200, "{list}");
+    let job = list
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|j| j["ticket"] == "KSR-1")
+        .expect("job antre untuk KSR-1")
+        .clone();
+    assert_eq!(job["status"], "queued");
+    assert_eq!(job["stage"], "dev");
+    assert_eq!(job["can_claim"], true);
+    (job["id"].as_str().unwrap().to_string(), token)
+}
+
+#[tokio::test]
+async fn api_requires_a_bearer_token() {
+    request::<App, _, _>(|request, _ctx| async move {
+        let res = request.get("/api/cli/jobs").await;
+        assert_eq!(res.status_code(), 401);
+        let res = request
+            .get("/api/cli/me")
+            .add_header("authorization", "Bearer palsu")
+            .await;
+        assert_eq!(res.status_code(), 401);
+        assert_eq!(res.json::<Value>()["error"], "invalid_token");
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn me_and_rules_describe_the_session() {
+    request::<App, _, _>(|request, ctx| async move {
+        let f = fixture(&request, &ctx).await;
+        let token = device_login(&request, &f.cookie, &f.workspace.id.to_string()).await;
+        let (status, me) = get_json(&request, &token, "/api/cli/me").await;
+        assert_eq!(status, 200, "{me}");
+        assert_eq!(me["email"], f.owner.email.as_str());
+        assert_eq!(me["slug"], "acme");
+
+        let (status, rules) = get_json(&request, &token, "/api/cli/rules?project=ksr").await;
+        assert_eq!(status, 200, "{rules}");
+        assert_eq!(rules["project"], "KSR");
+        let paths: Vec<&str> = rules["files"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|f| f["path"].as_str().unwrap())
+            .collect();
+        assert!(paths.contains(&"AGENTS.md") && paths.contains(&".mcp.json"));
+        assert!(!rules["checksum"].as_str().unwrap().is_empty());
+        let (status, _) = get_json(&request, &token, "/api/cli/rules?project=XYZ").await;
+        assert_eq!(status, 404);
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn runner_executes_stage_job_with_signed_evidence_then_requests_review() {
+    request::<App, _, _>(|request, ctx| async move {
+        let f = fixture(&request, &ctx).await;
+        let (job, token) = ticket_in_dev(&request, &ctx, &f).await;
+        let runner = register(&request, &token, &SECRET).await;
+
+        // Belum diklaim → start ditolak.
+        let start_url = format!("/api/runner/jobs/{job}/start");
+        let (status, body) =
+            post_json(&request, &token, Some(&runner), &start_url, &json!({})).await;
+        assert_eq!(status, 422, "{body}");
+        assert_eq!(body["error"], "job-not-holder");
+
+        // Ambil (executor), klaim kedua ditolak.
+        let claim_url = format!("/api/cli/jobs/{job}/claim");
+        let (status, body) = post_json(
+            &request,
+            &token,
+            None,
+            &claim_url,
+            &json!({ "runner_id": runner }),
+        )
+        .await;
+        assert_eq!(status, 200, "{body}");
+        assert_eq!(body["status"], "claimed");
+        let (status, body) = post_json(&request, &token, None, &claim_url, &json!({})).await;
+        assert_eq!(status, 422);
+        assert_eq!(body["error"], "job-not-queued");
+
+        // Start → spesifikasi lengkap.
+        let (status, spec) =
+            post_json(&request, &token, Some(&runner), &start_url, &json!({})).await;
+        assert_eq!(status, 200, "{spec}");
+        assert_eq!(spec["ticket"], "KSR-1");
+        assert_eq!(spec["stage"], "dev");
+        assert_eq!(spec["persona"], "dev");
+        assert_eq!(spec["project"], "KSR");
+        assert!(spec["branch"].as_str().unwrap().starts_with("ag/KSR-1-"));
+        assert!(spec["mcp_url"].as_str().unwrap().ends_with("/mcp"));
+        assert!(spec["prompt"].as_str().unwrap().contains("KSR-1"));
+        assert!(
+            spec["danger"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|d| d["level"] == "block")
+        );
+
+        // Log dan langkah.
+        let (status, _) = post_json(
+            &request,
+            &token,
+            Some(&runner),
+            &format!("/api/runner/jobs/{job}/logs"),
+            &json!({ "lines": [
+                { "stream": "out", "text": "Membaca konteks tiket" },
+                { "stream": "tool", "text": "ag_context KSR-1" },
+            ]}),
+        )
+        .await;
+        assert_eq!(status, 204);
+        let (status, _) = post_json(
+            &request,
+            &token,
+            Some(&runner),
+            &format!("/api/runner/jobs/{job}/steps"),
+            &json!({ "steps": [
+                { "name": "Baca konteks", "state": "ok", "seconds": 3 },
+                { "name": "Tulis kode", "state": "now" },
+            ]}),
+        )
+        .await;
+        assert_eq!(status, 204);
+        let job_id = Uuid::parse_str(&job).unwrap();
+        let row = jobs::Entity::find_by_id(job_id)
+            .one(&ctx.db)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(row.status, "running");
+        assert_eq!(row.steps.as_array().unwrap().len(), 2);
+        let logs = job_logs::Entity::find()
+            .filter(job_logs::Column::JobId.eq(job_id))
+            .all(&ctx.db)
+            .await
+            .unwrap();
+        assert!(
+            logs.iter()
+                .any(|l| l.body == "ag_context KSR-1" && l.stream == "tool")
+        );
+
+        // Selesai tanpa evidence → gate belum terpenuhi, tiket tetap aktif di dev.
+        let ev_url = format!("/api/runner/jobs/{job}/evidence");
+        let passed = EvidenceSummary {
+            passed: Some(true),
+            total: Some(12),
+            failed: Some(0),
+            note: "cargo test".into(),
+        };
+        // Tanda tangan dengan kunci lain → ditolak.
+        let forged = evidence(
+            &job,
+            EvidenceKind::TestReport,
+            "junit.xml",
+            "application/xml",
+            b"<ok/>",
+            &passed,
+            &[9; 32],
+        );
+        let (status, body) = post_json(&request, &token, Some(&runner), &ev_url, &forged).await;
+        assert_eq!(status, 422, "{body}");
+        assert_eq!(body["error"], "evidence-signature-invalid");
+        // Isi diubah setelah ditandatangani → ditolak.
+        let mut tampered = evidence(
+            &job,
+            EvidenceKind::TestReport,
+            "junit.xml",
+            "application/xml",
+            b"<ok/>",
+            &passed,
+            &SECRET,
+        );
+        tampered["content"] = json!(STANDARD.encode(b"<ko/>"));
+        let (status, body) = post_json(&request, &token, Some(&runner), &ev_url, &tampered).await;
+        assert_eq!(status, 422);
+        assert_eq!(body["error"], "evidence-content-invalid");
+        // Screenshot palsu (bukan PNG) → ditolak.
+        let fake = evidence(
+            &job,
+            EvidenceKind::Screenshot,
+            "a.png",
+            "image/png",
+            b"bukan png",
+            &EvidenceSummary::default(),
+            &SECRET,
+        );
+        let (status, body) = post_json(&request, &token, Some(&runner), &ev_url, &fake).await;
+        assert_eq!(status, 422);
+        assert_eq!(body["error"], "evidence-type-invalid");
+
+        let t = ticket(&ctx, &f.workspace, "KSR-1").await;
+        assert_eq!(
+            agentgate_server::services::jobs::evidence::gate_status(
+                &ctx.db,
+                f.workspace.workspace_id(),
+                &t
+            )
+            .await
+            .unwrap(),
+            (false, false)
+        );
+
+        // Evidence sah.
+        let ok = evidence(
+            &job,
+            EvidenceKind::TestReport,
+            "junit.xml",
+            "application/xml",
+            b"<ok/>",
+            &passed,
+            &SECRET,
+        );
+        let (status, body) = post_json(&request, &token, Some(&runner), &ev_url, &ok).await;
+        assert_eq!(status, 201, "{body}");
+        let shot = evidence(
+            &job,
+            EvidenceKind::Screenshot,
+            "checkout.png",
+            "image/png",
+            PNG,
+            &EvidenceSummary::default(),
+            &SECRET,
+        );
+        let (status, body) = post_json(&request, &token, Some(&runner), &ev_url, &shot).await;
+        assert_eq!(status, 201, "{body}");
+        let rows = job_evidence::Entity::find()
+            .filter(job_evidence::Column::JobId.eq(job_id))
+            .all(&ctx.db)
+            .await
+            .unwrap();
+        assert_eq!(rows.len(), 2);
+        assert!(rows.iter().all(|r| r.stage_key == "dev"));
+        let t = ticket(&ctx, &f.workspace, "KSR-1").await;
+        assert_eq!(
+            agentgate_server::services::jobs::evidence::gate_status(
+                &ctx.db,
+                f.workspace.workspace_id(),
+                &t
+            )
+            .await
+            .unwrap(),
+            (true, true)
+        );
+
+        // Selesai → stage diajukan review.
+        let (status, body) = post_json(
+            &request,
+            &token,
+            Some(&runner),
+            &format!("/api/runner/jobs/{job}/finish"),
+            &json!({ "outcome": "succeeded", "summary": "Checkout QRIS selesai", "tokens": 1200 }),
+        )
+        .await;
+        assert_eq!(status, 200, "{body}");
+        assert_eq!(body["status"], "succeeded");
+        let t = ticket(&ctx, &f.workspace, "KSR-1").await;
+        assert_eq!(t.stage_key, "dev");
+        assert_eq!(t.stage_state, "review");
+
+        // Job tertutup → endpoint runner menolak.
+        let (status, body) = post_json(
+            &request,
+            &token,
+            Some(&runner),
+            &format!("/api/runner/jobs/{job}/finish"),
+            &json!({ "outcome": "failed" }),
+        )
+        .await;
+        assert_eq!(status, 422);
+        assert_eq!(body["error"], "job-closed");
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn failing_latest_test_report_keeps_gate_closed() {
+    request::<App, _, _>(|request, ctx| async move {
+        let f = fixture(&request, &ctx).await;
+        let (job, token) = ticket_in_dev(&request, &ctx, &f).await;
+        let runner = register(&request, &token, &SECRET).await;
+        post_json(
+            &request,
+            &token,
+            None,
+            &format!("/api/cli/jobs/{job}/claim"),
+            &json!({ "runner_id": runner }),
+        )
+        .await;
+        post_json(
+            &request,
+            &token,
+            Some(&runner),
+            &format!("/api/runner/jobs/{job}/start"),
+            &json!({}),
+        )
+        .await;
+        let ev_url = format!("/api/runner/jobs/{job}/evidence");
+        let summary = |passed| EvidenceSummary {
+            passed: Some(passed),
+            total: Some(3),
+            failed: Some(u32::from(!passed)),
+            note: String::new(),
+        };
+        for passed in [true, false] {
+            let body = evidence(
+                &job,
+                EvidenceKind::TestReport,
+                "out.txt",
+                "text/plain",
+                b"hasil",
+                &summary(passed),
+                &SECRET,
+            );
+            let (status, res) = post_json(&request, &token, Some(&runner), &ev_url, &body).await;
+            assert_eq!(status, 201, "{res}");
+        }
+        let t = ticket(&ctx, &f.workspace, "KSR-1").await;
+        let (tests, _) = agentgate_server::services::jobs::evidence::gate_status(
+            &ctx.db,
+            f.workspace.workspace_id(),
+            &t,
+        )
+        .await
+        .unwrap();
+        assert!(!tests, "laporan terbaru gagal");
+
+        // Finish gagal → tiket tetap aktif, job gagal.
+        let (status, body) = post_json(
+            &request,
+            &token,
+            Some(&runner),
+            &format!("/api/runner/jobs/{job}/finish"),
+            &json!({ "outcome": "succeeded" }),
+        )
+        .await;
+        assert_eq!(status, 200, "{body}");
+        let t = ticket(&ctx, &f.workspace, "KSR-1").await;
+        assert_eq!(t.stage_state, "active", "gate tests_passed belum terpenuhi");
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn only_the_stage_executor_may_claim_and_others_cannot_drive_the_job() {
+    request::<App, _, _>(|request, ctx| async move {
+        let f = fixture(&request, &ctx).await;
+        let (job, token) = ticket_in_dev(&request, &ctx, &f).await;
+        let (_, mia_cookie) = member(&request, &ctx, &f, "Mia Member").await;
+        let mia = device_login(&request, &mia_cookie, &f.workspace.id.to_string()).await;
+
+        let (status, list) = get_json(&request, &mia, "/api/cli/jobs").await;
+        assert_eq!(status, 200);
+        let row = list
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|j| j["id"] == job.as_str())
+            .unwrap()
+            .clone();
+        assert_eq!(row["can_claim"], false);
+        let claim_url = format!("/api/cli/jobs/{job}/claim");
+        let (status, body) = post_json(&request, &mia, None, &claim_url, &json!({})).await;
+        assert_eq!(status, 422);
+        assert_eq!(body["error"], "job-not-executor");
+
+        // Owner mengambil; runner Mia tidak bisa menjalankan job owner.
+        let (status, _) = post_json(&request, &token, None, &claim_url, &json!({})).await;
+        assert_eq!(status, 200);
+        let mia_runner = register(&request, &mia, &[3; 32]).await;
+        let (status, body) = post_json(
+            &request,
+            &mia,
+            Some(&mia_runner),
+            &format!("/api/runner/jobs/{job}/start"),
+            &json!({}),
+        )
+        .await;
+        assert_eq!(status, 422, "{body}");
+        assert_eq!(body["error"], "job-not-holder");
+        let (status, _) = post_json(
+            &request,
+            &mia,
+            Some(&mia_runner),
+            &format!("/api/runner/jobs/{job}/logs"),
+            &json!({ "lines": [] }),
+        )
+        .await;
+        assert_eq!(status, 404);
+        // Owner tidak bisa memakai runner Mia.
+        let (status, _) = post_json(
+            &request,
+            &token,
+            Some(&mia_runner),
+            &format!("/api/runner/jobs/{job}/start"),
+            &json!({}),
+        )
+        .await;
+        assert_eq!(status, 404);
+
+        // Mia tidak bisa melepas lock owner; owner bisa.
+        let (status, body) = post_json(
+            &request,
+            &mia,
+            None,
+            &format!("/api/cli/jobs/{job}/release"),
+            &json!({}),
+        )
+        .await;
+        assert_eq!(status, 422, "{body}");
+        let (status, body) = post_json(
+            &request,
+            &token,
+            None,
+            &format!("/api/cli/jobs/{job}/release"),
+            &json!({ "note": "pindah laptop" }),
+        )
+        .await;
+        assert_eq!(status, 200, "{body}");
+        assert_eq!(body["status"], "queued");
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn concurrent_claims_lock_the_job_once() {
+    request::<App, _, _>(|request, ctx| async move {
+        let f = fixture(&request, &ctx).await;
+        let (job, token) = ticket_in_dev(&request, &ctx, &f).await;
+        let url = format!("/api/cli/jobs/{job}/claim");
+        let empty = json!({});
+        let (a, b) = tokio::join!(
+            post_json(&request, &token, None, &url, &empty),
+            post_json(&request, &token, None, &url, &empty),
+        );
+        let mut codes = [a.0, b.0];
+        codes.sort_unstable();
+        assert_eq!(codes, [200, 422]);
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn dangerous_actions_pause_the_job_until_decided() {
+    request::<App, _, _>(|request, ctx| async move {
+        let f = fixture(&request, &ctx).await;
+        let (job, token) = ticket_in_dev(&request, &ctx, &f).await;
+        let runner = register(&request, &token, &SECRET).await;
+        post_json(&request, &token, None, &format!("/api/cli/jobs/{job}/claim"), &json!({ "runner_id": runner })).await;
+        post_json(&request, &token, Some(&runner), &format!("/api/runner/jobs/{job}/start"), &json!({})).await;
+        let perm_url = format!("/api/runner/jobs/{job}/permissions");
+
+        // Aksi yang selalu diblokir tidak bisa diminta.
+        let (status, body) = post_json(&request, &token, Some(&runner), &perm_url, &json!({ "command": "git push -f origin main", "action": "force_push_main" })).await;
+        assert_eq!(status, 422, "{body}");
+        assert_eq!(body["error"], "job-action-blocked");
+
+        let (status, perm) = post_json(
+            &request,
+            &token,
+            Some(&runner),
+            &perm_url,
+            &json!({ "command": "npx prisma migrate deploy", "action": "db_migrate", "reason": "skema baru" }),
+        )
+        .await;
+        assert_eq!(status, 200, "{perm}");
+        assert_eq!(perm["status"], "pending");
+        let job_id = Uuid::parse_str(&job).unwrap();
+        let row = jobs::Entity::find_by_id(job_id).one(&ctx.db).await.unwrap().unwrap();
+        assert_eq!(row.status, "paused");
+
+        // Diputuskan dari web (service) → runner melihat status baru.
+        let pid = Uuid::parse_str(perm["id"].as_str().unwrap()).unwrap();
+        let session = agentgate_server::services::mcp::Session::load(
+            &ctx.db,
+            &agentgate_server::services::oauth::authenticate(&ctx.db, &token).await.unwrap().unwrap(),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        agentgate_server::services::jobs::decide_permission(
+            &ctx.db,
+            &session.acting(),
+            pid,
+            agentgate_core::runner::protocol::PermissionStatus::AllowedTicket,
+        )
+        .await
+        .unwrap();
+        let (status, info) = get_json(&request, &token, &format!("{perm_url}/{pid}")).await;
+        // GET tanpa header runner → 404.
+        assert_eq!(status, 404, "{info}");
+        let res = request
+            .get(&format!("{perm_url}/{pid}"))
+            .add_header("authorization", format!("Bearer {token}"))
+            .add_header("x-agentgate-runner", runner.clone())
+            .await;
+        assert_eq!(res.status_code(), 200);
+        assert_eq!(res.json::<Value>()["status"], "allowed_ticket");
+        let row = jobs::Entity::find_by_id(job_id).one(&ctx.db).await.unwrap().unwrap();
+        assert_eq!(row.status, "running");
+
+        // Aksi yang sama di tiket ini langsung diizinkan.
+        let (_, again) = post_json(&request, &token, Some(&runner), &perm_url, &json!({ "command": "npx prisma migrate deploy", "action": "db_migrate" })).await;
+        assert_eq!(again["status"], "allowed_ticket");
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn events_announce_claimed_jobs_to_the_runner() {
+    request::<App, _, _>(|request, ctx| async move {
+        let f = fixture(&request, &ctx).await;
+        let (job, token) = ticket_in_dev(&request, &ctx, &f).await;
+        let runner = register(&request, &token, &SECRET).await;
+        post_json(
+            &request,
+            &token,
+            None,
+            &format!("/api/cli/jobs/{job}/claim"),
+            &json!({ "runner_id": runner }),
+        )
+        .await;
+        let (status, events) = get_json(
+            &request,
+            &token,
+            &format!("/api/runner/events?runner={runner}"),
+        )
+        .await;
+        assert_eq!(status, 200, "{events}");
+        assert!(
+            events
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|e| e["type"] == "job_ready" && e["job"]["id"] == job.as_str()),
+            "{events}"
+        );
+
+        // Batalkan → job_cancelled.
+        let (status, body) = post_json(
+            &request,
+            &token,
+            None,
+            &format!("/api/cli/jobs/{job}/cancel"),
+            &json!({}),
+        )
+        .await;
+        assert_eq!(status, 200, "{body}");
+        assert_eq!(body["status"], "cancelled");
+        let (_, events) = get_json(
+            &request,
+            &token,
+            &format!("/api/runner/events?runner={runner}"),
+        )
+        .await;
+        assert!(
+            events
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|e| e["type"] == "job_cancelled" && e["job_id"] == job.as_str()),
+            "{events}"
+        );
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn agent_mention_queues_a_comment_job_for_the_author() {
+    request::<App, _, _>(|request, ctx| async move {
+        let f = fixture(&request, &ctx).await;
+        let code = create_ticket(&request, &f.cookie, &[("title", "Laporan error")]).await;
+        let res = request
+            .post(&format!("/w/acme/t/{code}/comments"))
+            .add_cookie(f.cookie.clone())
+            .form(&[("body", "@agent-qa tolong cek log error ini")])
+            .await;
+        assert_eq!(res.status_code(), 303, "{}", res.text());
+        let token = device_login(&request, &f.cookie, &f.workspace.id.to_string()).await;
+        let (_, list) = get_json(&request, &token, "/api/cli/jobs").await;
+        let job = list
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|j| j["kind"] == "comment")
+            .expect("job komentar")
+            .clone();
+        assert_eq!(job["status"], "claimed");
+        assert_eq!(job["persona"], "qa");
+        assert_eq!(job["mine"], true);
+        let id = job["id"].as_str().unwrap();
+
+        // Runner menjalankan dan membalas sebagai komentar.
+        let runner = register(&request, &token, &SECRET).await;
+        let (status, spec) = post_json(
+            &request,
+            &token,
+            Some(&runner),
+            &format!("/api/runner/jobs/{id}/start"),
+            &json!({}),
+        )
+        .await;
+        assert_eq!(status, 200, "{spec}");
+        assert!(spec["prompt"].as_str().unwrap().contains("tolong cek log"));
+        let (status, _) = post_json(
+            &request,
+            &token,
+            Some(&runner),
+            &format!("/api/runner/jobs/{id}/finish"),
+            &json!({ "outcome": "succeeded", "summary": "Log menunjukkan timeout DB." }),
+        )
+        .await;
+        assert_eq!(status, 200);
+        let page = request
+            .get(&format!("/w/acme/t/{code}"))
+            .add_cookie(f.cookie.clone())
+            .await;
+        assert!(page.text().contains("Log menunjukkan timeout DB."));
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn jobs_and_runners_are_isolated_per_workspace() {
+    request::<App, _, _>(|request, ctx| async move {
+        let f = fixture(&request, &ctx).await;
+        let (job, _token) = ticket_in_dev(&request, &ctx, &f).await;
+        let other = a_user().name("Oscar Other").create(&ctx).await;
+        let ws = a_workspace(&other).slug("lain").create(&ctx).await;
+        let cookie = sign_in_as(&request, &other).await;
+        let token = device_login(&request, &cookie, &ws.id.to_string()).await;
+        let (_, list) = get_json(&request, &token, "/api/cli/jobs").await;
+        assert!(list.as_array().unwrap().is_empty());
+        let (status, body) = post_json(
+            &request,
+            &token,
+            None,
+            &format!("/api/cli/jobs/{job}/claim"),
+            &json!({}),
+        )
+        .await;
+        assert_eq!(status, 404, "{body}");
+        let (status, _) = post_json(
+            &request,
+            &token,
+            None,
+            &format!("/api/cli/jobs/{job}/cancel"),
+            &json!({}),
+        )
+        .await;
+        assert_eq!(status, 404);
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn register_rejects_bad_keys_and_reuses_known_runner() {
+    request::<App, _, _>(|request, ctx| async move {
+        let f = fixture(&request, &ctx).await;
+        let token = device_login(&request, &f.cookie, &f.workspace.id.to_string()).await;
+        let (status, body) = post_json(
+            &request,
+            &token,
+            None,
+            "/api/runner/register",
+            &json!({ "name": "X", "os": "linux", "client": "claude", "version": "0.1.0", "public_key": "bukan-kunci" }),
+        )
+        .await;
+        assert_eq!(status, 422);
+        assert_eq!(body["error"], "runner-key-invalid");
+        let id = register(&request, &token, &SECRET).await;
+        let (status, again) = post_json(
+            &request,
+            &token,
+            None,
+            "/api/runner/register",
+            &json!({ "runner_id": id, "name": "MacBook Baru", "os": "macos", "client": "claude", "version": "0.1.1", "public_key": public_key_b64(&SECRET) }),
+        )
+        .await;
+        assert_eq!(status, 200, "{again}");
+        assert_eq!(again["id"], id.as_str());
+        assert_eq!(again["name"], "MacBook Baru");
+    })
+    .await;
+}

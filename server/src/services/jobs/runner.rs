@@ -53,6 +53,7 @@ pub const PERMISSION_TEXT_MAX: usize = 1_000;
 pub const NAME_INVALID: &str = "runner-name-invalid";
 pub const KEY_INVALID: &str = "runner-key-invalid";
 pub const BATCH_TOO_LARGE: &str = "runner-batch-too-large";
+pub const ERROR_CODES: &[&str] = &[NAME_INVALID, KEY_INVALID, BATCH_TOO_LARGE];
 
 fn clip(s: &str, max: usize) -> String {
     s.trim().chars().take(max).collect()
@@ -80,12 +81,14 @@ pub async fn register(
     let wid = session.workspace.workspace_id();
     let txn = db.begin().await?;
     let existing = match req.runner_id {
-        Some(id) => runners::Entity::find_by_id(id)
-            .filter(runners::Column::WorkspaceId.eq(wid.get()))
-            .filter(runners::Column::UserId.eq(session.user.id))
-            .filter(runners::Column::RevokedAt.is_null())
-            .one(&txn)
-            .await?,
+        Some(id) => {
+            runners::Entity::find_by_id(id)
+                .filter(runners::Column::WorkspaceId.eq(wid.get()))
+                .filter(runners::Column::UserId.eq(session.user.id))
+                .filter(runners::Column::RevokedAt.is_null())
+                .one(&txn)
+                .await?
+        }
         None => None,
     };
     let fresh = existing.is_none();
@@ -157,7 +160,11 @@ pub async fn own(
 /// # Errors
 ///
 /// Error database.
-pub async fn heartbeat(db: &DatabaseConnection, runner: &runners::Model, connected: bool) -> Result<(), DbErr> {
+pub async fn heartbeat(
+    db: &DatabaseConnection,
+    runner: &runners::Model,
+    connected: bool,
+) -> Result<(), DbErr> {
     let mut q = runners::Entity::update_many()
         .col_expr(runners::Column::LastSeenAt, Expr::value(now()))
         .filter(runners::Column::Id.eq(runner.id));
@@ -187,7 +194,12 @@ fn summary(row: &QueueRow, user: Uuid, stage_name: String) -> JobSummary {
     }
 }
 
-async fn stage_name<C: ConnectionTrait>(db: &C, wid: WorkspaceId, ticket: &tickets::Model, key: &str) -> String {
+async fn stage_name<C: ConnectionTrait>(
+    db: &C,
+    wid: WorkspaceId,
+    ticket: &tickets::Model,
+    key: &str,
+) -> String {
     match stages::Flow::load(db, wid, ticket).await {
         Ok(flow) => flow
             .rule(key)
@@ -313,7 +325,11 @@ pub async fn events(
 
 /// Auto-ambil (pengaturan runner): selama runner idle (di bawah batas paralel), job antrean
 /// yang boleh diambil pemilik runner langsung dikunci ke runner ini.
-async fn auto_claim(db: &DatabaseConnection, session: &Session, runner: &runners::Model) -> Result<(), DbErr> {
+async fn auto_claim(
+    db: &DatabaseConnection,
+    session: &Session,
+    runner: &runners::Model,
+) -> Result<(), DbErr> {
     let acting = session.acting();
     let wid = acting.workspace_id();
     let prefs = runner_prefs::Model::of(db, wid, session.user.id).await?;
@@ -326,7 +342,9 @@ async fn auto_claim(db: &DatabaseConnection, session: &Session, runner: &runners
         .all(db)
         .await?
         .len();
-    let limit = prefs.max_parallel.map_or(1, |m| usize::try_from(m).unwrap_or(1));
+    let limit = prefs
+        .max_parallel
+        .map_or(1, |m| usize::try_from(m).unwrap_or(1));
     if busy >= limit {
         return Ok(());
     }
@@ -360,7 +378,12 @@ pub async fn held(
         .ok_or(TicketFailure::NotFound)
 }
 
-fn job_prompt(spec_stage: &str, ticket: &tickets::Model, persona_name: &str, job: &jobs::Model) -> String {
+fn job_prompt(
+    spec_stage: &str,
+    ticket: &tickets::Model,
+    persona_name: &str,
+    job: &jobs::Model,
+) -> String {
     match job.kind() {
         JobKind::Comment => format!(
             "Anda adalah Agent {persona_name} di Agent Gate. Seseorang menyebut Anda di komentar tiket {code} ({title}).\n\n\
@@ -404,11 +427,16 @@ pub async fn start(
     base_url: &str,
 ) -> Result<JobSpec, TicketFailure> {
     let wid = session.workspace.workspace_id();
-    let job = find(db, wid, job_id).await?.ok_or(TicketFailure::NotFound)?;
+    let job = find(db, wid, job_id)
+        .await?
+        .ok_or(TicketFailure::NotFound)?;
     if job.claimed_by != Some(session.user.id) {
         return Err(invalid(NOT_HOLDER));
     }
-    if !matches!(job.status(), JobStatus::Claimed | JobStatus::Running | JobStatus::Paused) {
+    if !matches!(
+        job.status(),
+        JobStatus::Claimed | JobStatus::Running | JobStatus::Paused
+    ) {
         return Err(invalid(CLOSED));
     }
     let ticket = tickets::Model::find_in(db, wid, job.ticket_id)
@@ -429,7 +457,10 @@ pub async fn start(
     let txn = db.begin().await?;
     let updated = jobs::Entity::update_many()
         .col_expr(jobs::Column::RunnerId, Expr::value(runner.id))
-        .col_expr(jobs::Column::Status, Expr::value(JobStatus::Running.as_str()))
+        .col_expr(
+            jobs::Column::Status,
+            Expr::value(JobStatus::Running.as_str()),
+        )
         .col_expr(jobs::Column::Client, Expr::value(client.clone()))
         .col_expr(
             jobs::Column::Model,
@@ -482,7 +513,9 @@ pub async fn start(
         },
         personas::Model::danger_levels,
     );
-    let persona_name = persona.as_ref().map_or_else(|| job.persona.clone(), |p| p.name.clone());
+    let persona_name = persona
+        .as_ref()
+        .map_or_else(|| job.persona.clone(), |p| p.name.clone());
     Ok(JobSpec {
         id: job.id,
         kind: job.kind(),
@@ -498,7 +531,9 @@ pub async fn start(
             .collect(),
         stage: job.stage_key.clone(),
         stage_name: stage_name.clone(),
-        persona: persona.as_ref().map_or_else(|| job.persona.clone(), |p| p.key.clone()),
+        persona: persona
+            .as_ref()
+            .map_or_else(|| job.persona.clone(), |p| p.key.clone()),
         persona_name: persona_name.clone(),
         model: choice.as_ref().map(|c| c.model.clone()).unwrap_or_default(),
         effort: choice.map(|c| c.effort).unwrap_or_default(),
@@ -557,7 +592,11 @@ pub async fn append_logs(
 /// # Errors
 ///
 /// `runner-batch-too-large`, error database.
-pub async fn set_steps(db: &DatabaseConnection, job: &jobs::Model, update: &StepsUpdate) -> Result<(), TicketFailure> {
+pub async fn set_steps(
+    db: &DatabaseConnection,
+    job: &jobs::Model,
+    update: &StepsUpdate,
+) -> Result<(), TicketFailure> {
     if update.steps.len() > STEPS_MAX {
         return Err(TicketFailure::field("steps", BATCH_TOO_LARGE));
     }
@@ -591,7 +630,7 @@ pub async fn ask_permission(
     let wid = session.workspace.workspace_id();
     let action = clip(&ask.action, 60);
     if persona::ALWAYS_BLOCKED.contains(&action.as_str()) {
-        return Err(TicketFailure::field("action", "job-action-blocked"));
+        return Err(TicketFailure::field("action", super::ACTION_BLOCKED));
     }
     let standing = job_permissions::Entity::find()
         .filter(job_permissions::Column::TicketId.eq(job.ticket_id))
@@ -621,8 +660,23 @@ pub async fn ask_permission(
     let mut m = job.clone().into_active_model();
     m.status = Set(JobStatus::Paused.as_str().into());
     m.update(&txn).await?;
-    log(&txn, wid, job.id, LogStream::Warn, &format!("⏸ izin {}", perm.command)).await?;
-    notify_users(&txn, wid, None, job.claimed_by, NotificationKind::JobPermission, job.ticket_id).await?;
+    log(
+        &txn,
+        wid,
+        job.id,
+        LogStream::Warn,
+        &format!("⏸ izin {}", perm.command),
+    )
+    .await?;
+    notify_users(
+        &txn,
+        wid,
+        None,
+        job.claimed_by,
+        NotificationKind::JobPermission,
+        job.ticket_id,
+    )
+    .await?;
     txn.commit().await?;
     Ok(PermissionInfo {
         id: perm.id,
@@ -635,7 +689,11 @@ pub async fn ask_permission(
 /// # Errors
 ///
 /// `NotFound`, error database.
-pub async fn permission(db: &DatabaseConnection, job: &jobs::Model, id: Uuid) -> Result<PermissionInfo, TicketFailure> {
+pub async fn permission(
+    db: &DatabaseConnection,
+    job: &jobs::Model,
+    id: Uuid,
+) -> Result<PermissionInfo, TicketFailure> {
     let p = job_permissions::Entity::find_by_id(id)
         .filter(job_permissions::Column::JobId.eq(job.id))
         .one(db)
@@ -700,7 +758,14 @@ pub async fn finish(
                 JobKind::Comment => {
                     if !summary.is_empty() {
                         let body = format!("**Agent {}**\n\n{summary}", job.persona);
-                        if let Err(e) = crate::services::tickets::comments::post(db, &acting, job.ticket_id, &body).await {
+                        if let Err(e) = crate::services::tickets::comments::post(
+                            db,
+                            &acting,
+                            job.ticket_id,
+                            &body,
+                        )
+                        .await
+                        {
                             tracing::warn!(error = %e, "agent reply comment failed");
                         }
                     }
@@ -709,11 +774,27 @@ pub async fn finish(
         }
         Outcome::Failed => {
             log(db, wid, job.id, LogStream::Fail, "✗ Job gagal").await?;
-            notify_users(db, wid, None, job.claimed_by, NotificationKind::JobFailed, job.ticket_id).await?;
+            notify_users(
+                db,
+                wid,
+                None,
+                job.claimed_by,
+                NotificationKind::JobFailed,
+                job.ticket_id,
+            )
+            .await?;
         }
         Outcome::Quota => {
             log(db, wid, job.id, LogStream::Warn, "Kuota AI habis").await?;
-            notify_users(db, wid, None, job.claimed_by, NotificationKind::JobQuota, job.ticket_id).await?;
+            notify_users(
+                db,
+                wid,
+                None,
+                job.claimed_by,
+                NotificationKind::JobQuota,
+                job.ticket_id,
+            )
+            .await?;
             let prefs = runner_prefs::Model::of(db, wid, session.user.id).await?;
             if prefs.quota_policy == QuotaPolicy::Release {
                 return super::release(db, &acting, job.id, "Kuota AI habis").await;
@@ -727,7 +808,11 @@ pub async fn finish(
 }
 
 /// Selesaikan stage tiket setelah job stage sukses, bila tiket masih di stage itu dan aktif.
-async fn complete_stage(db: &DatabaseConnection, session: &Session, job: &jobs::Model) -> Result<(), TicketFailure> {
+async fn complete_stage(
+    db: &DatabaseConnection,
+    session: &Session,
+    job: &jobs::Model,
+) -> Result<(), TicketFailure> {
     let wid = session.workspace.workspace_id();
     let Some(ticket) = tickets::Model::find_in(db, wid, job.ticket_id).await? else {
         return Ok(());
@@ -771,7 +856,11 @@ async fn complete_stage(db: &DatabaseConnection, session: &Session, job: &jobs::
 /// # Errors
 ///
 /// Error database.
-pub async fn report_drift(db: &DatabaseConnection, session: &Session, report: &DriftReport) -> Result<(), DbErr> {
+pub async fn report_drift(
+    db: &DatabaseConnection,
+    session: &Session,
+    report: &DriftReport,
+) -> Result<(), DbErr> {
     let wid = session.workspace.workspace_id();
     let repo = clip(&report.repo, 200);
     let existing = rule_checks::Entity::find()
@@ -788,7 +877,12 @@ pub async fn report_drift(db: &DatabaseConnection, session: &Session, report: &D
         IntoActiveModel::into_active_model,
     );
     m.checksum = Set(clip(&report.checksum, 80));
-    m.changed = Set(report.changed.iter().take(20).map(|c| clip(c, 200)).collect());
+    m.changed = Set(report
+        .changed
+        .iter()
+        .take(20)
+        .map(|c| clip(c, 200))
+        .collect());
     m.checked_by = Set(Some(session.user.id));
     m.updated_at = Set(now());
     m.save(db).await?;
@@ -807,7 +901,11 @@ pub fn is_interactive(job: &jobs::Model) -> bool {
 /// # Errors
 ///
 /// Error database.
-pub async fn terminal_failed(db: &DatabaseConnection, session: &Session, job: &jobs::Model) -> Result<(), TicketFailure> {
+pub async fn terminal_failed(
+    db: &DatabaseConnection,
+    session: &Session,
+    job: &jobs::Model,
+) -> Result<(), TicketFailure> {
     let wid = session.workspace.workspace_id();
     log(
         db,
@@ -820,6 +918,14 @@ pub async fn terminal_failed(db: &DatabaseConnection, session: &Session, job: &j
         ),
     )
     .await?;
-    notify_users(db, wid, None, job.claimed_by, NotificationKind::JobTerminal, job.ticket_id).await?;
+    notify_users(
+        db,
+        wid,
+        None,
+        job.claimed_by,
+        NotificationKind::JobTerminal,
+        job.ticket_id,
+    )
+    .await?;
     Ok(())
 }

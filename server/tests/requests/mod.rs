@@ -10,6 +10,7 @@ mod home;
 mod mcp;
 mod oauth;
 mod projects;
+mod runner;
 mod security_headers;
 mod tickets;
 mod workspaces;

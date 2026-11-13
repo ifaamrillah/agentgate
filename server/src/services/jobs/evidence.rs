@@ -34,6 +34,7 @@ pub const SIGNATURE_INVALID: &str = "evidence-signature-invalid";
 pub const CONTENT_INVALID: &str = "evidence-content-invalid";
 pub const TOO_LARGE: &str = "evidence-too-large";
 pub const TYPE_INVALID: &str = "evidence-type-invalid";
+pub const ERROR_CODES: &[&str] = &[SIGNATURE_INVALID, CONTENT_INVALID, TOO_LARGE, TYPE_INVALID];
 
 fn bad(code: &'static str) -> TicketFailure {
     TicketFailure::field("evidence", code)
@@ -49,8 +50,10 @@ fn type_allowed(kind: EvidenceKind, content_type: &str, data: &[u8]) -> bool {
             _ => false,
         },
         EvidenceKind::TestReport | EvidenceKind::Log => {
-            matches!(content_type, "text/plain" | "application/xml" | "application/json")
-                && std::str::from_utf8(data).is_ok()
+            matches!(
+                content_type,
+                "text/plain" | "application/xml" | "application/json"
+            ) && std::str::from_utf8(data).is_ok()
         }
     }
 }
@@ -145,8 +148,12 @@ pub async fn upload(
         }
     };
     let line = match (up.kind, up.summary.passed) {
-        (EvidenceKind::TestReport, Some(true)) => format!("→ evidence {name} (lulus, ditandatangani runner)"),
-        (EvidenceKind::TestReport, _) => format!("→ evidence {name} (gagal, ditandatangani runner)"),
+        (EvidenceKind::TestReport, Some(true)) => {
+            format!("→ evidence {name} (lulus, ditandatangani runner)")
+        }
+        (EvidenceKind::TestReport, _) => {
+            format!("→ evidence {name} (gagal, ditandatangani runner)")
+        }
         _ => format!("→ evidence {name} (ditandatangani runner)"),
     };
     log(db, wid, job.id, LogStream::Tool, &line).await?;
@@ -207,6 +214,8 @@ pub async fn gate_status<C: ConnectionTrait>(
         .iter()
         .find(|e| e.kind() == Some(EvidenceKind::TestReport))
         .is_some_and(|e| e.passed == Some(true));
-    let shots = all.iter().any(|e| e.kind() == Some(EvidenceKind::Screenshot));
+    let shots = all
+        .iter()
+        .any(|e| e.kind() == Some(EvidenceKind::Screenshot));
     Ok((tests, shots))
 }

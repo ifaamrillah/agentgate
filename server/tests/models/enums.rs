@@ -542,3 +542,157 @@ async fn skill_pack_enum_checks_match_enums() {
         );
     }
 }
+
+/// Kolom enum tabel runner & job (M5): status/jenis/mode job, aliran log, jenis evidence,
+/// status izin, kebijakan kuota; setiap varian diterima CHECK, literal lain ditolak.
+#[tokio::test]
+async fn runner_job_enum_checks_match_enums() {
+    use agentgate_core::runner::protocol::{
+        EvidenceKind, JobKind, JobMode, JobStatus, LogStream, PermissionStatus,
+    };
+    use agentgate_server::models::{runner_prefs::QuotaPolicy, tickets::TicketInput};
+    use agentgate_server::services::{tickets::create, workspaces::Acting};
+
+    use crate::support::{a_project, a_user, a_workspace, builtin_role};
+
+    let boot = boot_test::<App>().await.unwrap();
+    let ctx = &boot.app_context;
+    let db = &ctx.db;
+    let owner = a_user().create(ctx).await;
+    let workspace = a_workspace(&owner).create(ctx).await;
+    let project = a_project(ctx, &workspace, "RJE").await;
+    let role = builtin_role(ctx, &workspace, RoleKey::Owner).await;
+    let acting = Acting {
+        workspace: &workspace,
+        user: &owner,
+        role: &role,
+        request_id: None,
+    };
+    let form = create::TicketForm {
+        input: TicketInput {
+            title: "Satu".into(),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let ticket = create::run(db, &acting, project.id, &form).await.unwrap();
+    let insert = |sql: &str, values: Vec<Value>| {
+        let stmt = Statement::from_sql_and_values(DbBackend::Postgres, sql, values);
+        async move {
+            db.query_one_raw(stmt)
+                .await
+                .unwrap()
+                .unwrap()
+                .try_get::<Uuid>("", "id")
+                .unwrap()
+        }
+    };
+    let w = Value::from(workspace.id);
+    let job = insert(
+        "INSERT INTO jobs (workspace_id, project_id, ticket_id, kind, mode, stage_key, persona, \
+         status) VALUES ($1, $2, $3, 'stage', 'auto', 'todo', 'dev', 'succeeded') RETURNING id",
+        vec![w.clone(), project.id.into(), ticket.id.into()],
+    )
+    .await;
+    let log = insert(
+        "INSERT INTO job_logs (workspace_id, job_id, stream, body) VALUES ($1, $2, 'info', 'x') \
+         RETURNING id",
+        vec![w.clone(), job.into()],
+    )
+    .await;
+    let evidence = insert(
+        "INSERT INTO job_evidence (workspace_id, job_id, ticket_id, stage_key, kind, name, \
+         content_type, size_bytes, sha256, storage_key, signature) VALUES ($1, $2, $3, 'todo', \
+         'log', 'a.txt', 'text/plain', 1, 'x', 'k', 's') RETURNING id",
+        vec![w.clone(), job.into(), ticket.id.into()],
+    )
+    .await;
+    let permission = insert(
+        "INSERT INTO job_permissions (workspace_id, job_id, ticket_id, action, command) \
+         VALUES ($1, $2, $3, 'db_migrate', 'x') RETURNING id",
+        vec![w.clone(), job.into(), ticket.id.into()],
+    )
+    .await;
+    let prefs = insert(
+        "INSERT INTO runner_prefs (workspace_id, user_id) VALUES ($1, $2) RETURNING id",
+        vec![w, owner.id.into()],
+    )
+    .await;
+    let strs = |all: &[&str]| all.iter().map(|s| (*s).to_string()).collect::<Vec<_>>();
+    let cases: Vec<(&str, &str, Uuid, Vec<String>)> = vec![
+        (
+            "jobs",
+            "kind",
+            job,
+            strs(&JobKind::ALL.iter().map(|v| v.as_str()).collect::<Vec<_>>()),
+        ),
+        (
+            "jobs",
+            "mode",
+            job,
+            strs(&JobMode::ALL.iter().map(|v| v.as_str()).collect::<Vec<_>>()),
+        ),
+        (
+            "jobs",
+            "status",
+            job,
+            strs(
+                &JobStatus::ALL
+                    .iter()
+                    .map(|v| v.as_str())
+                    .collect::<Vec<_>>(),
+            ),
+        ),
+        (
+            "job_logs",
+            "stream",
+            log,
+            strs(
+                &LogStream::ALL
+                    .iter()
+                    .map(|v| v.as_str())
+                    .collect::<Vec<_>>(),
+            ),
+        ),
+        (
+            "job_evidence",
+            "kind",
+            evidence,
+            strs(
+                &EvidenceKind::ALL
+                    .iter()
+                    .map(|v| v.as_str())
+                    .collect::<Vec<_>>(),
+            ),
+        ),
+        (
+            "job_permissions",
+            "status",
+            permission,
+            strs(
+                &PermissionStatus::ALL
+                    .iter()
+                    .map(|v| v.as_str())
+                    .collect::<Vec<_>>(),
+            ),
+        ),
+        (
+            "runner_prefs",
+            "quota_policy",
+            prefs,
+            QuotaPolicy::iter().map(|v| v.to_value()).collect(),
+        ),
+    ];
+    for (table, column, id, values) in cases {
+        for value in &values {
+            assert!(
+                update_ok(db, table, column, id, value).await,
+                "{table}.{column} = {value}"
+            );
+        }
+        assert!(
+            !update_ok(db, table, column, id, "bogus").await,
+            "{table}.{column}"
+        );
+    }
+}

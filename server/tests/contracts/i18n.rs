@@ -104,6 +104,10 @@ fn every_validation_error_code_has_a_message() {
         agentgate_server::services::tickets::stages::ERROR_CODES,
         agentgate_server::services::workflows::ERROR_CODES,
         agentgate_server::services::drafts::ERROR_CODES,
+        agentgate_server::services::jobs::ERROR_CODES,
+        agentgate_server::services::jobs::runner::ERROR_CODES,
+        agentgate_server::services::jobs::evidence::ERROR_CODES,
+        &[agentgate_server::controllers::device::CODE_INVALID],
         agentgate_core::workflow::definition::ERROR_CODES,
         agentgate_core::workflow::yaml::ERROR_CODES,
     ]

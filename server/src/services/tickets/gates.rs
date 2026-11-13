@@ -48,7 +48,11 @@ pub async fn check<C: ConnectionTrait>(
         return Ok(Vec::new());
     }
     let output = output_body(db, wid, ticket, stage).await?;
-    let evidence = if stage.gates.iter().any(|g| matches!(g, Gate::TestsPassed | Gate::ScreenshotExists)) {
+    let evidence = if stage
+        .gates
+        .iter()
+        .any(|g| matches!(g, Gate::TestsPassed | Gate::ScreenshotExists))
+    {
         crate::services::jobs::evidence::gate_status(db, wid, ticket).await?
     } else {
         (false, false)
@@ -63,9 +67,7 @@ pub async fn check<C: ConnectionTrait>(
             Gate::SubtasksDone => subtasks_done(db, wid, ticket).await?,
             Gate::TestsPassed => evidence.0,
             Gate::ScreenshotExists => evidence.1,
-            Gate::PrOpen
-            | Gate::PrsMerged
-            | Gate::CiGreen => false,
+            Gate::PrOpen | Gate::PrsMerged | Gate::CiGreen => false,
         };
         out.push(GateCheck { gate: *gate, ok });
     }

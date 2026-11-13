@@ -177,15 +177,8 @@ async fn register(
     auth: BearerSession,
     Json(req): Json<RegisterRunner>,
 ) -> Result<Response> {
-    let runner = tri!(
-        svc::register(
-            &ctx.db,
-            &auth.session,
-            Some(auth.principal.grant_id),
-            &req
-        )
-        .await
-    );
+    let runner =
+        tri!(svc::register(&ctx.db, &auth.session, Some(auth.principal.grant_id), &req).await);
     let s = &auth.session;
     let prefs = runner_prefs::Model::of(&ctx.db, s.workspace.workspace_id(), s.user.id).await?;
     Ok(Json(RunnerInfo {
@@ -238,9 +231,20 @@ async fn send(socket: &mut WebSocket, msg: &ServerMsg) -> bool {
 
 /// Satu koneksi runner: heartbeat dari runner, event dari server tiap [`WS_TICK`]. Session
 /// dimuat ulang setiap tick; token/grant dicabut atau runner dicabut → koneksi ditutup.
-async fn socket_loop(ctx: AppContext, principal: Principal, runner: runners::Model, mut socket: WebSocket) {
+async fn socket_loop(
+    ctx: AppContext,
+    principal: Principal,
+    runner: runners::Model,
+    mut socket: WebSocket,
+) {
     if svc::heartbeat(&ctx.db, &runner, true).await.is_err()
-        || !send(&mut socket, &ServerMsg::Welcome { runner_id: runner.id }).await
+        || !send(
+            &mut socket,
+            &ServerMsg::Welcome {
+                runner_id: runner.id,
+            },
+        )
+        .await
     {
         return;
     }
@@ -356,7 +360,8 @@ async fn upload_evidence(
     Json(up): Json<EvidenceUpload>,
 ) -> Result<Response> {
     let (runner, job) = tri!(held(&ctx, &auth.session, &headers, id).await);
-    let row = tri!(evidence::upload(&ctx.db, &ctx.storage, &auth.session, &runner, &job, &up).await);
+    let row =
+        tri!(evidence::upload(&ctx.db, &ctx.storage, &auth.session, &runner, &job, &up).await);
     Ok((
         StatusCode::CREATED,
         Json(serde_json::json!({ "id": row.id, "kind": row.kind })),
@@ -445,6 +450,9 @@ pub fn routes() -> Routes {
             get(permission_status),
         )
         .add("/api/runner/jobs/{id}/finish", post(finish))
-        .add("/api/runner/jobs/{id}/terminal-failed", post(terminal_failed))
+        .add(
+            "/api/runner/jobs/{id}/terminal-failed",
+            post(terminal_failed),
+        )
         .add("/api/runner/drift", post(drift))
 }

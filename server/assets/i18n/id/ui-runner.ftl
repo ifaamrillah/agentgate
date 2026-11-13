@@ -42,3 +42,20 @@ device-denied-description = CLI tidak mendapat akses. Jalankan agentgate login l
 device-goto-runner = Ke Runner & CLI
 device-another = Login perangkat lain
 device-foot = Login device code flow · token CLI bisa dicabut di Akun → Hubungkan client AI
+
+## Error job, runner, evidence
+job-not-queued = Job ini sudah diambil orang lain atau tidak lagi di antrean.
+job-not-executor = Hanya executor stage ini yang bisa mengambil job-nya.
+job-not-holder = Job ini dikunci untuk orang lain. Hanya pemegang lock yang bisa menjalankannya.
+job-closed = Job ini sudah selesai atau dibatalkan.
+job-runner-invalid = Runner tidak ditemukan atau sudah dicabut.
+job-not-quota = Job ini tidak sedang menunggu kuota AI.
+job-permission-closed = Permintaan izin ini sudah dijawab.
+job-action-blocked = Aksi ini selalu diblokir dan tidak bisa diizinkan.
+runner-name-invalid = Nama runner wajib diisi (maks. 80 karakter).
+runner-key-invalid = Kunci publik runner tidak valid.
+runner-batch-too-large = Kiriman dari runner terlalu besar. Kirim dalam beberapa bagian.
+evidence-signature-invalid = Tanda tangan evidence tidak cocok dengan kunci runner.
+evidence-content-invalid = Isi evidence rusak atau tidak cocok dengan checksum.
+evidence-too-large = Evidence lebih dari 10 MB.
+evidence-type-invalid = Tipe berkas evidence tidak didukung.

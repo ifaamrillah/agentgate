@@ -92,7 +92,7 @@ async fn post(
         .await
 }
 
-async fn ksr(ctx: &AppContext, f: &Fixture) -> projects::Model {
+pub async fn ksr(ctx: &AppContext, f: &Fixture) -> projects::Model {
     projects::Model::find_by_key(&ctx.db, f.workspace.workspace_id(), "KSR")
         .await
         .unwrap()
@@ -100,7 +100,7 @@ async fn ksr(ctx: &AppContext, f: &Fixture) -> projects::Model {
 }
 
 /// Anggota dengan role Member di project KSR.
-async fn member(
+pub async fn member(
     request: &TestServer,
     ctx: &AppContext,
     f: &Fixture,
