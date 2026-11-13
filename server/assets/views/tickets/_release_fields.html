@@ -1,0 +1,10 @@
+{#- Isian rilis (dialog Versi baru dan Ubah rilis). Variabel: did (prefix id), v (FormValues),
+    e (FieldErrors). -#}
+  <section><div class="app-stack-v" data-gap="sm">
+    {{ <field id={did ~ "-name"} name="name" label={t(key="release-field-name", lang="id")} value={v.name} error={e.name.code} required={true} placeholder="v1.6"/> }}
+    {{ <field id={did ~ "-description"} name="description" label={t(key="release-field-description", lang="id")} value={v.description} error={e.description.code} placeholder={t(key="release-field-description-placeholder", lang="id")} optional={t(key="field-optional", lang="id")}/> }}
+    <div class="app-form-row">
+      {{ <field id={did ~ "-start"} name="starts_on" type="date" label={t(key="release-field-start", lang="id")} value={v.starts_on} error={e.starts_on.code} optional={t(key="field-optional", lang="id")}/> }}
+      {{ <field id={did ~ "-target"} name="target_on" type="date" label={t(key="release-field-target", lang="id")} value={v.target_on} error={e.target_on.code} optional={t(key="field-optional", lang="id")}/> }}
+    </div>
+  </div></section>

@@ -4,6 +4,7 @@
 mod backlog;
 mod estimate;
 mod mcp;
+mod releases;
 mod reports;
 
 use agentgate_server::models::{projects, sprints};

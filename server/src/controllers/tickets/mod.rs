@@ -23,6 +23,7 @@ mod drafts;
 pub mod estimate;
 mod inbox;
 mod pulls;
+pub mod releases;
 pub mod reports;
 mod settings;
 mod stage;
@@ -235,6 +236,30 @@ pub fn routes() -> Routes {
         .add("/w/{slug}/p/{key}/list", get(board::list))
         .add("/w/{slug}/p/{key}/backlog", get(backlog::index))
         .add("/w/{slug}/p/{key}/reports", get(reports::index))
+        .add(
+            "/w/{slug}/p/{key}/releases",
+            get(releases::index).post(releases::create),
+        )
+        .add(
+            "/w/{slug}/p/{key}/releases/{id}",
+            get(releases::show).post(releases::update),
+        )
+        .add("/w/{slug}/p/{key}/releases/{id}/delete", post(releases::delete))
+        .add("/w/{slug}/p/{key}/releases/{id}/release", post(releases::release_now))
+        .add("/w/{slug}/p/{key}/releases/{id}/status", post(releases::set_status))
+        .add(
+            "/w/{slug}/p/{key}/releases/{id}/notes",
+            get(releases::notes).post(releases::save_notes),
+        )
+        .add(
+            "/w/{slug}/p/{key}/releases/{id}/notes/restore",
+            post(releases::restore_notes),
+        )
+        .add(
+            "/w/{slug}/p/{key}/releases/{id}/notes/publish",
+            post(releases::publish_notes),
+        )
+        .add("/w/{slug}/p/{key}/releases/{id}/notes/ai", post(releases::request_ai))
         .add("/w/{slug}/p/{key}/backlog/sprints", post(backlog::create))
         .add("/w/{slug}/p/{key}/backlog/sprints/{id}", post(backlog::update))
         .add(

@@ -1,0 +1,45 @@
+{#- Project → Rilis (prototype M9 "Rilis"): datatable versi (cari, filter status, sort) dengan
+    status, progres tiket selesai, tanggal target, dan keadaan release notes; dialog Versi baru.
+    Variabel: project, views, views_action, return_to, base, can_edit, table, releases
+    ([controllers::tickets::releases::ReleaseView]), all, new_open, new_input, errors, flash. -#}
+{% extends "layouts/project.html" %}
+{% block title %}{{ t(key="project-view-releases", lang="id") }} · {{ project.name }}{% endblock title %}
+{% block crumb %}{{ <crumb label={t(key="project-view-releases", lang="id")}/> }}{% endblock crumb %}
+{% block page_attrs %}data-releases-page{% endblock page_attrs %}
+{% block description %}{{ t(key="release-description", lang="id") }}{% endblock description %}
+{% block head_actions %}
+  {%- if can_edit %}{{ <button label={t(key="release-new", lang="id")} icon="plus" dialog="release-new" attrs="data-release-new"/> }}{% endif -%}
+{% endblock head_actions %}
+{% block main %}
+<div class="alert" data-variant="neutral">{{ icon(name="info-circle") }}<span>{{ t(key="release-fix-version-hint", lang="id") }}</span></div>
+{% <card flush={true} attrs="data-releases"> %}
+  {% <datatable table={table} empty_title={t(key="release-empty", lang="id")} empty_description={t(key="release-empty-description", lang="id")} empty_icon="rocket"> %}
+  {%- for r in releases %}
+  <tr data-release="{{ r.name }}" data-status="{{ r.status }}">
+    <td><a class="app-who app-rel-name" href="{{ r.href }}">{{ icon(name="rocket") }}<span><b>{{ r.name }}</b>{% if r.description %}<small>{{ r.description }}</small>{% endif %}</span></a></td>
+    <td>{{ <badge label={t(key=r.status_key, lang="id")} variant={r.variant}/> }}</td>
+    <td><div class="app-rel-prog"><div class="app-bar"><i style="width: {{ r.pct }}%{% if r.status == "released" %}; --c: var(--ag-success){% endif %}"></i></div><small class="app-hint">{{ t(key="release-progress", lang="id", done=r.done, total=r.total) }}</small></div></td>
+    <td data-hide="sm">{% if r.target %}{{ r.target }}{% else %}<span class="app-hint">—</span>{% endif %}</td>
+    <td data-hide="sm" data-notes="{{ r.notes_state }}">
+      {%- if r.notes_state == "published" %}{{ <badge label={t(key="release-notes-published", lang="id")} variant="success"/> }}
+      {%- elif r.notes_state == "draft" %}{{ <badge label={t(key="release-notes-draft", lang="id")} variant="ai"/> }}
+      {%- else %}<span class="app-hint">{{ t(key="release-notes-none", lang="id") }}</span>{% endif %}
+    </td>
+  </tr>
+  {%- endfor %}
+  {% </datatable> %}
+{% </card> %}
+
+{%- if can_edit %}
+{% <dialog id="release-new" title={t(key="release-new", lang="id")} description={t(key="release-new-description", lang="id")} icon="rocket" tone="accent" open={new_open}> %}
+<form method="post" action="{{ base }}">
+  {%- set v = new_input %}{% set e = errors %}{% set did = "release-new" %}
+  {% include "tickets/_release_fields.html" %}
+  <footer>
+    <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+    {{ <button label={t(key="release-create", lang="id")} type="submit" attrs="data-release-create"/> }}
+  </footer>
+</form>
+{% </dialog> %}
+{%- endif %}
+{% endblock main %}

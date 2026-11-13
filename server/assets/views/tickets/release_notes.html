@@ -1,0 +1,59 @@
+{#- Project → Rilis → Release notes (prototype M9 "Editor release notes"): md_editor penuh (Simpan
+    = versi baru), kanan Sumber (tiket versi ini) dan Riwayat versi (pulihkan versi lama sebagai
+    versi baru). "Susun ulang dengan AI" membuat job persona writer; hasilnya masuk sebagai versi
+    baru lewat MCP.
+    Variabel: project, views, views_action, return_to, base, can_edit, release, body,
+    notes_published, ai_running, versions, tickets, paths, flash. -#}
+{% extends "layouts/project.html" %}
+{% block title %}{{ t(key="release-notes", lang="id") }} {{ release.name }} · {{ project.name }}{% endblock title %}
+{% block crumb %}{{ <crumb label={t(key="project-view-releases", lang="id")} href={base}/> }}{{ <crumb label={release.name} href={paths.show}/> }}{{ <crumb label={t(key="release-notes", lang="id")}/> }}{% endblock crumb %}
+{% block page_attrs %}data-release-notes-page{% endblock page_attrs %}
+{% block leading %}<span class="app-tile" data-size="lg">{{ icon(name="writing") }}</span>{% endblock leading %}
+{% block heading %}{{ t(key="release-notes", lang="id") }} {{ release.name }}{% endblock heading %}
+{% block description %}{{ t(key="release-notes-editor-description", lang="id") }}{% endblock description %}
+{% block head_actions %}
+  {{ <button label={t(key="release-notes-view", lang="id")} icon="eye" variant="outline" href={paths.show}/> }}
+  <form method="post" action="{{ paths.notes_ai }}"><input type="hidden" name="back" value="notes">{{ <button label={t(key="release-notes-regenerate", lang="id")} icon="sparkles" variant="outline" type="submit" disabled={ai_running} attrs="data-notes-ai"/> }}</form>
+{% endblock head_actions %}
+{% block main %}
+{%- if ai_running %}<div class="alert" data-variant="info" data-notes-running>{{ icon(name="sparkles") }}<span>{{ t(key="release-notes-running", lang="id") }}</span></div>{% endif %}
+<div class="app-ticket">
+  <div class="app-ticket-main">
+  {% <card title={t(key="release-notes", lang="id")} flush={true}> %}
+    {{ <md_editor id="release-notes-body" name="body" label={t(key="release-notes", lang="id")} value={body} action={paths.notes} cancel_href={paths.show} save_label={t(key="release-notes-save", lang="id")} placeholder={t(key="release-notes-placeholder", lang="id")} hide_label={true} rows={22}/> }}
+  {% </card> %}
+  </div>
+  <aside class="app-ticket-side">
+  {% <card title={t(key="release-notes-publishing", lang="id")} flush={true} attrs="data-notes-publish-card"> %}
+    <div class="app-blk">
+      <p class="app-hint">{% if notes_published %}{{ t(key="release-notes-published-hint", lang="id") }}{% else %}{{ t(key="release-notes-draft-hint", lang="id") }}{% endif %}</p>
+      {%- if versions %}
+      <form method="post" action="{{ paths.notes_publish }}"><input type="hidden" name="back" value="notes">
+        {%- if notes_published %}<input type="hidden" name="published" value="0">{{ <button label={t(key="release-notes-unpublish", lang="id")} icon="eye-off" variant="outline" size="sm" type="submit" attrs="data-notes-unpublish"/> }}
+        {%- else %}<input type="hidden" name="published" value="1">{{ <button label={t(key="release-notes-publish", lang="id")} icon="send" variant="outline" size="sm" type="submit" attrs="data-notes-publish"/> }}{% endif %}
+      </form>
+      {%- endif %}
+    </div>
+  {% </card> %}
+  {% <card title={t(key="release-notes-sources", lang="id")} count={tickets | length ~ ""} flush={true} attrs="data-notes-sources"> %}
+    {%- for r in tickets %}
+    <a class="app-lrow" href="{{ r.href }}">{{ <type_icon icon={r.ticket_type.icon} color={r.ticket_type.color} label={r.ticket_type.name}/> }}<span class="app-code">{{ r.code }}</span><span class="app-lrow-main"><b title="{{ r.title }}">{{ r.title }}</b></span></a>
+    {%- else %}
+    <p class="app-blk app-hint">{{ t(key="release-tickets-empty", lang="id") }}</p>
+    {%- endfor %}
+  {% </card> %}
+  {% <card title={t(key="release-notes-history", lang="id")} count={versions | length ~ ""} flush={true} attrs="data-notes-history"> %}
+    {%- for x in versions %}
+    <div class="app-lrow" data-notes-version="{{ x.number }}">
+      <span class="app-code">v{{ x.number }}</span>
+      <span class="app-lrow-main"><b>{% if x.ai %}{{ t(key="release-version-ai", lang="id", who=x.who) }}{% else %}{{ t(key="release-version-manual", lang="id", who=x.who) }}{% endif %}</b><small>{{ x.at }}</small></span>
+      {%- if x.current %}{{ <badge label={t(key="release-version-current", lang="id")} variant="info"/> }}
+      {%- else %}<form method="post" action="{{ paths.notes_restore }}"><input type="hidden" name="number" value="{{ x.number }}">{{ <button label={t(key="release-version-restore", lang="id")} icon="restore" variant="ghost" size="sm" type="submit" attrs="data-notes-restore"/> }}</form>{% endif %}
+    </div>
+    {%- else %}
+    <p class="app-blk app-hint">{{ t(key="release-notes-history-empty", lang="id") }}</p>
+    {%- endfor %}
+  {% </card> %}
+  </aside>
+</div>
+{% endblock main %}

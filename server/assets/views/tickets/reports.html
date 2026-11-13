@@ -14,6 +14,7 @@
   <span data-no-print>{{ <button label={t(key="report-print", lang="id")} icon="download" variant="outline" attrs="data-print"/> }}</span>
 {% endblock head_actions %}
 {% block main %}
+{%- set tab_key = "report-tab-" ~ tab %}{% set empty_key = "report-empty-" ~ tab %}{% set desc_key = "report-" ~ tab ~ "-description" %}
 {{ <tabs label={t(key="report-tabs", lang="id")} items={tabs}/> }}
 {%- if sprints and tab in ["burndown", "sprint"] %}
 <nav class="app-chips" aria-label="{{ t(key="report-sprint-choose", lang="id") }}" data-sprint-picker data-no-print>
@@ -23,9 +24,9 @@
 {%- if stats %}{{ <stats items={stats}/> }}{% endif %}
 
 {%- if empty %}
-{% <card title={t(key="report-tab-" ~ tab, lang="id")}> %}
+{% <card title={t(key=tab_key, lang="id")}> %}
   {%- if note %}{{ <empty_state title={t(key="report-empty", lang="id")} description={t(key=note, lang="id")} icon="chart-line" variant="plain"/> }}
-  {%- else %}{{ <empty_state title={t(key="report-empty", lang="id")} description={t(key="report-empty-" ~ tab, lang="id")} icon="chart-line" variant="plain"/> }}{% endif %}
+  {%- else %}{{ <empty_state title={t(key="report-empty", lang="id")} description={t(key=empty_key, lang="id")} icon="chart-line" variant="plain"/> }}{% endif %}
   <div class="app-pad" data-no-print>{{ <button label={t(key="report-open-backlog", lang="id")} icon="stack-2" variant="outline" href={backlog}/> }}</div>
 {% </card> %}
 {%- elif tab == "sprint" %}
@@ -69,8 +70,8 @@
   <div class="app-leg">{% for l in legend %}<span><i data-c="{{ l.tone }}"{% if l.dash %} data-dash{% endif %}></i>{{ t(key=l.key, lang="id") }}</span>{% endfor %}</div>
 {% </card> %}
 {%- else %}
-{%- if sprint and tab == "burndown" %}{% set chart_desc = sprint.name ~ " · " ~ sprint.range %}{% else %}{% set chart_desc = t(key="report-" ~ tab ~ "-description", lang="id") %}{% endif %}
-{% <card title={t(key="report-tab-" ~ tab, lang="id")} description={chart_desc} attrs="data-report-chart"> %}
+{%- if sprint and tab == "burndown" %}{% set chart_desc = sprint.name ~ " · " ~ sprint.range %}{% else %}{% set chart_desc = t(key=desc_key, lang="id") %}{% endif %}
+{% <card title={t(key=tab_key, lang="id")} description={chart_desc} attrs="data-report-chart"> %}
   {{ chart | safe }}
   {%- if legend %}<div class="app-leg">{% for l in legend %}<span><i data-c="{{ l.tone }}"{% if l.dash %} data-dash{% endif %}></i>{{ t(key=l.key, lang="id") }}</span>{% endfor %}</div>{% endif %}
   {%- if tab == "cfd" %}<div class="app-leg">{% for s in stage_rows %}<span><i data-c="{{ s.estimate }}"></i>{{ s.name }}</span>{% endfor %}</div>{% endif %}

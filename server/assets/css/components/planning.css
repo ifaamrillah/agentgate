@@ -177,3 +177,14 @@
   [data-estimate-forecast] { display: flex; align-items: center; gap: 4px; font-size: 12.5px; }
   [data-estimate-forecast] svg { width: 14px; height: 14px; }
 }
+
+@layer components {
+  /* Rilis: progres di tabel, nama + deskripsi, centang selesai di daftar tiket. */
+  .app-rel-prog { display: grid; gap: 4px; min-width: 120px; }
+  .app-rel-name small { color: var(--ag-muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .app-rel-name b { font-weight: 600; }
+  .app-rel-t[data-done] .app-lrow-main b { color: var(--ag-muted); }
+  .app-rel-done { color: var(--ag-success); display: inline-flex; }
+  .app-rel-done svg { width: 16px; height: 16px; }
+  .app-est-acts[data-center] { justify-content: center; }
+}
