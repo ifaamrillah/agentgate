@@ -439,7 +439,7 @@ async fn reconcile(cx: &mut Cx<'_>) -> Result<Result<(), JiraError>, DbErr> {
         .all(cx.db)
         .await?;
     for t in tickets {
-        if let Err(e) = push_ticket(cx, &t, true).await? {
+        if let Err(e) = push_ticket(cx, &t, true, true).await? {
             return Ok(Err(e));
         }
         for c in ticket_comments::Model::of_ticket(cx.db, cx.wid, t.id).await? {
@@ -478,9 +478,9 @@ async fn push_outbox(cx: &mut Cx<'_>) -> Result<Result<(), JiraError>, DbErr> {
 async fn push_event(cx: &mut Cx<'_>, e: &outbox_events::Model) -> ItemResult {
     match e.event() {
         Ok(
-            WebhookEvent::TicketCreated
+            event @ (WebhookEvent::TicketCreated
             | WebhookEvent::TicketUpdated
-            | WebhookEvent::TicketStageChanged,
+            | WebhookEvent::TicketStageChanged),
         ) => {
             let Some(t) = tickets::Model::find_in(cx.db, cx.wid, e.subject_id).await? else {
                 return Ok(Ok(()));
@@ -488,7 +488,7 @@ async fn push_event(cx: &mut Cx<'_>, e: &outbox_events::Model) -> ItemResult {
             if t.is_trashed() || t.project_id != cx.project.id {
                 return Ok(Ok(()));
             }
-            push_ticket(cx, &t, false).await
+            push_ticket(cx, &t, false, event == WebhookEvent::TicketStageChanged).await
         }
         Ok(WebhookEvent::CommentCreated) => {
             let Some(c) = ticket_comments::Entity::find_by_id(e.subject_id)
@@ -516,8 +516,14 @@ fn names(targets: &[FieldTarget]) -> String {
 }
 
 /// Dorong tiket: buat issue bila belum tertaut, ubah field yang berbeda dari dasar, transisikan
-/// status bila stage berbeda. `force` = dasar adalah nilai Jira sekarang (rekonsiliasi).
-async fn push_ticket(cx: &mut Cx<'_>, t: &tickets::Model, force: bool) -> ItemResult {
+/// status bila stage berbeda. `force` = dasar adalah nilai Jira sekarang (rekonsiliasi);
+/// `announce` = stage yang belum dipetakan dicatat (issue baru, stage berubah, rekonsiliasi).
+async fn push_ticket(
+    cx: &mut Cx<'_>,
+    t: &tickets::Model,
+    force: bool,
+    announce: bool,
+) -> ItemResult {
     let snap = issues::of_ticket(t);
     let env = cx.api.env();
     let out = || NewLog::new(Direction::Out, SyncResult::Fail, "jira-log-push-failed").ticket(t.id, &t.code);
@@ -532,6 +538,13 @@ async fn push_ticket(cx: &mut Cx<'_>, t: &tickets::Model, force: bool) -> ItemRe
                 fields["summary"] = serde_json::json!(t.title);
             }
             let created = jira!(cx, cx.api.create_issue(fields), out());
+            // Status awal issue (workflow Jira) supaya tarikan berikutnya tidak membacanya
+            // sebagai perpindahan status dari Jira.
+            let status = match cx.api.issue(&created.key, &["status".to_string()]).await {
+                Ok(i) => i.status_id,
+                Err(e) if e.is_transient() => return Ok(Err(e)),
+                Err(_) => String::new(),
+            };
             let link = jira_links::ActiveModel::link(
                 cx.db,
                 NewLink {
@@ -540,7 +553,7 @@ async fn push_ticket(cx: &mut Cx<'_>, t: &tickets::Model, force: bool) -> ItemRe
                     ticket_id: t.id,
                     issue_id: created.id.clone(),
                     issue_key: created.key.clone(),
-                    jira_status_id: String::new(),
+                    jira_status_id: status,
                     snapshot: snap.clone(),
                 },
             )
@@ -551,7 +564,7 @@ async fn push_ticket(cx: &mut Cx<'_>, t: &tickets::Model, force: bool) -> ItemRe
                     .issue(&created.key),
             )
             .await?;
-            return push_status(cx, t, link, None).await;
+            return push_status(cx, t, link, None, true).await;
         }
     };
     let (base, jira_status) = if force {
@@ -586,7 +599,7 @@ async fn push_ticket(cx: &mut Cx<'_>, t: &tickets::Model, force: bool) -> ItemRe
         let status = link.jira_status_id.clone();
         jira_links::ActiveModel::agree(cx.db, link, snap, &status).await?
     };
-    push_status(cx, t, link, jira_status).await
+    push_status(cx, t, link, jira_status, announce || force).await
 }
 
 /// Transisi Jira ke status yang dipetakan ke stage tiket. `actual` = status Jira sekarang bila
@@ -596,6 +609,7 @@ async fn push_status(
     t: &tickets::Model,
     link: jira_links::Model,
     actual: Option<String>,
+    announce: bool,
 ) -> ItemResult {
     let current = actual.unwrap_or_else(|| link.jira_status_id.clone());
     if cx.statuses.stage_of(&current) == Some(t.stage_key.as_str()) {
@@ -606,6 +620,9 @@ async fn push_status(
         return Ok(Ok(()));
     }
     let Some(target) = cx.statuses.status_for(&t.stage_key, &current).cloned() else {
+        if !announce {
+            return Ok(Ok(()));
+        }
         cx.log(
             NewLog::new(Direction::Out, SyncResult::Fail, "jira-log-stage-unmapped")
                 .ticket(t.id, &t.code)
@@ -618,8 +635,10 @@ async fn push_status(
         .await?;
         return Ok(Ok(()));
     };
-    if !move_jira(cx, &link, &target.id, t).await? .is_ok_and(|moved| moved) {
-        return Ok(Ok(()));
+    match move_jira(cx, &link, &target.id, t).await? {
+        Ok(true) => {}
+        Ok(false) => return Ok(Ok(())),
+        Err(e) => return Ok(Err(e)),
     }
     cx.log(
         NewLog::new(Direction::Out, SyncResult::Ok, "jira-log-status-pushed")
@@ -681,7 +700,7 @@ async fn push_comment(cx: &mut Cx<'_>, c: &ticket_comments::Model) -> ItemResult
     let link = match jira_links::Model::of_ticket(cx.db, cx.conn.id, t.id).await? {
         Some(l) => l,
         None => {
-            if let Err(e) = push_ticket(cx, &t, false).await? {
+            if let Err(e) = push_ticket(cx, &t, false, true).await? {
                 return Ok(Err(e));
             }
             match jira_links::Model::of_ticket(cx.db, cx.conn.id, t.id).await? {

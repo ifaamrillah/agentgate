@@ -106,8 +106,8 @@ jira-save-note = Perubahan berlaku pada sinkron berikutnya.
 ## Status
 jira-status-description = Status Jira project { $jira } dipetakan ke stage workflow { $project }.
 jira-status-unmapped = Status { $names } belum dipetakan. Issue dengan status ini tetap di stage-nya sekarang.
-jira-status-jira = Status Jira ({ $key })
-jira-status-stage = Stage Agent Gate ({ $key })
+jira-status-jira = Status Jira ({ $code })
+jira-status-stage = Stage Agent Gate ({ $code })
 jira-status-for = Stage untuk status { $name }
 jira-unmapped = Tidak dipetakan
 

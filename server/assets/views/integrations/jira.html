@@ -124,11 +124,11 @@
   {%- else %}
   {%- if unmapped %}<div class="alert" data-variant="warn">{{ icon(name="alert-triangle") }}<span>{{ t(key="jira-status-unmapped", lang="id", names=unmapped | join(sep=", "), n=unmapped | length) }}</span></div>{% endif %}
   <div class="app-jmap">
-    <span class="app-jmap-h">{{ t(key="jira-status-jira", lang="id", key=conn.jira_project) }}</span><span class="app-jmap-h"></span><span class="app-jmap-h">{{ t(key="jira-status-stage", lang="id", key=conn.project) }}</span>
+    <span class="app-jmap-h">{{ t(key="jira-status-jira", lang="id", code=conn.jira_project) }}</span><span class="app-jmap-h"></span><span class="app-jmap-h">{{ t(key="jira-status-stage", lang="id", code=conn.project) }}</span>
     {%- for s in statuses %}
     <span class="app-jmap-k"><span class="app-jst" data-category="{{ s.category }}"{% if not s.stage %} data-unmapped{% endif %}>{{ s.name }}</span></span>
     <span class="app-jmap-arw">{{ icon(name="arrows-exchange") }}</span>
-    {{ <combo id={"jira-st-" ~ s.id} name={"st:" ~ s.id} label={t(key="jira-status-for", lang="id", name=s.name)} options={stage_options} value={s.stage | default(value="")} hide_label={true} placeholder={t(key="jira-unmapped", lang="id")}/> }}
+    {{ <combo id={"jira-st-" ~ s.id} name={"st:" ~ s.id} label={t(key="jira-status-for", lang="id", name=s.name)} options={stage_options} value={s.stage} hide_label={true} placeholder={t(key="jira-unmapped", lang="id")}/> }}
     {%- endfor %}
   </div>
   {%- endif %}

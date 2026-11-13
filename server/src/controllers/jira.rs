@@ -338,7 +338,18 @@ async fn render_page(
             let mut options = vec![ComboOption::new("", i18n::text("jira-unmapped", &[]))];
             options.extend(stages.iter().map(|s| ComboOption::new(&s.key, &s.name).sub(&s.key)));
             data["stage_options"] = serde_json::to_value(options)?;
-            data["statuses"] = serde_json::to_value(&statuses.statuses)?;
+            data["statuses"] = serde_json::to_value(
+                statuses
+                    .statuses
+                    .iter()
+                    .map(|s| {
+                        serde_json::json!({
+                            "id": s.id, "name": s.name, "category": s.category,
+                            "stage": s.stage.clone().unwrap_or_default(),
+                        })
+                    })
+                    .collect::<Vec<_>>(),
+            )?;
         }
         "fields" => {
             let custom = custom_fields::Model::all_in(db, wid).await?;
