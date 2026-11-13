@@ -379,21 +379,21 @@ pub fn plan_row(
     });
     let points = match fields::story_points(get(ImportField::StoryPoints)) {
         Ok(p) => p,
-        Err(()) => {
+        Err(fields::BadValue) => {
             notes.push(note(WARN_POINTS, get(ImportField::StoryPoints)));
             None
         }
     };
     let due_on = match fields::date(get(ImportField::DueOn)) {
         Ok(d) => d,
-        Err(()) => {
+        Err(fields::BadValue) => {
             notes.push(note(WARN_DATE, get(ImportField::DueOn)));
             None
         }
     };
     plan.created_at = match fields::datetime(get(ImportField::CreatedAt)) {
         Ok(d) => d,
-        Err(()) => {
+        Err(fields::BadValue) => {
             notes.push(note(WARN_DATE, get(ImportField::CreatedAt)));
             None
         }

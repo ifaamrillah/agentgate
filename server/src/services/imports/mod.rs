@@ -678,10 +678,10 @@ async fn import_row(
 ) -> Result<bool, TicketFailure> {
     let wid = acting.workspace_id();
     let ticket = create::run_in(txn, acting, project_id, &plan.form).await?;
-    if let Some(alias) = &plan.alias {
-        if !ticket_codes::ActiveModel::claim(txn, wid, ticket.id, alias).await? {
-            return Ok(false);
-        }
+    if let Some(alias) = &plan.alias
+        && !ticket_codes::ActiveModel::claim(txn, wid, ticket.id, alias).await?
+    {
+        return Ok(false);
     }
     if let Some(at) = plan.created_at {
         tickets::Entity::update_many()

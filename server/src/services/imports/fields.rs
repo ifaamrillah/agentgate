@@ -5,6 +5,10 @@ use chrono::{DateTime, NaiveDate, NaiveDateTime, TimeZone, Utc};
 
 use crate::models::{ticket_imports::ImportField, tickets::TicketPriority};
 
+/// Nilai sel yang tidak bisa dibaca (pemanggil mencatat peringatan lalu mengosongkannya).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BadValue;
+
 /// Header umum (huruf kecil, tanpa spasi berlebih) → field.
 const HEADERS: &[(&str, ImportField)] = &[
     ("issue key", ImportField::Alias),
@@ -120,15 +124,15 @@ pub fn status_category(raw: &str) -> Option<Category> {
 ///
 /// # Errors
 ///
-/// `()` bila bukan angka dalam rentang.
-pub fn story_points(raw: &str) -> Result<Option<i32>, ()> {
+/// [`BadValue`] bila bukan angka dalam rentang.
+pub fn story_points(raw: &str) -> Result<Option<i32>, BadValue> {
     let raw = raw.trim().replace(',', ".");
     if raw.is_empty() {
         return Ok(None);
     }
-    let n: f64 = raw.parse().map_err(|_| ())?;
+    let n: f64 = raw.parse().map_err(|_| BadValue)?;
     if !(0.0..=f64::from(crate::models::tickets::STORY_POINTS_MAX)).contains(&n) {
-        return Err(());
+        return Err(BadValue);
     }
     // Rentang sudah dicek; pembulatan aman.
     #[allow(clippy::cast_possible_truncation)]
@@ -154,8 +158,8 @@ pub fn labels(values: &[&str]) -> Vec<String> {
 ///
 /// # Errors
 ///
-/// `()` bila tidak dikenali.
-pub fn datetime(raw: &str) -> Result<Option<DateTime<Utc>>, ()> {
+/// [`BadValue`] bila tidak dikenali.
+pub fn datetime(raw: &str) -> Result<Option<DateTime<Utc>>, BadValue> {
     let raw = raw.trim();
     if raw.is_empty() {
         return Ok(None);
@@ -187,8 +191,8 @@ pub fn datetime(raw: &str) -> Result<Option<DateTime<Utc>>, ()> {
 ///
 /// # Errors
 ///
-/// `()` bila tidak dikenali.
-pub fn date(raw: &str) -> Result<Option<NaiveDate>, ()> {
+/// [`BadValue`] bila tidak dikenali.
+pub fn date(raw: &str) -> Result<Option<NaiveDate>, BadValue> {
     let raw = raw.trim();
     if raw.is_empty() {
         return Ok(None);
@@ -205,7 +209,7 @@ pub fn date(raw: &str) -> Result<Option<NaiveDate>, ()> {
     if head != raw {
         return date(head);
     }
-    Err(())
+    Err(BadValue)
 }
 
 /// Kode lama yang layak jadi alias: 1–40 karakter tanpa spasi/kontrol.
