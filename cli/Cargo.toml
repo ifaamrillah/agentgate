@@ -14,6 +14,9 @@ path = "src/main.rs"
 [dependencies]
 # Type dan versi bersama dengan server (protokol runner, tanda tangan evidence, aturan).
 agentgate-core = { path = "../core" }
+# Parser tree-sitter + pembaca SCIP untuk `agentgate graph` (parsing ulang di server; CLI hanya
+# walk, sha, statistik git, dan SCIP).
+agentgate-graph = { path = "../graph", features = ["scip"] }
 # Parsing argumen CLI.
 clap = { version = "4.5", features = ["derive", "env"] }
 # Runtime async: HTTP, WebSocket, proses client AI, timer.

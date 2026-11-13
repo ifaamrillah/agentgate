@@ -19,7 +19,7 @@ fn callable(symbol: &str) -> bool {
     !symbol.starts_with("local ") && symbol.ends_with(").")
 }
 
-/// Edge call dari isi `index.scip`.
+/// Edge call dari isi `index.scip`. `indexer` kosong → nama + versi dari metadata SCIP.
 ///
 /// # Errors
 ///
@@ -68,8 +68,20 @@ pub fn read(bytes: &[u8], indexer: &str) -> Result<ScipData, ScipError> {
         ))
     });
     edges.dedup();
+    let indexer = if indexer.is_empty() {
+        index
+            .metadata
+            .as_ref()
+            .and_then(|m| m.tool_info.as_ref())
+            .map_or_else(
+                || "scip".to_string(),
+                |t| format!("{} {}", t.name, t.version).trim().to_string(),
+            )
+    } else {
+        indexer.to_string()
+    };
     Ok(ScipData {
-        indexer: indexer.to_string(),
+        indexer,
         documents: index
             .documents
             .iter()

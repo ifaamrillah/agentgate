@@ -7,6 +7,7 @@ mod config;
 mod doctor;
 mod error;
 mod git;
+mod graph;
 mod hook;
 mod install;
 mod jobs;
@@ -80,8 +81,46 @@ enum Cmd {
         #[command(subcommand)]
         event: HookCmd,
     },
+    /// Code graph repo ini: index, SCIP, status.
+    Graph {
+        #[command(subcommand)]
+        action: GraphCmd,
+    },
     /// Periksa kesiapan perangkat ini.
     Doctor,
+}
+
+#[derive(Subcommand)]
+enum GraphCmd {
+    /// Index repo ini (hanya file yang berubah sejak index terakhir).
+    Index {
+        /// Kirim ulang semua file.
+        #[arg(long)]
+        full: bool,
+        /// Kode project (bawaan: .agentgate/project.toml).
+        #[arg(long)]
+        project: Option<String>,
+        /// Nama repo di project (bawaan: nama folder repo).
+        #[arg(long)]
+        repo: Option<String>,
+    },
+    /// Kirim index SCIP (mis. hasil `scip-typescript index`) agar relasi lebih presisi.
+    Scip {
+        /// Berkas SCIP (bawaan: index.scip di root repo).
+        file: Option<std::path::PathBuf>,
+        /// Nama indexer yang ditampilkan (bawaan: dari metadata SCIP).
+        #[arg(long, default_value = "")]
+        indexer: String,
+        #[arg(long)]
+        project: Option<String>,
+        #[arg(long)]
+        repo: Option<String>,
+    },
+    /// Status index semua repo project.
+    Status {
+        #[arg(long)]
+        project: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -208,6 +247,37 @@ async fn run(cmd: Cmd, paths: &Paths) -> Result<ExitCode> {
             HookCmd::PreTool => hook::pre_tool(paths).await,
             HookCmd::SessionStart => hook::session_start(paths),
         },
+        Cmd::Graph { action } => {
+            let (api, _) = auth::session(paths).await?;
+            match action {
+                GraphCmd::Index {
+                    full,
+                    project,
+                    repo,
+                } => {
+                    graph::index(&api, project.as_deref(), repo.as_deref(), full, &mut out).await?;
+                }
+                GraphCmd::Scip {
+                    file,
+                    indexer,
+                    project,
+                    repo,
+                } => {
+                    graph::scip(
+                        &api,
+                        project.as_deref(),
+                        repo.as_deref(),
+                        file.as_deref(),
+                        &indexer,
+                        &mut out,
+                    )
+                    .await?;
+                }
+                GraphCmd::Status { project } => {
+                    graph::status(&api, project.as_deref(), &mut out).await?;
+                }
+            }
+        }
         Cmd::Doctor => {
             if !doctor::doctor(paths, &mut out).await? {
                 return Ok(ExitCode::FAILURE);

@@ -48,6 +48,7 @@ name = "agentgate-cli"
 version = "0.1.0"
 dependencies = [
  "agentgate-core",
+ "agentgate-graph",
  "axum",
  "base64 0.22.1",
  "chrono",
