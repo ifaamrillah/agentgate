@@ -60,6 +60,9 @@ pub const TICKET_FIELDS: &[&str] = &[
     "labels",
     "due_on",
     "story_points",
+    "sprint",
+    "release",
+    "component",
 ];
 pub const TYPE_FIELDS: &[&str] = &["key", "name", "description", "icon", "color", "type"];
 pub const FIELD_FIELDS: &[&str] = &["name", "kind", "options"];
@@ -730,6 +733,10 @@ pub struct TicketFormView {
     pub labels: String,
     pub due_on: String,
     pub story_points: String,
+    /// Id sprint/rilis/component terpilih (`""` = kosong).
+    pub sprint: String,
+    pub release: String,
+    pub component: String,
     pub errors: FieldErrors,
 }
 
@@ -753,6 +760,9 @@ impl TicketFormView {
             labels: t.labels.join(", "),
             due_on: t.due_on.map(|d| d.to_string()).unwrap_or_default(),
             story_points: t.story_points.map(|p| p.to_string()).unwrap_or_default(),
+            sprint: t.sprint_id.map(|id| id.to_string()).unwrap_or_default(),
+            release: t.release_id.map(|id| id.to_string()).unwrap_or_default(),
+            component: t.component_id.map(|id| id.to_string()).unwrap_or_default(),
             errors: field_errors(TICKET_FIELDS, None),
         }
     }

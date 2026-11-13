@@ -90,9 +90,9 @@ fn current_form(t: &tickets::Model, parent_code: Option<&str>) -> TicketForm {
         parent: view.parent,
         custom: t.custom_values().0,
         stage: String::new(),
-        sprint: None,
-        release: None,
-        component: None,
+        sprint: Some(view.sprint),
+        release: Some(view.release),
+        component: Some(view.component),
     }
 }
 
@@ -360,9 +360,11 @@ async fn render_show(
             "people": people_options(ctx, &access.access, None, t.assignee_id).await?,
             "paths": paths,
             "people_src": board.people,
+            "planning": super::board::planning_options(ctx, &access.access, [t.sprint_id, t.release_id]).await?,
             "board": board,
             "tabs": tabs(&paths, "summary", events.len() as u64, artifact_counts, super::pulls::counts(ctx, access).await?),
             "stage": stage,
+            "plan": super::estimate::panel(ctx, access).await?,
             "can_edit": can_edit,
             "errors": {
                 "dialogs": super::stage::errors_view(&errors.stage, errors.stage_dialog),

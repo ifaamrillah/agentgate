@@ -20,6 +20,7 @@ mod artifact;
 mod backlog;
 mod board;
 mod drafts;
+pub mod estimate;
 mod inbox;
 mod pulls;
 pub mod reports;
@@ -291,6 +292,8 @@ pub fn routes() -> Routes {
             post(ticket::remove_attachment),
         )
         .add("/w/{slug}/t/{code}/watch", post(ticket::watch))
+        .add("/w/{slug}/t/{code}/estimate", post(estimate::save))
+        .add("/w/{slug}/t/{code}/estimate/ai", post(estimate::request_ai))
         .add("/w/{slug}/t/{code}/stage/complete", post(stage::complete))
         .add("/w/{slug}/t/{code}/stage/approve", post(stage::approve))
         .add("/w/{slug}/t/{code}/stage/reject", post(stage::reject))

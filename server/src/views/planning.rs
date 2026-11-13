@@ -52,7 +52,13 @@ pub fn label_keys() -> Vec<String> {
     FLASH_KEYS
         .iter()
         .chain(STAT_KEYS)
-        .chain(&["sprint-complete-done", "sprint-complete-left", "sprint-points-hint"])
+        .chain(&[
+            "sprint-complete-done",
+            "sprint-complete-left",
+            "sprint-points-hint",
+            "estimate-flash-saved",
+            "estimate-flash-requested",
+        ])
         .map(|k| (*k).to_string())
         .collect()
 }

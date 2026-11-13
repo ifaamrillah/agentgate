@@ -105,6 +105,9 @@ pub(super) fn form_view(
         labels: form.input.labels.clone(),
         due_on: form.input.due_on.clone(),
         story_points: form.input.story_points.clone(),
+        sprint: form.sprint.clone().unwrap_or_default(),
+        release: form.release.clone().unwrap_or_default(),
+        component: form.component.clone().unwrap_or_default(),
         errors: Default::default(),
     }
     .with_errors(errors)
@@ -198,6 +201,7 @@ async fn render_new(
             "people": people_options(ctx, access, None, selected).await?,
             "custom": custom_for_form(ctx, access, form, errors).await?,
             "people_src": paths.people,
+            "planning": planning_options(ctx, access, [None, None]).await?,
             "paths": paths,
             "stage": form.stage,
             "stage_error": errors
@@ -217,6 +221,45 @@ pub struct NewQuery {
     stage: String,
     #[serde(default)]
     parent: String,
+    #[serde(default)]
+    sprint: String,
+}
+
+/// Opsi planning di form tiket: sprint belum selesai, rilis belum dirilis/diarsipkan, component.
+/// Pilihan tiket sekarang (`current`: sprint, rilis) selalu ikut walau sudah selesai/dirilis,
+/// supaya menyimpan form tidak melepasnya diam-diam.
+pub(super) async fn planning_options(
+    ctx: &AppContext,
+    access: &ProjectAccess,
+    current: [Option<Uuid>; 2],
+) -> Result<serde_json::Value> {
+    use crate::models::{components, releases, sprints};
+    let wid = access.tenant.workspace_id();
+    let pid = access.project.id;
+    let sprints: Vec<serde_json::Value> = sprints::Model::of_project(&ctx.db, wid, pid)
+        .await?
+        .into_iter()
+        .filter(|s| s.state() != sprints::SprintState::Completed || current[0] == Some(s.id))
+        .map(|s| serde_json::json!({ "id": s.id.to_string(), "name": s.name }))
+        .collect();
+    let releases: Vec<serde_json::Value> = releases::Model::of_project(&ctx.db, wid, pid)
+        .await?
+        .into_iter()
+        .filter(|r| {
+            current[1] == Some(r.id)
+                || !matches!(
+                    r.status(),
+                    releases::ReleaseStatus::Released | releases::ReleaseStatus::Archived
+                )
+        })
+        .map(|r| serde_json::json!({ "id": r.id.to_string(), "name": r.name }))
+        .collect();
+    let components: Vec<serde_json::Value> = components::Model::of_project(&ctx.db, wid, pid)
+        .await?
+        .into_iter()
+        .map(|c| serde_json::json!({ "id": c.id.to_string(), "name": c.name }))
+        .collect();
+    Ok(serde_json::json!({ "sprints": sprints, "releases": releases, "components": components }))
 }
 
 #[debug_handler]
@@ -233,6 +276,9 @@ pub(super) async fn new(
         .unwrap_or_default();
     form.parent = query.parent.trim().chars().take(64).collect();
     form.stage = query.stage.trim().chars().take(64).collect();
+    if Uuid::parse_str(query.sprint.trim()).is_ok() {
+        form.sprint = Some(query.sprint.trim().to_string());
+    }
     render_new(&ctx, &v, &access, &form, None, StatusCode::OK).await
 }
 
