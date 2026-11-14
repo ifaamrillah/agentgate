@@ -104,6 +104,10 @@ pub const SETTINGS_SECTIONS: &[&str] = &[
     "knowledge",
     "runner",
     "git",
+    "api",
+    "jira",
+    "import_csv",
+    "export",
 ];
 /// Bagian Akun.
 pub const ACCOUNT_SECTIONS: &[&str] = &["profile", "password", "two_factor", "connect"];
@@ -177,6 +181,15 @@ pub fn settings_nav(settings_href: &str, links: &SettingsLinks) -> Vec<NavItem> 
         ),
         ("runner", "runner-title", "device-laptop", &links.runner),
         ("git", "git-title", "git-pull-request", &links.git),
+        ("api", "api-title", "api", &links.api),
+        ("jira", "jira-title", "arrows-exchange", &links.jira),
+        (
+            "import_csv",
+            "import-title",
+            "file-import",
+            &links.import_csv,
+        ),
+        ("export", "export-title", "file-export", &links.export),
     ];
     items.extend(optional.into_iter().filter_map(|(key, label, icon, href)| {
         href.as_deref().map(|h| NavItem::link(key, label, icon, h))

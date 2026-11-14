@@ -130,7 +130,7 @@ pub const CLIENTS: &[Client] = &[
         name: "Cursor",
         models: &["auto", "claude-sonnet-4-5", "gpt-5"],
         efforts: &[],
-        headless: "cursor-agent",
+        headless: "agent -p",
     },
     Client {
         key: "opencode",

@@ -325,6 +325,8 @@ pub struct TicketQuery {
     pub priorities: Vec<TicketPriority>,
     pub type_ids: Vec<Uuid>,
     pub people: Vec<PersonFilter>,
+    /// Kunci stage workflow (API publik `?stage=`); kosong = semua.
+    pub stage_keys: Vec<String>,
     pub sort: Option<(TicketSort, bool)>,
     pub offset: u64,
     pub limit: u64,
@@ -588,6 +590,9 @@ fn filtered(workspace_id: WorkspaceId, query: &TicketQuery) -> sea_orm::Select<E
     }
     if !query.type_ids.is_empty() {
         select = select.filter(Column::TypeId.is_in(query.type_ids.iter().copied()));
+    }
+    if !query.stage_keys.is_empty() {
+        select = select.filter(Column::StageKey.is_in(query.stage_keys.iter().cloned()));
     }
     if !query.people.is_empty() {
         let mut any = Condition::any();

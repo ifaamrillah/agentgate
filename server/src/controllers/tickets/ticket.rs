@@ -73,7 +73,7 @@ fn first_code(errors: &ModelValidationErrors, field: &str) -> String {
 }
 
 /// Isian form tiket dari tiket sekarang (dasar ubah sebagian).
-pub(super) fn current_form(t: &tickets::Model, parent_code: Option<&str>) -> TicketForm {
+pub(crate) fn current_form(t: &tickets::Model, parent_code: Option<&str>) -> TicketForm {
     let view = TicketFormView::of(t, parent_code);
     TicketForm {
         input: tickets::TicketInput {

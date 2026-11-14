@@ -76,6 +76,22 @@ async fn component_catalog_renders_shared_components() {
             &html,
             "[data-catalog-kb] .app-kb-donut circle[data-tone='warn']",
         );
+        // Ekspor & impor (M11).
+        assert_css_exists(
+            &html,
+            "[data-catalog-transfer] [data-wizard-steps] a[data-state='done']",
+        );
+        assert_css_exists(&html, "[data-catalog-transfer] [aria-current='step']");
+        assert_css_exists(
+            &html,
+            "[data-catalog-transfer] [data-file-drop] input[type='file']",
+        );
+        // Connector Jira (M11).
+        assert_css_exists(
+            &html,
+            "[data-catalog-jira] .app-jmap .app-jst[data-unmapped]",
+        );
+        assert_css_exists(&html, "[data-catalog-jira] .app-jres[data-result='gate']");
         // Visual (M10).
         assert_css_exists(&html, "[data-catalog-visual] .app-tk-feat .app-switch");
         assert_css_exists(&html, "[data-catalog-visual] .app-of-lb.dng .k");
@@ -113,6 +129,16 @@ async fn component_catalog_renders_shared_components() {
         assert_css_exists(&html, "#lists .app-card .app-seeall");
         assert_css_exists(&html, ".app-card[data-variant=\"danger\"]");
         assert_css_exists(&html, ".app-card[data-variant=\"accent\"]");
+        // copy_value (penuh + ringkas) dan tombol aksi kartu yang membuka dialog.
+        assert_css_exists(&html, "[data-catalog-copy-full] [data-copy][hidden]");
+        assert_css_exists(
+            &html,
+            ".app-copy[data-compact] [data-copy][data-size=\"icon-sm\"]",
+        );
+        assert_css_exists(
+            &html,
+            "[data-catalog-copy] .app-card-a [data-card-action][data-dialog-open]",
+        );
         assert_css_exists(&html, "#form form .app-savebar [data-save]");
         // stats: empat kartu, salah satu tautan.
         assert_count(&html, "#stats [data-stat]", 4);

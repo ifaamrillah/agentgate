@@ -6,6 +6,9 @@
       title, description: string  (sudah diterjemahkan; title "" = tanpa header)
       count: string             angka di samping judul (default "" = tanpa)
       link_label, link_href: string  tautan di kanan header, mis. "Lihat semua" (default "")
+      action_label, action_dialog: string  tombol primer kecil di kanan header yang membuka
+                                <dialog>, mis. "Token baru" (default "" = tanpa)
+      action_icon: string       ikon tombol aksi (default "plus")
       variant: default|danger|accent   (default default; danger = zona berbahaya)
       flush: bool               isi tanpa padding: daftar `app-lrow`, `app-srow`, tabel (default false)
       form: string              action form POST; "" = kartu biasa (default "")
@@ -16,7 +19,7 @@
       save_variant: primary|danger  (default primary)
       id, attrs: string         id elemen dan penanda tes tanpa kutip (default "")
       class: hanya untuk layout -#}
-{% component card(title: string = "", description: string = "", count: string = "", link_label: string = "", link_href: string = "", variant: string = "default", flush: bool = false, form: string = "", enctype: string = "", save_label: string = "", cancel_href: string = "", note: string = "", save_variant: string = "primary", id: string = "", attrs: string = "", class: string = "") %}
+{% component card(title: string = "", description: string = "", count: string = "", link_label: string = "", link_href: string = "", action_label: string = "", action_dialog: string = "", action_icon: string = "plus", variant: string = "default", flush: bool = false, form: string = "", enctype: string = "", save_label: string = "", cancel_href: string = "", note: string = "", save_variant: string = "primary", id: string = "", attrs: string = "", class: string = "") %}
 {%- if variant not in ["default", "danger", "accent"] %}{{ throw(message="card: variant tidak dikenal: " ~ variant) }}{% endif -%}
 {%- if form %}<form method="post" action="{{ form }}"{% if enctype %} enctype="{{ enctype }}"{% endif %} class="app-card {{ class }}"{% if id %} id="{{ id }}"{% endif %}{% if variant != "default" %} data-variant="{{ variant }}"{% endif %} {{ attrs }}>
 {%- else %}<section class="app-card {{ class }}"{% if id %} id="{{ id }}"{% endif %}{% if variant != "default" %} data-variant="{{ variant }}"{% endif %} {{ attrs }}>{% endif %}
@@ -26,7 +29,10 @@
       <h2>{{ title }}{% if count %} <span class="app-count">{{ count }}</span>{% endif %}</h2>
       {%- if description %}<p>{{ description }}</p>{% endif %}
     </div>
-    {%- if link_label %}<div class="app-card-a"><a class="app-seeall" href="{{ link_href }}">{{ link_label }}{{ icon(name="arrow-right") }}</a></div>{% endif %}
+    {%- if link_label or action_label %}<div class="app-card-a">
+      {%- if link_label %}<a class="app-seeall" href="{{ link_href }}">{{ link_label }}{{ icon(name="arrow-right") }}</a>{% endif %}
+      {%- if action_label %}{{ <button label={action_label} icon={action_icon} size="sm" dialog={action_dialog} attrs="data-card-action"/> }}{% endif -%}
+    </div>{% endif %}
   </header>
   {%- endif %}
   <div class="app-card-b"{% if flush %} data-flush{% endif %}>{% if body is defined %}{{ body }}{% endif %}</div>

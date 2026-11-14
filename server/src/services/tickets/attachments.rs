@@ -62,13 +62,43 @@ pub async fn upload(
     declared_type: Option<&str>,
     data: Bytes,
 ) -> Result<ticket_attachments::Model, TicketFailure> {
+    upload_limited(
+        db,
+        storage,
+        acting,
+        ticket_id,
+        filename,
+        declared_type,
+        data,
+        MAX_BYTES,
+    )
+    .await
+}
+
+/// [`upload`] dengan batas ukuran `max_bytes` sendiri (impor Jira memakai batas 25 MB spec,
+/// lebih besar dari batas unggah form).
+///
+/// # Errors
+///
+/// Sama dengan [`upload`].
+#[allow(clippy::too_many_arguments)]
+pub async fn upload_limited(
+    db: &DatabaseConnection,
+    storage: &Storage,
+    acting: &Acting<'_>,
+    ticket_id: Uuid,
+    filename: &str,
+    declared_type: Option<&str>,
+    data: Bytes,
+    max_bytes: usize,
+) -> Result<ticket_attachments::Model, TicketFailure> {
     if data.is_empty() {
         return Err(TicketFailure::field("file", ATTACHMENT_EMPTY));
     }
-    if data.len() > MAX_BYTES {
+    if data.len() > max_bytes {
         let mut errors = validator::ValidationErrors::new();
         let mut e = validator::ValidationError::new(ATTACHMENT_TOO_LARGE);
-        e.add_param("max".into(), &(MAX_BYTES / 1024 / 1024));
+        e.add_param("max".into(), &(max_bytes / 1024 / 1024));
         errors.add("file", e);
         return Err(TicketFailure::errors(errors));
     }

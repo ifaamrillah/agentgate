@@ -1,0 +1,16 @@
+{#- Nilai yang bisa disalin (token, secret, URL): teks mono yang bisa dipilih + tombol Salin
+    (static/js/copy.js; tanpa JS tombol disembunyikan dan nilai tetap bisa dipilih manual).
+    Parameter:
+      value: string             nilai yang ditampilkan dan disalin
+      label: string             aria-label tombol, sebut objeknya, mis. "Salin token" (sudah diterjemahkan)
+      compact: bool             tombol ikon saja, untuk baris daftar (default false)
+      attrs: string             penanda tes tanpa kutip (default "")
+      class: hanya untuk layout -#}
+{% component copy_value(value: string, label: string, compact: bool = false, attrs: string = "") %}
+<div class="app-copy{% if class is defined %} {{ class }}{% endif %}"{% if compact %} data-compact{% endif %} {{ attrs }}>
+  <code class="app-copy-v">{{ value }}</code>
+  <button type="button" class="btn" data-variant="{% if compact %}ghost{% else %}outline{% endif %}" data-size="{% if compact %}icon-sm{% else %}sm{% endif %}" data-copy="{{ value }}" data-copied="{{ t(key="copy-done", lang="id") }}" aria-label="{{ label }}" hidden>
+    {{- icon(name="copy") }}{% if not compact %}<span>{{ t(key="copy-action", lang="id") }}</span>{% endif -%}
+  </button>
+</div>
+{%- endcomponent copy_value %}

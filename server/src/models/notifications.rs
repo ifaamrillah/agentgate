@@ -66,6 +66,18 @@ pub enum NotificationKind {
     /// Usulan knowledge yang diajukan pengguna ini ditolak.
     #[sea_orm(string_value = "knowledge_rejected")]
     KnowledgeRejected,
+    /// Webhook keluar dinonaktifkan otomatis setelah gagal beruntun (M11; tanpa tiket/project).
+    #[sea_orm(string_value = "webhook_disabled")]
+    WebhookDisabled,
+    /// Ekspor data workspace siap diunduh (M11, penerima link).
+    #[sea_orm(string_value = "export_ready")]
+    ExportReady,
+    /// Ekspor data workspace gagal.
+    #[sea_orm(string_value = "export_failed")]
+    ExportFailed,
+    /// Sinkron Jira gagal (token ditolak, Jira tidak terjangkau; M11; tanpa tiket/project).
+    #[sea_orm(string_value = "jira_failed")]
+    JiraFailed,
 }
 
 impl TenantEntity for Entity {

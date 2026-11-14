@@ -15,6 +15,9 @@ mod m20261118_000001_create_code_graph;
 mod m20261119_000001_create_knowledge;
 mod m20261120_000001_create_planning;
 mod m20261121_000001_create_visual;
+mod m20261122_000001_create_api_webhooks;
+mod m20261123_000001_create_exports_imports;
+mod m20261124_000001_create_jira;
 
 pub struct Migrator;
 
@@ -36,6 +39,9 @@ impl MigratorTrait for Migrator {
             Box::new(m20261119_000001_create_knowledge::Migration),
             Box::new(m20261120_000001_create_planning::Migration),
             Box::new(m20261121_000001_create_visual::Migration),
+            Box::new(m20261122_000001_create_api_webhooks::Migration),
+            Box::new(m20261123_000001_create_exports_imports::Migration),
+            Box::new(m20261124_000001_create_jira::Migration),
             // inject-above (do not remove this comment)
         ]
     }

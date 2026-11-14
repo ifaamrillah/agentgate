@@ -87,6 +87,28 @@ impl PermissionMarker for ManageJobTitles {
     }
 }
 
+/// Marker `Require<ExportData>`: ekspor data workspace (M11), role bawaan Owner/Admin
+/// (`services::exports::can_export`).
+#[derive(Debug, Clone, Copy)]
+pub struct ExportData;
+
+impl PermissionMarker for ExportData {
+    fn allows(role: &roles::Model) -> bool {
+        crate::services::exports::can_export(role)
+    }
+}
+
+/// Marker `Require<ImportTickets>`: impor CSV tiket (M11) di Pengaturan → Integrasi
+/// (`ManageIntegrations`); izin `EditProject` project tujuan dicek service.
+#[derive(Debug, Clone, Copy)]
+pub struct ImportTickets;
+
+impl PermissionMarker for ImportTickets {
+    fn allows(role: &roles::Model) -> bool {
+        role.has(Permission::ManageIntegrations)
+    }
+}
+
 /// Tenant yang role-nya memenuhi aturan `P`.
 #[derive(Debug, Clone)]
 pub struct Require<P> {

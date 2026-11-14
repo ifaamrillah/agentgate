@@ -58,6 +58,15 @@ async fn init_backs_up_legacy_rules_and_uninstall_restores_them() {
             .unwrap()
             .contains(&format!("{}/mcp", fake.base))
     );
+    // Aturan v2: config tipis untuk keenam client sekaligus.
+    for f in rules::agent_gate_files(&fake.base, "KSR") {
+        assert_eq!(
+            fs::read_to_string(repo.join(&f.path)).unwrap(),
+            f.body,
+            "{}",
+            f.path
+        );
+    }
     let project = fs::read_to_string(repo.join(".agentgate/project.toml")).unwrap();
     assert!(project.contains("key = \"KSR\""), "{project}");
     assert!(project.contains("[test]"), "{project}");
@@ -76,6 +85,21 @@ async fn init_backs_up_legacy_rules_and_uninstall_restores_them() {
         serde_json::from_str(&fs::read_to_string(env.config.join("repos.json")).unwrap()).unwrap();
     assert_eq!(registry["repos"][0]["name"], "kasir");
     assert_eq!(registry["repos"][0]["project"], "KSR");
+
+    // Init ulang: aturan Agent Gate sendiri bukan aturan lama (tidak ada backup baru).
+    let out = env.run(&repo, &["init", "--yes"]).await;
+    assert!(out.status.success(), "{}", text(&out));
+    assert!(
+        String::from_utf8_lossy(&out.stdout).contains("Tidak ada file aturan lama"),
+        "{}",
+        text(&out)
+    );
+    assert_eq!(
+        fs::read_dir(repo.join(".agentgate/backup"))
+            .unwrap()
+            .count(),
+        2
+    );
 
     let out = env.run(&repo, &["rules", "check"]).await;
     assert!(out.status.success(), "{}", text(&out));
@@ -106,6 +130,10 @@ async fn init_backs_up_legacy_rules_and_uninstall_restores_them() {
     );
     assert!(!repo.join("AGENTS.md").exists());
     assert!(!repo.join(".mcp.json").exists());
+    for dir in [".codex", ".gemini", ".cursor", ".opencode", ".github"] {
+        assert!(!repo.join(dir).exists(), "{dir}");
+    }
+    assert!(!repo.join("opencode.json").exists());
     assert!(!repo.join(".agentgate/project.toml").exists());
     assert_eq!(git(&repo, &["status", "--porcelain"]), "");
 }

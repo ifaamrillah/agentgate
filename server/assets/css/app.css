@@ -27,6 +27,7 @@
 @import "./components/combo.css";
 @import "./components/color-picker.css";
 @import "./components/uploader.css";
+@import "./components/wizard.css";
 @import "./components/md-editor.css";
 @import "./components/markdown.css";
 @import "./components/ticket.css";
@@ -41,6 +42,8 @@
 @import "./components/tokens.css";
 @import "./components/mockup.css";
 @import "./components/office.css";
+@import "./components/api.css";
+@import "./components/jira.css";
 
 @source "../views";
 @source "../../src";

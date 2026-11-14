@@ -61,6 +61,7 @@ async fn show(
             "subnav": views::oauth::subnav(section, clients.len(), slash_count),
             "stats": views::oauth::stats(clients.len(), workspaces.len()),
             "mcp_url": format!("{base}/mcp"),
+            "setup": views::oauth::client_setup(&format!("{base}/mcp")),
             "clients": clients,
             "tools": views::oauth::tools(),
             "slash": slash,

@@ -368,7 +368,21 @@ pub(super) async fn read(
                         _ => format!("{home}/proposals"),
                     }
                 }),
-            None => None,
+            // Webhook dinonaktifkan → daftar webhook; ekspor data → Riwayat ekspor; sinkron Jira gagal →
+            // Ringkasan Jira (M11).
+            None => match notification.kind() {
+                Ok(NotificationKind::WebhookDisabled) => Some(format!(
+                    "{}/hooks",
+                    crate::controllers::integrations::base(slug)
+                )),
+                Ok(NotificationKind::ExportReady | NotificationKind::ExportFailed) => {
+                    Some(format!("{}/hist", crate::controllers::exports::base(slug)))
+                }
+                Ok(NotificationKind::JiraFailed) => {
+                    Some(format!("{}/overview", crate::controllers::jira::base(slug)))
+                }
+                _ => None,
+            },
         },
     };
     format::redirect(&target.unwrap_or_else(|| format!("/w/{slug}/inbox")))

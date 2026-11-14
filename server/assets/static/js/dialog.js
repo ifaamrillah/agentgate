@@ -19,9 +19,13 @@
     }
     if (e.target instanceof HTMLDialogElement && e.target.matches(".dialog")) e.target.close();
   });
-  htmx.onLoad((root) => {
-    if (!(root instanceof Element)) return;
-    const found = root.matches("dialog[data-open-on-load]") ? [root] : root.querySelectorAll("dialog[data-open-on-load]");
+  const scan = (root) => {
+    const found = root instanceof Element && root.matches("dialog[data-open-on-load]") ? [root] : root.querySelectorAll?.("dialog[data-open-on-load]") ?? [];
     found.forEach((d) => { if (!d.open) d.showModal(); });
-  });
+  };
+  // htmx bisa sudah memproses <body> sebelum skrip ini terdaftar (htmx:load awal terlewat): pindai
+  // dokumen sendiri saat siap, lalu onLoad untuk swap berikutnya. Upgrade idempoten.
+  if (window.htmx?.onLoad) htmx.onLoad(scan);
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => scan(document));
+  else scan(document);
 })();

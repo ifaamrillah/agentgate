@@ -1146,3 +1146,274 @@ async fn visual_enum_checks_match_enums() {
     }
     assert!(!update_ok(db, "office_looks", "subject", look, "bot").await);
 }
+
+#[tokio::test]
+async fn api_webhook_enum_checks_match_enums() {
+    use agentgate_server::models::{
+        api_tokens::ApiScope, outbox_events::WebhookEvent, webhook_deliveries::DeliveryStatus,
+    };
+
+    use crate::support::{a_project, a_user, a_workspace};
+
+    let boot = boot_test::<App>().await.unwrap();
+    let ctx = &boot.app_context;
+    let db = &ctx.db;
+    let owner = a_user().create(ctx).await;
+    let workspace = a_workspace(&owner).create(ctx).await;
+    let project = a_project(ctx, &workspace, "API").await;
+    let run = |sql: &str, values: Vec<Value>| {
+        let stmt = Statement::from_sql_and_values(DbBackend::Postgres, sql, values);
+        async move { db.execute_raw(stmt).await.is_ok() }
+    };
+    let token = |scopes: Vec<String>| {
+        run(
+            "INSERT INTO api_tokens (workspace_id, user_id, name, prefix, digest, scopes) \
+             VALUES ($1, $2, 'T', 'ag_pat_x', $3, $4)",
+            vec![
+                workspace.id.into(),
+                owner.id.into(),
+                Uuid::now_v7().to_string().into(),
+                scopes.into(),
+            ],
+        )
+    };
+    for s in ApiScope::iter() {
+        assert!(token(vec![s.as_str()]).await, "{s:?}");
+    }
+    assert!(token(ApiScope::iter().map(ApiScope::as_str).collect()).await);
+    assert!(!token(vec!["tiket:hapus".to_string()]).await);
+    assert!(!token(Vec::new()).await);
+
+    let hook = |events: Vec<String>| {
+        run(
+            "INSERT INTO webhooks (workspace_id, url, secret_encrypted, events) \
+             VALUES ($1, 'https://contoh.id/h', '\\x00', $2)",
+            vec![workspace.id.into(), events.into()],
+        )
+    };
+    for e in WebhookEvent::subscribable() {
+        assert!(hook(vec![e.as_str()]).await, "{e:?}");
+    }
+    assert!(!hook(vec![WebhookEvent::Ping.as_str()]).await);
+    assert!(!hook(vec!["ticket.exploded".to_string()]).await);
+
+    let outbox = |event: String| {
+        run(
+            "INSERT INTO outbox_events (workspace_id, project_id, event, subject_id) \
+             VALUES ($1, $2, $3, $4)",
+            vec![
+                workspace.id.into(),
+                project.id.into(),
+                event.into(),
+                Uuid::now_v7().into(),
+            ],
+        )
+    };
+    for e in WebhookEvent::subscribable() {
+        assert!(outbox(e.as_str()).await, "{e:?}");
+    }
+    assert!(!outbox("ping".to_string()).await);
+
+    let hook_id = db
+        .query_one_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "INSERT INTO webhooks (workspace_id, url, secret_encrypted, events) \
+             VALUES ($1, 'https://contoh.id/x', '\\x00', ARRAY['ticket.created']) RETURNING id",
+            [workspace.id.into()],
+        ))
+        .await
+        .unwrap()
+        .unwrap()
+        .try_get::<Uuid>("", "id")
+        .unwrap();
+    let delivery = |event: String, status: String| {
+        run(
+            "INSERT INTO webhook_deliveries (workspace_id, webhook_id, event, body, status) \
+             VALUES ($1, $2, $3, '{}', $4)",
+            vec![
+                workspace.id.into(),
+                hook_id.into(),
+                event.into(),
+                status.into(),
+            ],
+        )
+    };
+    for e in WebhookEvent::iter() {
+        assert!(delivery(e.as_str(), "pending".into()).await, "{e:?}");
+    }
+    for s in DeliveryStatus::iter() {
+        assert!(delivery("ping".into(), s.to_value()).await, "{s:?}");
+    }
+    assert!(!delivery("ping".into(), "sent".into()).await);
+    assert!(!delivery("job.started".into(), "pending".into()).await);
+}
+
+/// Kolom enum tabel M11 (ekspor data, impor CSV).
+#[tokio::test]
+async fn transfer_enum_checks_match_enums() {
+    use agentgate_server::models::{
+        data_exports::{ExportPart, ExportStatus},
+        ticket_imports::{Delimiter, ImportStatus},
+    };
+
+    use crate::support::{a_user, a_workspace};
+
+    let boot = boot_test::<App>().await.unwrap();
+    let ctx = &boot.app_context;
+    let db = &ctx.db;
+    let owner = a_user().create(ctx).await;
+    let workspace = a_workspace(&owner).create(ctx).await;
+    let row = |sql: &str| {
+        let stmt = Statement::from_sql_and_values(DbBackend::Postgres, sql, [workspace.id.into()]);
+        async move {
+            db.query_one_raw(stmt)
+                .await
+                .unwrap()
+                .unwrap()
+                .try_get::<Uuid>("", "id")
+                .unwrap()
+        }
+    };
+    let export = row(
+        "INSERT INTO data_exports (workspace_id, parts) VALUES ($1, ARRAY['tickets']) RETURNING id",
+    )
+    .await;
+    let import = row(
+        "INSERT INTO ticket_imports (workspace_id, filename, size_bytes, delimiter) \
+         VALUES ($1, 'a.csv', 10, 'comma') RETURNING id",
+    )
+    .await;
+    for v in ExportStatus::iter() {
+        assert!(
+            update_ok(db, "data_exports", "status", export, &v.to_value()).await,
+            "{v:?}"
+        );
+    }
+    assert!(!update_ok(db, "data_exports", "status", export, "done").await);
+    let parts_ok = |value: String| {
+        let stmt = Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "UPDATE data_exports SET parts = ARRAY[$1] WHERE id = $2",
+            [Value::from(value), Value::from(export)],
+        );
+        async move { db.execute_raw(stmt).await.is_ok() }
+    };
+    for v in ExportPart::iter() {
+        assert!(parts_ok(v.to_value()).await, "{v:?}");
+        assert!(
+            update_ok(db, "data_exports", "phase", export, &v.to_value()).await,
+            "{v:?}"
+        );
+    }
+    assert!(!parts_ok("secrets".into()).await);
+    assert!(!update_ok(db, "data_exports", "phase", export, "secrets").await);
+    for v in ImportStatus::iter() {
+        assert!(
+            update_ok(db, "ticket_imports", "status", import, &v.to_value()).await,
+            "{v:?}"
+        );
+    }
+    assert!(!update_ok(db, "ticket_imports", "status", import, "ready").await);
+    for v in Delimiter::iter() {
+        assert!(
+            update_ok(db, "ticket_imports", "delimiter", import, &v.to_value()).await,
+            "{v:?}"
+        );
+    }
+    assert!(!update_ok(db, "ticket_imports", "delimiter", import, "tab").await);
+}
+
+#[tokio::test]
+async fn jira_enum_checks_match_enums() {
+    use agentgate_server::models::{
+        jira_comment_links::CommentOrigin,
+        jira_connections::{JiraEnv, SyncMode},
+        jira_sync_logs::{Direction, SyncResult},
+    };
+
+    use crate::support::{a_user, a_workspace};
+
+    let boot = boot_test::<App>().await.unwrap();
+    let ctx = &boot.app_context;
+    let db = &ctx.db;
+    let owner = a_user().create(ctx).await;
+    let run = |sql: &'static str, values: Vec<Value>| {
+        let stmt = Statement::from_sql_and_values(DbBackend::Postgres, sql, values);
+        async move { db.execute_raw(stmt).await.is_ok() }
+    };
+    // Satu koneksi per workspace: setiap percobaan memakai workspace baru.
+    let (run, owner) = (&run, &owner);
+    let conn = |env: String, mode: String| async move {
+        let ws = a_workspace(owner).create(ctx).await;
+        run(
+            "INSERT INTO jira_connections (workspace_id, env, base_url, token_encrypted, mode) \
+             VALUES ($1, $2, 'https://x.atlassian.net', '\\x00', $3)",
+            vec![ws.id.into(), env.into(), mode.into()],
+        )
+        .await
+    };
+    for e in JiraEnv::iter() {
+        assert!(conn(e.to_value(), "mirror".into()).await, "{e:?}");
+    }
+    for m in SyncMode::iter() {
+        assert!(conn("cloud".into(), m.to_value()).await, "{m:?}");
+    }
+    assert!(!conn("server".into(), "mirror".into()).await);
+    assert!(!conn("cloud".into(), "sideways".into()).await);
+
+    let ws = a_workspace(owner).create(ctx).await;
+    let conn_id = db
+        .query_one_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "INSERT INTO jira_connections (workspace_id, env, base_url, token_encrypted) \
+             VALUES ($1, 'cloud', 'https://y.atlassian.net', '\\x00') RETURNING id",
+            [ws.id.into()],
+        ))
+        .await
+        .unwrap()
+        .unwrap()
+        .try_get::<Uuid>("", "id")
+        .unwrap();
+    let log = |direction: String, result: String| {
+        run(
+            "INSERT INTO jira_sync_logs (workspace_id, connection_id, direction, result, message) \
+             VALUES ($1, $2, $3, $4, 'jira-log-issue-created')",
+            vec![
+                ws.id.into(),
+                conn_id.into(),
+                direction.into(),
+                result.into(),
+            ],
+        )
+    };
+    for d in Direction::iter() {
+        for r in SyncResult::iter() {
+            assert!(log(d.to_value(), r.to_value()).await, "{d:?} {r:?}");
+        }
+    }
+    assert!(!log("both".into(), "ok".into()).await);
+    assert!(!log("in".into(), "maybe".into()).await);
+
+    // Asal komentar: varian yang tidak dikenal ditolak sebelum FK diperiksa tidak bisa diuji
+    // tanpa komentar nyata; cukup pastikan nilai CHECK sama dengan enum.
+    let check = db
+        .query_one_raw(Statement::from_string(
+            DbBackend::Postgres,
+            "SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint \
+             WHERE conrelid = 'jira_comment_links'::regclass AND contype = 'c'"
+                .to_string(),
+        ))
+        .await
+        .unwrap()
+        .unwrap()
+        .try_get::<String>("", "def")
+        .unwrap();
+    for o in CommentOrigin::iter() {
+        assert!(check.contains(&format!("'{}'", o.to_value())), "{check}");
+    }
+    assert_eq!(
+        check.matches("::text").count(),
+        CommentOrigin::iter().count(),
+        "{check}"
+    );
+}

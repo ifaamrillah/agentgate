@@ -75,8 +75,11 @@ Semua di `server/assets/views/components/`; parameter lengkap ada di komentar ke
 | `combo` (+ `combo_options`) | pilihan orang/tim yang bisa dicari, satu atau banyak (`multiple`), opsi dari server (`src` → GET `?q=` membalas `combo_options`) | `views::ui::ComboOption` |
 | `color_picker` | 18 warna palet + warna lain (hex) | `palette()` |
 | `uploader` | unggah logo/gambar (klik atau tarik-lepas, langsung submit), hapus | — |
+| `file_drop` | area pilih/seret berkas di dalam form multipart (input file transparan, tanpa JS); bukan untuk gambar berpratinjau | — |
+| `wizard_steps` | langkah wizard bernomor (selesai bercentang + tautan, sekarang beraksen, berikutnya redup); bukan `stage_stepper` | `views::ui::WizardStep::sequence` |
 | `md_editor` | editor markdown Milkdown Crepe dengan Batal/Simpan; tanpa JS jadi textarea | — |
-| `card` | kartu seksi: judul, deskripsi, `count`, tautan "lihat semua", varian danger/accent, `flush` untuk daftar/tabel; `form="<action>"` membungkus kartu dengan `savebar` | — |
+| `card` | kartu seksi: judul, deskripsi, `count`, tautan "lihat semua", tombol aksi kecil di kepala (`action_label` + `action_dialog`, mis. "Token baru"), varian danger/accent, `flush` untuk daftar/tabel; `form="<action>"` membungkus kartu dengan `savebar` | — |
+| `copy_value` | nilai mono yang bisa disalin (token, secret, URL) + tombol Salin (`static/js/copy.js`, tersembunyi tanpa JS/clipboard); `compact` = tombol ikon di baris daftar | — |
 | `savebar` | footer Batal + Simpan perubahan | — |
 | `setting_row` | baris pengaturan (judul + penjelasan kiri, kontrol kanan) di card flush | — |
 | `subpage` | halaman bertab vertikal (varian E): menu kiri + isi satu panel; tiap item = rute server | `[NavItem]` (`desc_key`, `count`, `alert`) |
@@ -313,3 +316,54 @@ katalog `/_dev/ui` di commit yang sama.
   Dialog Kustom karakter `app-of-look` (pratinjau besar + `color_picker` + chip `app-of-chip`).
   Warna status kanvas = warna `badge`: bekerja ai, butuh approval gate, butuh keputusan
   destructive, rapat info, menganggur/jeda neutral, online success.
+
+## M11 (Integrasi)
+
+- **API & webhook** (`/w/{slug}/settings/api/{tokens,hooks,log,docs}`, ManageIntegrations,
+  `components/api.css`): `subpage` + `card flush` + `datatable` per panel. Tombol buat
+  (Token baru, Webhook baru) memakai `card action_label`. Token/secret baru dirender sekali di
+  dialog `data-open-on-load` dengan `copy_value` + `alert[data-variant=warn]`, bukan PRG.
+- Pola: sel dua baris `app-cell2` (nama + keterangan mono), daftar cakupan bercentang
+  `app-scopes` (juga dipakai sebagai kotak daftar `app-lrow`), status pengiriman terakhir
+  `app-hook-st[data-state=ok|fail|off|none]`, dua kolom isian `app-api-grid2` (satu kolom
+  < 640px), blok kode payload/respons `app-codeblock app-api-pre` (dibungkus, maks. 260px).
+- Switch aktif webhook = `app-switch` di form kecil dengan `data-submit-on-change`; menu ⋯
+  (`action_menu`) berisi Riwayat pengiriman, Kirim event uji, Rotasi secret, Hapus (dialog
+  konfirmasi `tone=danger`).
+## M11 (Connector Jira)
+
+- **Jira** (`/w/{slug}/settings/jira/{overview,conn,mode,status,fields,log}`,
+  ManageIntegrations, `components/jira.css`): `subpage` + satu `card` per panel. Panel yang
+  menyimpan memakai `card form=` (footer `savebar` "Simpan & sinkron"); panel Koneksi punya tombol
+  kedua "Uji koneksi" (`formaction=…/conn/test`, hasil dirender ulang, bukan PRG). Belum terhubung
+  = `empty_state` plain dengan tautan ke Koneksi.
+- Ringkasan: baris koneksi `app-lrow` + `live_dot` (online/busy = sinkron berjalan/offline =
+  dijeda) + tombol Sinkron sekarang + `action_menu` (Jeda/Lanjutkan, Sinkron ulang semua, Unduh
+  log, Putuskan → dialog `tone=danger`), `stats` (Ditolak gate bertautan ke log terfilter), dan
+  `dl.app-props` konfigurasi.
+- Pola: subjudul di dalam kartu `app-jsub` (judul + hint), baris aksi `app-jrow`, grid pemetaan
+  `app-jmap` (kolom Jira | panah | `combo hide_label`; satu kolom < 600px), chip status Jira
+  `app-jst[data-category=new|indeterminate|done]` (`data-unmapped` = titik warn), catatan aturan
+  `app-jnote`, hasil log `app-jres[data-result=ok|gate|fail]`. Pilihan jenis Jira dan mode =
+  `app-choices` > `app-choice` (radio), mode satu kolom (`data-cols=one`). Katalog `/_dev/ui`
+  kartu "Pemetaan Jira (M11)".
+- Log sinkron = `datatable` server-side (filter Hasil + Arah, cari kode/issue/pesan); pesan
+  disimpan sebagai kunci Fluent + argumen dan diterjemahkan saat render; unduh JSONL lewat tautan
+  kepala kartu.
+
+## M11 (Ekspor data, Impor CSV)
+
+- **Komponen baru** `wizard_steps` dan `file_drop` (`components/wizard.css`), katalog `/_dev/ui`
+  kartu "wizard_steps, file_drop (M11)".
+- **Ekspor data** (`/w/{slug}/settings/export/{new,hist}`, Owner/Admin): `subpage` + `card`
+  form (centang isi di `app-box` > `app-lrow` dengan `app-check`, cakupan di `setting_row` +
+  `combo` multi/tunggal), `savebar` lewat `card form=`. Riwayat = `datatable`; baris
+  antre/berjalan memakai progres `app-bar` + persen + fase, lainnya `badge`. Selama ada ekspor
+  antre/berjalan, `#export-live` dipolling `hx-get … every 3s` (tanpa `hx-on`). Unduh = form POST
+  `hx-boost="false"` (diaudit; GET tidak menulis). Aksi sel kanan `app-cell-acts`.
+- **Impor CSV** (`/w/{slug}/settings/import-csv`, ManageIntegrations): satu `card flush` berisi
+  `wizard_steps` (`app-wsteps-wrap`), isi langkah, dan footer `app-wfoot` (Batal/Kembali kiri,
+  Lanjut kanan). Langkah: unggah (`file_drop`), pemetaan (tabel `table` biasa dengan `combo` per
+  kolom), pratinjau (`stats` + `datatable` dengan filter Hasil; catatan baris `app-notes` >
+  `app-note[data-tone=success|warn|danger]`), hasil (`app-tile[data-size=lg]` + `app-bar`,
+  dipolling `#import-live` saat berjalan). Setiap langkah form POST + PRG tanpa JS.

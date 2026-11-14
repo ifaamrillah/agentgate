@@ -80,6 +80,44 @@
     {{ <uploader action="/_dev/echo" title="Logo project" hint="PNG, JPG, atau WebP. Maks 1 MB." upload_label="Unggah logo" initials="WE" color="#5b5bd6"/> }}
   </div>
 {% </card> %}
+{% <card title="Pemetaan Jira (M11)" description="Grid pemetaan app-jmap (nilai Jira, panah, kontrol), chip status app-jst per kategori, catatan aturan app-jnote, hasil log app-jres."> %}
+  {%- set jstages = [{"id": "", "name": "Tidak dipetakan"}, {"id": "todo", "name": "To do"}, {"id": "dev", "name": "Dev"}, {"id": "done", "name": "Selesai"}] %}
+  <div class="app-stack-v" data-catalog-jira>
+    <div class="app-jmap">
+      <span class="app-jmap-h">Status Jira (SR)</span><span class="app-jmap-h"></span><span class="app-jmap-h">Stage Agent Gate (KSR)</span>
+      <span class="app-jmap-k"><span class="app-jst" data-category="new">To Do</span></span><span class="app-jmap-arw">{{ icon(name="arrows-exchange") }}</span>{{ <select_field id="catalog-jst-1" name="st" label="Stage untuk To Do" options={jstages} value="todo" hide_label={true}/> }}
+      <span class="app-jmap-k"><span class="app-jst" data-category="indeterminate">In Progress</span></span><span class="app-jmap-arw">{{ icon(name="arrows-exchange") }}</span>{{ <select_field id="catalog-jst-2" name="st" label="Stage untuk In Progress" options={jstages} value="dev" hide_label={true}/> }}
+      <span class="app-jmap-k"><span class="app-jst" data-category="indeterminate" data-unmapped>Blocked</span></span><span class="app-jmap-arw">{{ icon(name="arrows-exchange") }}</span>{{ <select_field id="catalog-jst-3" name="st" label="Stage untuk Blocked" options={jstages} hide_label={true}/> }}
+      <span class="app-jmap-k">Story Points<small>customfield_10016</small></span><span class="app-jmap-arw">{{ icon(name="arrows-exchange") }}</span>{{ <select_field id="catalog-jf" name="f" label="Field untuk Story Points" options={[{"id": "story_points", "name": "Story point"}, {"id": "none", "name": "Tidak disinkronkan"}]} value="story_points" hide_label={true}/> }}
+    </div>
+    <div class="app-jnote"><span class="app-tile" data-tone="accent">{{ icon(name="route") }}</span><span><b>Status dan stage selalu mengikuti Agent Gate.</b> <span>Perpindahan status dari Jira yang belum memenuhi gate ditolak dan dikembalikan.</span></span></div>
+    <div class="app-jrow">
+      <span class="app-jres" data-result="ok">{{ icon(name="circle-check") }}Berhasil</span>
+      <span class="app-jres" data-result="gate">{{ icon(name="hand-stop") }}Ditolak gate</span>
+      <span class="app-jres" data-result="fail">{{ icon(name="alert-circle") }}Gagal</span>
+    </div>
+  </div>
+{% </card> %}
+{% <card title="wizard_steps, file_drop (M11)" description="Langkah wizard bernomor dan area pilih/seret berkas tanpa JS; catatan baris app-note."> %}
+  {%- set wsteps = [
+    {"label": "Unggah", "state": "done", "href": "/_dev/ui"},
+    {"label": "Pemetaan kolom", "state": "current", "href": ""},
+    {"label": "Pratinjau", "state": "todo", "href": ""},
+    {"label": "Impor", "state": "todo", "href": ""}
+  ] %}
+  <div class="app-stack-v" data-catalog-transfer>
+    {{ <wizard_steps steps={wsteps} label="Langkah impor"/> }}
+    <form method="post" action="/_dev/echo" enctype="multipart/form-data">
+      {{ <file_drop id="catalog-drop" name="file" title="Seret berkas CSV ke sini, atau klik untuk memilih" hint="UTF-8, maksimal 20 MB" accept=".csv"/> }}
+    </form>
+    <span class="app-notes">
+      <span class="app-note" data-tone="success">{{ icon(name="check") }}<span>Siap</span></span>
+      <span class="app-note" data-tone="warn">{{ icon(name="alert-triangle") }}<span>Status “Analysis” dipetakan ke Brainstorming</span></span>
+      <span class="app-note" data-tone="danger">{{ icon(name="circle-x") }}<span>Judul kosong, dilewati</span></span>
+    </span>
+    <span class="app-bar" role="progressbar" aria-valuenow="62" aria-valuemin="0" aria-valuemax="100" aria-label="Progres ekspor"><i style="width:62%"></i></span>
+  </div>
+{% </card> %}
 </div>
 
 <div id="table">
@@ -115,6 +153,12 @@
   <div class="app-lrow">{{ <person name="Budi Santoso" initials="BS" color="#0d9488" detail="Developer"/> }}<span class="app-lrow-acts">{{ <button label="Review" size="sm"/> }}</span></div>
   <div class="app-feed">
     <div class="app-fe">{{ <avatar initials="AN" color="#5b5bd6" size="sm"/> }}<span><b>Ana</b> membuat project <b>Website</b></span><time>5 mnt</time></div>
+  </div>
+{% </card> %}
+{% <card title="copy_value + aksi kartu" description="Nilai yang bisa disalin; tombol aksi di kepala kartu membuka dialog." flush={true} action_label="Token baru" action_dialog="catalog-dialog" attrs="data-catalog-copy"> %}
+  <div class="app-pad app-stack-v">
+    {{ <copy_value value="ag_pat_Vn4R8sYw2LqT6mKc9HzE1bXa7DfJ3pUo" label="Salin token" attrs="data-catalog-copy-full"/> }}
+    <div class="app-lrow"><span class="app-tile">{{ icon(name="api") }}</span><span class="app-lrow-main"><b>Base URL</b>{{ <copy_value value="https://agentgate.id/api/v1" label="Salin base URL" compact={true}/> }}</span></div>
   </div>
 {% </card> %}
 {% <card title="Properti" variant="accent"> %}

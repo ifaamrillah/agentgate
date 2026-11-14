@@ -27,6 +27,10 @@ pub const EXEMPT_PATHS: &[&str] = &[
     "/oauth/device_authorization",
 ];
 
+/// Prefix yang dikecualikan: API publik (M11) hanya menerima token bearer, tidak pernah
+/// cookie sesi, jadi request lintas asal tidak membawa kewenangan apa pun.
+pub const EXEMPT_PREFIXES: &[&str] = &["/api/v1/"];
+
 pub async fn layer(req: Request, next: Next) -> Response {
     if is_allowed(req.method(), req.uri().path(), req.headers()) {
         next.run(req).await
@@ -45,7 +49,7 @@ pub fn is_allowed(method: &Method, path: &str, headers: &HeaderMap) -> bool {
     if matches!(*method, Method::GET | Method::HEAD | Method::OPTIONS) {
         return true;
     }
-    if EXEMPT_PATHS.contains(&path) {
+    if EXEMPT_PATHS.contains(&path) || EXEMPT_PREFIXES.iter().any(|p| path.starts_with(p)) {
         return true;
     }
     if let Some(site) = headers.get("sec-fetch-site") {

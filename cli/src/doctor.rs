@@ -9,6 +9,7 @@ use crate::{
     config::{Credentials, Paths, RunnerIdentity},
     error::Result,
     git, hook, install,
+    runner::clients::ClientKind,
 };
 
 /// `agentgate status`: akun, runner, dan aturan repo saat ini.
@@ -145,15 +146,31 @@ pub async fn doctor(paths: &Paths, out: &mut impl Write) -> Result<bool> {
         Some(v) => check(true, true, "git", v),
         None => check(false, true, "git", "tidak ditemukan di PATH".into()),
     }
-    let claude = std::env::var("AGENTGATE_CLAUDE_BIN").unwrap_or_else(|_| "claude".into());
-    match version_of(&claude) {
-        Some(v) => check(true, true, "Claude Code", v),
-        None => check(
-            false,
-            true,
-            "Claude Code",
-            format!("`{claude}` tidak ditemukan; pasang Claude Code untuk menjalankan job"),
-        ),
+    // Client default runner (`AGENTGATE_CLIENT`, bawaan Claude Code) wajib ada; client lain
+    // hanya dicatat karena job memakai client pilihan server per runner.
+    let default = std::env::var("AGENTGATE_CLIENT")
+        .ok()
+        .and_then(|c| ClientKind::parse(&c))
+        .unwrap_or(ClientKind::Claude);
+    for client in ClientKind::all() {
+        let program = client.program();
+        let required = *client == default;
+        match version_of(&program) {
+            Some(v) => check(true, required, client.name(), format!("{v} ({program})")),
+            None => check(
+                false,
+                required,
+                client.name(),
+                format!(
+                    "`{program}` tidak ditemukan{}",
+                    if required {
+                        "; pasang client ini untuk menjalankan job"
+                    } else {
+                        " (opsional)"
+                    }
+                ),
+            ),
+        }
     }
     match hook::which("rtk") {
         Some(p) => check(true, false, "RTK", p.display().to_string()),

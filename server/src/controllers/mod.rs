@@ -4,18 +4,23 @@ use loco_rs::{app::AppContext, controller::AppRoutes, environment::Environment};
 pub mod account;
 pub mod agents;
 pub mod api_routes;
+pub mod api_v1;
 pub mod auth;
 pub mod connect;
 #[cfg(debug_assertions)]
 pub mod dev;
 pub mod device;
+pub mod exports;
 pub mod extractors;
 pub mod flash;
 pub mod git;
 pub mod graph;
 pub mod graph_api;
 pub mod graph_viewer;
+pub mod imports;
+pub mod integrations;
 pub mod invitations;
+pub mod jira;
 pub mod knowledge;
 pub mod knowledge_api;
 pub mod knowledge_settings;
@@ -55,10 +60,15 @@ pub fn routes(ctx: &AppContext) -> AppRoutes {
         .add_route(graph::routes())
         .add_route(knowledge::routes())
         .add_route(knowledge_settings::routes())
+        .add_route(exports::routes())
+        .add_route(imports::routes())
         .add_route(tokens::routes())
         .add_route(office::routes())
         .add_route(preview::routes())
         .add_route(webhooks::routes())
+        .add_route(api_v1::routes(ctx))
+        .add_route(integrations::routes())
+        .add_route(jira::routes())
         .add_route(mcp::routes(ctx));
     add_dev_routes(routes, &ctx.environment)
 }

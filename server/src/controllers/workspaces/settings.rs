@@ -209,6 +209,12 @@ pub(crate) fn links(tenant: &Tenant) -> SettingsLinks {
         git: tenant
             .can(crate::models::permission::Permission::ManageIntegrations)
             .then(|| crate::controllers::git::base(&tenant.workspace.slug)),
+        api: tenant
+            .can(crate::models::permission::Permission::ManageIntegrations)
+            .then(|| crate::controllers::integrations::base(&tenant.workspace.slug)),
+        jira: tenant
+            .can(crate::models::permission::Permission::ManageIntegrations)
+            .then(|| crate::controllers::jira::base(&tenant.workspace.slug)),
         members: members::settings_link(tenant),
         roles: roles::settings_link(tenant),
         job_titles: job_titles::settings_link(tenant),
@@ -226,6 +232,11 @@ pub(crate) fn links(tenant: &Tenant) -> SettingsLinks {
         knowledge: tenant
             .can(crate::models::permission::Permission::ManageTicketSettings)
             .then(|| format!("/w/{}/settings/knowledge", tenant.workspace.slug)),
+        import_csv: tenant
+            .can(crate::models::permission::Permission::ManageIntegrations)
+            .then(|| crate::controllers::imports::base(&tenant.workspace.slug)),
+        export: crate::services::exports::can_export(&tenant.role)
+            .then(|| crate::controllers::exports::base(&tenant.workspace.slug)),
     }
 }
 
