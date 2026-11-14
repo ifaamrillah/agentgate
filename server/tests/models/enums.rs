@@ -1322,3 +1322,98 @@ async fn transfer_enum_checks_match_enums() {
     }
     assert!(!update_ok(db, "ticket_imports", "delimiter", import, "tab").await);
 }
+
+#[tokio::test]
+async fn jira_enum_checks_match_enums() {
+    use agentgate_server::models::{
+        jira_comment_links::CommentOrigin,
+        jira_connections::{JiraEnv, SyncMode},
+        jira_sync_logs::{Direction, SyncResult},
+    };
+
+    use crate::support::{a_user, a_workspace};
+
+    let boot = boot_test::<App>().await.unwrap();
+    let ctx = &boot.app_context;
+    let db = &ctx.db;
+    let owner = a_user().create(ctx).await;
+    let run = |sql: &'static str, values: Vec<Value>| {
+        let stmt = Statement::from_sql_and_values(DbBackend::Postgres, sql, values);
+        async move { db.execute_raw(stmt).await.is_ok() }
+    };
+    // Satu koneksi per workspace: setiap percobaan memakai workspace baru.
+    let (run, owner) = (&run, &owner);
+    let conn = |env: String, mode: String| async move {
+        let ws = a_workspace(owner).create(ctx).await;
+        run(
+            "INSERT INTO jira_connections (workspace_id, env, base_url, token_encrypted, mode) \
+             VALUES ($1, $2, 'https://x.atlassian.net', '\\x00', $3)",
+            vec![ws.id.into(), env.into(), mode.into()],
+        )
+        .await
+    };
+    for e in JiraEnv::iter() {
+        assert!(conn(e.to_value(), "mirror".into()).await, "{e:?}");
+    }
+    for m in SyncMode::iter() {
+        assert!(conn("cloud".into(), m.to_value()).await, "{m:?}");
+    }
+    assert!(!conn("server".into(), "mirror".into()).await);
+    assert!(!conn("cloud".into(), "sideways".into()).await);
+
+    let ws = a_workspace(owner).create(ctx).await;
+    let conn_id = db
+        .query_one_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "INSERT INTO jira_connections (workspace_id, env, base_url, token_encrypted) \
+             VALUES ($1, 'cloud', 'https://y.atlassian.net', '\\x00') RETURNING id",
+            [ws.id.into()],
+        ))
+        .await
+        .unwrap()
+        .unwrap()
+        .try_get::<Uuid>("", "id")
+        .unwrap();
+    let log = |direction: String, result: String| {
+        run(
+            "INSERT INTO jira_sync_logs (workspace_id, connection_id, direction, result, message) \
+             VALUES ($1, $2, $3, $4, 'jira-log-issue-created')",
+            vec![
+                ws.id.into(),
+                conn_id.into(),
+                direction.into(),
+                result.into(),
+            ],
+        )
+    };
+    for d in Direction::iter() {
+        for r in SyncResult::iter() {
+            assert!(log(d.to_value(), r.to_value()).await, "{d:?} {r:?}");
+        }
+    }
+    assert!(!log("both".into(), "ok".into()).await);
+    assert!(!log("in".into(), "maybe".into()).await);
+
+    // Asal komentar: varian yang tidak dikenal ditolak sebelum FK diperiksa tidak bisa diuji
+    // tanpa komentar nyata; cukup pastikan nilai CHECK sama dengan enum.
+    let check = db
+        .query_one_raw(Statement::from_string(
+            DbBackend::Postgres,
+            "SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint \
+             WHERE conrelid = 'jira_comment_links'::regclass AND contype = 'c'"
+                .to_string(),
+        ))
+        .await
+        .unwrap()
+        .unwrap()
+        .try_get::<String>("", "def")
+        .unwrap();
+    for o in CommentOrigin::iter() {
+        assert!(check.contains(&format!("'{}'", o.to_value())), "{check}");
+    }
+    assert_eq!(
+        check.matches("::text").count(),
+        CommentOrigin::iter().count(),
+        "{check}"
+    );
+}

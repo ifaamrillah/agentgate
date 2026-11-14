@@ -75,6 +75,9 @@ pub enum NotificationKind {
     /// Ekspor data workspace gagal.
     #[sea_orm(string_value = "export_failed")]
     ExportFailed,
+    /// Sinkron Jira gagal (token ditolak, Jira tidak terjangkau; M11; tanpa tiket/project).
+    #[sea_orm(string_value = "jira_failed")]
+    JiraFailed,
 }
 
 impl TenantEntity for Entity {

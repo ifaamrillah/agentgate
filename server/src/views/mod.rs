@@ -15,6 +15,7 @@ pub mod graph;
 pub mod graph_viewer;
 pub mod integrations;
 pub mod invitations;
+pub mod jira;
 pub mod job_titles;
 pub mod knowledge;
 pub mod layout;

@@ -212,6 +212,9 @@ pub(crate) fn links(tenant: &Tenant) -> SettingsLinks {
         api: tenant
             .can(crate::models::permission::Permission::ManageIntegrations)
             .then(|| crate::controllers::integrations::base(&tenant.workspace.slug)),
+        jira: tenant
+            .can(crate::models::permission::Permission::ManageIntegrations)
+            .then(|| crate::controllers::jira::base(&tenant.workspace.slug)),
         members: members::settings_link(tenant),
         roles: roles::settings_link(tenant),
         job_titles: job_titles::settings_link(tenant),

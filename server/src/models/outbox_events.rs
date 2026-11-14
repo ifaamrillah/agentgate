@@ -129,19 +129,27 @@ pub struct NewEvent {
     pub data: serde_json::Value,
 }
 
-tokio::task_local! {
-    static PENDING: RefCell<Vec<Uuid>>;
+/// Yang dicatat selama satu request ([`collect_pending`]): delivery webhook yang ditulis dan
+/// workspace yang menerima event (dorongan mirror Jira).
+#[derive(Debug, Default)]
+pub struct Pending {
+    pub deliveries: Vec<Uuid>,
+    pub workspaces: Vec<WorkspaceId>,
 }
 
-/// Jalankan `fut` sambil mengumpulkan id delivery yang ditulis [`publish`] di dalamnya
-/// (dipakai layer HTTP `controllers::middleware::webhook_dispatch`). Di luar scope ini
-/// (worker, task) id tidak dikumpulkan; sapuan scheduler yang mengirimnya.
-pub async fn collect_pending<F: Future>(fut: F) -> (F::Output, Vec<Uuid>) {
+tokio::task_local! {
+    static PENDING: RefCell<Pending>;
+}
+
+/// Jalankan `fut` sambil mengumpulkan id delivery yang ditulis [`publish`] di dalamnya dan
+/// workspace event-nya (dipakai layer HTTP `controllers::middleware::webhook_dispatch`). Di
+/// luar scope ini (worker, task) tidak ada yang dikumpulkan; sapuan scheduler yang mengirimnya.
+pub async fn collect_pending<F: Future>(fut: F) -> (F::Output, Pending) {
     PENDING
-        .scope(RefCell::new(Vec::new()), async move {
+        .scope(RefCell::new(Pending::default()), async move {
             let out = fut.await;
-            let ids = PENDING.with(|p| p.take());
-            (out, ids)
+            let pending = PENDING.with(RefCell::take);
+            (out, pending)
         })
         .await
 }
@@ -149,7 +157,16 @@ pub async fn collect_pending<F: Future>(fut: F) -> (F::Output, Vec<Uuid>) {
 /// Catat delivery yang baru ditulis untuk dikirim setelah request selesai (setelah commit).
 pub(crate) fn note_pending(ids: &[Uuid]) {
     // Di luar scope `collect_pending`, `try_with` gagal: diabaikan (sapuan scheduler).
-    let _ = PENDING.try_with(|p| p.borrow_mut().extend_from_slice(ids));
+    let _ = PENDING.try_with(|p| p.borrow_mut().deliveries.extend_from_slice(ids));
+}
+
+fn note_workspace(wid: WorkspaceId) {
+    let _ = PENDING.try_with(|p| {
+        let mut p = p.borrow_mut();
+        if !p.workspaces.contains(&wid) {
+            p.workspaces.push(wid);
+        }
+    });
 }
 
 /// Amplop JSON yang dikirim ke webhook dan disimpan di `payload`.
@@ -206,6 +223,7 @@ pub async fn publish<C: ConnectionTrait>(db: &C, new: NewEvent) -> Result<Model,
     }
     .insert(db)
     .await?;
+    note_workspace(new.workspace_id);
     let hooks =
         webhooks::Model::subscribed(db, new.workspace_id, new.event, new.project_id).await?;
     if hooks.is_empty() {

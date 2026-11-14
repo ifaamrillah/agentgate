@@ -43,6 +43,7 @@
 @import "./components/mockup.css";
 @import "./components/office.css";
 @import "./components/api.css";
+@import "./components/jira.css";
 
 @source "../views";
 @source "../../src";

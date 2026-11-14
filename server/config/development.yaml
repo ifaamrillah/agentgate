@@ -97,6 +97,13 @@ scheduler:
       run: export_sweep
       schedule: "0 */10 * * * *"
       tags: ["maintenance"]
+    # Sinkron Jira (task `jira_sync`, M11): putaran berkala setiap koneksi mirror/dua arah yang
+    # aktif — dorong outbox yang tertinggal, tarik perubahan Jira (dua arah). Tiap 5 menit;
+    # claim di database mencegah putaran ganda per koneksi.
+    jira_sync:
+      run: jira_sync
+      schedule: "0 */5 * * * *"
+      tags: ["integrations"]
 
 mailer:
   smtp:
@@ -210,3 +217,8 @@ settings:
     rate_limit_per_minute: 600
     webhook_timeout_seconds: 5
     webhook_allow_loopback: true
+  # Connector Jira (M11): http ke loopback diizinkan untuk Jira palsu lokal; timeout pendek
+  # supaya tes yang salah arah gagal cepat. Production memakai default (https publik saja).
+  jira:
+    timeout_seconds: 5
+    allow_loopback: true

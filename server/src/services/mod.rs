@@ -9,6 +9,7 @@ pub mod exports;
 pub mod git;
 pub mod graph;
 pub mod imports;
+pub mod jira;
 pub mod jobs;
 pub mod knowledge;
 pub mod mcp;

@@ -11,6 +11,7 @@ mod graph;
 mod graph_viewer;
 mod health;
 mod home;
+mod jira;
 mod knowledge;
 mod mcp;
 mod oauth;

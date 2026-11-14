@@ -86,6 +86,12 @@ async fn component_catalog_renders_shared_components() {
             &html,
             "[data-catalog-transfer] [data-file-drop] input[type='file']",
         );
+        // Connector Jira (M11).
+        assert_css_exists(
+            &html,
+            "[data-catalog-jira] .app-jmap .app-jst[data-unmapped]",
+        );
+        assert_css_exists(&html, "[data-catalog-jira] .app-jres[data-result='gate']");
         // Visual (M10).
         assert_css_exists(&html, "[data-catalog-visual] .app-tk-feat .app-switch");
         assert_css_exists(&html, "[data-catalog-visual] .app-of-lb.dng .k");

@@ -213,6 +213,15 @@ pub enum AuditAction {
     /// Impor CSV tiket selesai.
     #[sea_orm(string_value = "import.completed")]
     ImportCompleted,
+    /// Koneksi Jira dibuat (M11; token tidak pernah dicatat).
+    #[sea_orm(string_value = "jira.connected")]
+    JiraConnected,
+    /// Koneksi Jira diubah (kredensial, project, mode, pemetaan, jeda).
+    #[sea_orm(string_value = "jira.updated")]
+    JiraUpdated,
+    /// Koneksi Jira diputus (data yang sudah diimpor tetap ada).
+    #[sea_orm(string_value = "jira.disconnected")]
+    JiraDisconnected,
 }
 
 /// Kelompok aksi untuk filter halaman audit: awalan `<subjek>` dari aksi, kecuali jabatan
@@ -338,7 +347,10 @@ impl AuditAction {
             | Self::WebhookCreated
             | Self::WebhookUpdated
             | Self::WebhookDeleted
-            | Self::WebhookSecretRotated => AuditGroup::Workspace,
+            | Self::WebhookSecretRotated
+            | Self::JiraConnected
+            | Self::JiraUpdated
+            | Self::JiraDisconnected => AuditGroup::Workspace,
             Self::ExportRequested | Self::ExportDownloaded | Self::ImportCompleted => {
                 AuditGroup::Workspace
             }
@@ -457,6 +469,8 @@ pub enum AuditSubject {
     DataExport,
     #[sea_orm(string_value = "ticket_import")]
     TicketImport,
+    #[sea_orm(string_value = "jira_connection")]
+    JiraConnection,
 }
 
 /// Data satu baris audit untuk [`ActiveModel::append`].

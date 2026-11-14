@@ -1,0 +1,43 @@
+/* Connector Jira (M11): grid pemetaan (status ↔ stage, field ↔ field), baris koneksi, catatan
+   aturan bentrok, dan hasil log sinkron. Prototype: "M11 · Jira" di
+   docs/reference/ui-prototype/screens-m9-m11-m12.js (.pz-map, .pz-jst, .pz-nb, .pz-kv). */
+@layer components {
+  /* Grid pemetaan tiga kolom: nilai Jira | panah | combo Agent Gate. */
+  .app-jmap { display: grid; grid-template-columns: minmax(0, 1fr) 20px minmax(0, 1fr); gap: 8px 12px; align-items: center; border: 1px solid var(--ag-line); border-radius: 8px; padding: 12px; }
+  .app-jmap > .app-jmap-h { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--ag-faint); }
+  .app-jmap > .app-jmap-arw { color: var(--ag-faint); display: flex; justify-content: center; }
+  .app-jmap > .app-jmap-arw svg { width: 14px; height: 14px; }
+  .app-jmap > .app-field { margin: 0; }
+  .app-jmap .app-jmap-k { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .app-jmap .app-jmap-k small { display: block; color: var(--ag-faint); font-family: var(--ag-mono); font-size: 11px; }
+  @media (max-width: 599px) {
+    .app-jmap { grid-template-columns: minmax(0, 1fr); }
+    .app-jmap > .app-jmap-arw, .app-jmap > .app-jmap-h:nth-child(2), .app-jmap > .app-jmap-h:nth-child(3) { display: none; }
+  }
+
+  /* Subjudul bagian di dalam kartu + baris aksi. */
+  .app-jsub { display: grid; gap: 2px; padding-top: 4px; }
+  .app-jsub > b { font-weight: 600; font-size: 13px; }
+  .app-jrow { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+
+  /* Status Jira: chip netral dengan titik kategori. */
+  .app-jst { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: 6px; background: var(--ag-muted-bg); font-size: 12px; font-weight: 500; max-width: 100%; }
+  .app-jst::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--ag-faint); flex-shrink: 0; }
+  .app-jst[data-category='indeterminate']::before { background: var(--ag-accent); }
+  .app-jst[data-category='done']::before { background: var(--ag-success); }
+  .app-jst[data-unmapped]::before { background: var(--ag-warn); }
+
+  /* Catatan aturan (ikon + teks tebal + penjelasan). */
+  .app-jnote { display: flex; gap: 10px; align-items: flex-start; }
+  .app-jnote > .app-tile { width: 22px; height: 22px; flex-shrink: 0; }
+  .app-jnote > .app-tile svg { width: 14px; height: 14px; }
+  .app-jnote b { font-weight: 500; }
+  .app-jnote span span { color: var(--ag-muted); }
+
+  /* Hasil log sinkron. */
+  .app-jres { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; font-size: 13px; }
+  .app-jres svg { width: 14px; height: 14px; flex-shrink: 0; }
+  .app-jres[data-result='ok'] { color: var(--ag-success); }
+  .app-jres[data-result='gate'] { color: var(--ag-warn); }
+  .app-jres[data-result='fail'] { color: var(--ag-danger); }
+}

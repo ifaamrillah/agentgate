@@ -28,6 +28,28 @@ pub struct Settings {
     /// API publik + webhook keluar (M11; opsional di config).
     #[serde(default)]
     pub api: ApiSettings,
+    /// Connector Jira (M11; opsional di config; tes mengarahkan ke Jira palsu lokal).
+    #[serde(default)]
+    pub jira: JiraSettings,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct JiraSettings {
+    /// Batas waktu satu panggilan REST Jira (detik). Unduh lampiran memakai 4× nilai ini.
+    pub timeout_seconds: u64,
+    /// Izinkan URL Jira `http://` ke host loopback (server Jira palsu saat development/test).
+    /// Production: hanya https ke alamat publik (penjaga SSRF yang sama dengan webhook).
+    pub allow_loopback: bool,
+}
+
+impl Default for JiraSettings {
+    fn default() -> Self {
+        Self {
+            timeout_seconds: 20,
+            allow_loopback: false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]

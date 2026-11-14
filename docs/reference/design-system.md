@@ -330,6 +330,27 @@ katalog `/_dev/ui` di commit yang sama.
 - Switch aktif webhook = `app-switch` di form kecil dengan `data-submit-on-change`; menu ⋯
   (`action_menu`) berisi Riwayat pengiriman, Kirim event uji, Rotasi secret, Hapus (dialog
   konfirmasi `tone=danger`).
+## M11 (Connector Jira)
+
+- **Jira** (`/w/{slug}/settings/jira/{overview,conn,mode,status,fields,log}`,
+  ManageIntegrations, `components/jira.css`): `subpage` + satu `card` per panel. Panel yang
+  menyimpan memakai `card form=` (footer `savebar` "Simpan & sinkron"); panel Koneksi punya tombol
+  kedua "Uji koneksi" (`formaction=…/conn/test`, hasil dirender ulang, bukan PRG). Belum terhubung
+  = `empty_state` plain dengan tautan ke Koneksi.
+- Ringkasan: baris koneksi `app-lrow` + `live_dot` (online/busy = sinkron berjalan/offline =
+  dijeda) + tombol Sinkron sekarang + `action_menu` (Jeda/Lanjutkan, Sinkron ulang semua, Unduh
+  log, Putuskan → dialog `tone=danger`), `stats` (Ditolak gate bertautan ke log terfilter), dan
+  `dl.app-props` konfigurasi.
+- Pola: subjudul di dalam kartu `app-jsub` (judul + hint), baris aksi `app-jrow`, grid pemetaan
+  `app-jmap` (kolom Jira | panah | `combo hide_label`; satu kolom < 600px), chip status Jira
+  `app-jst[data-category=new|indeterminate|done]` (`data-unmapped` = titik warn), catatan aturan
+  `app-jnote`, hasil log `app-jres[data-result=ok|gate|fail]`. Pilihan jenis Jira dan mode =
+  `app-choices` > `app-choice` (radio), mode satu kolom (`data-cols=one`). Katalog `/_dev/ui`
+  kartu "Pemetaan Jira (M11)".
+- Log sinkron = `datatable` server-side (filter Hasil + Arah, cari kode/issue/pesan); pesan
+  disimpan sebagai kunci Fluent + argumen dan diterjemahkan saat render; unduh JSONL lewat tautan
+  kepala kartu.
+
 ## M11 (Ekspor data, Impor CSV)
 
 - **Komponen baru** `wizard_steps` dan `file_drop` (`components/wizard.css`), katalog `/_dev/ui`
