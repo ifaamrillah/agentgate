@@ -114,7 +114,7 @@ async fn roadmap_and_calendar_show_dated_tickets() {
             .text();
         assert_css_not_exists(&page, "[data-event='due']");
         assert_css_exists(&page, "[data-event='release']");
-        assert_css_exists(&page, "[data-kind='release'][aria-pressed='true']");
+        assert_css_exists(&page, "[data-kind='release'][aria-current='true']");
         // Bulan lain tanpa acara; bulan tidak valid → bulan ini.
         let page = request
             .get("/w/acme/p/KSR/calendar?month=2020-01")

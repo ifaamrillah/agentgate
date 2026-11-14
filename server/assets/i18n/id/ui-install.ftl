@@ -1,0 +1,19 @@
+# Halaman instal CLI publik (M12).
+install-title = Instal CLI agentgate
+install-lead = CLI menghubungkan laptop Anda ke server ini: memasang aturan agent di repo, mengindeks kode, dan menjalankan job sebagai runner.
+install-versions = Versi CLI minimum { $min } (server { $server }).
+install-unreleased-title = Rilis CLI belum dikonfigurasi
+install-unreleased-body = Admin server ini belum mengisi CLI_RELEASE_URL, jadi perintah di bawah belum bisa mengunduh installer. Hubungi admin Anda.
+install-unix-title = macOS dan Linux
+install-unix-desc = Jalankan di terminal. Binary dipasang di ~/.cargo/bin atau ~/.local/bin.
+install-windows-title = Windows
+install-windows-desc = Jalankan di PowerShell.
+install-copy-command = Salin perintah
+install-next-title = Langkah berikutnya
+install-step-login = Masuk ke server ini (browser terbuka untuk konfirmasi).
+install-step-init = Di folder repo project, pasang aturan agent dan hubungkan project.
+install-step-runner = Agar laptop ini mengerjakan job dari board, jalankan runner.
+install-step-update = Memperbarui CLI ke rilis terbaru kapan saja.
+install-verify-title = Verifikasi unduhan
+install-verify-desc = Setiap rilis menyertakan checksum SHA-256 (sha256.sum) dan atestasi build dari GitHub. Unduh arsip dan sha256.sum dari halaman rilis, lalu periksa:
+install-back-login = Kembali ke halaman masuk

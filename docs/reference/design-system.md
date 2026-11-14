@@ -30,7 +30,7 @@ sub-navigasi E, tabel A, stat A, board C, prioritas C, layar masuk B. Rancangan 
 |---|---|
 | Permukaan | `bg` #fff, `side` #f7f7f5 (sidebar hangat), `page` #fff, `hover` #f0f0ee, `active` #e9e9e6, `muted-bg` #fafafb |
 | Garis | `line` #ebebef, `line2` #e1e1e8, `input` #d9d9e1 |
-| Teks | `fg` #17171c, `fg2` #3d3d47, `muted` #63636f, `faint` #8d8d99 |
+| Teks | `fg` #17171c, `fg2` #3d3d47, `muted` #63636f, `faint` #6e6e7a (M12: dinaikkan agar ≥ 4,5:1) |
 | Aksen | `accent` #5b5bd6, `accent-soft` #f0f0fe, `accent-fg` #4747c2 |
 | Status | `success` #1c7f45, `warn` #a35407, `danger` #cf2e2e, `info` #1d63c9 (masing-masing `-soft`) |
 | Prioritas (C) | P1 merah solid, P2 oranye lembut, P3 kuning lembut, P4 abu (`.app-prio[data-p]`) |

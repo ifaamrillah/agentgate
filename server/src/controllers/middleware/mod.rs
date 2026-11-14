@@ -2,6 +2,7 @@
 pub mod csrf;
 pub mod gate;
 pub mod html_errors;
+pub mod metrics;
 pub mod preview_host;
 pub mod request_log;
 pub mod webhook_dispatch;

@@ -123,6 +123,10 @@
       ctx.update("remarkStringifyOptions", (prev) => ({ ...prev, bullet: "-", rule: "-" })),
     );
     await crepe.create();
+    // Nama aksesibel area edit = label textarea (aria-label atau <label for>), audit a11y M12.
+    const pm = surface.querySelector(".ProseMirror");
+    const name = textarea.getAttribute("aria-label") || (textarea.id && document.querySelector(`label[for="${textarea.id}"]`)?.textContent.trim());
+    if (pm && name) pm.setAttribute("aria-label", name);
     textarea.hidden = true;
     surface.hidden = false;
     box.dataset.mdReady = "";

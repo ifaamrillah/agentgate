@@ -13,13 +13,18 @@ use uuid::Uuid;
 
 use crate::{
     common::settings::Settings,
-    controllers::extractors::{CurrentUser, RequestId},
-    models::{oauth_clients, users},
+    controllers::extractors::{ClientIp, CurrentUser, RequestId},
+    models::{ip_rate_limits, oauth_clients, users},
     services::oauth::{
         self as service, AuthorizeCheck, AuthorizeParams, ClientMetadata, OAuthError,
     },
     views::oauth::{ConsentPage, WORKSPACE_REQUIRED},
 };
+
+/// Pendaftaran client dinamis maksimal per IP per jam (M12). Satu client AI mendaftar sekali saat
+/// pertama terhubung; 20 per jam cukup untuk satu kantor di balik NAT yang menghubungkan banyak
+/// client, dan membatasi pengisian tabel `oauth_clients` oleh skrip tanpa login.
+const DCR_PER_IP_PER_HOUR: i32 = 20;
 
 /// URL resource MCP (audience token).
 #[must_use]
@@ -80,8 +85,30 @@ async fn authorization_server(State(ctx): State<AppContext>) -> Result<Response>
 #[debug_handler]
 async fn register(
     State(ctx): State<AppContext>,
+    ClientIp(ip): ClientIp,
     Json(meta): Json<ClientMetadata>,
 ) -> Result<Response> {
+    let used = ip_rate_limits::hit(
+        &ctx.db,
+        ip_rate_limits::OAUTH_REGISTER,
+        ip,
+        chrono::Duration::hours(1),
+        chrono::Utc::now(),
+    )
+    .await?;
+    if used > DCR_PER_IP_PER_HOUR {
+        tracing::warn!(%ip, "oauth client registration rate limited");
+        let mut res = json_error(
+            StatusCode::TOO_MANY_REQUESTS,
+            &OAuthError {
+                code: "too_many_requests",
+                description: "too many client registrations from this address; retry later",
+            },
+        );
+        res.headers_mut()
+            .insert(header::RETRY_AFTER, HeaderValue::from_static("3600"));
+        return Ok(res);
+    }
     match service::register(&ctx.db, &meta).await {
         Ok(c) => Ok(no_store(
             (

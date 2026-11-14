@@ -52,7 +52,7 @@
     {%- endif %}
   </form>
   <div class="app-dt-box">
-    <div class="table-container">
+    <div class="table-container" tabindex="0" role="region"{% if table.label is defined and table.label %} aria-label="{{ table.label }}"{% endif %}>
       <table class="table" {{ attrs }}>
         <thead><tr>
           {%- for c in table.columns %}

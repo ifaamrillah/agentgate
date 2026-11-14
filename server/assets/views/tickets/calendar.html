@@ -14,7 +14,7 @@
   <input type="hidden" name="month" value="{{ month }}">
   {%- for k in kind_values %}<input type="hidden" name="kind" value="{{ k }}">{% endfor %}
   <label class="app-fsearch">{{ icon(name="search") }}<input type="search" name="q" value="{{ q }}" placeholder="{{ t(key="roadmap-search", lang="id") }}" aria-label="{{ t(key="roadmap-search", lang="id") }}"></label>
-  <nav class="app-chips" aria-label="{{ t(key="calendar-kind", lang="id") }}">{% for k in kinds %}<a class="app-chip" href="{{ k.href }}"{% if k.on %} aria-pressed="true"{% endif %} data-kind="{{ k.key }}">{{ t(key=k.label, lang="id") }}</a>{% endfor %}</nav>
+  <nav class="app-chips" aria-label="{{ t(key="calendar-kind", lang="id") }}">{% for k in kinds %}<a class="app-chip" href="{{ k.href }}"{% if k.on %} aria-current="true"{% endif %} data-kind="{{ k.key }}">{{ t(key=k.label, lang="id") }}</a>{% endfor %}</nav>
   <span data-grow></span>
   <span class="app-cal-mon">
     {{ <button icon="chevron-left" variant="ghost" size="sm" href={prev} aria_label={t(key="calendar-prev", lang="id")} attrs="data-cal-prev"/> }}

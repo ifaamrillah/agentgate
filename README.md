@@ -68,12 +68,17 @@ mengisi:
 | `DATABASE_URL` | URL Postgres |
 | `SESSION_SECRET` | kunci tanda tangan cookie sesi, 64+ karakter acak (`openssl rand -base64 64`); mengganti me-logout semua user |
 | `ENCRYPTION_KEY` | base64 dari tepat 32 byte (`openssl rand -base64 32`) untuk enkripsi secret TOTP; mengganti membuat 2FA aktif tak bisa dibuka |
-| `STORAGE_DIR` | folder volume persisten untuk file upload (logo project); sementara disk lokal sampai S3 diaktifkan |
+| `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | storage file (lampiran, logo, evidence, ekspor, impor) di S3-compatible; `S3_ENDPOINT` (kosong = AWS) dan `S3_REGION` (default `us-east-1`) opsional |
 | `APP_URL` | URL publik, dipakai untuk link di email dan callback OAuth |
 | `PREVIEW_URL` | URL domain pratinjau mockup HTML (M10), mis. `https://preview.example.com`; host wajib berbeda dari `APP_URL` dan diarahkan ke server yang sama |
 | `MAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD` | pengiriman email |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | login Google/GitHub; provider yang `CLIENT_ID`-nya kosong tidak diaktifkan |
 | `PORT`, `BINDING`, `LOG_LEVEL`, `DB_*`, `AUTH_MAX_CONCURRENT_HASHES` | opsional, ada default |
+| `SYSTEM_ADMIN_EMAILS`, `METRICS_TOKEN`, `CLI_RELEASE_URL`, `CLI_MIN_VERSION`, `BACKUP_TARGET`, `BACKUP_SCHEDULE_LABEL` | operasi instance (M12), opsional; kosong = fiturnya mati |
+
+Deploy satu VPS dengan Docker Compose: `deploy/` dan `docs/admin/deploy.md`. Panduan admin lain
+(konfigurasi, operasi & alert, backup/pulihkan, upgrade, keamanan) di `docs/admin/`; panduan
+pemakai di `docs/panduan/`.
 
 ## Kerja paralel dengan worktree
 

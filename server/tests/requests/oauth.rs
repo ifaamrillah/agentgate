@@ -214,6 +214,20 @@ async fn code_exchange_refresh_rotation_and_revocation() {
             .await;
         assert_eq!(res.status_code(), 400);
         assert_eq!(res.json::<serde_json::Value>()["error"], "invalid_grant");
+        // M12: percobaan gagal membatalkan kode; verifier benar pun ditolak sesudahnya.
+        let res = request
+            .post("/oauth/token")
+            .form(&[
+                ("grant_type", "authorization_code"),
+                ("code", code.as_str()),
+                ("redirect_uri", REDIRECT),
+                ("client_id", client_id.as_str()),
+                ("code_verifier", VERIFIER),
+            ])
+            .await;
+        assert_eq!(res.status_code(), 400);
+        assert_eq!(res.json::<serde_json::Value>()["error"], "invalid_grant");
+        let code = approve(&request, &c, &client_id, &workspace.id.to_string()).await;
 
         let tokens = exchange(&request, &client_id, &code).await;
         assert_eq!(tokens["token_type"], "Bearer");
@@ -405,6 +419,30 @@ async fn connected_clients_are_listed_and_revocable_from_account() {
             .add_cookie(c.clone())
             .await;
         assert_css_not_exists(&page.text(), "[data-client]");
+    })
+    .await;
+}
+
+/// M12: pendaftaran client dinamis dibatasi 20 per IP per jam; yang ke-21 → 429 + Retry-After.
+#[tokio::test]
+async fn dynamic_client_registration_is_rate_limited_per_ip() {
+    request::<App, _, _>(|request, _ctx| async move {
+        for _ in 0..20 {
+            register_client(&request, "Claude Code").await;
+        }
+        let res = request
+            .post("/oauth/register")
+            .json(&serde_json::json!({
+                "client_name": "Banjir",
+                "redirect_uris": [REDIRECT],
+            }))
+            .await;
+        assert_eq!(res.status_code(), 429);
+        assert_eq!(
+            res.json::<serde_json::Value>()["error"],
+            "too_many_requests"
+        );
+        assert_eq!(res.header("retry-after"), "3600");
     })
     .await;
 }

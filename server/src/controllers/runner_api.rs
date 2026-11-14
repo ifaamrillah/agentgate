@@ -49,8 +49,12 @@ use crate::{
 
 /// Header id runner untuk endpoint job.
 pub const RUNNER_HEADER: &str = "x-agentgate-runner";
-/// Interval server menilai event per koneksi WebSocket.
-const WS_TICK: Duration = Duration::from_secs(2);
+/// Tick cadangan per koneksi WebSocket: memvalidasi ulang sesi (token/runner dicabut) dan
+/// menutup celah notifikasi yang hilang. Event job sendiri datang lewat `LISTEN/NOTIFY`
+/// (`services::realtime`); tanpa hub (context buatan tangan) tick ini menjadi polling biasa.
+const WS_TICK: Duration = Duration::from_secs(30);
+/// Interval polling bila hub realtime tidak tersedia.
+const WS_POLL: Duration = Duration::from_secs(2);
 
 pub(crate) fn json_error(status: StatusCode, code: &str) -> Response {
     (status, Json(serde_json::json!({ "error": code }))).into_response()
@@ -253,8 +257,9 @@ async fn send(socket: &mut WebSocket, msg: &ServerMsg) -> bool {
     }
 }
 
-/// Satu koneksi runner: heartbeat dari runner, event dari server tiap [`WS_TICK`]. Session
-/// dimuat ulang setiap tick; token/grant dicabut atau runner dicabut → koneksi ditutup.
+/// Satu koneksi runner: heartbeat dari runner; event dari server saat hub realtime mengabarkan
+/// perubahan job di workspace runner, dan setiap [`WS_TICK`]. Session dimuat ulang setiap
+/// penilaian; token/grant dicabut atau runner dicabut → koneksi ditutup.
 async fn socket_loop(
     ctx: AppContext,
     principal: Principal,
@@ -273,9 +278,28 @@ async fn socket_loop(
         return;
     }
     let mut state = svc::EventState::default();
-    let mut tick = tokio::time::interval(WS_TICK);
+    let hub = crate::services::realtime::Hub::of(&ctx);
+    let mut wake = hub.as_ref().map(|h| h.subscribe(runner.workspace_id));
+    let mut tick = tokio::time::interval(if wake.is_some() { WS_TICK } else { WS_POLL });
     loop {
         tokio::select! {
+            changed = async {
+                match wake.as_mut() {
+                    Some(rx) => rx.recv().await,
+                    None => std::future::pending().await,
+                }
+            } => {
+                use tokio::sync::broadcast::error::RecvError;
+                match changed {
+                    // Workspace ini berubah, listener tersambung ulang (nil), atau tertinggal:
+                    // semuanya cukup satu penilaian ulang.
+                    Ok(_) | Err(RecvError::Lagged(_)) => {}
+                    Err(RecvError::Closed) => { wake = None; continue; }
+                }
+                if !evaluate(&ctx, &principal, runner.id, &mut state, &mut socket).await {
+                    break;
+                }
+            }
             msg = socket.recv() => match msg {
                 Some(Ok(Message::Text(text))) => {
                     if serde_json::from_str::<ClientMsg>(&text).is_ok()
@@ -288,28 +312,55 @@ async fn socket_loop(
                 Some(Ok(_)) => {}
             },
             _ = tick.tick() => {
-                let session = match Session::load(&ctx.db, &principal).await {
-                    Ok(Some(s)) => s,
-                    _ => {
-                        let _ = send(&mut socket, &ServerMsg::Error { message: "access revoked".into() }).await;
-                        break;
-                    }
-                };
-                let Ok(runner) = svc::own(&ctx.db, &session, runner.id).await else {
-                    let _ = send(&mut socket, &ServerMsg::Error { message: "runner revoked".into() }).await;
+                if !evaluate(&ctx, &principal, runner.id, &mut state, &mut socket).await {
                     break;
-                };
-                let Ok(msgs) = svc::events(&ctx.db, &session, &runner, &mut state).await else {
-                    continue;
-                };
-                for m in &msgs {
-                    if !send(&mut socket, m).await {
-                        return;
-                    }
                 }
             }
         }
     }
+}
+
+/// Muat ulang sesi + runner lalu kirim event baru. `false` = koneksi harus ditutup (akses
+/// dicabut atau socket putus).
+async fn evaluate(
+    ctx: &AppContext,
+    principal: &Principal,
+    runner_id: Uuid,
+    state: &mut svc::EventState,
+    socket: &mut WebSocket,
+) -> bool {
+    let session = match Session::load(&ctx.db, principal).await {
+        Ok(Some(s)) => s,
+        _ => {
+            let _ = send(
+                socket,
+                &ServerMsg::Error {
+                    message: "access revoked".into(),
+                },
+            )
+            .await;
+            return false;
+        }
+    };
+    let Ok(runner) = svc::own(&ctx.db, &session, runner_id).await else {
+        let _ = send(
+            socket,
+            &ServerMsg::Error {
+                message: "runner revoked".into(),
+            },
+        )
+        .await;
+        return false;
+    };
+    let Ok(msgs) = svc::events(&ctx.db, &session, &runner, state).await else {
+        return true;
+    };
+    for m in &msgs {
+        if !send(socket, m).await {
+            return false;
+        }
+    }
+    true
 }
 
 /// Runner dari header + job yang dipegangnya.

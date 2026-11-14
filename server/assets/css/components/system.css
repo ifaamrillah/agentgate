@@ -1,0 +1,23 @@
+/* Status sistem (M12): kotak kesehatan ringkasan, batang pemakaian storage per kategori, dan
+   halaman instal CLI publik (`/install`). */
+@layer components {
+  .app-sys-hero { display: flex; gap: 12px; align-items: center; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--ag-line); }
+  .app-sys-hero[data-tone='ok'] { background: var(--ag-success-soft); border-color: transparent; }
+  .app-sys-hero[data-tone='warn'] { background: var(--ag-warn-soft); border-color: transparent; }
+  .app-sys-hero b { font-weight: 600; }
+  .app-sys-bars { display: grid; gap: 10px; }
+  .app-sys-bar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(80px, 160px) auto; gap: 12px; align-items: center; font-size: 13px; }
+  .app-sys-bar > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  @media (max-width: 639px) { .app-sys-bar { grid-template-columns: minmax(0, 1fr) auto; } .app-sys-bar .app-bar { grid-column: 1 / -1; grid-row: 2; } }
+  .app-sys-err { overflow-wrap: anywhere; white-space: normal; }
+  .app-text-warn { color: var(--ag-warn); }
+  .app-text-danger { color: var(--ag-danger); }
+
+  /* Halaman instal CLI (publik). */
+  .app-inst { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; display: grid; gap: 20px; }
+  .app-inst-head { display: grid; gap: 8px; }
+  .app-inst-head h1 { font-size: 24px; font-weight: 600; letter-spacing: -0.01em; }
+  .app-inst-step { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 12px; align-items: start; }
+  .app-inst-step > .app-inst-n { width: 26px; height: 26px; border-radius: 50%; background: var(--ag-accent-soft); color: var(--ag-accent-fg); display: inline-flex; align-items: center; justify-content: center; font-weight: 600; font-size: 12px; }
+  .app-inst-step > div { display: grid; gap: 6px; min-width: 0; }
+}

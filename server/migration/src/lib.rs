@@ -18,6 +18,8 @@ mod m20261121_000001_create_visual;
 mod m20261122_000001_create_api_webhooks;
 mod m20261123_000001_create_exports_imports;
 mod m20261124_000001_create_jira;
+mod m20261125_000001_realtime_notify;
+mod m20261125_000002_create_system;
 
 pub struct Migrator;
 
@@ -42,6 +44,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20261122_000001_create_api_webhooks::Migration),
             Box::new(m20261123_000001_create_exports_imports::Migration),
             Box::new(m20261124_000001_create_jira::Migration),
+            Box::new(m20261125_000001_realtime_notify::Migration),
+            Box::new(m20261125_000002_create_system::Migration),
             // inject-above (do not remove this comment)
         ]
     }

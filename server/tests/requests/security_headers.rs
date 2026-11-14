@@ -21,3 +21,28 @@ async fn error_pages_keep_security_headers() {
     })
     .await;
 }
+
+/// M12: header keamanan lengkap di setiap halaman (HSTS, nosniff, referrer, permissions, frame).
+#[tokio::test]
+async fn pages_carry_hardening_headers() {
+    request::<App, _, _>(|request, _ctx| async move {
+        for path in ["/login", "/tidak-ada"] {
+            let res = request.get(path).await;
+            let h = |n: &str| res.header(n).to_str().unwrap().to_string();
+            assert!(
+                h("strict-transport-security").starts_with("max-age="),
+                "{path}"
+            );
+            assert_eq!(h("x-content-type-options"), "nosniff", "{path}");
+            // Halaman bertoken (login, undangan) memasang `no-referrer` sendiri.
+            let referrer = h("referrer-policy");
+            assert!(
+                referrer == "same-origin" || referrer == "no-referrer",
+                "{path}: {referrer}"
+            );
+            assert!(h("permissions-policy").contains("camera=()"), "{path}");
+            assert_eq!(h("x-frame-options"), "sameorigin", "{path}");
+        }
+    })
+    .await;
+}

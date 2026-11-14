@@ -19,7 +19,7 @@
 
   /* Hitungan kecil di samping judul kartu atau tab ("Anggota 12"). */
   .app-count { display: inline-flex; align-items: center; height: 18px; padding: 0 6px; border-radius: 9px; background: var(--ag-hover); color: var(--ag-fg2); font-size: 11px; font-weight: 500; font-variant-numeric: tabular-nums; }
-  .app-count[data-tone='alert'] { background: var(--ag-danger); color: #fff; }
+  .app-count[data-tone='alert'] { background: var(--ag-danger-btn, var(--ag-danger)); color: #fff; }
   .app-count[data-tone='accent'] { background: var(--ag-accent); color: var(--ag-on-accent); }
 
   /* Label prioritas P1–P4 (varian C). */

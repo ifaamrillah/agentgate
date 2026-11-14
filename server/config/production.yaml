@@ -41,6 +41,10 @@ server:
         # POST ke /auth/{provider} yang dijawab 303 ke provider, dan Chrome menerapkan
         # form-action juga pada redirect setelah submit form.
         Content-Security-Policy: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self' https://accounts.google.com https://github.com; frame-ancestors 'none'"
+        # M12: URL aplikasi (kode tiket, token di query) tidak bocor lewat Referer ke origin lain;
+        # fitur perangkat yang tidak dipakai dimatikan untuk semua frame.
+        Referrer-Policy: "same-origin"
+        Permissions-Policy: "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
 
 workers:
   mode: BackgroundQueue
@@ -166,11 +170,19 @@ auth:
       # <% endif %>
     # <% endif %>
 
-# File upload (logo project). Sementara disk lokal di volume STORAGE_DIR; pindah ke S3
-# (feature storage_aws_s3, bucket per environment) tercatat sebagai utang teknis di PROGRESS.
+# Berkas user (lampiran, logo, evidence, ekspor, impor, backup aturan) di storage S3-compatible
+# (rules §8, §12): container web/worker tidak menyimpan file sehingga bisa diganti kapan saja.
+# SeaweedFS di Compose (deploy/compose.yaml) atau layanan S3 eksternal; satu bucket per environment.
+# Kredensial tanpa default. S3_ENDPOINT kosong = AWS S3 asli (endpoint dari region).
 storage:
-  kind: Local
-  path: <%= get_env(name="STORAGE_DIR") %>
+  kind: Aws
+  bucket: <%= get_env(name="S3_BUCKET") %>
+  region: <%= get_env(name="S3_REGION", default="us-east-1") %>
+  # <% if get_env(name="S3_ENDPOINT", default="") != "" %>
+  endpoint: <%= get_env(name="S3_ENDPOINT") %>
+  # <% endif %>
+  access_key_id: <%= get_env(name="S3_ACCESS_KEY_ID") %>
+  secret_access_key: <%= get_env(name="S3_SECRET_ACCESS_KEY") %>
 
 settings:
   app_name: Agent Gate
@@ -181,6 +193,18 @@ settings:
   preview_base_url: <%= get_env(name="PREVIEW_URL") %>
   # Pengirim semua email aplikasi (header From), alamat yang diizinkan relay SMTP; tanpa default.
   mail_from: <%= get_env(name="MAIL_FROM") %>
+  # Operasi instance (M12). Semua opsional; kosong = fiturnya mati.
+  system:
+    # Token bearer /_metrics (Prometheus). Kosong = 404. `openssl rand -hex 32`.
+    metrics_token: "<%= get_env(name="METRICS_TOKEN", default="") %>"
+    # Email admin instance (koma) yang boleh membuka Status sistem (/system).
+    admin_emails: "<%= get_env(name="SYSTEM_ADMIN_EMAILS", default="") %>"
+    # Basis unduhan rilis CLI (GitHub Releases); /install.sh dan /install.ps1 mengarah ke sana.
+    cli_release_url: "<%= get_env(name="CLI_RELEASE_URL", default="") %>"
+    cli_min_version: "<%= get_env(name="CLI_MIN_VERSION", default="") %>"
+    # Hanya untuk tampilan Status sistem; jadwal sebenarnya di container backup (deploy/).
+    backup_target: "<%= get_env(name="BACKUP_TARGET", default="") %>"
+    backup_schedule: "<%= get_env(name="BACKUP_SCHEDULE_LABEL", default="") %>"
   auth:
     # argon2id m = 19 MiB, t = 2, p = 1: baseline OWASP argon2id.
     argon2_memory_kib: 19456

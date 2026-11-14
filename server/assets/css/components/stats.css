@@ -10,7 +10,7 @@
   .app-st-go { width: 14px; height: 14px; color: var(--ag-faint); opacity: 0; transition: opacity 0.15s; }
   a.app-st-i:hover .app-st-go { opacity: 1; }
   .app-st-v { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; display: flex; align-items: baseline; gap: 4px; color: var(--ag-fg); line-height: 1.2; }
-  .app-st-v small { font-size: 15px; font-weight: 500; color: var(--ag-faint); }
+  .app-st-v small { font-size: 15px; font-weight: 500; color: var(--ag-muted); }
   .app-st-hint { font-size: 12px; color: var(--ag-muted); }
   .app-st-ic { width: 28px; height: 28px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; background: var(--ag-hover); color: var(--ag-fg2); flex-shrink: 0; }
   .app-st-ic svg { width: 16px; height: 16px; }

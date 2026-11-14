@@ -58,6 +58,8 @@ const SEED_PROJECT: (&str, &str) = ("KSR", "Kasir Online");
 
 /// Semua tabel yang dikosongkan hook `truncate`; tabel baru didaftarkan di sini.
 const TRUNCATE_TABLES: &[&str] = &[
+    "ip_rate_limits",
+    "system_backups",
     "users",
     "user_tokens",
     "login_throttles",
@@ -91,6 +93,16 @@ impl Hooks for App {
 
     /// Tes memakai storage in-memory (rules §8): cepat dan tidak meninggalkan file.
     async fn after_context(ctx: AppContext) -> Result<AppContext> {
+        // Hub realtime LISTEN/NOTIFY (M12): satu per proses; listener baru dibuka saat
+        // pendengar pertama mendaftar.
+        ctx.shared_store
+            .insert(std::sync::Arc::new(crate::services::realtime::Hub::new(
+                ctx.db.get_postgres_connection_pool().clone(),
+            )));
+        // Penghitung metrik request (M12, `/_metrics`).
+        ctx.shared_store.insert(std::sync::Arc::new(
+            crate::services::metrics::Registry::new(),
+        ));
         if ctx.environment == Environment::Test {
             let storage = loco_rs::storage::Storage::single(loco_rs::storage::drivers::mem::new());
             return Ok(ctx.into_builder().storage(storage.into()).build());
@@ -148,7 +160,14 @@ impl Hooks for App {
         // paling luar: host pratinjau tidak pernah mencapai route aplikasi lain.
         let preview_host =
             std::sync::Arc::new(crate::common::settings::Settings::from_ctx(ctx)?.preview_host());
+        let metrics = crate::services::metrics::Registry::of(ctx)
+            .unwrap_or_else(|| std::sync::Arc::new(crate::services::metrics::Registry::new()));
         Ok(router
+            // Metrik per route (M12): route_layer = setelah routing, label pola route.
+            .route_layer(axum::middleware::from_fn_with_state(
+                metrics,
+                controllers::middleware::metrics::layer,
+            ))
             // Webhook keluar (M11): delivery yang ditulis selama request di-enqueue setelah
             // handler selesai (setelah commit).
             .layer(axum::middleware::from_fn_with_state(
@@ -258,8 +277,46 @@ impl Hooks for App {
         seed_planning(ctx).await?;
         seed_visual(ctx).await?;
         seed_jira(ctx).await?;
-        seed_integrations(ctx).await
+        seed_integrations(ctx).await?;
+        seed_system(ctx).await
     }
+}
+
+/// Riwayat backup contoh (M12) untuk halaman Status sistem → Backup: 6 hari terakhir pukul
+/// 02.00 WIB, satu gagal (kredensial storage). Di production baris ini ditulis container backup
+/// (`deploy/backup/backup.sh`). Dilewati bila tabel sudah berisi.
+async fn seed_system(ctx: &AppContext) -> Result<()> {
+    use sea_orm::{ConnectionTrait, DbBackend, Statement};
+
+    let existing = ctx
+        .db
+        .query_one_raw(Statement::from_string(
+            DbBackend::Postgres,
+            "SELECT count(*) AS n FROM system_backups",
+        ))
+        .await?
+        .and_then(|r| r.try_get::<i64>("", "n").ok())
+        .unwrap_or(0);
+    if existing > 0 {
+        return Ok(());
+    }
+    ctx.db
+        .execute_unprepared(
+            "INSERT INTO system_backups (started_at, finished_at, status, size_bytes, location, message)
+             SELECT date_trunc('day', now()) - make_interval(days => d) + interval '19 hours',
+                    date_trunc('day', now()) - make_interval(days => d) + interval '19 hours'
+                        + make_interval(secs => 40 + d * 3),
+                    CASE WHEN d = 3 THEN 'failed' ELSE 'ok' END,
+                    CASE WHEN d = 3 THEN NULL ELSE 48000000 - d * 250000 END,
+                    CASE WHEN d = 3 THEN ''
+                         ELSE 's3://agentgate-backup/agentgate/postgres/agentgate-'
+                              || to_char(now() - make_interval(days => d), 'YYYYMMDD') || 'T190000Z.dump' END,
+                    CASE WHEN d = 3 THEN 'rclone: AccessDenied: kunci akses ditolak oleh storage backup'
+                         ELSE '' END
+             FROM generate_series(1, 6) AS d",
+        )
+        .await?;
+    Ok(())
 }
 
 /// Connector Jira contoh (M11) di PT Contoh: Jira Cloud `sevima-retail.atlassian.net` (token

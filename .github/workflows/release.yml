@@ -1,0 +1,121 @@
+# Rilis CLI agentgate (M12): build per target dengan dist, checksum SHA-256, atestasi build
+# GitHub, lalu GitHub Release berisi arsip, installer, dan sha256.sum.
+# Dipicu tag `v*` (mis. v0.2.0; versi = workspace.package.version). PR hanya menjalankan `dist plan`.
+# Ditulis tangan mengikuti alur `dist generate`; bila dist diperbarui, bandingkan dengan output
+# `dist generate --mode ci`.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths: ["dist-workspace.toml", ".github/workflows/release.yml", "cli/**", "core/**", "graph/**"]
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+env:
+  DIST_VERSION: "0.30.2"
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.plan.outputs.tag }}
+      publishing: ${{ steps.plan.outputs.publishing }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pasang dist
+        run: curl --proto '=https' --tlsv1.2 -LsSf "https://github.com/axodotdev/cargo-dist/releases/download/v${DIST_VERSION}/cargo-dist-installer.sh" | sh
+      - id: plan
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF_NAME}"
+            dist plan --tag="$TAG" --output-format=json > plan.json
+            echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+            echo "publishing=true" >> "$GITHUB_OUTPUT"
+          else
+            dist plan --output-format=json > plan.json
+            echo "publishing=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plan
+          path: plan.json
+
+  build-local:
+    needs: plan
+    if: needs.plan.outputs.publishing == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: aarch64-apple-darwin, runner: macos-14 }
+          - { target: x86_64-apple-darwin, runner: macos-13 }
+          - { target: x86_64-unknown-linux-gnu, runner: ubuntu-22.04 }
+          - { target: aarch64-unknown-linux-gnu, runner: ubuntu-22.04-arm }
+          - { target: x86_64-pc-windows-msvc, runner: windows-2022 }
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain dari rust-toolchain.toml
+        run: rustup show
+      - name: Pasang dist (unix)
+        if: runner.os != 'Windows'
+        run: curl --proto '=https' --tlsv1.2 -LsSf "https://github.com/axodotdev/cargo-dist/releases/download/v${DIST_VERSION}/cargo-dist-installer.sh" | sh
+      - name: Pasang dist (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: irm "https://github.com/axodotdev/cargo-dist/releases/download/v$env:DIST_VERSION/cargo-dist-installer.ps1" | iex
+      - name: Build
+        shell: bash
+        run: dist build --tag="${{ needs.plan.outputs.tag }}" --artifacts=local --target="${{ matrix.target }}" --output-format=json > dist-manifest.json
+      - name: Atestasi build
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: target/distrib/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: local-${{ matrix.target }}
+          path: target/distrib/*
+
+  build-global:
+    needs: [plan, build-local]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pasang dist
+        run: curl --proto '=https' --tlsv1.2 -LsSf "https://github.com/axodotdev/cargo-dist/releases/download/v${DIST_VERSION}/cargo-dist-installer.sh" | sh
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: local-*
+          path: target/distrib/
+          merge-multiple: true
+      - name: Installer dan sha256.sum
+        run: dist build --tag="${{ needs.plan.outputs.tag }}" --artifacts=global --output-format=json > dist-manifest.json
+      - name: Atestasi installer
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: target/distrib/*-installer.*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: global
+          path: target/distrib/*
+
+  release:
+    needs: [plan, build-global]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: "{local-*,global}"
+          path: dist/
+          merge-multiple: true
+      - name: GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ needs.plan.outputs.tag }}" dist/* \
+            --repo "$GITHUB_REPOSITORY" --title "agentgate ${{ needs.plan.outputs.tag }}" --generate-notes

@@ -18,6 +18,7 @@ pub mod graph;
 pub mod graph_api;
 pub mod graph_viewer;
 pub mod imports;
+pub mod install;
 pub mod integrations;
 pub mod invitations;
 pub mod jira;
@@ -28,6 +29,7 @@ pub mod mcp;
 pub mod middleware;
 pub mod oauth;
 pub mod office;
+pub mod ops;
 pub mod preview;
 pub mod projects;
 pub mod public_routes;
@@ -35,6 +37,7 @@ pub mod render;
 pub mod runner;
 pub mod runner_api;
 pub mod shell;
+pub mod system;
 pub mod tickets;
 pub mod tokens;
 pub mod webhooks;
@@ -64,6 +67,9 @@ pub fn routes(ctx: &AppContext) -> AppRoutes {
         .add_route(imports::routes())
         .add_route(tokens::routes())
         .add_route(office::routes())
+        .add_route(ops::routes())
+        .add_route(install::routes())
+        .add_route(system::routes())
         .add_route(preview::routes())
         .add_route(webhooks::routes())
         .add_route(api_v1::routes(ctx))

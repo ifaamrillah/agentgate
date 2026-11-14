@@ -1,0 +1,31 @@
+# Rilis CLI `agentgate` dengan dist (cargo-dist), M12. Hanya paket agentgate-cli yang dirilis
+# (`[package.metadata.dist] dist = true` di cli/Cargo.toml; paket lain publish = false).
+# Artefak per target: arsip binary + sha256; global: installer shell & PowerShell dan sha256.sum.
+# Server meneruskan `/install.sh` dan `/install.ps1` ke installer ini (CLI_RELEASE_URL).
+# Rilis dibuat oleh .github/workflows/release.yml saat tag `v*` di-push; tidak ada yang
+# dipublikasikan dari laptop (bin/release-cli hanya build lokal).
+[workspace]
+members = ["cargo:."]
+
+[dist]
+cargo-dist-version = "0.30.2"
+ci = "github"
+# Homebrew: formula ikut dibuat sebagai artefak rilis. Publikasi ke tap butuh repo tap + token
+# (keputusan sementara M12): isi `tap = "ORG/homebrew-tap"` dan `publish-jobs = ["homebrew"]`
+# setelah repo GitHub ada, lalu tambahkan job publish di release.yml.
+installers = ["shell", "powershell", "homebrew"]
+targets = [
+  "aarch64-apple-darwin",
+  "x86_64-apple-darwin",
+  "x86_64-unknown-linux-gnu",
+  "aarch64-unknown-linux-gnu",
+  "x86_64-pc-windows-msvc",
+]
+# Pasang ke ~/.cargo/bin bila ada, selain itu ~/.local/bin; tanpa sudo.
+install-path = ["CARGO_HOME", "~/.local/bin"]
+install-updater = false
+checksum = "sha256"
+github-attestations = true
+pr-run-mode = "plan"
+# Workflow ditulis tangan (lihat release.yml), bukan hasil `dist generate`.
+allow-dirty = ["ci"]

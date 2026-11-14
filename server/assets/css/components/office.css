@@ -22,7 +22,7 @@
   .app-of-lb .k { display: inline-flex; align-items: center; gap: 3px; margin: 0 -4px 0 3px; padding: 0 7px 0 6px; height: 16px; border-radius: 8px; font-family: var(--ag-mono); font-size: 10.5px; font-weight: 500; }
   .app-of-lb .k svg { width: 11px; height: 11px; stroke-width: 2.3; }
   .app-of-lb.warn .k { background: var(--ag-warn-soft); color: var(--ag-warn); }
-  .app-of-lb.dng .k { background: var(--ag-danger); color: #fff; }
+  .app-of-lb.dng .k { background: var(--ag-danger-btn, var(--ag-danger)); color: #fff; }
   .app-of-lb.gray .k { background: var(--ag-hover); color: var(--ag-muted); }
   .app-of-lb.dng > span { border-color: color-mix(in srgb, var(--ag-danger) 55%, var(--ag-line2)); }
   .app-of-lb.warn > span { border-color: color-mix(in srgb, var(--ag-warn) 40%, var(--ag-line2)); }

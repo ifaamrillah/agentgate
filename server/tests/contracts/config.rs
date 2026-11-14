@@ -29,7 +29,11 @@ const DEPLOY_ENV: &[(&str, &str)] = &[
         "ENCRYPTION_KEY",
         "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
     ),
-    ("STORAGE_DIR", "/var/lib/agentgate/storage"),
+    ("S3_BUCKET", "agentgate-prod"),
+    ("S3_REGION", "us-east-1"),
+    ("S3_ENDPOINT", "http://s3:8333"),
+    ("S3_ACCESS_KEY_ID", "agentgate"),
+    ("S3_SECRET_ACCESS_KEY", "secret"),
 ];
 
 /// Parameter argon2 minimal OWASP (m = 19 MiB, t = 2); staging/production tidak boleh di bawahnya.
@@ -146,6 +150,28 @@ fn deployed_environments_have_no_default_secrets() {
             );
         }
     }
+}
+
+/// M12: berkas user (lampiran, logo, evidence, ekspor) di S3, bukan disk container (rules §12:
+/// container web/worker bisa diganti kapan saja). Kredensial tanpa default.
+#[test]
+fn deployed_environments_store_files_in_s3_without_default_credentials() {
+    with_deploy_env(|| {
+        for env in ["staging", "production"] {
+            let config = load(env).unwrap();
+            assert!(
+                matches!(config.storage, loco_rs::config::StorageConfig::Aws(_)),
+                "{env}: storage kind Aws"
+            );
+            let raw = std::fs::read_to_string(format!("config/{env}.yaml")).unwrap();
+            for name in ["S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY"] {
+                assert!(
+                    raw.contains(&format!(r#"get_env(name="{name}") "#)),
+                    "{env}: {name} tanpa default"
+                );
+            }
+        }
+    });
 }
 
 const OAUTH_ENV: &[(&str, &str)] = &[

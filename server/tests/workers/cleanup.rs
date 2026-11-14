@@ -697,3 +697,93 @@ async fn cleanup_purges_tickets_trashed_over_30_days() {
             .is_err()
     );
 }
+
+/// M12: purge workspace juga menghapus berkasnya di storage (lampiran, logo, ...); berkas
+/// workspace lain tetap.
+#[tokio::test]
+async fn cleanup_purge_removes_the_workspace_files_from_storage() {
+    use agentgate_server::{
+        models::tickets,
+        services::{
+            tickets::{attachments, create},
+            workspaces::Acting,
+        },
+    };
+    use std::path::Path;
+
+    let boot = boot_test::<App>().await.unwrap();
+    let ctx = &boot.app_context;
+    let owner = a_user().create(ctx).await;
+    let mut keys = Vec::new();
+    let mut workspaces_made = Vec::new();
+    for slug in ["hapus", "simpan"] {
+        let workspace = a_workspace(&owner).slug(slug).create(ctx).await;
+        let project = a_project(ctx, &workspace, "KSR").await;
+        let role = builtin_role(ctx, &workspace, RoleKey::Owner).await;
+        let acting = Acting {
+            workspace: &workspace,
+            user: &owner,
+            role: &role,
+            request_id: None,
+        };
+        let form = create::TicketForm {
+            input: tickets::TicketInput {
+                title: "Tiket".into(),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let ticket = create::run(&ctx.db, &acting, project.id, &form)
+            .await
+            .unwrap();
+        let file = attachments::upload(
+            &ctx.db,
+            &ctx.storage,
+            &acting,
+            ticket.id,
+            "a.txt",
+            Some("text/plain"),
+            axum::body::Bytes::from_static(b"isi"),
+        )
+        .await
+        .unwrap();
+        let logo = format!("projects/{}/logo", project.id);
+        ctx.storage
+            .upload(Path::new(&logo), &axum::body::Bytes::from_static(b"png"))
+            .await
+            .unwrap();
+        ctx.db
+            .execute_raw(Statement::from_sql_and_values(
+                DbBackend::Postgres,
+                "UPDATE projects SET logo_key = $1, logo_content_type = 'image/png', logo_size = 3 WHERE id = $2",
+                [logo.clone().into(), project.id.into()],
+            ))
+            .await
+            .unwrap();
+        keys.push([file.storage_key, logo]);
+        workspaces_made.push(workspace);
+    }
+    scheduled_days_ago(ctx, &workspaces_made[0], 31).await;
+
+    let report = cleanup::run(ctx).await.unwrap();
+    assert_eq!(report.count(CleanupStep::Workspaces), 1);
+    assert_eq!(report.failed(), 0);
+    for key in &keys[0] {
+        assert!(
+            ctx.storage
+                .download::<Vec<u8>>(Path::new(key))
+                .await
+                .is_err(),
+            "{key} dihapus"
+        );
+    }
+    for key in &keys[1] {
+        assert!(
+            ctx.storage
+                .download::<Vec<u8>>(Path::new(key))
+                .await
+                .is_ok(),
+            "{key} tetap"
+        );
+    }
+}

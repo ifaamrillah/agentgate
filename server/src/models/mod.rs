@@ -52,6 +52,7 @@ pub mod graph_repos;
 pub mod graph_symbols;
 pub mod identities;
 pub mod invitations;
+pub mod ip_rate_limits;
 pub mod jira_comment_links;
 pub mod jira_connections;
 pub mod jira_links;
