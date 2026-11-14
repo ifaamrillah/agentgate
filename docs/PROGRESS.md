@@ -21,6 +21,7 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 | M11 Multi-client & integrasi | selesai (2026-11-14) | Aturan repo v2 untuk 6 client (Claude Code, Codex, Gemini CLI, Cursor, OpenCode, Copilot CLI): config MCP + hook tipis per client, `agentgate hook --client`, adapter runner headless/interaktif + parser JSONL per client, `doctor` 6 client, halaman Hubungkan client; API publik REST `/api/v1` (token `ag_pat_` ber-scope, rate limit 600/mnt, OpenAPI) + webhook keluar (outbox transaksional, HMAC, retry 5×, auto-nonaktif, log pengiriman); Ekspor data ZIP (JSON + Markdown/YAML, worker, 7 hari, audit); Impor CSV wizard 4 langkah (pemetaan otomatis Jira/Trello/Linear, alias kode lama, laporan baris dilewati); Connector Jira Cloud/DC (impor sekali, mirror AG→Jira dari outbox, dua arah lewat polling JQL dengan gate ditegakkan, pemetaan status/field/user, log sinkron); race init htmx JS diperbaiki + tes `node --test`; 786 tes Rust + 8 tes JS |
 | M12 Rilis | selesai (2026-11-14) | Realtime runner `LISTEN/NOTIFY` (kanal per workspace; uji beban 10.000 listener p99 4,8 ms, `docs/benchmarks/2026-11-14-listen-notify.md`); file staging/prod di S3 + berkas ikut dihapus saat purge workspace; hardening (rate limit DCR per IP, kode OAuth hangus setelah gagal, Permissions-Policy/Referrer-Policy, SSRF URL GHES + redirect tarball); sapuan otorisasi semua route `/w/{slug}` (lintas workspace 404, tanpa login → /login); `/_metrics` Prometheus (token) + `/_readiness`; halaman Status sistem `/system` (admin instance); deploy Compose satu VPS (`docker/prod/Dockerfile`, `deploy/`: Caddy, SeaweedFS, backup pg_dump + rclone ke luar VPS, diuji smoke + restore); rilis CLI `dist` (workflow tag `v*`, `/install`, `/install.sh|ps1`, `agentgate self-update`, `bin/release-cli`); audit a11y axe + sweep visual 3 mode; `docs/admin/`, `docs/panduan/`, `docs/REVIEW-AKHIR.md`; 806 tes Rust + 8 tes JS |
 | R1 Revisi keputusan pemilik | selesai (2026-11-14) | Semua baris R1 di `REVIEW-AKHIR.md` §3.0: bukti gate manual (screenshot/log/teks berlabel Manual, gate terpenuhi setelah approver stage setuju, audit + riwayat + notifikasi), merge otomatis default mati + tombol Merge + cara merge squash/merge/rebase (project `auto_on_review` dimigrasi ke manual), client OAuth wajib disetujui user sebelum dapat token + cleanup client yatim 24 jam, runner tim khusus Owner/Admin (auto-ambil pribadi mati/tim nyala, batas paralel per runner), online 90 dtk/heartbeat 30 dtk (konstanta bersama core), izin `manage_knowledge`, rate limit per token API (60–6.000) + aktifkan ulang webhook, retensi backup harian 14 hari + bulanan 6 bulan (diuji), logo SVG tersanitasi + CSP ketat (uji XSS), Sentry server + browser (mati tanpa DSN, data sensitif dibuang), varian tombol `success` (Approve hijau, Reject merah); 826 tes Rust + 8 tes JS + 6 tes skrip bin |
+| R5 AI Office baru | selesai (2026-11-14) | Kanvas Canvas 2D diganti panggung SVG + vanilla JS sesuai prototype `office-v1`: Isometrik Studio (V1) sebagai tampilan utama + sakelar Denah (V2) yang disimpan per user di localStorage, kolam cahaya hangat V3 (multiply terang/screen gelap), chibi dengan aksesori/gaya rambut/hijab dari `look`, tema gelap lewat token CSS tanpa gambar ulang, label HTML yang menghindari tumpukan (geser naik/samping, jangkar cadangan, hindari HUD), zoom jauh = badge ikon saja, label karakter berupa tombol berurutan logis (Tab/Enter/Escape, `aria-label`), animasi hanya tanpa `prefers-reduced-motion`; semua fungsi M10 tetap (ruangan per project + Ruang rapat/Pantry, karakter job/persona/tiket/runner online, geser/zoom/pinch/keyboard, mini-map, tab ruangan, panel log live + Approve/Reject + Kustom teraudit, polling 3 dtk); 826 tes Rust + 26 tes JS (18 baru untuk logika murni `office-core.mjs`) |
 
 ## Keputusan teknis (di luar spec)
 
@@ -88,6 +89,9 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 | 2026-11-14 | R1: runner tim = runner yang ditandai Owner/Admin; auto-ambil/batas paralel per runner. Runner tim juga boleh auto-ambil job knowledge; aturan executor job tidak berubah | Tidak mengubah siapa yang boleh menjalankan job |
 | 2026-11-14 | R1: Sentry browser memakai reporter kecil `static/js/sentry.js` (envelope API), bukan SDK Sentry JS | CSP `script-src 'self'` tanpa bundel pihak ketiga; kontrol penuh atas data yang dikirim |
 | 2026-11-14 | R1: sanitasi SVG allowlist dengan quick-xml (bukan blocklist); webhook gagal beruntun hanya diaktifkan ulang Owner/Admin bawaan; dialog desktop dibatasi tinggi layar (isi bergulir) | Keamanan dan temuan cek visual |
+| 2026-11-14 | R5: AI Office dipecah `office-core.mjs` (logika murni, diuji node), `office-svg.mjs` (gambar), `office-engine.mjs` (kamera/input/label); denah tetap mengikuti kolom server (2 project per kolom, Ruang rapat + Pantry di kolom terakhir, Lounge pengisi slot) | Server dan JSON `/office/state` tidak berubah; logika label/penempatan bisa diuji tanpa browser |
+| 2026-11-14 | R5: Isometrik dan Denah memakai satu daftar kursi (satuan ubin); Denah = tampak atas dari tata letak yang sama | Karakter berada di tempat yang sama saat beralih mode |
+| 2026-11-14 | R5: label karakter = tombol HTML (urutan Tab per ruangan), SVG `aria-hidden`; label yang disembunyikan LOD/declutter tetap bisa difokus (`.clip`) | Karakter terbaca screen reader tanpa elemen SVG yang bisa difokus |
 
 ## Temuan spike yang mengubah rencana
 
@@ -457,6 +461,14 @@ Daftar terkonsolidasi dan berurutan prioritas: `docs/REVIEW-AKHIR.md` §4.
   allowlist nama client).
 
 ## Catatan untuk sesi berikutnya
+
+- **R5 selesai dan di-merge ke `staging` (2026-11-14)**, `bin/ci` hijau sebelum dan sesudah merge. Rencana:
+  `docs/superpowers/plans/2026-11-14-r5-ai-office.md`; acuan visual permanen `docs/reference/ui-prototype/office-v1/`.
+  Screenshot cek visual (desktop, 390px, gelap; Isometrik + Denah; zoom dekat/jauh; data seed dan data prototype
+  yang disuntik lewat `page.route`) di scratchpad sesi (`shots-r5/`). Utang R5: animasi berjalan antar-kursi M10
+  tidak dibawa; karakter melebihi kapasitas kursi (project 11, rapat 10, pantry 12) disembunyikan dengan catatan
+  "+N tidak muat" di label ruangan; ruangan yang isinya berubah digambar ulang utuh (animasi CSS ruangan itu mulai
+  ulang); pinch belum diuji otomatis.
 
 - **R1 selesai dan di-merge ke `staging` (2026-11-14)**, `bin/ci` hijau sebelum dan sesudah merge. Rencana:
   `docs/superpowers/plans/2026-11-14-r1-revisi.md`. Screenshot cek visual (desktop, 390px, gelap) di scratchpad sesi
