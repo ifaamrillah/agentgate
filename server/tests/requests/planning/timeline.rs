@@ -130,3 +130,130 @@ async fn roadmap_and_calendar_show_dated_tickets() {
     })
     .await;
 }
+
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn roadmap_groups_by_epic_with_span_progress_and_toggle() {
+    use agentgate_server::models::{ticket_types, tickets};
+    request::<App, _, _>(|request, ctx| async move {
+        let f = fixture(&request, &ctx).await;
+        let wid = f.workspace.workspace_id();
+        let today = planning::today();
+        let epic = create_ticket(&request, &f.cookie, &[("title", "Pembayaran digital")]).await;
+        let s1 = create_ticket(
+            &request,
+            &f.cookie,
+            &[("title", "Bayar QRIS"), ("parent", &epic)],
+        )
+        .await;
+        let s2 = create_ticket(
+            &request,
+            &f.cookie,
+            &[("title", "Struk email"), ("parent", &epic)],
+        )
+        .await;
+        let lone = create_ticket(&request, &f.cookie, &[("title", "Laporan harian")]).await;
+        let epic_type = ticket_types::Model::all_in(&ctx.db, wid)
+            .await
+            .unwrap()
+            .into_iter()
+            .find(|t| t.key == "epic")
+            .expect("tipe epic bawaan");
+        let set = |code: String, f2: Box<dyn FnOnce(&mut tickets::ActiveModel) + Send>| {
+            let ctx = &ctx;
+            let ws = f.workspace.clone();
+            async move {
+                let mut m = ticket(ctx, &ws, &code).await.into_active_model();
+                f2(&mut m);
+                m.update(&ctx.db).await.unwrap();
+            }
+        };
+        let ty = epic_type.id;
+        set(epic.clone(), Box::new(move |m| m.type_id = Set(ty))).await;
+        // s1 selesai (rentang dibuat→selesai), s2 berjalan sampai tenggat +7 hari.
+        set(
+            s1.clone(),
+            Box::new(|m| {
+                m.status = Set("done".into());
+                m.done_at = Set(Some(chrono::Utc::now().into()));
+            }),
+        )
+        .await;
+        let due = today + Duration::days(7);
+        set(
+            s2.clone(),
+            Box::new(move |m| {
+                m.status = Set("in_progress".into());
+                m.due_on = Set(Some(due));
+            }),
+        )
+        .await;
+        set(lone.clone(), Box::new(move |m| m.due_on = Set(Some(due)))).await;
+        let ts2 = ticket(&ctx, &f.workspace, &s2).await;
+        let tl = ticket(&ctx, &f.workspace, &lone).await;
+        ticket_links::ActiveModel {
+            workspace_id: Set(wid.get()),
+            from_id: Set(ts2.id),
+            to_id: Set(tl.id),
+            kind: Set("blocks".into()),
+            ..Default::default()
+        }
+        .insert(&ctx.db)
+        .await
+        .unwrap();
+
+        // Tertutup: baris epic + batang rentang anak + progres 50%; anak tersembunyi; panah dari
+        // epic (mewakili anak) ke tiket tanpa epic.
+        let page = request
+            .get("/w/acme/p/KSR/roadmap?group=epic")
+            .add_cookie(f.cookie.clone())
+            .await;
+        assert_eq!(page.status_code(), 200);
+        let html = page.text();
+        assert_css_exists(&html, "[data-roadmap-group] a[aria-current='true'][href*='group=epic']");
+        assert_css_exists(
+            &html,
+            &format!("[data-tl-row='{epic}'][data-epic-row] .app-tl-bar[data-epic='span']"),
+        );
+        assert!(html.contains("progres 50%"), "{html}");
+        assert_css_exists(
+            &html,
+            &format!("[data-tl-row='{epic}'] [data-epic-toggle][aria-expanded='false'][href*='open={epic}']"),
+        );
+        assert_css_not_exists(&html, &format!("[data-tl-row='{s2}']"));
+        assert_css_exists(&html, &format!("[data-tl-row='{lone}']"));
+        assert!(html.contains("Tanpa epic"));
+        assert_css_exists(&html, ".app-tl-ov svg path[marker-end]");
+        assert!(html.contains(&format!("{s2} memblokir {lone}")), "panah dari epic");
+
+        // Dibuka: anak menjorok, tombol berubah jadi tutup.
+        let html = request
+            .get(&format!("/w/acme/p/KSR/roadmap?group=epic&open={epic}"))
+            .add_cookie(f.cookie.clone())
+            .await
+            .text();
+        assert_css_exists(&html, &format!("[data-tl-row='{s2}'][data-level='1']"));
+        assert_css_exists(
+            &html,
+            &format!("[data-tl-row='{epic}'] [data-epic-toggle][aria-expanded='true']"),
+        );
+        assert_css_exists(&html, ".app-tl-ov svg path[marker-end]");
+        // Buka semua + cari tetap mempertahankan mode epic.
+        let html = request
+            .get("/w/acme/p/KSR/roadmap?group=epic&open=all&q=struk")
+            .add_cookie(f.cookie.clone())
+            .await
+            .text();
+        assert_css_exists(&html, &format!("[data-tl-row='{s2}']"));
+        assert_css_not_exists(&html, &format!("[data-tl-row='{lone}']"));
+        // Mode sprint tetap seperti sebelumnya.
+        let html = request
+            .get("/w/acme/p/KSR/roadmap")
+            .add_cookie(f.cookie.clone())
+            .await
+            .text();
+        assert_css_exists(&html, "[data-roadmap-group] a[aria-current='true'][href*='zoom=week']");
+        assert_css_exists(&html, &format!("[data-tl-row='{s2}']"));
+    })
+    .await;
+}

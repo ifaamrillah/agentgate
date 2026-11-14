@@ -3,8 +3,11 @@
     "Tanpa sprint", bar (progres stage; putus-putus = belum mulai, tanggal dari estimasi; merah =
     melewati tenggat), penanda hari ini dan target rilis, panah "blocks" (SVG). static/js/
     timeline.js menggulir ke hari ini.
-    Variabel: project, views, views_action, return_to, base, backlog, q, zoom, zooms, total,
-    shown, rows, track, height, months, days, bands, releases, today_x, arrows. -#}
+    Mode epic (R3, `?group=epic`): baris epic dengan batang rentang anak + progres, tombol
+    buka/tutup anak (`?open=`), grup "Tanpa epic"; panah blocks anak tertutup ditarik dari epic.
+    Variabel: project, views, views_action, return_to, base, backlog, q, zoom, zooms, group,
+    groups, open, expand_all, collapse_all, total, shown, rows, track, height, months, days,
+    bands, releases, today_x, arrows. -#}
 {% extends "layouts/project.html" %}
 {% block title %}{{ t(key="project-view-roadmap", lang="id") }} · {{ project.name }}{% endblock title %}
 {% block crumb %}{{ <crumb label={t(key="project-view-roadmap", lang="id")}/> }}{% endblock crumb %}
@@ -13,10 +16,13 @@
 {% block main %}
 <form class="app-fr" method="get" action="{{ base }}" role="search">
   <input type="hidden" name="zoom" value="{{ zoom }}">
+  {%- if group == "epic" %}<input type="hidden" name="group" value="epic">{% if open %}<input type="hidden" name="open" value="{{ open }}">{% endif %}{% endif %}
   <label class="app-fsearch">{{ icon(name="search") }}<input type="search" name="q" value="{{ q }}" placeholder="{{ t(key="roadmap-search", lang="id") }}" aria-label="{{ t(key="roadmap-search", lang="id") }}"></label>
   {%- if q %}<a class="app-fclear" href="{{ base }}?zoom={{ zoom }}">{{ icon(name="x") }}{{ t(key="table-filter-clear", lang="id") }}</a>{% endif %}
   <span data-grow></span>
   <span class="app-hint">{{ t(key="roadmap-count", lang="id", shown=shown, total=total) }}</span>
+  <nav class="app-seg" aria-label="{{ t(key="roadmap-group", lang="id") }}" data-roadmap-group>{% for g in groups %}<a href="{{ g.href }}"{% if g.current %} aria-current="true"{% endif %}>{{ t(key=g.label, lang="id") }}</a>{% endfor %}</nav>
+  {%- if group == "epic" %}<a class="app-link app-hint" href="{% if open == "all" %}{{ collapse_all }}{% else %}{{ expand_all }}{% endif %}" data-roadmap-expand>{% if open == "all" %}{{ t(key="roadmap-collapse-all", lang="id") }}{% else %}{{ t(key="roadmap-expand-all", lang="id") }}{% endif %}</a>{% endif %}
   <nav class="app-seg" aria-label="{{ t(key="roadmap-zoom", lang="id") }}">{% for z in zooms %}<a href="{{ z.href }}"{% if z.current %} aria-current="true"{% endif %}>{{ t(key=z.label, lang="id") }}</a>{% endfor %}</nav>
   {{ <button label={t(key="roadmap-today", lang="id")} icon="target" variant="outline" size="sm" attrs="data-tl-today"/> }}
 </form>
@@ -45,13 +51,17 @@
       </div>
       {%- for r in rows %}
       {%- if r.group is not none %}
-      <div class="app-tl-r" data-group><div class="app-tl-lab">{{ icon(name="chevron-down") }}<span>{% if r.group %}{{ r.group }}{% else %}{{ t(key="roadmap-no-sprint", lang="id") }}{% endif %}</span></div><div class="app-tl-trk" style="width: {{ track }}px"></div></div>
+      <div class="app-tl-r" data-group><div class="app-tl-lab">{{ icon(name="chevron-down") }}<span>{% if r.group %}{{ r.group }}{% elif group == "epic" %}{{ t(key="roadmap-no-epic", lang="id") }}{% else %}{{ t(key="roadmap-no-sprint", lang="id") }}{% endif %}</span></div><div class="app-tl-trk" style="width: {{ track }}px"></div></div>
       {%- else %}
       {%- set tk = r.ticket %}
-      <div class="app-tl-r" data-tl-row="{{ tk.code }}">
-        <div class="app-tl-lab">{{ <type_icon icon={tk.ticket_type.icon} color={tk.ticket_type.color} label={tk.ticket_type.name}/> }}<span class="app-code">{{ tk.code }}</span><a href="{{ tk.href }}" title="{{ tk.title }}" data-hide-sm>{{ tk.title }}</a>{% if tk.assignee %}<span data-push>{{ <avatar initials={tk.assignee.initials} color={tk.assignee.color} label={tk.assignee.name} size="sm"/> }}</span>{% endif %}</div>
+      <div class="app-tl-r" data-tl-row="{{ tk.code }}"{% if r.level %} data-level="{{ r.level }}"{% endif %}{% if group == "epic" and r.epic %} data-epic-row{% if r.open %} data-open{% endif %}{% endif %}>
+        <div class="app-tl-lab">
+          {%- if r.toggle %}<a class="app-tl-tog" href="{{ r.toggle }}" aria-expanded="{% if r.open %}true{% else %}false{% endif %}" aria-label="{% if r.open %}{{ t(key="roadmap-epic-open", lang="id", code=tk.code) }}{% else %}{{ t(key="roadmap-epic-closed", lang="id", code=tk.code, count=r.count) }}{% endif %}" data-epic-toggle>{% if r.open %}{{ icon(name="chevron-down") }}{% else %}{{ icon(name="chevron-right") }}{% endif %}</a>{% elif group == "epic" and not r.level %}<span class="app-tl-tog" aria-hidden="true"></span>{% endif %}
+          {{ <type_icon icon={tk.ticket_type.icon} color={tk.ticket_type.color} label={tk.ticket_type.name}/> }}<span class="app-code">{{ tk.code }}</span><a href="{{ tk.href }}" title="{{ tk.title }}" data-hide-sm data-ticket-peek>{{ tk.title }}</a>{% if group == "epic" and r.epic and r.count %}<span class="app-hint" data-epic-count>{{ t(key="roadmap-epic-children", lang="id", count=r.count) }}</span>{% endif %}{% if tk.assignee %}<span data-push>{{ <avatar initials={tk.assignee.initials} color={tk.assignee.color} label={tk.assignee.name} size="sm"/> }}</span>{% endif %}</div>
         <div class="app-tl-trk" style="width: {{ track }}px">
-          <a class="app-tl-bar" href="{{ tk.href }}" style="left: {{ r.left }}px; width: {{ r.width }}px"{% if r.estimated %} data-est{% endif %}{% if r.late %} data-late{% endif %}{% if r.epic %} data-epic{% endif %} title="{{ r.tip }}" aria-label="{{ r.tip }}">{% if r.progress %}<b style="width: {{ r.progress }}%"></b>{% endif %}{% if not r.epic %}<span>{{ tk.code }}</span>{% endif %}</a>
+          {%- if r.bar %}
+          <a class="app-tl-bar" href="{{ tk.href }}" style="left: {{ r.left }}px; width: {{ r.width }}px"{% if r.estimated %} data-est{% endif %}{% if r.late %} data-late{% endif %}{% if r.epic %} data-epic{% if group == "epic" %}="span"{% endif %}{% endif %} title="{{ r.tip }}" aria-label="{{ r.tip }}">{% if r.progress %}<b style="width: {{ r.progress }}%"></b>{% endif %}{% if not r.epic %}<span>{{ tk.code }}</span>{% elif group == "epic" %}<span>{{ r.progress }}%</span>{% endif %}</a>
+          {%- elif r.epic %}<span class="app-tl-nobar app-hint" title="{{ r.tip }}">{{ t(key="roadmap-epic-no-dates", lang="id") }}</span>{% endif %}
         </div>
       </div>
       {%- endif %}

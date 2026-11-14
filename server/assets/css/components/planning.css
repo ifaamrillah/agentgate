@@ -126,7 +126,17 @@
   .app-tl-ov svg { position: absolute; inset: 0; overflow: visible; }
   .app-tl-ov svg path { fill: none; stroke: var(--ag-muted); stroke-width: 1.3; }
   .app-tl-ov svg marker path { fill: var(--ag-muted); stroke: none; }
-  @media (max-width: 899px) { .app-tl { --tl-lab: 160px; } }
+  /* Roadmap per epic (R3): batang epic tebal dengan progres, anak menjorok. */
+  .app-tl-bar[data-epic="span"] { top: 7px; height: 22px; border-radius: 5px; border: 1px solid var(--ag-accent); background: var(--ag-accent-soft); color: var(--ag-accent-fg); }
+  .app-tl-bar[data-epic="span"] > b { opacity: .55; }
+  .app-tl-r[data-epic-row] .app-tl-lab a[data-ticket-peek] { font-weight: 500; }
+  .app-tl-r[data-level="1"] .app-tl-lab { padding-left: 40px; }
+  .app-tl-tog { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; flex: none; border-radius: 4px; color: var(--ag-muted); }
+  .app-tl-tog:hover { background: var(--ag-hover); color: var(--ag-fg); }
+  .app-tl-tog:focus-visible { outline: 2px solid var(--ag-accent); outline-offset: 1px; }
+  .app-tl-tog svg { width: 14px; height: 14px; }
+  .app-tl-nobar { position: absolute; top: 10px; left: 8px; font-size: 11.5px; white-space: nowrap; }
+  @media (max-width: 899px) { .app-tl { --tl-lab: 160px; } .app-tl-r[data-level="1"] .app-tl-lab { padding-left: 28px; } }
 
   /* Kalender bulan. */
   .app-cal-mon { display: inline-flex; align-items: center; gap: 4px; }
