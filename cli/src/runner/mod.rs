@@ -42,8 +42,8 @@ use crate::{
     ui,
 };
 
-/// Interval heartbeat WebSocket (server: online = heartbeat < 60 dtk).
-const HEARTBEAT: u64 = 25;
+/// Interval heartbeat WebSocket (server: online = heartbeat < `ONLINE_SECONDS` = 90 dtk).
+const HEARTBEAT: u64 = agentgate_core::runner::HEARTBEAT_SECONDS;
 /// Interval polling event tanpa WebSocket.
 const POLL: u64 = 5;
 

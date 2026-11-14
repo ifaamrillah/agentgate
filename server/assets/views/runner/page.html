@@ -47,8 +47,30 @@
       <b>{{ r.name }}</b>
       <small>{% if panel == "team" %}{{ r.owner.name }} · {% endif %}{{ r.os }} · {{ r.client }} · agentgate {{ r.version }}{% if r.last_seen %} · {{ t(key="runner-last-seen", lang="id", at=r.last_seen) }}{% endif %}</small>
     </span>
+    {%- if r.team %}<span data-team-runner>{{ <badge label={t(key="runner-team-badge", lang="id")} variant="info"/> }}</span>{% endif %}
     {{ <live_dot state={r.state} label={t(key=r.state_key, lang="id")} attrs="data-runner-state"/> }}
     {%- if r.job %}<a class="app-link app-code" href="{{ r.job.href }}">{{ r.job.ticket }}</a>{% endif %}
+    {%- if panel == "team" and r.team_href %}
+    <span class="app-lrow-acts">{{ <button label={t(key="runner-team-settings", lang="id")} icon="settings" variant="outline" size="sm" dialog={"team-" ~ r.id} attrs="data-team-settings"/> }}</span>
+    {% <dialog id={"team-" ~ r.id} title={t(key="runner-team-settings-title", lang="id", name=r.name)} description={t(key="runner-team-settings-description", lang="id")} icon="users"> %}
+    <form method="post" action="{{ r.team_href }}" data-team-form>
+      <section><div class="app-stack-v" data-gap="sm">
+      {% <setting_row title={t(key="runner-team-flag", lang="id")} description={t(key="runner-team-flag-hint", lang="id")}> %}<input type="checkbox" class="app-switch" role="switch" name="team" value="1" aria-label="{{ t(key="runner-team-flag", lang="id") }}"{% if r.team %} checked{% endif %}>{% </setting_row> %}
+      {% <setting_row title={t(key="runner-auto-claim", lang="id")} description={t(key="runner-team-auto-hint", lang="id")}> %}<input type="checkbox" class="app-switch" role="switch" name="auto_claim" value="1" aria-label="{{ t(key="runner-auto-claim", lang="id") }}"{% if r.auto_claim or not r.team %} checked{% endif %}>{% </setting_row> %}
+      {% <setting_row title={t(key="runner-max-parallel", lang="id")} description={t(key="runner-max-parallel-hint", lang="id")}> %}
+        <select class="app-input" name="max_parallel" aria-label="{{ t(key="runner-max-parallel", lang="id") }}">
+          <option value="">{{ t(key="runner-unlimited", lang="id") }}</option>
+          {%- for n in ["1", "2", "3", "4", "5", "8"] %}<option value="{{ n }}"{% if r.max_parallel == n %} selected{% endif %}>{{ n }}</option>{% endfor %}
+        </select>
+      {% </setting_row> %}
+      </div></section>
+      <footer>
+        <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+        {{ <button label={t(key="action-save", lang="id")} type="submit"/> }}
+      </footer>
+    </form>
+    {% </dialog> %}
+    {%- endif %}
     {%- if r.revoke_href %}
     <span class="app-lrow-acts">{{ <button label={t(key="runner-revoke", lang="id")} icon="plug" variant="destructive" size="sm" dialog={"revoke-" ~ r.id}/> }}</span>
     {% <dialog id={"revoke-" ~ r.id} title={t(key="runner-revoke-title", lang="id", name=r.name)} description={t(key="runner-revoke-description", lang="id")} icon="plug" tone="danger"> %}

@@ -351,6 +351,7 @@ async fn runner_views(
             &tenant.workspace.slug,
             tenant.user.id,
             r.user_id == tenant.user.id || admin,
+            admin,
         ));
     }
     Ok(out)
@@ -431,7 +432,9 @@ async fn page(
     Path((_, panel)): Path<(String, String)>,
     Query(query): Query<Vec<(String, String)>>,
 ) -> Result<Response> {
-    if !PANELS.iter().any(|(k, ..)| *k == panel) {
+    // Panel Runner tim (semua runner + pengaturan tim) hanya Owner/Admin bawaan (R1).
+    let admin = project_access::is_admin_everywhere(&tenant.role);
+    if !PANELS.iter().any(|(k, ..)| *k == panel) || (panel == "team" && !admin) {
         return Err(Error::NotFound);
     }
     let (session, flash) = flash::take(session);
@@ -444,6 +447,7 @@ async fn page(
     let base = base(&slug);
     let subnav: Vec<NavItem> = PANELS
         .iter()
+        .filter(|(key, ..)| *key != "team" || admin)
         .map(|(key, label, icon, desc)| {
             let mut item = NavItem::link(key, label, icon, &format!("{base}/{key}")).describe(desc);
             item.current = *key == panel;
@@ -689,6 +693,38 @@ async fn save_prefs(
     let session = flash::set(session, &Flash::success(views::runner::FLASH_PREFS))?;
     let to = format!("{}/settings", base(&tenant.workspace.slug));
     Ok((session, format::redirect(&to)?).into_response())
+}
+
+#[derive(Debug, Default, Deserialize)]
+pub(super) struct TeamForm {
+    #[serde(default)]
+    team: Option<String>,
+    #[serde(default)]
+    auto_claim: Option<String>,
+    #[serde(default)]
+    max_parallel: String,
+}
+
+/// Pengaturan runner tim (Owner/Admin bawaan): runner tim, auto-ambil, batas paralel.
+#[debug_handler]
+async fn save_team_runner(
+    State(ctx): State<AppContext>,
+    tenant: Tenant,
+    session: Session,
+    RequestId(request_id): RequestId,
+    id: IdOr404<runners::Entity>,
+    Form(form): Form<TeamForm>,
+) -> Result<Response> {
+    let input = svc::TeamRunnerSettings {
+        team: form.team.is_some(),
+        auto_claim: form.auto_claim.is_some(),
+        max_parallel: form.max_parallel.trim().parse::<i32>().ok(),
+    };
+    let r = svc::update_team_runner(&ctx.db, &acting(&tenant, request_id), id.id, input)
+        .await
+        .map(|_| ());
+    let to = format!("{}/team", base(&tenant.workspace.slug));
+    done(session, r, views::runner::FLASH_TEAM_SAVED, &to)
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -1024,6 +1060,7 @@ pub fn routes() -> Routes {
         .add("/w/{slug}/runner", get(index))
         .add("/w/{slug}/runner/prefs", post(save_prefs))
         .add("/w/{slug}/runner/runners/{id}/revoke", post(revoke_runner))
+        .add("/w/{slug}/runner/runners/{id}/team", post(save_team_runner))
         .add("/w/{slug}/runner/permissions/{id}", post(decide_permission))
         .add("/w/{slug}/runner/{panel}", get(page))
         .add("/w/{slug}/jobs/{id}", get(show))

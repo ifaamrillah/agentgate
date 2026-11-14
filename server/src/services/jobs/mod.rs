@@ -879,6 +879,85 @@ pub async fn revoke_runner(
     Ok(())
 }
 
+/// Pengaturan runner tim (R1), hanya Owner/Admin bawaan.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TeamRunnerSettings {
+    /// Runner tim: mengambil job dengan pengaturan per runner, bukan pengaturan pribadi pemilik.
+    pub team: bool,
+    pub auto_claim: bool,
+    /// Batas job paralel (1–20); `None` = tanpa batas.
+    pub max_parallel: Option<i32>,
+}
+
+/// Ubah status runner tim. Menandai runner sebagai runner tim menyalakan auto-ambil (default
+/// runner tim); melepasnya mematikan auto-ambil per runner (runner kembali memakai pengaturan
+/// pribadi pemiliknya, default mati). Audit `runner.updated` bila ada yang berubah.
+///
+/// # Errors
+///
+/// `NotFound` (runner tidak ada/dicabut, atau pelaku bukan Owner/Admin bawaan), error database.
+pub async fn update_team_runner(
+    db: &DatabaseConnection,
+    acting: &Acting<'_>,
+    runner_id: Uuid,
+    mut input: TeamRunnerSettings,
+) -> Result<runners::Model, TicketFailure> {
+    if !crate::models::project_access::is_admin_everywhere(acting.role) {
+        return Err(TicketFailure::NotFound);
+    }
+    use sea_orm::QuerySelect;
+    let wid = acting.workspace_id();
+    let txn = db.begin().await?;
+    let runner = runners::Entity::find_by_id(runner_id)
+        .filter(runners::Column::WorkspaceId.eq(wid.get()))
+        .filter(runners::Column::RevokedAt.is_null())
+        .lock_exclusive()
+        .one(&txn)
+        .await?
+        .ok_or(TicketFailure::NotFound)?;
+    if input.team && !runner.team {
+        input.auto_claim = true;
+    }
+    if !input.team {
+        input.auto_claim = false;
+        input.max_parallel = None;
+    }
+    input.max_parallel = input.max_parallel.filter(|n| (1..=20).contains(n));
+    let before = TeamRunnerSettings {
+        team: runner.team,
+        auto_claim: runner.auto_claim,
+        max_parallel: runner.max_parallel,
+    };
+    if before == input {
+        txn.commit().await?;
+        return Ok(runner);
+    }
+    let mut m = runner.into_active_model();
+    m.team = Set(input.team);
+    m.auto_claim = Set(input.auto_claim);
+    m.max_parallel = Set(input.max_parallel);
+    let runner = m.update(&txn).await?;
+    audit::record(
+        &txn,
+        AuditEntry {
+            workspace_id: wid,
+            actor_id: Some(acting.user.id),
+            action: AuditAction::RunnerUpdated,
+            subject: (AuditSubject::Runner, runner.id),
+            changes: serde_json::json!({
+                "name": runner.name,
+                "team": { "from": before.team, "to": input.team },
+                "auto_claim": { "from": before.auto_claim, "to": input.auto_claim },
+                "max_parallel": { "from": before.max_parallel, "to": input.max_parallel },
+            }),
+            request_id: acting.request_id.clone(),
+        },
+    )
+    .await?;
+    txn.commit().await?;
+    Ok(runner)
+}
+
 /// Kunci persona yang disebut `@agent-<kunci>` di teks (unik, urut kemunculan, maks. 3).
 #[must_use]
 pub fn agent_mentions(body: &str) -> Vec<String> {
