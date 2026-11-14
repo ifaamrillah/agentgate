@@ -166,3 +166,19 @@ api-clients = Client AI dan runner
 api-clients-hint = Codex, Gemini CLI, Cursor, OpenCode, dan Copilot CLI memakai MCP dan runner, bukan token API.
 api-clients-link = Hubungkan client
 api-example = Contoh request
+
+## R1: rate limit per token, aktifkan ulang webhook
+api-col-limit = Rate limit
+api-limit-value = { $n }/menit
+api-limit-custom = khusus
+api-limit-edit = Limit
+api-limit-title = Rate limit { $name }
+api-limit-description = Default { $default } request per menit. Hanya Owner/Admin yang bisa mengubahnya.
+api-limit-label = Request per menit
+api-limit-range = 60–6.000. Kosongkan untuk kembali ke default.
+api-token-rate-limit-invalid = Rate limit harus angka 60–6.000.
+api-flash-token-limit = Rate limit token disimpan.
+api-hook-auto-off-title = Webhook { $host } dinonaktifkan otomatis
+api-hook-auto-off-body = Pengiriman gagal { $n } kali berturut-turut. Periksa tujuan webhook, lalu aktifkan ulang.
+api-hook-reenable = Aktifkan ulang
+api-hook-reenable-admin = Hanya Owner/Admin yang bisa mengaktifkan ulang.

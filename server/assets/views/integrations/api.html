@@ -19,7 +19,22 @@
     <td data-hide="sm"><span class="app-chips">{% for s in r.scopes %}{{ <badge label={s} variant="neutral" code={true}/> }}{% endfor %}</span></td>
     <td data-hide="sm"><span class="app-hint">{% if r.used %}{{ t(key=r.used.key, lang="id", n=r.used.n) }}{% else %}{{ t(key="api-never-used", lang="id") }}{% endif %}</span></td>
     <td>{% if r.expired %}{{ <badge label={t(key="api-expired", lang="id")} variant="destructive"/> }}{% elif r.expires %}<span class="{% if r.expiring %}text-ag-warn{% else %}app-hint{% endif %}">{{ r.expires }}</span>{% else %}<span class="app-hint">{{ t(key="api-expiry-never", lang="id") }}</span>{% endif %}</td>
-    <td data-align="right">
+    <td data-hide="sm"><span class="app-hint" data-token-limit="{{ r.rate_limit }}">{{ t(key="api-limit-value", lang="id", n=r.rate_limit) }}{% if r.rate_limit_custom %} · {{ t(key="api-limit-custom", lang="id") }}{% endif %}</span></td>
+    <td data-align="right"><span class="app-lrow-acts">
+      {%- if r.limit_action %}
+      {{ <button label={t(key="api-limit-edit", lang="id")} variant="outline" size="sm" icon="gauge" dialog={"limit-" ~ r.id} attrs="data-limit-edit"/> }}
+      {% <dialog id={"limit-" ~ r.id} title={t(key="api-limit-title", lang="id", name=r.name)} description={t(key="api-limit-description", lang="id", default=rate_limit)} icon="gauge"> %}
+      <form method="post" action="{{ r.limit_action }}" data-limit-form>
+        <section><div class="app-stack-v" data-gap="sm">
+          {{ <field id={"limit-input-" ~ r.id} name="rate_limit" type="number" label={t(key="api-limit-label", lang="id")} value={r.limit_input} placeholder={rate_limit ~ ""} hint={t(key="api-limit-range", lang="id")}/> }}
+        </div></section>
+        <footer>
+          <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+          {{ <button label={t(key="action-save", lang="id")} type="submit"/> }}
+        </footer>
+      </form>
+      {% </dialog> %}
+      {%- endif %}
       {{ <button label={t(key="api-revoke", lang="id")} variant="destructive" size="sm" dialog={"revoke-" ~ r.id} attrs="data-revoke"/> }}
       {% <dialog id={"revoke-" ~ r.id} title={t(key="api-revoke-title", lang="id", name=r.name)} description={t(key="api-revoke-description", lang="id")} icon="key-off" tone="danger"> %}
       <form method="post" action="{{ r.revoke_action }}">
@@ -29,7 +44,7 @@
         </footer>
       </form>
       {% </dialog> %}
-    </td>
+    </span></td>
   </tr>
   {%- endfor %}
   {% </datatable> %}
@@ -74,6 +89,17 @@
 {% </dialog> %}
 {%- endif %}
 {%- elif panel == "hooks" %}
+{%- for fh in failing_hooks %}
+<div class="alert" data-variant="warn" role="alert" data-hook-failing="{{ fh.id }}">
+  {{ icon(name="alert-triangle") }}
+  <h2>{{ t(key="api-hook-auto-off-title", lang="id", host=fh.host) }}</h2>
+  <section><p>{{ t(key="api-hook-auto-off-body", lang="id", n=fh.failures) }}</p>
+  {%- if can_reenable %}
+  <form method="post" action="{{ fh.toggle_action }}"><input type="hidden" name="active" value="1">{{ <button label={t(key="api-hook-reenable", lang="id")} icon="player-play" variant="outline" size="sm" type="submit" attrs="data-reenable"/> }}</form>
+  {%- else %}<p class="app-hint">{{ t(key="api-hook-reenable-admin", lang="id") }}</p>{% endif %}
+  </section>
+</div>
+{%- endfor %}
 {% <card title={t(key="api-panel-hooks", lang="id")} description={t(key="api-hooks-description", lang="id")} flush={true} action_label={t(key="api-hook-new", lang="id")} action_dialog="hook-new" attrs="data-api-hooks"> %}
   {% <datatable table={table} empty_title={t(key="api-hooks-empty", lang="id")} empty_description={t(key="api-hooks-empty-description", lang="id")} empty_icon="webhook"> %}
   {%- for h in rows %}

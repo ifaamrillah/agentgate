@@ -15,6 +15,7 @@ use crate::models::{
 };
 
 pub const FLASH_TOKEN_REVOKED: &str = "api-flash-token-revoked";
+pub const FLASH_TOKEN_LIMIT: &str = "api-flash-token-limit";
 pub const FLASH_HOOK_CREATED: &str = "api-flash-hook-created";
 pub const FLASH_HOOK_UPDATED: &str = "api-flash-hook-updated";
 pub const FLASH_HOOK_DELETED: &str = "api-flash-hook-deleted";
@@ -28,6 +29,7 @@ pub const FLASH_RESENT: &str = "api-flash-resent";
 pub fn label_keys() -> Vec<String> {
     let mut keys: Vec<String> = [
         FLASH_TOKEN_REVOKED,
+        FLASH_TOKEN_LIMIT,
         FLASH_HOOK_CREATED,
         FLASH_HOOK_UPDATED,
         FLASH_HOOK_DELETED,
@@ -113,11 +115,25 @@ pub struct TokenRow {
     pub expiring: bool,
     pub expired: bool,
     pub revoke_action: String,
+    /// Rate limit efektif (request/menit) dan apakah memakai nilai khusus token (R1).
+    pub rate_limit: i32,
+    pub rate_limit_custom: bool,
+    /// Isi awal input limit: nilai khusus token, kosong bila memakai default.
+    pub limit_input: String,
+    /// Form ubah rate limit (hanya Owner/Admin bawaan).
+    pub limit_action: Option<String>,
 }
 
 impl TokenRow {
     #[must_use]
-    pub fn of(t: &api_tokens::Model, creator: &str, project: &str, base: &str) -> Self {
+    pub fn of(
+        t: &api_tokens::Model,
+        creator: &str,
+        project: &str,
+        base: &str,
+        default_limit: i32,
+        can_set_limit: bool,
+    ) -> Self {
         let now = Utc::now();
         let expires = t
             .expires_at
@@ -136,6 +152,13 @@ impl TokenRow {
             expiring: left.is_some_and(|d| d.num_days() < 14),
             expired: left.is_some_and(|d| d.num_seconds() <= 0),
             revoke_action: format!("{base}/tokens/{}/revoke", t.id),
+            rate_limit: t.rate_limit_per_minute.unwrap_or(default_limit),
+            rate_limit_custom: t.rate_limit_per_minute.is_some(),
+            limit_input: t
+                .rate_limit_per_minute
+                .map(|n| n.to_string())
+                .unwrap_or_default(),
+            limit_action: can_set_limit.then(|| format!("{base}/tokens/{}/limit", t.id)),
         }
     }
 }

@@ -314,3 +314,91 @@ async fn webhooks_are_created_edited_toggled_rotated_and_deleted() {
     })
     .await;
 }
+
+/// R1: Owner/Admin mengatur rate limit per token (60–6.000, audit); token memakai limitnya.
+#[tokio::test]
+async fn owner_sets_rate_limit_per_token_within_bounds() {
+    use agentgate_server::models::{permission::Permission, workspace_members};
+    request::<App, _, _>(|request, ctx| async move {
+        let f = fixture(&request, &ctx).await;
+        let raw = new_token(&request, &f.cookie, &["tiket:baca"], "all").await;
+        let token = api_tokens::Entity::find()
+            .one(&ctx.db)
+            .await
+            .unwrap()
+            .unwrap();
+        let path = format!("/w/acme/settings/api/tokens/{}/limit", token.id);
+        let html = request
+            .get("/w/acme/settings/api/tokens")
+            .add_cookie(f.cookie.clone())
+            .await
+            .text();
+        assert_css_exists(
+            &html,
+            &format!("tr[data-token='{}'] [data-token-limit='600']", token.id),
+        );
+        assert_css_exists(&html, "[data-limit-form]");
+
+        // Di luar batas → ditolak, nilai tetap.
+        for bad in ["10", "100000", "abc"] {
+            let res = request
+                .post(&path)
+                .add_cookie(f.cookie.clone())
+                .form(&[("rate_limit", bad)])
+                .await;
+            assert_eq!(res.status_code(), 303, "{bad}");
+        }
+        let t = api_tokens::Entity::find_by_id(token.id)
+            .one(&ctx.db)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(t.rate_limit_per_minute, None);
+
+        // Pemegang manage_integrations yang bukan Owner/Admin: tidak boleh.
+        let user = crate::support::a_user()
+            .email("integ@example.com")
+            .create(&ctx)
+            .await;
+        let role = crate::support::custom_role(
+            &ctx,
+            &f.workspace,
+            "Integrasi",
+            &[Permission::ManageIntegrations],
+        )
+        .await;
+        workspace_members::ActiveModel::add(&ctx.db, f.workspace.workspace_id(), user.id, role.id)
+            .await
+            .unwrap();
+        let other = crate::support::sign_in_as(&request, &user).await;
+        let res = request
+            .post(&path)
+            .add_cookie(other)
+            .form(&[("rate_limit", "120")])
+            .await;
+        assert_eq!(res.status_code(), 404);
+
+        let res = request
+            .post(&path)
+            .add_cookie(f.cookie.clone())
+            .form(&[("rate_limit", "60")])
+            .await;
+        assert_eq!(res.status_code(), 303);
+        let t = api_tokens::Entity::find_by_id(token.id)
+            .one(&ctx.db)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(t.rate_limit_per_minute, Some(60));
+        let audit = newest_audit_events(&ctx.db, f.workspace.workspace_id(), 1)
+            .await
+            .unwrap();
+        assert_eq!(audit[0].action, "api_token.updated");
+
+        // Limit khusus berlaku: sisa kuota dihitung dari 60.
+        let res = super::get(&request, &raw, "/api/v1/projects").await;
+        assert_eq!(res.status_code(), 200);
+        assert_eq!(res.header("x-ratelimit-remaining"), "59");
+    })
+    .await;
+}
