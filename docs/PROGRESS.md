@@ -18,7 +18,7 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 | M8 Knowledge base | selesai (2026-11-13) | Dokumen project per kelompok/jenis (bawaan + custom), versi + diff + pulihkan, editor md per dokumen, cari; usulan AI (scan ulang, minta AI perbarui, tiket Done, graph di-index ulang, audit mingguan, repo) dengan Tinjau usulan side-by-side (A/R/J/K) dan batalkan; pemilik knowledge + notifikasi kotak masuk; dokumen workspace (berlaku per project/persona), jenis custom, update otomatis; MCP `ag_knowledge` + konteks job + knowledge per persona; CLI `agentgate knowledge pull|status|sync`, backup `init` diunggah ke server (panel drift); komponen `diff_sbs` dan `donut`; 626 tes |
 | M9 Planning & laporan | selesai (2026-11-13) | Backlog & sprint (rencana/mulai/selesaikan dengan pemindahan sisa, kapasitas dari velocity, seret-lepas, log scope per tiket), story point + estimasi AI per stage (draft → tiket, MCP `ag_planning`, minta estimasi, kalibrasi), laporan burndown/burnup/velocity/sprint report/CFD/kalibrasi/cycle time (SVG server-side, cetak/PDF), Roadmap (Gantt sprint/progres/estimasi/rilis/blocks) dan Kalender (tenggat, perkiraan selesai AI, rilis), Rilis + release notes berversi (susun AI, terbitkan, pulihkan, rilis sekarang), Components (modul code graph, pemilik, penerima default), board Scrum (sprint aktif, swimlane penerima/epic, batas WIP), pencarian lanjutan ala JQL + saved filter (pribadi/tim/workspace) + edit massal; 656 tes |
 | M10 Visual | selesai (2026-11-13) | AI Office isometrik A1 live dari job/runner/tiket (kanvas Canvas 2D tanpa PixiJS, denah parametris per project + Ruang rapat/Pantry/Lounge, geser/zoom/pinch/keyboard, mini-map, label, tab ruangan, panel ringkasan/detail dengan log live, approve/reject kembali ke kantor, kustom karakter teraudit); graph viewer berlapis Project → Repo → Modul → File → Fungsi (SVG server-side, sorot tiket dari file berubah job, analisis dampak, filter layer/bahasa, cari); pratinjau mockup HTML di domain sandbox terpisah (token HMAC 1 jam, CSP sandbox, Web/Mobile, versi, bandingkan dengan screenshot QA, approve/revisi); Penghemat token (ringkasan, fitur wajib/opsional dengan toggle teraudit, per tiket, per job; rincian token + biaya + file berubah dari runner, pencatat penghematan di tool MCP); 693 tes |
-| M11 Multi-client & integrasi | belum mulai | |
+| M11 Multi-client & integrasi | selesai (2026-11-14) | Aturan repo v2 untuk 6 client (Claude Code, Codex, Gemini CLI, Cursor, OpenCode, Copilot CLI): config MCP + hook tipis per client, `agentgate hook --client`, adapter runner headless/interaktif + parser JSONL per client, `doctor` 6 client, halaman Hubungkan client; API publik REST `/api/v1` (token `ag_pat_` ber-scope, rate limit 600/mnt, OpenAPI) + webhook keluar (outbox transaksional, HMAC, retry 5×, auto-nonaktif, log pengiriman); Ekspor data ZIP (JSON + Markdown/YAML, worker, 7 hari, audit); Impor CSV wizard 4 langkah (pemetaan otomatis Jira/Trello/Linear, alias kode lama, laporan baris dilewati); Connector Jira Cloud/DC (impor sekali, mirror AG→Jira dari outbox, dua arah lewat polling JQL dengan gate ditegakkan, pemetaan status/field/user, log sinkron); race init htmx JS diperbaiki + tes `node --test`; 786 tes Rust + 8 tes JS |
 | M12 Rilis | belum mulai | |
 
 ## Keputusan teknis (di luar spec)
@@ -191,8 +191,8 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
   yang dipilih). Graph viewer: layout berlapis sederhana (bisa bersilang pada graf padat), maks. 40 node per level.
   Penghemat token: atribusi penghematan ke tiket/job heuristik (job terbuka terakhir pelaku), biaya dalam USD,
   "Token ≈ byte/4". Mockup: screenshot otomatis = evidence screenshot stage (bukan render server), bandingkan memakai
-  screenshot QA terbaru. `markdown.js` dan `md-editor.js` masih memakai pola `htmx.onLoad` saja (bisa terlewat bila
-  htmx memproses body lebih dulu; `office.js` dan `graph-viewer.js` sudah juga memindai dokumen).
+  screenshot QA terbaru. ~~`markdown.js` dan `md-editor.js` masih memakai pola `htmx.onLoad` saja~~ (selesai di M11, juga
+  `combobox.js`/`dialog.js`; tes `bin/tests/js_test.sh`).
 
 - **M9 Planning & laporan (2026-11-13)**: teks tooltip grafik, roadmap, dan kalender serta pesan error JQL ditulis
   bahasa Indonesia langsung di Rust (belum Fluent). Query JQL hanya `AND` (tanpa `OR`/kurung) dan tanpa autocomplete
@@ -201,6 +201,17 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
   Batas WIP hanya ditandai (kolom merah + `n / wip`), tidak ditegakkan. Label kode di batang roadmap yang sangat
   pendek terpotong. Event planning (sprint, rilis, component, saved filter) belum masuk audit log. Burnup memakai
   poin tiket saat ini, bukan poin historis. Komitmen sprint menghitung poin tiket yang sudah selesai sebelum mulai.
+
+- **M11 Multi-client & integrasi (2026-11-14)**: adapter client selain Claude Code hanya diuji dengan binary palsu
+  (format JSONL dari spike); isolasi config global "best effort" di Gemini/Cursor/OpenCode/Copilot; biaya token Codex
+  kosong (tanpa tabel harga); bila hook project Codex tidak dimuat, pembatas hanya sandbox `workspace-write`; parser
+  Copilot dan field usage Cursor/Gemini toleran (belum terverifikasi); plugin OpenCode untuk API V2 tanpa session-start.
+  API: daftar token/webhook disortir di memori, cursor tiket berbasis offset (bukan keyset), kirim ulang hanya untuk
+  webhook aktif; perubahan di luar request (worker/task) menunggu sapuan webhook per menit. Tabel datatable di 390px
+  digulir horizontal (pola lama). Impor CSV sinkron di worker dengan batas 5.000 baris, belum membuat field custom baru.
+  Jira: satu koneksi per workspace (satu pasangan project), dua arah memakai polling (belum webhook Jira masuk),
+  deskripsi ADF ↔ Markdown sederhana, sprint lewat agile API best effort; semua diuji dengan server Jira palsu.
+  Notifikasi M11 (ekspor siap/gagal, webhook nonaktif) hanya in-app.
 
 ## Keputusan sementara (dipakai sampai review akhir pemilik produk)
 
@@ -325,7 +336,40 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 - M10: penghematan token terukur server dicatat per kejadian (`token_savings`) dari tool MCP; RTK dan prefix stabil
   tampil "tidak terukur"; toggle per project hanya fitur opsional (Gaya ringkas, Model per persona).
 
+- M11: notifikasi email/Slack/Teams aktivitas tiket tetap di luar cakupan (spec "Di luar cakupan"); OAuth Google/GitHub
+  sudah selesai di M1. Notifikasi baru M11 hanya in-app.
+- M11: `agentgate init` menulis config untuk keenam client sekaligus (`RULES_VERSION = 2`, satu repo dipakai tim dengan
+  client berbeda); slash command tetap prompt MCP (tanpa file skill per stage). Hook memakai string perintah
+  `agentgate hook <event> --client <c>`; tanpa `--client` runner memakai client default di pengaturan runner web. Codex
+  menerima URL MCP lewat `-c mcp_servers.agentgate.url`; Gemini/Cursor mengabaikan effort; OpenCode `model#effort` hanya
+  bila model diisi.
+- M11: token API bertindak sebagai pembuatnya (izin role tetap dicek) dibatasi scope (`tiket:baca`, `tiket:tulis`,
+  `komentar:tulis`, `laporan:baca`, `knowledge:baca`, `webhook:kelola`) dan project; halaman API & webhook butuh
+  `manage_integrations`; API webhook butuh scope `webhook:kelola` + `manage_integrations` (tanpa itu 404). Token dan
+  secret webhook dirender sekali di respons POST (bukan PRG), secret webhook dibuat otomatis.
+- M11: `outbox_events` (ditulis di transaksi perubahan) = sumber event webhook dan feed mirror Jira; `ping` hanya delivery.
+  Maks. 5 percobaan per delivery, 5 gagal beruntun → webhook nonaktif + notifikasi Owner/Admin; kirim ulang = delivery
+  baru. URL webhook https; IP privat/loopback ditolak kecuali setting dev/test.
+- M11: ekspor hanya Owner/Admin bawaan, ZIP di storage 7 hari, unduhan lewat POST (diaudit); impor CSV memakai
+  `manage_integrations`, kode lama jadi alias, status yang butuh gate → stage awal + peringatan.
+- M11: connector Jira satu per workspace; dua arah menarik perubahan lewat polling JQL (tanpa butuh URL publik); status dari
+  Jira yang melanggar gate ditolak dan status Jira dikembalikan; field lain perubahan terakhir menang; seed dev membuat
+  koneksi **dijeda** agar dev tidak memanggil Jira sungguhan.
+
 ## Perlu dari user (dikumpulkan untuk akhir)
+
+- M11: verifikasi adapter dengan client asli (terpasang + login): Codex (`.codex/` project tetap dimuat dengan
+  `--ignore-user-config`? `-a never` di exec? timeout hook), Gemini (hook jalan dengan `--skip-trust`? sub-field `stats`,
+  `/mcp auth agentgate`), Cursor (nama binary `agent`/`cursor-agent`, field usage), OpenCode V2 (API plugin, key
+  `mcp.servers`), Copilot (`--trust-folder`, format JSONL, `modifiedArgs`, `~/.copilot/mcp-config.json`), dan perintah
+  login di halaman Hubungkan. Juga keputusan apakah Gemini CLI tetap didukung (digantikan Antigravity CLI).
+- M11: kredensial Jira asli untuk uji nyata (site Jira Cloud + email + API token, dan/atau Jira Data Center + PAT) dengan
+  project uji; konfirmasi satu koneksi per workspace cukup dan polling 5 menit untuk dua arah.
+- M11: setujui kebijakan webhook (retry 5×, auto-nonaktif setelah 5 gagal beruntun) dan rate limit API 600/menit; pastikan
+  `public_base_url` produksi benar (dipakai halaman Dokumentasi API).
+- M11: tabel harga per model bila biaya token Codex/Gemini/Cursor perlu tampil.
+- Disk host: sempat tersisa ±12 GB (bahkan penuh) saat M11 berjalan; setelah worktree ditutup ±88 GB (volume `agentgate-rs-target-main` ±115 GB; build gagal sekali karena disk
+  penuh). Worktree M11 sudah ditutup; pertimbangkan `cargo clean` berkala atau membersihkan build cache Docker.
 
 - M10: konfirmasi PixiJS tidak wajib (AI Office memakai Canvas 2D, ringan dan tanpa dependensi); batas online
   runner 60 dtk vs 2 menit di spec; kurs USD → Rupiah bila biaya token perlu tampil dalam Rupiah; apakah antrean job
@@ -412,3 +456,8 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
   Dilewati bila workspace sudah punya data penghematan. Buka `/w/pt-contoh/office`, `/w/pt-contoh/p/KSR/settings/tokens`,
   `/w/pt-contoh/p/KSR/graph/viewer`, dan tab Artifact KSR-11. Pratinjau mockup harus dibuka lewat
   `http://localhost:5150` (bukan `127.0.0.1`), karena `frame-ancestors` domain pratinjau memakai origin aplikasi.
+- Seed dev M11: `seed_jira` (koneksi Jira Cloud contoh SR ↔ KSR, dua arah, **dijeda**, status Blocked belum dipetakan,
+  8 tautan, 12 log) dan `seed_integrations` (2 token API, 2 webhook + 8 log pengiriman, 1 ekspor siap). Buka
+  `/w/pt-contoh/settings/{api,jira,export,import-csv}`. Uji API: buat token di halaman API lalu
+  `curl -H "Authorization: Bearer ag_pat_…" http://localhost:5150/api/v1/tickets?project=KSR`. Tes JS: `bin/tests/js_test.sh`
+  (butuh node ≥ 18 di host). Screenshot Playwright dari npm di scratchpad (`npm i playwright`).
