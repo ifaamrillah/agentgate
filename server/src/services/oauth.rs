@@ -529,6 +529,11 @@ pub async fn exchange_code(
         || row.redirect_uri != redirect_uri
         || !pkce_ok
     {
+        // Satu percobaan gagal membatalkan kode (M12): pemegang kode curian tidak bisa
+        // menebak-nebak verifier/redirect sampai kode kedaluwarsa. Client asli cukup mengulang
+        // otorisasi. Grant tidak dicabut (beda dengan kode dipakai ulang).
+        oauth_codes::Entity::delete_by_id(row.id).exec(&txn).await?;
+        txn.commit().await?;
         return Err(INVALID_GRANT);
     }
     let mut used = row.into_active_model();

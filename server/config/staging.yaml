@@ -41,6 +41,10 @@ server:
         # POST ke /auth/{provider} yang dijawab 303 ke provider, dan Chrome menerapkan
         # form-action juga pada redirect setelah submit form.
         Content-Security-Policy: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self' https://accounts.google.com https://github.com; frame-ancestors 'none'"
+        # M12: URL aplikasi (kode tiket, token di query) tidak bocor lewat Referer ke origin lain;
+        # fitur perangkat yang tidak dipakai dimatikan untuk semua frame.
+        Referrer-Policy: "same-origin"
+        Permissions-Policy: "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
 
 workers:
   mode: BackgroundQueue

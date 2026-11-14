@@ -58,6 +58,8 @@ const SEED_PROJECT: (&str, &str) = ("KSR", "Kasir Online");
 
 /// Semua tabel yang dikosongkan hook `truncate`; tabel baru didaftarkan di sini.
 const TRUNCATE_TABLES: &[&str] = &[
+    "ip_rate_limits",
+    "system_backups",
     "users",
     "user_tokens",
     "login_throttles",
