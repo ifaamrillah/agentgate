@@ -753,6 +753,53 @@ async fn events_announce_claimed_jobs_to_the_runner() {
     .await;
 }
 
+/// M12: perubahan job membangunkan pendengar realtime lewat trigger `pg_notify` (bukan polling),
+/// hanya dengan id workspace job itu.
+#[tokio::test]
+async fn job_changes_wake_realtime_listeners_via_listen_notify() {
+    request::<App, _, _>(|request, ctx| async move {
+        let hub = agentgate_server::services::realtime::Hub::of(&ctx).expect("hub terpasang");
+        let f = fixture(&request, &ctx).await;
+        let mut rx = hub.subscribe(f.workspace.id);
+        let mut other = hub.subscribe(uuid::Uuid::now_v7());
+        // Tunggu listener tersambung sebelum ada perubahan.
+        for _ in 0..50 {
+            if hub.stats().connected {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        }
+        assert!(hub.stats().connected, "listener tersambung");
+        let (job, token) = ticket_in_dev(&request, &ctx, &f).await;
+        let got = tokio::time::timeout(std::time::Duration::from_secs(3), rx.recv())
+            .await
+            .expect("notifikasi < 3 dtk")
+            .unwrap();
+        assert_eq!(got, f.workspace.id);
+        // Klaim (UPDATE jobs) juga membangunkan.
+        while rx.try_recv().is_ok() {}
+        let (status, _) = post_json(
+            &request,
+            &token,
+            None,
+            &format!("/api/cli/jobs/{job}/claim"),
+            &json!({}),
+        )
+        .await;
+        assert_eq!(status, 200);
+        let got = tokio::time::timeout(std::time::Duration::from_secs(3), rx.recv())
+            .await
+            .expect("notifikasi klaim")
+            .unwrap();
+        assert_eq!(got, f.workspace.id);
+        assert!(hub.stats().received >= 2);
+        assert_eq!(hub.stats().listeners, 2);
+        // Workspace lain tidak dibangunkan.
+        assert!(other.try_recv().is_err());
+    })
+    .await;
+}
+
 #[tokio::test]
 async fn agent_mention_queues_a_comment_job_for_the_author() {
     request::<App, _, _>(|request, ctx| async move {

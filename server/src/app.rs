@@ -91,6 +91,12 @@ impl Hooks for App {
 
     /// Tes memakai storage in-memory (rules §8): cepat dan tidak meninggalkan file.
     async fn after_context(ctx: AppContext) -> Result<AppContext> {
+        // Hub realtime LISTEN/NOTIFY (M12): satu per proses; listener baru dibuka saat
+        // pendengar pertama mendaftar.
+        ctx.shared_store
+            .insert(std::sync::Arc::new(crate::services::realtime::Hub::new(
+                ctx.db.get_postgres_connection_pool().clone(),
+            )));
         if ctx.environment == Environment::Test {
             let storage = loco_rs::storage::Storage::single(loco_rs::storage::drivers::mem::new());
             return Ok(ctx.into_builder().storage(storage.into()).build());

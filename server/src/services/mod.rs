@@ -19,6 +19,7 @@ pub mod office;
 pub mod personas;
 pub mod planning;
 pub mod projects;
+pub mod realtime;
 pub mod skills;
 pub mod tickets;
 pub mod tokens;
