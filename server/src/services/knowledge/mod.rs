@@ -16,6 +16,7 @@
 pub mod catalog;
 pub mod context;
 pub mod docs;
+pub mod pr;
 pub mod proposals;
 pub mod runs;
 pub mod search;

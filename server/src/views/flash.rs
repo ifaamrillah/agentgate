@@ -9,6 +9,8 @@ use serde::{Deserialize, Serialize};
 pub enum FlashKind {
     Info,
     Success,
+    /// Peringatan (aksi berhasil sebagian, mis. rilis tersimpan tetapi git tag tidak dibuat).
+    Warn,
     Error,
 }
 
@@ -25,6 +27,14 @@ impl Flash {
     pub fn success(key: &str) -> Self {
         Self {
             kind: FlashKind::Success,
+            key: key.to_string(),
+        }
+    }
+
+    #[must_use]
+    pub fn warn(key: &str) -> Self {
+        Self {
+            kind: FlashKind::Warn,
             key: key.to_string(),
         }
     }

@@ -17,6 +17,9 @@ bin/check-layers
 # arah models -> layer server dijamin compiler (crate models tidak bergantung pada server).
 bin/check-layers server/models/src
 
+step "bersihkan cache incremental lama"
+bin/prune || true
+
 step "cargo fmt / hakari / clippy / deny"
 ag_exec bash -c '
   set -e
@@ -26,6 +29,8 @@ ag_exec bash -c '
   cargo hakari manage-deps --dry-run
   cargo hakari verify
   cargo clippy --workspace --all-targets --locked -- -D warnings
+  # Feature `semantic` (fastembed, R2) tidak dipakai tes; pastikan tetap terkompilasi bersih.
+  cargo clippy -p agentgate-server --features semantic --all-targets --locked -- -D warnings
   cargo deny --log-level error check'
 
 step "build CSS"

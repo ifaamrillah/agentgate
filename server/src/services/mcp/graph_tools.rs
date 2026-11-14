@@ -152,6 +152,22 @@ fn describe(h: &SymbolHit) -> String {
     )
 }
 
+/// Alasan pencarian semantik jatuh ke leksikal, untuk agent.
+fn fallback_text(key: &str) -> Value {
+    match key {
+        "" => Value::Null,
+        "graph-semantic-off" => "Pencarian makna dimatikan di server; hasil leksikal.".into(),
+        "graph-semantic-loading" => "Model embedding sedang disiapkan; hasil leksikal.".into(),
+        "graph-semantic-unavailable" => {
+            "Model embedding tidak tersedia di server; hasil leksikal.".into()
+        }
+        "graph-semantic-empty" => {
+            "Simbol belum punya embedding (index ulang untuk membuatnya); hasil leksikal.".into()
+        }
+        _ => "Pencarian makna gagal; hasil leksikal.".into(),
+    }
+}
+
 pub(super) async fn search(
     db: &DatabaseConnection,
     s: &Session,
@@ -184,17 +200,28 @@ pub(super) async fn search(
         repo: repo_id(db, s, &project, &a.repo).await?,
         include_tests: a.include_tests,
     };
-    let hits = query::search(
+    let mode = query::SearchMode::parse(&a.mode).ok_or_else(|| {
+        ToolError::new(format!(
+            "`mode` harus hybrid, lexical, atau semantic: {}",
+            a.mode
+        ))
+    })?;
+    let out = query::search_mode(
         db,
+        &crate::services::graph::embed::configured(),
         s.workspace.workspace_id(),
         project.id,
         q,
         &filter,
         a.limit.unwrap_or(15).clamp(1, 50),
+        mode,
     )
     .await?;
+    let hits = out.hits;
     let res = json!({
         "project": project.key,
+        "mode": out.mode.as_str(),
+        "fallback": fallback_text(out.fallback),
         "results": hits.iter().map(SymbolHit::brief).collect::<Vec<_>>(),
         "knowledge": knowledge,
         "hint": if hits.is_empty() {

@@ -16,7 +16,17 @@ doctest = false
 name = "agentgate-server"
 path = "src/bin/main.rs"
 
+[features]
+# Embedding lokal fastembed (ONNX Runtime) untuk pencarian semantik code graph (R2). Tanpa
+# feature ini server tetap jalan: pencarian leksikal, provider `fake` untuk tes.
+semantic = ["dep:fastembed", "dep:ort"]
+
 [dependencies]
+# Embedding lokal (feature `semantic`). ONNX Runtime dimuat dinamis (`ORT_DYLIB_PATH`,
+# libonnxruntime.so dari rilis resmi Microsoft di image): biner statis bawaan `ort` butuh
+# libstdc++ GCC 13+, lebih baru dari Debian bookworm. Model diunduh saat start ke cache.
+fastembed = { version = "=7.7.0", optional = true, default-features = false, features = ["onnx", "hf-hub-rustls-tls"] }
+ort = { version = "=2.0.0-rc.15", optional = true, default-features = false, features = ["std", "ndarray", "load-dynamic", "api-24"] }
 # Framework: routing, view Tera, queue Postgres, worker, mailer, CLI migrasi.
 # auth_session: sesi server-side (store database); auth_oauth: building block provider/state OAuth;
 # auth_session_encrypted: jar cookie terenkripsi (AES-256-GCM) untuk transaksi login OAuth;
@@ -38,7 +48,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # Runtime async; sync (Semaphore) dan time (timeout) membatasi hash password bersamaan; net
 # (lookup_host) memeriksa alamat tujuan webhook keluar sebelum dikirim (cegah SSRF, M11).
-tokio = { version = "1.45", default-features = false, features = ["rt-multi-thread", "macros", "sync", "time", "net"] }
+tokio = { version = "1.45", default-features = false, features = ["rt-multi-thread", "macros", "sync", "time", "net", "process", "fs"] }
 # Trait async untuk Hooks dan Initializer Loco.
 async-trait = "0.1"
 # Router, extractor, dan middleware HTTP.
@@ -84,6 +94,9 @@ chrono = "0.4"
 # provider git (M6, JSON).
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 flate2 = "1"
+# JWT RS256 GitHub App (R2): tanda tangan RSA PKCS#1 v1.5 SHA-256 dengan kunci privat App. Sudah
+# ada di dependency tree lewat rustls.
+ring = "0.17"
 tar = "0.4"
 
 
@@ -119,6 +132,10 @@ futures = "0.3"
 tokio = { version = "1.45", default-features = false, features = ["net"] }
 # Tes mengikuti redirect authorize provider palsu (versi dan fitur sama dengan Loco).
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+
+[[example]]
+name = "embed_bench"
+required-features = ["semantic"]
 
 [lints]
 workspace = true

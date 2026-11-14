@@ -35,6 +35,8 @@ pub struct Model {
     pub doc: String,
     #[sea_orm(column_type = "Text")]
     pub words: String,
+    #[sea_orm(column_type = "Text")]
+    pub embed_hash: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

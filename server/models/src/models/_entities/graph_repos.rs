@@ -52,6 +52,15 @@ pub struct Model {
     pub indexed_at: Option<DateTimeWithTimeZone>,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
+    #[sea_orm(column_type = "Text")]
+    pub fetch_via: String,
+    #[sea_orm(column_type = "Text")]
+    pub fetch_note: String,
+    pub embed_symbols: i32,
+    pub embed_ms: i32,
+    pub embedded_at: Option<DateTimeWithTimeZone>,
+    #[sea_orm(column_type = "Text")]
+    pub embed_error: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

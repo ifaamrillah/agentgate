@@ -74,11 +74,11 @@ adalah tabel ini. Kolom "Kerjakan" menunjukkan batch revisi yang akan menerapkan
 | Logo SVG | Didukung dengan sanitasi + CSP ketat | R1 ✅ selesai (2026-11-14) |
 | Error tracking | Sentry (server + JS), nonaktif bila DSN kosong | R1 ✅ selesai (2026-11-14) |
 | Tombol Approve | Hijau (varian `success`), Reject merah | R1 ✅ selesai (2026-11-14) |
-| Koneksi GitHub | GitHub App sebagai cara utama, PAT tetap ada sebagai cadangan (GHES/uji) | R2 |
-| Index code graph | Server boleh clone dangkal (riwayat terbatas, fetch inkremental) untuk statistik git | R2 |
-| Embedding code graph | Lokal fastembed-rs | R2 |
-| Knowledge ke repo | Server boleh membuat commit + PR knowledge (tidak pernah push ke branch utama) | R2 |
-| Rilis | Membuat git tag lewat provider | R2 |
+| Koneksi GitHub | GitHub App sebagai cara utama, PAT tetap ada sebagai cadangan (GHES/uji) | | R2 ✅ selesai (2026-11-14) |
+| Index code graph | Server boleh clone dangkal (riwayat terbatas, fetch inkremental) untuk statistik git | | R2 ✅ selesai (2026-11-14) |
+| Embedding code graph | Lokal fastembed-rs | | R2 ✅ selesai (2026-11-14) |
+| Knowledge ke repo | Server boleh membuat commit + PR knowledge (tidak pernah push ke branch utama) | | R2 ✅ selesai (2026-11-14) |
+| Rilis | Membuat git tag lewat provider | | R2 ✅ selesai (2026-11-14) |
 | Detail tiket | Panel samping dari board + tombol "buka halaman penuh"; URL tetap bisa dibuka langsung | R3 |
 | Builder workflow | Kanvas graf seperti prototype sebagai tampilan utama; daftar vertikal tetap untuk keyboard/mobile | R3 |
 | JQL | Tambah `OR`, kurung, dan autocomplete | R3 |
@@ -130,10 +130,10 @@ Format daftar di bawah: **keputusan** — default sekarang.
 - Evidence — Ed25519 per runner; job sukses walau tes gagal, gate yang memutuskan.
 - Runner — tidak pernah auto-ambil kecuali diaktifkan; halaman Runner untuk semua anggota.
 - Runner online — 60 detik (spec menyebut 2 menit).
-- Git — personal access token (bukan GitHub App), satu koneksi per jenis provider per workspace.
+- Git — GitHub App (cara utama, R2) atau personal access token (cadangan, juga GHES); satu koneksi per jenis provider per workspace.
 - Konvensi git per project (bukan per stage); PR ditautkan lewat kode tiket di branch/judul.
 - Merge otomatis — squash saat stage reviewer di-approve dan CI hijau.
-- Index code graph server — arsip tarball (tanpa riwayat git); SCIP hanya dari laptop; semantic search ditunda.
+- Index code graph server — clone dangkal 12 bulan di volume cache (statistik git di server), tarball sebagai cadangan; SCIP hanya dari laptop; pencarian hibrid leksikal + semantik (embedding lokal `multilingual-e5-small`, R2).
 - Realtime runner — satu koneksi `LISTEN` per proses web, kanal per workspace, tick cadangan 30 dtk. Browser
   (board, AI Office, log job) masih polling HTMX 2–3 dtk. (M12)
 - `agentgate init` menulis config untuk 6 client sekaligus.
@@ -171,22 +171,25 @@ Paling penting dulu:
 3. **VPS** (2 vCPU/4 GB minimal) dan **bucket S3 di luar VPS** untuk backup (B2/Wasabi/S3).
 4. **SMTP** (`SMTP_*`, `MAIL_FROM`).
 5. **OAuth app Google dan GitHub** (callback `{APP_URL}/auth/google/callback`, `/auth/github/callback`).
-6. **Token GitHub** (PAT fine-grained: contents, pull requests, checks/statuses, webhooks) atau keputusan membuat
-   **GitHub App**. Semua tes memakai GitHub palsu.
-7. **Distribusi CLI**: konfirmasi org/repo rilis → isi `CLI_RELEASE_URL`; repo tap Homebrew + token bila ingin
+6. **Buat GitHub App** milik instance (R2) mengikuti `docs/admin/github-app.md` (izin minimum, callback
+   `{APP_URL}/git/github-app/callback`, webhook `{APP_URL}/webhooks/github-app`) lalu isi enam env `GITHUB_APP_*`.
+   PAT tetap bisa dipakai sebagai cadangan. Semua tes memakai GitHub palsu + kunci RSA tes.
+7. **Ruang disk untuk volume cache** `agentgate-rs-prod-cache` (R2): clone dangkal repo (maks. 1 GB/repo, default) +
+   model embedding 465 MB. Disarankan ≥ 10 GB kosong; server berhenti meng-clone bila sisa < 2 GB (pakai tarball).
+8. **Distribusi CLI**: konfirmasi org/repo rilis → isi `CLI_RELEASE_URL`; repo tap Homebrew + token bila ingin
    `brew install`; keputusan code signing macOS/Windows (sekarang tidak).
-8. **Uji dengan client AI asli** (Claude Code sudah sesuai spike; Codex, Gemini, Cursor, OpenCode, Copilot baru
+9. **Uji dengan client AI asli** (Claude Code sudah sesuai spike; Codex, Gemini, Cursor, OpenCode, Copilot baru
    diuji dengan binary palsu). Putuskan apakah Gemini CLI tetap didukung (digantikan Antigravity CLI).
-9. **Kredensial Jira** asli (Cloud: site + email + API token; atau DC + PAT) dengan project uji.
-10. **Kurs USD → Rupiah** dan tabel harga model bila biaya token perlu tampil dalam Rupiah / untuk Codex/Gemini/Cursor.
-11. `SYSTEM_ADMIN_EMAILS`, `METRICS_TOKEN`, dan Prometheus/Grafana bila ingin alert (contoh aturan di
+10. **Kredensial Jira** asli (Cloud: site + email + API token; atau DC + PAT) dengan project uji.
+11. **Kurs USD → Rupiah** dan tabel harga model bila biaya token perlu tampil dalam Rupiah / untuk Codex/Gemini/Cursor.
+12. `SYSTEM_ADMIN_EMAILS`, `METRICS_TOKEN`, dan Prometheus/Grafana bila ingin alert (contoh aturan di
     `docs/admin/operasi.md`); DSN Sentry bila ingin error tracking.
-12. Konfirmasi kebijakan: merge otomatis, retry webhook, rate limit API 600/mnt, DCR 20/IP/jam, auto-ambil runner
+13. Konfirmasi kebijakan: merge otomatis, retry webhook, rate limit API 600/mnt, DCR 20/IP/jam, auto-ambil runner
     default mati, batas job paralel default, online runner 60 dtk.
-13. Konfirmasi fitur: JQL `OR`/kurung, WIP ditegakkan, git tag saat rilis, roadmap per epic, izin `manage_knowledge`,
-    server boleh commit/PR knowledge sendiri, GitLab/Bitbucket sebelum rilis, index server boleh `git clone`.
-14. Lain-lain: GHES untuk uji nyata (bila ada pelanggan), Graphify + repo pelanggan untuk benchmark code graph,
-    pilihan model embedding untuk semantic search.
+14. Konfirmasi fitur: JQL `OR`/kurung, WIP ditegakkan, roadmap per epic, izin `manage_knowledge`, GitLab/Bitbucket sebelum rilis.
+15. Lain-lain: GHES untuk uji nyata (bila ada pelanggan), Graphify + repo pelanggan untuk benchmark code graph,
+    dan uji kualitas pencarian semantik di repo pelanggan (model default `multilingual-e5-small`, bisa diganti;
+    lihat `docs/benchmarks/2026-11-14-embedding.md`).
 
 ## 5. Utang teknis tersisa (urut risiko)
 
@@ -205,8 +208,11 @@ Paling penting dulu:
   berikutnya. Runner tidak mencoba WebSocket lagi setelah jatuh ke polling.
 - Mengganti template kode tiket dan migrasi workflow berjalan dalam satu transaksi (lambat untuk ribuan tiket).
 - Status CI dihitung dari check terakhir, belum dari check wajib branch protection.
-- Token GitHub yang dicabut baru ketahuan saat panggilan gagal; belum GitHub App.
-- Index code graph server: repo sangat besar bisa timeout unduh arsip.
+- Koneksi PAT: token yang dicabut baru ketahuan saat panggilan gagal (GitHub App sudah ada sejak R2).
+- Index code graph server: repo sangat besar bisa timeout clone/unduh arsip; vektor embedding tanpa index ANN
+  (scan berurutan ≈ 15 ms per 20 ribu simbol, cukup sampai ~100 ribu); index embedding pertama 5.000 simbol ≈ 5,5
+  menit di CPU (R2).
+- PR knowledge (R2) dibuat di repo project pertama yang tertaut; belum bisa memilih repo knowledge per project.
 - Daftar `mcp_tools` persona belum ditegakkan per sesi MCP.
 - Metrik per proses (tiap replika web di-scrape sendiri); backup basi belum jadi metrik Prometheus.
 - Sisa temuan a11y: daftar di editor Milkdown (pihak ketiga), runner offline di AI Office (sengaja redup).

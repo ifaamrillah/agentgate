@@ -65,6 +65,7 @@ pub mod jobs;
 pub mod knowledge_catalog;
 pub mod knowledge_docs;
 pub mod knowledge_proposals;
+pub mod knowledge_prs;
 pub mod knowledge_runs;
 pub mod knowledge_settings;
 pub mod knowledge_sources;

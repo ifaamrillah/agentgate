@@ -555,7 +555,26 @@ async fn approve(
     let edited = form.body.as_deref().zip(form.base_version);
     let back = format!("{}/proposals?p={id}", base_of(&access));
     match proposals::approve(&ctx.db, &acting(&access, request_id), id, edited).await {
-        Ok((_, doc)) => {
+        Ok((proposal, doc)) => {
+            // PR knowledge ke repo tertaut (R2) di worker; approve tidak menunggu provider.
+            if let Some(row) = crate::services::knowledge::pr::queue(
+                &ctx.db,
+                access.tenant.workspace_id(),
+                &doc,
+                Some(proposal.id),
+            )
+            .await?
+            {
+                use loco_rs::bgworker::BackgroundWorker;
+                crate::workers::knowledge_pr::KnowledgePrWorker::perform_later(
+                    &ctx,
+                    crate::workers::knowledge_pr::KnowledgePrArgs {
+                        workspace_id: row.workspace_id,
+                        id: row.id,
+                    },
+                )
+                .await?;
+            }
             if edited.is_some() {
                 let to = format!("{}/{}", base_of(&access), doc.slug);
                 return ok_to(session, &to, "kb-flash-approved");
@@ -880,7 +899,35 @@ async fn render_doc(
         (None, None) => (doc.title.clone(), doc.body.clone(), doc.version, None),
     };
     let types = catalog::available_types(&ctx.db, wid, access.project.id).await?;
+    // PR knowledge ke repo (R2): tiga terbaru.
+    let mut repo_prs = Vec::new();
+    for row in crate::models::knowledge_prs::Model::of_doc(&ctx.db, wid, doc.id)
+        .await?
+        .into_iter()
+        .take(3)
+    {
+        let pr = match row.pull_request_id {
+            Some(id) => {
+                crate::models::pull_requests::Entity::find_by_id(id)
+                    .one(&ctx.db)
+                    .await?
+            }
+            None => None,
+        };
+        let repo = repos.iter().find(|r| Some(r.id) == row.repo_id);
+        repo_prs.push(serde_json::json!({
+            "status": row.status,
+            "version": row.version,
+            "branch": row.branch,
+            "error": row.error,
+            "repo": repo.map(|r| r.name.clone()).unwrap_or_default(),
+            "number": pr.as_ref().map_or(0, |p| p.number),
+            "url": pr.as_ref().map(|p| p.url.clone()).unwrap_or_default(),
+            "state": pr.as_ref().map(|p| crate::views::git::StateView::pr(p.state())),
+        }));
+    }
     let mut data = serde_json::json!({
+        "repo_prs": repo_prs,
         "tab": "home",
         "doc": row,
         "doc_title": title,

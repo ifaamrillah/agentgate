@@ -23,6 +23,10 @@ bila kosong. Contoh lengkap: `deploy/.env.example`.
 | `DB_MAX_CONNECTIONS`, `DB_MIN_CONNECTIONS`, `PG_MAX_CONNECTIONS` | tidak | lihat aritmetika pool di `deploy/README.md` |
 | `LOG_LEVEL` | tidak | `info` (default), `debug` hanya sementara |
 | `AUTH_MAX_CONCURRENT_HASHES` | tidak | hash argon2 bersamaan (default 4 ≈ 76 MB puncak) |
+| `GITHUB_APP_ID`, `GITHUB_APP_SLUG`, `GITHUB_APP_CLIENT_ID`, `GITHUB_APP_CLIENT_SECRET`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_WEBHOOK_SECRET` | tidak | GitHub App instance (cara utama menautkan GitHub); semua kosong = hanya PAT. Lihat github-app.md |
+| `AGENTGATE_CACHE_DIR` | tidak | volume cache clone repo + model embedding (default `/var/cache/agentgate`) |
+| `GRAPH_CLONE_HISTORY_MONTHS`, `GRAPH_CLONE_MAX_MB` | tidak | riwayat clone dangkal code graph (default 12 bulan) dan batas ukuran per repo (default 1024 MB) |
+| `GRAPH_EMBEDDING_ENABLED` | tidak | `false` mematikan pencarian semantik (default `true`) |
 
-Integrasi per workspace (GitHub token/App, Jira, webhook, token API) diatur di aplikasi, bukan env;
+Integrasi per workspace (instalasi GitHub App atau token, Jira, webhook, token API) diatur di aplikasi, bukan env;
 secret-nya dienkripsi dengan `ENCRYPTION_KEY`.

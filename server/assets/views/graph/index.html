@@ -41,7 +41,7 @@
       <td><span class="app-gi-cell"><b>{{ r.name }}</b><small>{{ t(key="graph-repo-files", lang="id", files=r.files, branch=r.branch) }}</small></span></td>
       <td data-hide="sm">{{ <lang_bar parts={r.langs}/> }}</td>
       <td><span class="app-gi-cell">{{ <badge label={t(key=r.status_key, lang="id")} variant={r.status_variant}/> }}
-        {%- if r.indexed %}<small>{% if r.commit %}<span class="app-code">{{ r.commit }}</span> · {% endif %}{{ t(key=r.indexed.key, lang="id", n=r.indexed.n) }}{% if r.source_key %} · {{ t(key=r.source_key, lang="id") }}{% endif %}</small>
+        {%- if r.indexed %}<small>{% if r.commit %}<span class="app-code">{{ r.commit }}</span> · {% endif %}{{ t(key=r.indexed.key, lang="id", n=r.indexed.n) }}{% if r.source_key %} · <span data-fetch-via="{{ r.fetch_via }}"{% if r.fetch_note %} title="{{ r.fetch_note }}"{% endif %}>{{ t(key=r.source_key, lang="id") }}</span>{% endif %}</small>
         {%- elif r.status == "none" %}<small>{{ t(key="graph-never-indexed", lang="id") }}</small>{% endif %}</span></td>
       <td data-hide="sm">{% if r.scip %}<span class="app-gi-cell"><b>{{ r.scip.indexer }}</b><small{% if r.scip.stale %} data-tone="warn"{% endif %}>{% if r.scip.by %}{{ r.scip.by }} · {% endif %}{% if r.scip.age %}{{ t(key=r.scip.age.key, lang="id", n=r.scip.age.n) }}{% endif %}</small></span>{% else %}<span class="app-gi-cell"><small>{{ t(key="graph-scip-none", lang="id") }}</small></span>{% endif %}</td>
       <td data-hide="sm" data-align="right"><span class="app-gi-cell"><b>{{ r.symbols }}</b><small>{{ t(key="graph-repo-edges", lang="id", edges=r.edges, pct=r.certain_pct) }}</small></span></td>

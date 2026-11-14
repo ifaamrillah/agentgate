@@ -15,6 +15,20 @@ use serde_json::{Value, json};
 pub const TOKEN: &str = "ghp_valid_test_token";
 pub const LOGIN: &str = "pt-contoh-bot";
 
+/// GitHub App palsu (R2).
+pub const APP_ID: &str = "4242";
+pub const APP_SLUG: &str = "agentgate-tes";
+pub const APP_CLIENT_ID: &str = "Iv1.agentgatetes";
+pub const APP_CLIENT_SECRET: &str = "rahasia-klien-app";
+pub const APP_WEBHOOK_SECRET: &str = "rahasia-webhook-app";
+/// Kunci RSA khusus tes (bukan rahasia); kunci publiknya memverifikasi JWT App.
+pub const APP_KEY_PEM: &str = include_str!("github_app_test_key.pem");
+/// Kode OAuth callback instalasi yang diterima, dan token user hasil tukarnya.
+pub const APP_CODE: &str = "kode-instalasi-ok";
+pub const APP_USER_TOKEN: &str = "ghu_user_test_token";
+/// Instalasi milik user [`APP_USER_TOKEN`].
+pub const INSTALLATION: i64 = 7701;
+
 #[derive(Debug, Clone)]
 pub struct Hook {
     pub repo: String,
@@ -67,6 +81,18 @@ pub struct Inner {
     pub requests: Vec<String>,
     /// Arsip `.tar.gz` per repo (`/repos/{o}/{r}/tarball/{ref}` → redirect → `/codeload/...`).
     pub tarballs: std::collections::HashMap<String, Vec<u8>>,
+    /// Repo yang diberi akses ke instalasi App.
+    pub app_repos: Vec<String>,
+    /// Instalasi App ditangguhkan.
+    pub app_suspended: bool,
+    /// Jumlah token instalasi yang diterbitkan.
+    pub app_tokens_issued: u32,
+    /// JWT App yang ditolak (tanda tangan/klaim salah).
+    pub app_jwt_rejected: u32,
+    /// Ref yang dibuat lewat `POST /git/refs`: (repo, ref) → sha.
+    pub refs: Vec<(String, String, String)>,
+    /// File yang ditulis lewat Contents API: (repo, branch, path, isi, pesan commit).
+    pub files: Vec<(String, String, String, String, String)>,
 }
 
 type Shared = Arc<Mutex<Inner>>;
@@ -90,6 +116,28 @@ impl FakeGithub {
         );
     }
 
+    pub fn set_app_repos(&self, repos: &[&str]) {
+        self.state.lock().unwrap().app_repos = repos.iter().map(|r| (*r).to_string()).collect();
+    }
+
+    pub fn app_tokens_issued(&self) -> u32 {
+        self.state.lock().unwrap().app_tokens_issued
+    }
+
+    pub fn requests(&self) -> Vec<String> {
+        self.state.lock().unwrap().requests.clone()
+    }
+
+    /// Ref yang dibuat (repo, ref, sha).
+    pub fn refs(&self) -> Vec<(String, String, String)> {
+        self.state.lock().unwrap().refs.clone()
+    }
+
+    /// File yang ditulis (repo, branch, path, isi, pesan).
+    pub fn files(&self) -> Vec<(String, String, String, String, String)> {
+        self.state.lock().unwrap().files.clone()
+    }
+
     pub fn hooks(&self) -> Vec<Hook> {
         self.state.lock().unwrap().hooks.clone()
     }
@@ -108,11 +156,155 @@ impl FakeGithub {
     }
 }
 
+/// PAT tes atau token instalasi App yang diterbitkan fake ini.
 fn authorized(headers: &HeaderMap) -> bool {
     headers
         .get("authorization")
         .and_then(|v| v.to_str().ok())
-        .is_some_and(|v| v == format!("Bearer {TOKEN}"))
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .is_some_and(|t| t == TOKEN || t.starts_with(&format!("ghs_inst_{INSTALLATION}_")))
+}
+
+fn bearer(headers: &HeaderMap) -> String {
+    headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .unwrap_or_default()
+        .to_string()
+}
+
+/// JWT App valid: RS256 dengan kunci tes, `iss` = App ID, belum kedaluwarsa, umur ≤ 10 menit.
+fn app_jwt_ok(token: &str) -> bool {
+    use base64::{
+        Engine,
+        engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD},
+    };
+    let mut parts = token.split('.');
+    let (Some(h), Some(c), Some(sig), None) =
+        (parts.next(), parts.next(), parts.next(), parts.next())
+    else {
+        return false;
+    };
+    let body: String = APP_KEY_PEM
+        .lines()
+        .filter(|l| !l.starts_with("-----"))
+        .collect();
+    let der = STANDARD.decode(body).unwrap();
+    let pair = ring::signature::RsaKeyPair::from_der(&der).unwrap();
+    let public = ring::signature::UnparsedPublicKey::new(
+        &ring::signature::RSA_PKCS1_2048_8192_SHA256,
+        pair.public().as_ref().to_vec(),
+    );
+    let Ok(sig) = URL_SAFE_NO_PAD.decode(sig) else {
+        return false;
+    };
+    if public.verify(format!("{h}.{c}").as_bytes(), &sig).is_err() {
+        return false;
+    }
+    let header: Value = serde_json::from_slice(&URL_SAFE_NO_PAD.decode(h).unwrap()).unwrap();
+    let claims: Value = serde_json::from_slice(&URL_SAFE_NO_PAD.decode(c).unwrap()).unwrap();
+    let now = chrono::Utc::now().timestamp();
+    let (iat, exp) = (
+        claims["iat"].as_i64().unwrap_or(0),
+        claims["exp"].as_i64().unwrap_or(0),
+    );
+    header["alg"] == "RS256"
+        && claims["iss"] == APP_ID
+        && iat <= now
+        && exp > now
+        && exp - iat <= 600
+}
+
+fn installation_json(st: &Inner, id: i64) -> Value {
+    json!({
+        "id": id,
+        "account": { "login": "pt-contoh", "type": "Organization" },
+        "permissions": { "contents": "write", "pull_requests": "write", "checks": "read", "metadata": "read" },
+        "repository_selection": "selected",
+        "suspended_at": if st.app_suspended { json!("2026-11-14T00:00:00Z") } else { Value::Null },
+    })
+}
+
+async fn app_installation(
+    State(s): State<Shared>,
+    headers: HeaderMap,
+    Path(id): Path<i64>,
+) -> Response {
+    let mut st = s.lock().unwrap();
+    st.requests.push(format!("GET /app/installations/{id}"));
+    if !app_jwt_ok(&bearer(&headers)) {
+        st.app_jwt_rejected += 1;
+        return unauthorized();
+    }
+    if id != INSTALLATION {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    Json(installation_json(&st, id)).into_response()
+}
+
+async fn app_token(State(s): State<Shared>, headers: HeaderMap, Path(id): Path<i64>) -> Response {
+    let mut st = s.lock().unwrap();
+    st.requests
+        .push(format!("POST /app/installations/{id}/access_tokens"));
+    if !app_jwt_ok(&bearer(&headers)) {
+        st.app_jwt_rejected += 1;
+        return unauthorized();
+    }
+    if id != INSTALLATION {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    if st.app_suspended {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({ "message": "suspended" })),
+        )
+            .into_response();
+    }
+    st.app_tokens_issued += 1;
+    let expires = chrono::Utc::now() + chrono::Duration::hours(1);
+    (
+        StatusCode::CREATED,
+        Json(json!({
+            "token": format!("ghs_inst_{id}_{}", st.app_tokens_issued),
+            "expires_at": expires.to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+        })),
+    )
+        .into_response()
+}
+
+async fn installation_repos(State(s): State<Shared>, headers: HeaderMap) -> Response {
+    if !authorized(&headers) || bearer(&headers) == TOKEN {
+        return unauthorized();
+    }
+    let st = s.lock().unwrap();
+    let repos: Vec<Value> = st
+        .app_repos
+        .iter()
+        .map(|r| json!({ "full_name": r }))
+        .collect();
+    Json(json!({ "total_count": repos.len(), "repositories": repos })).into_response()
+}
+
+async fn user_installations(headers: HeaderMap) -> Response {
+    if bearer(&headers) != APP_USER_TOKEN {
+        return unauthorized();
+    }
+    Json(json!({ "total_count": 1, "installations": [ { "id": INSTALLATION } ] })).into_response()
+}
+
+async fn oauth_token(
+    axum::Form(form): axum::Form<std::collections::HashMap<String, String>>,
+) -> Response {
+    let ok = form.get("client_id").map(String::as_str) == Some(APP_CLIENT_ID)
+        && form.get("client_secret").map(String::as_str) == Some(APP_CLIENT_SECRET)
+        && form.get("code").map(String::as_str) == Some(APP_CODE);
+    if ok {
+        Json(json!({ "access_token": APP_USER_TOKEN, "token_type": "bearer" })).into_response()
+    } else {
+        // GitHub menjawab 200 dengan field error untuk kode yang salah.
+        Json(json!({ "error": "bad_verification_code" })).into_response()
+    }
 }
 
 fn unauthorized() -> Response {
@@ -302,11 +494,7 @@ async fn tarball_redirect(
     Path((o, r, _git_ref)): Path<(String, String, String)>,
 ) -> Response {
     let st = state.lock().unwrap();
-    let authed = headers
-        .get("authorization")
-        .and_then(|v| v.to_str().ok())
-        .is_some_and(|v| v == format!("Bearer {TOKEN}"));
-    if !authed {
+    if !authorized(&headers) {
         return StatusCode::UNAUTHORIZED.into_response();
     }
     if !st.tarballs.contains_key(&format!("{o}/{r}")) {
@@ -330,6 +518,145 @@ async fn codeload(State(state): State<Shared>, Path((o, r)): Path<(String, Strin
     }
 }
 
+/// HEAD branch: `head-<branch>` untuk branch utama, atau ref yang sudah dibuat.
+async fn get_branch_ref(
+    State(s): State<Shared>,
+    headers: HeaderMap,
+    Path((o, r, branch)): Path<(String, String, String)>,
+) -> Response {
+    if !authorized(&headers) {
+        return unauthorized();
+    }
+    let full = format!("{o}/{r}");
+    let st = s.lock().unwrap();
+    if !has_repo(&st, &full) {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let name = format!("refs/heads/{branch}");
+    let sha = st
+        .refs
+        .iter()
+        .find(|(repo, n, _)| *repo == full && *n == name)
+        .map(|(_, _, sha)| sha.clone())
+        .or_else(|| {
+            (branch == "main").then(|| "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678".to_string())
+        });
+    match sha {
+        Some(sha) => {
+            Json(json!({ "ref": name, "object": { "sha": sha, "type": "commit" } })).into_response()
+        }
+        None => StatusCode::NOT_FOUND.into_response(),
+    }
+}
+
+async fn create_git_ref(
+    State(s): State<Shared>,
+    headers: HeaderMap,
+    Path((o, r)): Path<(String, String)>,
+    Json(body): Json<Value>,
+) -> Response {
+    if !authorized(&headers) {
+        return unauthorized();
+    }
+    let full = format!("{o}/{r}");
+    let mut st = s.lock().unwrap();
+    st.requests.push(format!("POST /repos/{full}/git/refs"));
+    if !has_repo(&st, &full) {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let name = body["ref"].as_str().unwrap_or_default().to_string();
+    let sha = body["sha"].as_str().unwrap_or_default().to_string();
+    if st
+        .refs
+        .iter()
+        .any(|(repo, n, _)| *repo == full && *n == name)
+    {
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({ "message": "Reference already exists" })),
+        )
+            .into_response();
+    }
+    st.refs.push((full, name.clone(), sha.clone()));
+    (
+        StatusCode::CREATED,
+        Json(json!({ "ref": name, "object": { "sha": sha } })),
+    )
+        .into_response()
+}
+
+#[derive(serde::Deserialize)]
+struct RefQuery {
+    #[serde(default, rename = "ref")]
+    git_ref: String,
+}
+
+async fn get_contents(
+    State(s): State<Shared>,
+    headers: HeaderMap,
+    Path((o, r, path)): Path<(String, String, String)>,
+    Query(q): Query<RefQuery>,
+) -> Response {
+    if !authorized(&headers) {
+        return unauthorized();
+    }
+    let full = format!("{o}/{r}");
+    let st = s.lock().unwrap();
+    match st
+        .files
+        .iter()
+        .rev()
+        .find(|(repo, b, p, ..)| *repo == full && *b == q.git_ref && *p == path)
+    {
+        Some((.., content, _)) => {
+            Json(json!({ "path": path, "sha": format!("blob{}", content.len()) })).into_response()
+        }
+        None => StatusCode::NOT_FOUND.into_response(),
+    }
+}
+
+async fn put_contents(
+    State(s): State<Shared>,
+    headers: HeaderMap,
+    Path((o, r, path)): Path<(String, String, String)>,
+    Json(body): Json<Value>,
+) -> Response {
+    use base64::Engine;
+    if !authorized(&headers) {
+        return unauthorized();
+    }
+    let full = format!("{o}/{r}");
+    let mut st = s.lock().unwrap();
+    st.requests
+        .push(format!("PUT /repos/{full}/contents/{path}"));
+    let branch = body["branch"].as_str().unwrap_or_default().to_string();
+    let content = base64::engine::general_purpose::STANDARD
+        .decode(body["content"].as_str().unwrap_or_default())
+        .map(|b| String::from_utf8_lossy(&b).to_string())
+        .unwrap_or_default();
+    let exists = st
+        .files
+        .iter()
+        .rev()
+        .find(|(repo, b, p, ..)| *repo == full && *b == branch && *p == path)
+        .map(|(.., c, _)| format!("blob{}", c.len()));
+    // Seperti GitHub: menimpa file butuh sha blob lama yang cocok.
+    if exists.as_deref() != body["sha"].as_str() {
+        return (
+            StatusCode::CONFLICT,
+            Json(json!({ "message": "sha does not match" })),
+        )
+            .into_response();
+    }
+    let message = body["message"].as_str().unwrap_or_default().to_string();
+    st.files.push((full, branch, path, content, message));
+    (
+        StatusCode::CREATED,
+        Json(json!({ "content": {}, "commit": { "sha": "c0ffee" } })),
+    )
+        .into_response()
+}
+
 fn api(state: Shared) -> Router {
     Router::new()
         .route("/user", get(user))
@@ -340,6 +667,20 @@ fn api(state: Shared) -> Router {
         .route("/repos/{o}/{r}/pulls/{n}/merge", put(merge_pull))
         .route("/repos/{o}/{r}/tarball/{git_ref}", get(tarball_redirect))
         .route("/codeload/{o}/{r}", get(codeload))
+        .route(
+            "/repos/{o}/{r}/git/ref/heads/{*branch}",
+            get(get_branch_ref),
+        )
+        .route("/repos/{o}/{r}/git/refs", post(create_git_ref))
+        .route(
+            "/repos/{o}/{r}/contents/{*path}",
+            get(get_contents).put(put_contents),
+        )
+        .route("/app/installations/{id}", get(app_installation))
+        .route("/app/installations/{id}/access_tokens", post(app_token))
+        .route("/installation/repositories", get(installation_repos))
+        .route("/user/installations", get(user_installations))
+        .route("/login/oauth/access_token", post(oauth_token))
         .with_state(state)
 }
 

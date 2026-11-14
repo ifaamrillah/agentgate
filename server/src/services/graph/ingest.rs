@@ -335,10 +335,10 @@ pub async fn finish(
     db: &DatabaseConnection,
     acting: &Acting<'_>,
     req: agentgate_graph::protocol::FinishRequest,
-) -> Result<IndexSummary, TicketFailure> {
+) -> Result<(IndexSummary, repos::Model), TicketFailure> {
     let (_, repo) = repo_for(db, acting, &req.project, &req.repo).await?;
     let row = finish_repo(db, acting.workspace_id(), &repo, req.git).await?;
-    Ok(summary(db, &repo, &row).await?)
+    Ok((summary(db, &repo, &row).await?, repo))
 }
 
 /// Batas edge SCIP yang disimpan.

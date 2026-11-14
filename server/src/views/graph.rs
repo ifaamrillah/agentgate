@@ -89,6 +89,9 @@ pub struct RepoIndexView {
     pub status_key: &'static str,
     pub status_variant: &'static str,
     pub source_key: &'static str,
+    /// Cara index server mengambil kode (`clone`/`tarball`) dan alasannya (R2).
+    pub fetch_via: String,
+    pub fetch_note: String,
     pub commit: String,
     pub indexed: Option<Age>,
     pub error: String,
@@ -153,9 +156,15 @@ impl RepoIndexView {
             status_variant,
             source_key: match r.source() {
                 Some(graph_repos::IndexSource::Cli) => "graph-source-cli",
-                Some(graph_repos::IndexSource::Server) => "graph-source-server",
+                Some(graph_repos::IndexSource::Server) => match r.fetch_via.as_str() {
+                    "clone" => "graph-source-clone",
+                    "tarball" => "graph-source-tarball",
+                    _ => "graph-source-server",
+                },
                 None => "",
             },
+            fetch_via: r.fetch_via.clone(),
+            fetch_note: r.fetch_note.clone(),
             commit: r.commit_sha.chars().take(7).collect(),
             indexed: r.indexed_at.map(|t| age(&t, now)),
             error: r.error.clone(),

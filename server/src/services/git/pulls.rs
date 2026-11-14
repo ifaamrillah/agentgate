@@ -198,7 +198,7 @@ pub async fn open_for_job(
     let conn = connection_of(db, wid, &repo)
         .await?
         .ok_or_else(|| invalid("repo", NOT_CONNECTED))?;
-    let provider = provider_for(&conn, settings)?;
+    let provider = provider_for(&conn, settings).await?;
     let branch = req.branch.trim();
     let base = if req.base.trim().is_empty() {
         repo.default_branch.clone()
@@ -330,7 +330,7 @@ async fn merge_one(
         return Ok(Err(NOT_CONNECTED));
     };
     let result = match connection_of(db, wid, &repo).await? {
-        Some(conn) => match provider_for(&conn, settings) {
+        Some(conn) => match provider_for(&conn, settings).await {
             Ok(p) => p
                 .merge_pull(&repo.full_name, pr.number, method)
                 .await
@@ -581,7 +581,7 @@ pub async fn open_rules_pr(
     let conn = connection_of(db, wid, &repo)
         .await?
         .ok_or_else(|| invalid("repo", NOT_CONNECTED))?;
-    let provider = provider_for(&conn, settings)?;
+    let provider = provider_for(&conn, settings).await?;
     if let Some(p) = provider
         .find_open_pull(&repo.full_name, SYNC_BRANCH)
         .await

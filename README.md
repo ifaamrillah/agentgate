@@ -19,6 +19,7 @@ dan tool lain berjalan di container `app`; skrip `bin/*` meneruskan perintah ke 
 | `bin/loco db migrate` | Migrasi database dev |
 | `bin/loco <perintah>` | Perintah Loco lain (`routes`, `doctor`, `g migration ...`) |
 | `bin/ci` | Pemeriksaan lengkap sebelum merge (fmt, clippy, deny, arah layer, CSS, tes) |
+| `bin/prune [--dry-run]` | Bersihkan cache incremental lama di `target/` (otomatis dipanggil `bin/dev` dan `bin/ci`) |
 | `bin/sh [perintah]` | Shell atau satu perintah di container `app` |
 | `bin/down [--force]` | Matikan container dev (data tidak dihapus); di checkout utama ditolak selagi ada worktree yang jalan |
 | `bin/worktree new <branch>` | Mulai kerja paralel di worktree sendiri (lihat di bawah) |

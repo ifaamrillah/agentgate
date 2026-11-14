@@ -1,10 +1,11 @@
-//! Index oleh server (tombol Index ulang, PR di-merge ke branch utama): unduh arsip repo lewat
-//! koneksi git M6 (token tersimpan terenkripsi), bongkar ke direktori sementara, lalu
-//! [`ingest::index_dir`] dengan aturan file yang sama dengan CLI.
+//! Index oleh server (tombol Index ulang, PR di-merge, push ke branch utama): ambil kode repo
+//! lewat koneksi git M6, lalu [`ingest::index_dir`] dengan aturan file yang sama dengan CLI.
 //!
-//! Server tidak menjalankan `git clone`: arsip tidak membawa riwayat, jadi statistik git
-//! (hotspot, coupling, pemilik) hanya dari `agentgate graph index` di CLI dan dipertahankan
-//! di antara index server (keputusan sementara M7).
+//! Cara utama (R2): clone dangkal di volume cache ([`clone`]) — statistik git (hotspot,
+//! coupling, pemilik) dihitung di server. Cadangan: arsip tarball provider (tanpa riwayat;
+//! statistik git terakhir dipertahankan) bila clone dimatikan, git tidak ada, disk menipis,
+//! repo terlalu besar, atau git gagal. Cara dan alasannya disimpan di `graph_repos.fetch_via`
+//! dan `fetch_note`.
 use std::{
     io::Read,
     path::{Path, PathBuf},
@@ -14,7 +15,12 @@ use agentgate_graph::walk::MAX_BYTES;
 use sea_orm::{DatabaseConnection, DbErr};
 use uuid::Uuid;
 
-use super::ingest::{self, DirIndex};
+use sea_orm::{ActiveModelTrait, ActiveValue::Set, IntoActiveModel};
+
+use super::{
+    clone::{self, CloneJob},
+    ingest::{self, DirIndex},
+};
 use crate::{
     common::settings::Settings,
     models::{graph_repos, repos, workspaces::WorkspaceId},
@@ -119,7 +125,7 @@ pub fn unpack(archive: &[u8], dir: &Path) -> Result<Option<String>, FetchError> 
     Ok(sha)
 }
 
-/// Unduh dan index repo dari branch default-nya.
+/// Ambil kode repo (clone dangkal, cadangan tarball) dari branch default-nya lalu index.
 ///
 /// # Errors
 ///
@@ -135,7 +141,87 @@ pub async fn fetch_and_index(
     let conn = git::pulls::connection_of(db, wid, repo)
         .await?
         .ok_or(FetchError::Code("git-not-connected"))?;
-    let provider = git::provider_for(&conn, settings).map_err(|_| FetchError::Code("token"))?;
+    let cfg = &settings.graph.clone;
+    let note = if cfg.enabled {
+        let token = git::access_token(&conn, settings)
+            .await
+            .map_err(|_| FetchError::Code("token"))?;
+        let base = if cfg.base_url.trim().is_empty() {
+            conn.web_base.as_str()
+        } else {
+            cfg.base_url.trim()
+        };
+        let job = CloneJob {
+            workspace: wid.get(),
+            repo: repo.id,
+            url: clone::remote_url(base, &repo.full_name),
+            branch: &repo.default_branch,
+            token,
+            settings: cfg,
+        };
+        match clone::sync(job).await {
+            Ok(c) => {
+                let row = ingest::index_dir(
+                    db,
+                    wid,
+                    repo,
+                    DirIndex {
+                        root: &c.dir,
+                        full,
+                        commit: &c.sha,
+                        git: c.stats,
+                        by,
+                    },
+                )
+                .await?;
+                let note = format!(
+                    "{} · {} MB",
+                    if c.fresh {
+                        "clone baru"
+                    } else {
+                        "fetch inkremental"
+                    },
+                    c.size_mb
+                );
+                return Ok(mark(db, row, "clone", &note).await?);
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, repo = %repo.id, "shallow clone failed, using tarball");
+                e.to_string()
+            }
+        }
+    } else {
+        clone::CloneError::Disabled.to_string()
+    };
+    let row = tarball_and_index(db, settings, &conn, wid, repo, by, full).await?;
+    Ok(mark(db, row, "tarball", &note).await?)
+}
+
+async fn mark(
+    db: &DatabaseConnection,
+    row: graph_repos::Model,
+    via: &str,
+    note: &str,
+) -> Result<graph_repos::Model, DbErr> {
+    let mut m = row.into_active_model();
+    m.fetch_via = Set(via.to_string());
+    m.fetch_note = Set(note.chars().take(300).collect());
+    m.update(db).await
+}
+
+/// Cadangan: unduh arsip `.tar.gz` provider ke direktori sementara lalu index (tanpa riwayat).
+async fn tarball_and_index(
+    db: &DatabaseConnection,
+    settings: &Settings,
+    conn: &crate::models::git_connections::Model,
+    wid: WorkspaceId,
+    repo: &repos::Model,
+    by: Option<Uuid>,
+    full: bool,
+) -> Result<graph_repos::Model, FetchError> {
+    let provider = git::provider_for(conn, settings)
+        .await
+        .map_err(|_| FetchError::Code("token"))?;
     let bytes = provider
         .tarball(&repo.full_name, &repo.default_branch, MAX_ARCHIVE_BYTES)
         .await

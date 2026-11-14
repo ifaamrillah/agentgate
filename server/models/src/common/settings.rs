@@ -34,6 +34,106 @@ pub struct Settings {
     /// Operasi instance (M12): metrik, admin instance, rilis CLI, backup.
     #[serde(default)]
     pub system: SystemSettings,
+    /// Code graph di server (R2): clone dangkal dan embedding lokal.
+    #[serde(default)]
+    pub graph: GraphSettings,
+}
+
+/// Code graph di server (R2). Semua opsional.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct GraphSettings {
+    pub clone: CloneSettings,
+    pub embedding: EmbeddingSettings,
+}
+
+/// Clone dangkal repo untuk index + statistik git (R2). Gagal → arsip tarball (cadangan).
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct CloneSettings {
+    pub enabled: bool,
+    /// Volume cache clone (`<cache_dir>/<workspace>/<repo>`). Kosong = `<tmp>/agentgate-repos`.
+    pub cache_dir: String,
+    /// Riwayat yang diambil (`git fetch --shallow-since`), bulan.
+    pub history_months: u32,
+    /// Batas ukuran satu clone (MB); lewat → clone dihapus dan index memakai tarball.
+    pub max_size_mb: u64,
+    /// Batas waktu satu `git fetch` (detik).
+    pub timeout_seconds: u64,
+    /// Ruang disk minimum yang harus tersisa di `cache_dir` sebelum clone (MB).
+    pub min_free_mb: u64,
+    /// Basis URL clone (`<base>/<owner>/<repo>.git`). Kosong = basis web koneksi provider. Tes
+    /// memakai `file://` ke repo bare lokal.
+    pub base_url: String,
+}
+
+impl Default for CloneSettings {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            cache_dir: String::new(),
+            history_months: 12,
+            max_size_mb: 1024,
+            timeout_seconds: 600,
+            min_free_mb: 2048,
+            base_url: String::new(),
+        }
+    }
+}
+
+impl CloneSettings {
+    /// Direktori cache efektif.
+    #[must_use]
+    pub fn dir(&self) -> std::path::PathBuf {
+        if self.cache_dir.trim().is_empty() {
+            std::env::temp_dir().join("agentgate-repos")
+        } else {
+            std::path::PathBuf::from(self.cache_dir.trim())
+        }
+    }
+}
+
+/// Embedding lokal untuk pencarian semantik code graph (R2).
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct EmbeddingSettings {
+    pub enabled: bool,
+    /// `fastembed` (ONNX lokal, butuh feature Cargo `semantic`) atau `fake` (vektor hash
+    /// deterministik untuk tes/dev tanpa model).
+    pub provider: String,
+    /// Model (`services::graph::embed::MODELS`): `multilingual-e5-small` (default), `multilingual-minilm-q`, `bge-small-en-q`.
+    pub model: String,
+    /// Volume cache model (diunduh saat start proses, bukan saat request).
+    pub cache_dir: String,
+    /// Simbol per batch embed.
+    pub batch_size: usize,
+    /// Batas simbol yang di-embed per repo (repo raksasa dibatasi, sisanya leksikal saja).
+    pub max_symbols: usize,
+}
+
+impl Default for EmbeddingSettings {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            provider: "fastembed".into(),
+            model: "multilingual-e5-small".into(),
+            cache_dir: String::new(),
+            batch_size: 64,
+            max_symbols: 20_000,
+        }
+    }
+}
+
+impl EmbeddingSettings {
+    /// Direktori cache model efektif.
+    #[must_use]
+    pub fn dir(&self) -> std::path::PathBuf {
+        if self.cache_dir.trim().is_empty() {
+            std::env::temp_dir().join("agentgate-models")
+        } else {
+            std::path::PathBuf::from(self.cache_dir.trim())
+        }
+    }
 }
 
 /// Pengaturan tingkat instance (M12). Semua opsional: kosong = fiturnya mati.
@@ -126,6 +226,56 @@ pub struct GitSettings {
     /// Izinkan URL GitHub Enterprise `http://` ke host loopback (server GitHub palsu saat
     /// development/test). Production: hanya https ke alamat publik (penjaga SSRF webhook, M12).
     pub allow_loopback: bool,
+    /// GitHub App (R2), cara utama menghubungkan github.com. Kosong = hanya PAT.
+    pub app: GithubAppSettings,
+}
+
+/// GitHub App milik instance (R2). Dibuat pemilik instance di GitHub (`docs/admin/github-app.md`).
+#[derive(Clone, Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct GithubAppSettings {
+    /// App ID (angka di halaman App).
+    pub app_id: String,
+    /// Slug App (`https://github.com/apps/<slug>`), untuk URL instalasi.
+    pub slug: String,
+    /// Client ID + secret OAuth App: memastikan user yang memasang benar-benar punya akses ke
+    /// instalasi (`GET /user/installations`).
+    pub client_id: String,
+    pub client_secret: String,
+    /// Kunci privat App (PEM, `-----BEGIN RSA PRIVATE KEY-----`), dari env.
+    pub private_key: String,
+    /// Secret webhook App (satu endpoint `/webhooks/github-app`).
+    pub webhook_secret: String,
+}
+
+impl GithubAppSettings {
+    /// App dikonfigurasi lengkap.
+    #[must_use]
+    pub fn enabled(&self) -> bool {
+        [
+            &self.app_id,
+            &self.slug,
+            &self.client_id,
+            &self.client_secret,
+            &self.private_key,
+            &self.webhook_secret,
+        ]
+        .iter()
+        .all(|v| !v.trim().is_empty())
+    }
+}
+
+impl std::fmt::Debug for GithubAppSettings {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("GithubAppSettings")
+            .field("app_id", &self.app_id)
+            .field("slug", &self.slug)
+            .field("client_id", &self.client_id)
+            .field("client_secret", &"[redacted]")
+            .field("private_key", &"[redacted]")
+            .field("webhook_secret", &"[redacted]")
+            .finish()
+    }
 }
 
 impl Default for GitSettings {
@@ -135,6 +285,7 @@ impl Default for GitSettings {
             github_web_base: "https://github.com".to_string(),
             timeout_seconds: 15,
             allow_loopback: false,
+            app: GithubAppSettings::default(),
         }
     }
 }

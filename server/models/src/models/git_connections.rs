@@ -33,6 +33,42 @@ impl GitProviderKind {
 }
 
 impl Model {
+    /// Terhubung lewat GitHub App (R2), bukan PAT.
+    #[must_use]
+    pub fn is_app(&self) -> bool {
+        self.auth == "app"
+    }
+
+    /// Repo yang diberi akses ke instalasi App (`owner/repo`, huruf kecil tidak dibedakan).
+    #[must_use]
+    pub fn app_repos(&self) -> Vec<String> {
+        serde_json::from_value(self.app_repos.clone()).unwrap_or_default()
+    }
+
+    /// Repo `full_name` boleh diakses koneksi: PAT selalu (token yang menentukan), App hanya
+    /// repo yang diberi akses.
+    #[must_use]
+    pub fn grants(&self, full_name: &str) -> bool {
+        !self.is_app()
+            || self
+                .app_repos()
+                .iter()
+                .any(|r| r.eq_ignore_ascii_case(full_name))
+    }
+
+    /// Semua koneksi untuk instalasi App `id` (lintas workspace).
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn for_installation<C: ConnectionTrait>(db: &C, id: i64) -> Result<Vec<Self>, DbErr> {
+        Entity::find()
+            .filter(Column::Auth.eq("app"))
+            .filter(Column::InstallationId.eq(id))
+            .all(db)
+            .await
+    }
+
     #[must_use]
     pub fn kind(&self) -> GitProviderKind {
         GitProviderKind::try_from_value(&self.provider).unwrap_or(GitProviderKind::Github)

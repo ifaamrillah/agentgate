@@ -1439,9 +1439,27 @@ doctest = false
 - `target/` satu worktree bisa beberapa GB. Profil di atas menguranginya, `bin/worktree list`
   menampilkan ukurannya, dan worktree ditutup setelah di-merge (§11) supaya disk tidak penuh.
 - `target/` checkout utama tidak pernah dihapus otomatis dan cache incremental-nya terus tumbuh
-  (pernah mencapai 126 GB, 94 GB di antaranya `debug/incremental`). Cache sebesar itu memperlambat
-  I/O build. Periksa dengan `bin/sh du -sh target`; bila di atas ~30 GB, `bin/sh cargo clean`
-  (dependency kembali cepat lewat `sccache`).
+  (pernah mencapai 126 GB, lalu 65 GB pada 2026-11-14 dengan 72 folder incremental untuk crate
+  server saja). Cargo tidak menghapus folder incremental milik hash lama (ganti feature, ganti
+  dependency, `bin/ci` dengan `--features semantic`, pindah branch), dan setiap compile crate server
+  menulis ulang 1–2 GB state incremental, sehingga I/O build ikut berat.
+  **`bin/prune`** membersihkannya: menghapus folder yang tidak tersentuh >3 jam, lalu yang terlama
+  bila `debug/incremental` masih di atas 20 GB; folder yang aktif dilewati, jadi aman saat `bin/dev`
+  atau cargo sedang jalan. `bin/dev` dan `bin/ci` memanggilnya otomatis di awal. Batas bisa diubah
+  lewat `AG_PRUNE_MAX_GB`, `AG_PRUNE_MIN_AGE`, `AG_PRUNE_ACTIVE`. `bin/prune --dry-run` hanya
+  menampilkan rencana. Periksa total dengan `bin/sh du -sh target`; `cargo clean` hanya bila
+  `deps/` ikut membengkak (dependency kembali cepat lewat `sccache`).
+- **Aturan harian (hemat RAM, disk, dan waktu):**
+  - Saat mengerjakan fitur: `bin/test <filter>` atau `bin/sh cargo check -p agentgate-server --tests`.
+    Jangan menjalankan `clippy --workspace --all-targets` atau `bin/ci` per edit.
+  - `bin/ci` hanya sebelum commit akhir atau merge. Ia menjalankan dua varian clippy (dengan dan tanpa
+    `--features semantic`), masing-masing membuat folder incremental sendiri.
+  - `cargo clippy` sudah menjalankan `cargo check` di dalamnya; jangan menjalankan keduanya berurutan.
+  - Cargo sudah menserialkan build lewat lock `target/`; tidak perlu `flock` tambahan. RAM puncak
+    berasal dari satu invocation yang meng-compile beberapa crate besar paralel (~2,2 GB per
+    `rustc` server), jadi hindari menjalankan test besar dan `bin/dev` rebuild bersamaan di laptop 16 GB.
+  - `bin/dev` men-debounce watchexec 2 detik: simpan banyak file sekaligus = satu rebuild. Saat agent
+    mengedit banyak file, tetap tunggu sampai selesai sebelum menguji.
 
 **Memecah crate**
 - **Sudah dilakukan (2026-11-14):** `common/` dan `models/` (beserta `_entities/`) ada di crate

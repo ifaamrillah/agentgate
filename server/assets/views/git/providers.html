@@ -20,11 +20,12 @@
     <td data-hide="sm">{% if r.provider %}{{ r.provider }}{% else %}<span class="app-hint">—</span>{% endif %}</td>
     <td>
       {%- if r.webhook == "active" %}{{ <badge label={t(key="git-webhook-active", lang="id")} variant="success"/> }}
+      {%- elif r.webhook == "app" %}{{ <badge label={t(key="git-webhook-app", lang="id")} variant="success"/> }}
       {%- elif r.webhook == "error" %}<span title="{% if r.webhook_error %}{{ t(key=r.webhook_error, lang="id") }}{% endif %}">{{ <badge label={t(key="git-webhook-error", lang="id")} variant="destructive"/> }}</span>
       {%- else %}{{ <badge label={t(key="git-webhook-none", lang="id")} variant="neutral"/> }}{% endif %}
     </td>
     <td data-hide="sm">{% if r.last_event %}<span class="app-hint">{{ t(key=r.last_event.key, lang="id", n=r.last_event.n) }}</span>{% else %}<span class="app-hint">{{ t(key="git-no-event", lang="id") }}</span>{% endif %}</td>
-    <td>{% if r.webhook != "none" %}<form method="post" action="{{ r.relink_action }}">{{ <button label={t(key="git-relink", lang="id")} icon="refresh" variant="ghost" size="sm" type="submit" attrs="data-relink"/> }}</form>{% endif %}</td>
+    <td>{% if r.webhook != "none" and r.webhook != "app" %}<form method="post" action="{{ r.relink_action }}">{{ <button label={t(key="git-relink", lang="id")} icon="refresh" variant="ghost" size="sm" type="submit" attrs="data-relink"/> }}</form>{% endif %}</td>
   </tr>
   {%- endfor %}
   {% </datatable> %}
@@ -37,9 +38,10 @@
   <div class="app-lrow" data-wrap data-provider="{{ p.key }}"{% if p.connection %} data-connected{% endif %}>
     <span class="app-prov-logo" aria-hidden="true">{{ icon(name=p.icon) }}</span>
     <span class="app-lrow-main">
-      <b>{{ p.label }}{% if p.connection %} {{ <badge label={t(key="git-connected", lang="id")} variant="success"/> }}{% endif %}</b>
+      <b>{{ p.label }}{% if p.connection %}{% if p.connection.app and p.connection.app.suspended %} {{ <badge label={t(key="git-app-suspended-badge", lang="id")} variant="destructive"/> }}{% else %} {{ <badge label={t(key="git-connected", lang="id")} variant="success"/> }}{% endif %}{% if p.connection.app %} <span data-via-app>{{ <badge label={t(key="git-via-app", lang="id")} variant="neutral"/> }}</span>{% elif p.key == "github" %} {{ <badge label={t(key="git-via-token", lang="id")} variant="neutral"/> }}{% endif %}{% endif %}</b>
       <small>
-        {%- if p.connection %}{{ t(key="git-connected-detail", lang="id", account=p.connection.account, host=p.connection.host, n=p.connection.repos) }}{% if p.connection.last_event %} · {{ t(key="git-last-event", lang="id") }} {{ t(key=p.connection.last_event.key, lang="id", n=p.connection.last_event.n) }}{% endif %}
+        {%- if p.connection and p.connection.app %}{{ t(key="git-app-connected-detail", lang="id", account=p.connection.account, n=p.connection.app.repos) }}{% if p.connection.last_event %} · {{ t(key="git-last-event", lang="id") }} {{ t(key=p.connection.last_event.key, lang="id", n=p.connection.last_event.n) }}{% endif %}
+        {%- elif p.connection %}{{ t(key="git-connected-detail", lang="id", account=p.connection.account, host=p.connection.host, n=p.connection.repos) }}{% if p.connection.last_event %} · {{ t(key="git-last-event", lang="id") }} {{ t(key=p.connection.last_event.key, lang="id", n=p.connection.last_event.n) }}{% endif %}
         {%- elif p.key == "github" %}{{ t(key="git-provider-github-hint", lang="id") }}
         {%- elif p.available %}{{ t(key="git-provider-github_enterprise-hint", lang="id") }}
         {%- else %}{{ t(key="nav-soon", lang="id") }}{% endif %}
@@ -47,6 +49,10 @@
     </span>
     <span class="app-lrow-acts">
       {%- if not p.available %}{{ <badge label={t(key="nav-soon", lang="id")} variant="neutral"/> }}
+      {%- elif p.connection and p.connection.app %}
+      {{ <button label={t(key="git-app-manage", lang="id")} icon="external-link" variant="ghost" size="sm" href={p.connection.app.manage_url} attrs=`target="_blank" rel="noopener" data-app-manage`/> }}
+      <form method="post" action="{{ p.connection.app.refresh_action }}" class="app-inline-form">{{ <button label={t(key="git-app-refresh", lang="id")} icon="refresh" variant="outline" size="sm" type="submit" attrs="data-app-refresh"/> }}</form>
+      {{ <button label={t(key="git-disconnect", lang="id")} icon="plug" variant="destructive" size="sm" dialog={"disconnect-" ~ p.key}/> }}
       {%- elif p.connection %}
       {{ <button label={t(key="git-webhook-manual", lang="id")} icon="api" variant="ghost" size="sm" dialog={"hook-" ~ p.key}/> }}
       {{ <button label={t(key="git-replace-token", lang="id")} icon="key" variant="outline" size="sm" dialog={"connect-" ~ p.key}/> }}
@@ -56,12 +62,50 @@
       {%- endif %}
     </span>
   </div>
+  {%- if p.connection and p.connection.app %}
+  <div class="app-git-app" data-app-detail>
+    {%- if p.connection.app.suspended %}{{ <flash kind="warn" message={t(key="git-app-suspended-note", lang="id")}/> }}{% endif %}
+    <dl class="app-props">
+      <dt>{{ t(key="git-app-installation", lang="id") }}</dt><dd><span class="app-code">#{{ p.connection.app.installation_id }}</span> · {{ p.connection.account }}</dd>
+      <dt>{{ t(key="git-app-repos", lang="id") }}</dt><dd>{% if p.connection.app.selection == "all" %}{{ t(key="git-app-repos-all", lang="id", n=p.connection.app.repos) }}{% else %}{{ t(key="git-app-repos-selected", lang="id", n=p.connection.app.repos) }}{% endif %}</dd>
+      <dt>{{ t(key="git-app-permissions", lang="id") }}</dt><dd><span class="app-git-perms">{% for perm in p.connection.app.permissions %}<span class="app-code">{{ perm.name }}: {{ perm.access }}</span>{% else %}<span class="app-hint">—</span>{% endfor %}</span></dd>
+    </dl>
+  </div>
+  {%- endif %}
   {%- endfor %}
 {% </card> %}
 {%- for p in providers %}
   {%- if p.available %}
   {%- set failed_here = false %}{% if failed %}{% if failed.kind == p.key %}{% set failed_here = true %}{% endif %}{% endif %}
   {%- if p.connection %}{% set d_title = t(key="git-replace-token-title", lang="id", provider=p.label) %}{% else %}{% set d_title = t(key="git-connect-title", lang="id", provider=p.label) %}{% endif %}
+  {%- if p.key == "github" %}
+  {% <dialog id={"connect-" ~ p.key} title={d_title} description={t(key="git-connect-ways", lang="id")} icon={p.icon} tone="accent" open={failed_here}> %}
+  <section class="app-git-ways">
+    <div class="app-git-way" data-way="app"{% if not app_enabled %} aria-disabled="true"{% endif %}>
+      <div class="app-git-way-head"><b>{{ t(key="git-way-app", lang="id") }}</b>{{ <badge label={t(key="git-way-recommended", lang="id")} variant="success"/> }}</div>
+      <p class="app-hint">{{ t(key="git-way-app-desc", lang="id") }}</p>
+      {%- if app_enabled %}
+      <form method="post" action="{{ app_install_action }}" data-app-install-form>{{ <button label={t(key="git-app-install", lang="id")} icon="brand-github" type="submit" attrs="data-app-install"/> }}</form>
+      {%- else %}
+      <p class="app-hint" data-app-unavailable>{{ icon(name="info-circle") }} {{ t(key="git-app-unavailable", lang="id") }}</p>
+      {%- endif %}
+    </div>
+    <div class="app-git-way" data-way="token">
+      <div class="app-git-way-head"><b>{{ t(key="git-way-token", lang="id") }}</b></div>
+      <p class="app-hint">{{ t(key="git-way-token-desc", lang="id") }}</p>
+      <form method="post" action="{{ connect_action }}" class="app-form" id="connect-form-{{ p.key }}" data-connect-form>
+        <input type="hidden" name="kind" value="{{ p.key }}">
+        {%- if failed_here %}{% set token_error = failed.code %}{% else %}{% set token_error = "" %}{% endif %}
+        {{ <field id={"git-token-" ~ p.key} name="token" type="password" label={t(key="git-token", lang="id")} placeholder="ghp_…" mono={true} required={true} autocomplete="off" error={token_error} hint={t(key="git-token-hint", lang="id")}/> }}
+      </form>
+    </div>
+  </section>
+  <footer>
+    <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+    {{ <button label={t(key="git-connect-submit", lang="id")} type="submit" variant="outline" form="connect-form-github" attrs="data-connect-submit"/> }}
+  </footer>
+  {% </dialog> %}
+  {%- else %}
   {% <dialog id={"connect-" ~ p.key} title={d_title} description={t(key="git-connect-description", lang="id")} icon={p.icon} tone="accent" open={failed_here}> %}
   <form method="post" action="{{ connect_action }}" class="app-form" data-connect-form>
     <input type="hidden" name="kind" value="{{ p.key }}">
@@ -87,18 +131,21 @@
   </form>
   {% </dialog> %}
   {%- endif %}
+  {%- endif %}
   {%- if p.connection %}
+  {%- if not p.connection.app %}
   {% <dialog id={"hook-" ~ p.key} title={t(key="git-webhook-manual", lang="id")} description={t(key="git-webhook-manual-description", lang="id")} icon="api" tone="accent"> %}
   <section class="app-stack-v">
     <dl class="app-props">
       <dt>{{ t(key="git-webhook-url", lang="id") }}</dt><dd><code class="app-code" data-webhook-url>{{ p.connection.webhook_url }}</code></dd>
       <dt>{{ t(key="git-webhook-secret", lang="id") }}</dt><dd><code class="app-code" data-webhook-secret>{{ p.connection.webhook_secret }}</code></dd>
-      <dt>{{ t(key="git-webhook-events", lang="id") }}</dt><dd><span class="app-code">pull_request, check_run, check_suite, status</span></dd>
+      <dt>{{ t(key="git-webhook-events", lang="id") }}</dt><dd><span class="app-code">pull_request, check_run, check_suite, status, push</span></dd>
       <dt>{{ t(key="git-webhook-type", lang="id") }}</dt><dd><span class="app-code">application/json</span></dd>
     </dl>
   </section>
   <footer><button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-close", lang="id") }}</button></footer>
   {% </dialog> %}
+  {%- endif %}
   {% <dialog id={"disconnect-" ~ p.key} title={t(key="git-disconnect-title", lang="id", provider=p.label)} description={t(key="git-disconnect-description", lang="id")} icon="plug" tone="danger"> %}
   <form method="post" action="{{ p.connection.disconnect_action }}">
     <footer>

@@ -166,7 +166,7 @@ pub fn definitions() -> Vec<ToolDef> {
         },
         ToolDef {
             name: "ag_search",
-            description: "Cari simbol kode (fungsi, method, kelas, route) di code graph project. Cocok dengan pecahan nama (\"reserve stock\" → reserveStock) dan doc comment. Hasil: id, nama, file, baris, signature. Pakai sebelum grep.",
+            description: "Cari simbol kode (fungsi, method, kelas, route) di code graph project. Default `mode=hybrid`: pecahan nama (\"reserve stock\" → reserveStock) + doc comment digabung dengan kemiripan makna (\"potong stok saat bayar\"). `lexical` = nama saja, `semantic` = makna saja. Hasil: id, nama, file, baris, signature. Pakai sebelum grep.",
             schema: schema(
                 json!({
                     "project": project,
@@ -175,6 +175,7 @@ pub fn definitions() -> Vec<ToolDef> {
                     "repo": { "type": "string", "description": "Nama repo (opsional)" },
                     "include_tests": { "type": "boolean" },
                     "limit": { "type": "integer", "minimum": 1, "maximum": 50 },
+                    "mode": { "type": "string", "enum": ["hybrid", "lexical", "semantic"], "description": "Default hybrid" },
                 }),
                 &["query"],
             ),
@@ -340,6 +341,8 @@ struct Args {
     diff: String,
     #[serde(default)]
     include_tests: bool,
+    #[serde(default)]
+    mode: String,
     #[serde(default)]
     slug: String,
     #[serde(default)]

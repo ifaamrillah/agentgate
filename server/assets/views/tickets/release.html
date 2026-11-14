@@ -78,6 +78,17 @@
     {{ <empty_state title={t(key="release-tickets-empty", lang="id")} description={t(key="release-tickets-empty-description", lang="id")} icon="ticket" variant="plain"/> }}
     {%- endfor %}
   {% </card> %}
+  {%- if git_tags | length > 0 %}
+  {% <card title={t(key="release-tag", lang="id")} flush={true} attrs="data-release-tags"> %}
+    {%- for g in git_tags %}
+    <div class="app-lrow" data-tag-repo="{{ g.repo }}"{% if g.error %} data-tag-error="{{ g.error }}"{% endif %}>
+      <span class="app-lrow-main"><b>{{ g.repo }}</b><small>{% if g.error %}{{ t(key=g.error, lang="id") }}{% else %}<span class="app-code">{{ g.tag }}</span> · <span class="app-code">{{ g.short }}</span>{% endif %}</small></span>
+      {%- if g.error %}{{ <badge label={t(key="release-tag-failed", lang="id")} variant="destructive"/> }}
+      {%- else %}{{ <button label={t(key="release-tag-open", lang="id")} icon="external-link" variant="ghost" size="sm" href={g.url}/> }}{% endif %}
+    </div>
+    {%- endfor %}
+  {% </card> %}
+  {%- endif %}
   </aside>
 </div>
 
@@ -106,6 +117,19 @@
       <label class="app-choice"><input type="radio" name="target" value="none"{% if not targets %} checked{% endif %}><span><b>{{ t(key="release-now-detach", lang="id") }}</b><small>{{ t(key="release-now-detach-hint", lang="id") }}</small></span></label>
     </fieldset>
     {%- endif %}
+    <fieldset class="app-stack-v" data-gap="sm" data-release-tag><legend class="app-blk-t">{{ t(key="release-tag", lang="id") }}</legend>
+      {%- set linked = tag_linked %}
+      {%- if tag_repos == 0 %}
+      <p class="app-hint" data-tag-no-repo>{{ t(key="release-tag-no-repo", lang="id") }}</p>
+      {%- else %}
+      {%- if linked == 0 %}<div class="alert" data-variant="warn" data-tag-unlinked>{{ icon(name="alert-triangle") }}<span>{{ t(key="release-tag-unlinked", lang="id") }}</span></div>{% endif %}
+      <label class="app-choice"><input type="checkbox" class="app-check" name="make_tag" value="1"{% if linked > 0 %} checked{% endif %}><span><b>{{ t(key="release-tag-make", lang="id") }}</b><small>{{ t(key="release-tag-make-hint", lang="id", n=linked, total=tag_repos) }}</small></span></label>
+      {{ <field id="release-tag-name" name="tag" label={t(key="release-tag-name", lang="id")} value={tag_default} mono={true} hint={t(key="release-tag-name-hint", lang="id")}/> }}
+      <label class="app-choice"><input type="radio" name="tag_target" value="head" checked><span><b>{{ t(key="release-tag-head", lang="id") }}</b><small>{{ t(key="release-tag-head-hint", lang="id") }}</small></span></label>
+      <label class="app-choice"><input type="radio" name="tag_target" value="commit"><span><b>{{ t(key="release-tag-commit", lang="id") }}</b><small>{{ t(key="release-tag-commit-hint", lang="id") }}</small></span></label>
+      {{ <field id="release-tag-sha" name="tag_sha" label={t(key="release-tag-sha", lang="id")} placeholder="a1b2c3d" mono={true}/> }}
+      {%- endif %}
+    </fieldset>
     {%- if notes %}
     <label class="app-choice"><input type="checkbox" class="app-check" name="publish" value="1" checked><span><b>{{ t(key="release-now-publish", lang="id") }}</b><small>{{ t(key="release-now-publish-hint", lang="id") }}</small></span></label>
     {%- else %}

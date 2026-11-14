@@ -37,7 +37,8 @@ futures-core = { version = "0.3" }
 futures-sink = { version = "0.3" }
 futures-util = { version = "0.3", features = ["channel", "io", "sink"] }
 getrandom-6f8ce4dd05d13bba = { package = "getrandom", version = "0.2", default-features = false, features = ["std"] }
-hashbrown = { version = "0.17", default-features = false, features = ["inline-more"] }
+hashbrown-9067fe90e8c1f593 = { package = "hashbrown", version = "0.17", default-features = false, features = ["inline-more"] }
+hashbrown-986da7b5efc2b80e = { package = "hashbrown", version = "0.16", features = ["serde"] }
 hyper = { version = "1", features = ["client", "http1", "server"] }
 hyper-util = { version = "0.1", features = ["client-legacy", "http1", "server", "service"] }
 idna = { version = "1" }
@@ -87,11 +88,13 @@ zerovec = { version = "0.11", default-features = false, features = ["alloc", "de
 [build-dependencies]
 aho-corasick = { version = "1" }
 crossbeam-utils = { version = "0.8" }
+darling = { version = "0.20" }
+darling_core = { version = "0.20", default-features = false, features = ["suggestions"] }
 derive_more-impl = { version = "2", features = ["add", "add_assign", "debug"] }
 either = { version = "1", features = ["use_std"] }
 fastrand = { version = "2" }
 getrandom-6f8ce4dd05d13bba = { package = "getrandom", version = "0.2", default-features = false, features = ["std"] }
-hashbrown = { version = "0.17", default-features = false, features = ["inline-more"] }
+hashbrown-9067fe90e8c1f593 = { package = "hashbrown", version = "0.17", default-features = false, features = ["inline-more"] }
 indexmap = { version = "2", features = ["serde"] }
 memchr = { version = "2" }
 once_cell = { version = "1" }
