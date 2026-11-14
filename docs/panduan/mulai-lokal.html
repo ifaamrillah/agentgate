@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panduan Agent Gate Lokal</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  /* Tata letak: satu kolom baca 720px, langkah berurutan dengan penanda nomor di kiri, kode di blok gelap-netral. */
+  :root {
+    --bg: #fbfbfc;
+    --surface: #ffffff;
+    --fg: #1b1d22;
+    --muted: #5d6270;
+    --line: #e4e6eb;
+    --accent: #4b5bd6;
+    --accent-soft: #eceefc;
+    --code-bg: #f1f2f5;
+    --code-fg: #22252b;
+    --warn-bg: #fff6e0;
+    --warn-line: #ecd28a;
+    --ok: #1d7a4d;
+    --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14161a; --surface: #1b1e24; --fg: #e8eaee; --muted: #9aa0ad; --line: #2b2f38;
+      --accent: #8d99f5; --accent-soft: #23283f; --code-bg: #101216; --code-fg: #dfe2e8;
+      --warn-bg: #2d2610; --warn-line: #5b4c1c; --ok: #5fcf97; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14161a; --surface: #1b1e24; --fg: #e8eaee; --muted: #9aa0ad; --line: #2b2f38;
+    --accent: #8d99f5; --accent-soft: #23283f; --code-bg: #101216; --code-fg: #dfe2e8;
+    --warn-bg: #2d2610; --warn-line: #5b4c1c; --ok: #5fcf97; color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 16px; line-height: 1.65;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 40px 72px; margin: 0;
+  }
+  main { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 40px; }
+  header { display: flex; flex-direction: column; gap: 12px; }
+  h1 { font-size: 2rem; line-height: 1.2; margin: 0; letter-spacing: -0.02em; text-wrap: balance; }
+  h2 { font-size: 1.25rem; line-height: 1.35; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+  p { margin: 0; max-width: 65ch; }
+  .lead { color: var(--muted); font-size: 1.05rem; }
+  .eyebrow { font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .addr { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  code { font-family: var(--font-mono); font-size: 0.875em; background: var(--code-bg); color: var(--code-fg); padding: 0.1em 0.4em; border-radius: 4px; }
+  .step { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 4px 16px; }
+  .step > .num {
+    width: 36px; height: 36px; border-radius: 50%; background: var(--accent-soft); color: var(--accent);
+    display: grid; place-items: center; font-weight: 600; font-size: 0.95rem; grid-row: 1 / span 2;
+  }
+  .step > h2 { align-self: center; }
+  .body { grid-column: 2; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  ul, ol { margin: 0; padding-left: 1.25rem; display: flex; flex-direction: column; gap: 6px; max-width: 65ch; }
+  .codeblock { position: relative; min-width: 0; }
+  .codeblock pre {
+    margin: 0; background: var(--code-bg); color: var(--code-fg); border: 1px solid var(--line); border-radius: 8px;
+    padding: 14px 64px 14px 16px; overflow-x: auto; font-family: var(--font-mono); font-size: 0.85rem; line-height: 1.6;
+  }
+  .copy {
+    position: absolute; top: 8px; right: 8px; font: inherit; font-size: 0.75rem; font-weight: 500; cursor: pointer;
+    background: var(--surface); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px;
+  }
+  .copy:hover { border-color: var(--accent); color: var(--accent); }
+  .copy:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .note { background: var(--accent-soft); border-radius: 8px; padding: 12px 16px; max-width: 65ch; }
+  .warn { background: var(--warn-bg); border: 1px solid var(--warn-line); border-radius: 8px; padding: 12px 16px; max-width: 65ch; }
+  .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  tr:last-child td { border-bottom: 0; }
+  td:first-child { white-space: nowrap; }
+  section.plain { display: flex; flex-direction: column; gap: 14px; }
+  a { color: var(--accent); }
+  .tag { display: inline-block; font-size: 0.75rem; font-weight: 600; color: var(--ok); }
+  @media (max-width: 520px) {
+    .step { grid-template-columns: 1fr; }
+    .step > .num { grid-row: auto; }
+    .body { grid-column: 1; }
+    h1 { font-size: 1.6rem; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <span class="eyebrow">Panduan pengguna · lingkungan lokal</span>
+    <h1>Memasang Agent Gate di project Anda</h1>
+    <p class="lead">Server Agent Gate berjalan di laptop Anda sendiri, jadi semua alamat di panduan ini memakai
+      <code>http://localhost:5150</code>. Ikuti langkahnya berurutan, dari menyalakan server sampai agent mengerjakan tiket pertama.</p>
+  </header>
+
+  <section class="plain">
+    <h2>Yang perlu disiapkan</h2>
+    <ul>
+      <li><strong>Docker</strong> (Compose v2), <code>git</code>, dan <code>curl</code> di laptop.</li>
+      <li>Satu <strong>repo git</strong> untuk dipasangi Agent Gate. Repo baru kosong juga bisa.</li>
+      <li>Minimal satu client AI yang sudah login: Claude Code, Codex, Antigravity CLI (<code>agy</code>), Cursor, OpenCode, atau Copilot CLI.</li>
+      <li>Source Agent Gate di <code>~/SEVIMA/Private/agentgate</code>. Folder ini disebut <em>folder Agent Gate</em> di bawah.</li>
+    </ul>
+  </section>
+
+  <article class="step">
+    <div class="num">1</div>
+    <h2>Nyalakan server</h2>
+    <div class="body">
+      <p>Di folder Agent Gate, jalankan server development. Biarkan terminal ini terbuka.</p>
+      <div class="codeblock"><pre>cd ~/SEVIMA/Private/agentgate
+bin/dev</pre><button class="copy" type="button">Salin</button></div>
+      <p>Server siap di <a href="http://localhost:5150">http://localhost:5150</a>. Di terminal kedua, isi data contoh supaya ada akun dan project untuk dicoba:</p>
+      <div class="codeblock"><pre>bin/loco db seed</pre><button class="copy" type="button">Salin</button></div>
+      <p class="note">Seed membuat workspace <strong>PT Contoh</strong> dengan project <strong>KSR</strong> (Kasir Online) dan lima akun,
+        antara lain <code>owner@agentgate.test</code> dan <code>dev@agentgate.test</code>. Semua akun itu tanpa password.</p>
+    </div>
+  </article>
+
+  <article class="step">
+    <div class="num">2</div>
+    <h2>Masuk ke web</h2>
+    <div class="body">
+      <p><strong>Cara cepat:</strong> pakai akun contoh. Cetak link masuk sekali pakai:</p>
+      <div class="codeblock"><pre>bin/loco task dev_login email:owner@agentgate.test</pre><button class="copy" type="button">Salin</button></div>
+      <p>Buka link <code>http://localhost:5150/_dev/login?token=...</code> yang tercetak di browser. Link berlaku 10 menit dan setara password, jadi jangan dibagikan atau di-commit.</p>
+      <p><strong>Cara lengkap:</strong> daftar sendiri di <a href="http://localhost:5150/register">http://localhost:5150/register</a>.
+        Email verifikasi tidak dikirim ke inbox sungguhan. Semua email lokal masuk ke Mailpit di
+        <a href="http://localhost:8025">http://localhost:8025</a>, jadi buka di sana untuk mengklik link verifikasi.</p>
+      <p class="note">Tombol masuk dengan Google dan GitHub baru aktif kalau <code>GOOGLE_CLIENT_ID</code> atau <code>GITHUB_CLIENT_ID</code> diisi. Secara lokal, pakai dua cara di atas.</p>
+    </div>
+  </article>
+
+  <article class="step">
+    <div class="num">3</div>
+    <h2>Siapkan workspace dan project</h2>
+    <div class="body">
+      <p>Kalau memakai data seed, workspace <code>pt-contoh</code> dan project <code>KSR</code> sudah ada. Lewati langkah ini dan pakai <code>KSR</code> di langkah berikutnya.</p>
+      <p>Untuk project baru milik Anda:</p>
+      <ol>
+        <li>Buat <strong>workspace</strong>, lalu undang tim lewat Pengaturan → Anggota (opsional).</li>
+        <li>Buat <strong>project</strong> dengan kode pendek, misalnya <code>DEMO</code>, lalu pilih workflow.</li>
+        <li>Hubungan repo GitHub (Pengaturan project → Git) hanya perlu untuk fitur PR. Untuk percobaan awal, boleh dilewati.</li>
+      </ol>
+    </div>
+  </article>
+
+  <article class="step">
+    <div class="num">4</div>
+    <h2>Pasang CLI <code>agentgate</code></h2>
+    <div class="body">
+      <div class="warn">Di server lokal, perintah <code>curl .../install.sh | sh</code> tidak tersedia (hasilnya 404), karena belum ada rilis CLI yang dikonfigurasi. Di lokal, CLI dibangun dari source. Langkah ini hanya perlu diulang kalau kode CLI berubah.</div>
+      <div class="codeblock"><pre>cd ~/SEVIMA/Private/agentgate
+bin/sh cargo build -p agentgate-cli
+bin/sh cp target/debug/agentgate /workspace/tmp/agentgate
+mkdir -p ~/.local/bin
+install -m755 tmp/agentgate ~/.local/bin/agentgate</pre><button class="copy" type="button">Salin</button></div>
+      <p>Pastikan <code>~/.local/bin</code> ada di <code>PATH</code>, lalu cek hasilnya:</p>
+      <div class="codeblock"><pre>agentgate --version
+agentgate doctor</pre><button class="copy" type="button">Salin</button></div>
+      <p><code>agentgate doctor</code> memeriksa git, client AI yang terpasang, dan koneksi server. Client AI yang belum terpasang ditandai opsional. Yang wajib hanya satu client dan login.</p>
+    </div>
+  </article>
+
+  <article class="step">
+    <div class="num">5</div>
+    <h2>Login CLI ke server lokal</h2>
+    <div class="body">
+      <p>Login lewat kode perangkat. Sebelumnya, pastikan browser Anda sudah masuk ke web (langkah 2).</p>
+      <div class="codeblock"><pre>agentgate login --server http://localhost:5150</pre><button class="copy" type="button">Salin</button></div>
+      <p>Terminal menampilkan kode dan link konfirmasi. Buka link itu di browser, setujui, lalu kembali ke terminal. Cek hasilnya dengan <code>agentgate status</code>.</p>
+    </div>
+  </article>
+
+  <article class="step">
+    <div class="num">6</div>
+    <h2>Pasang Agent Gate di repo Anda</h2>
+    <div class="body">
+      <p>Masuk ke repo yang ingin dipasangi. Kalau repo baru, siapkan dulu dengan satu commit kosong:</p>
+      <div class="codeblock"><pre>mkdir ~/proyek-baru &amp;&amp; cd ~/proyek-baru
+git init
+git commit --allow-empty -m "init"</pre><button class="copy" type="button">Salin</button></div>
+      <p>Lalu pasang aturan Agent Gate, dengan kode project dari langkah 3:</p>
+      <div class="codeblock"><pre>agentgate init --project KSR</pre><button class="copy" type="button">Salin</button></div>
+      <p>Perintah ini:</p>
+      <ul>
+        <li>menulis file aturan, MCP, dan hook untuk client AI, antara lain <code>AGENTS.md</code>, <code>CLAUDE.md</code>, <code>.mcp.json</code>, <code>.claude/settings.json</code>, <code>.codex/</code>, <code>.cursor/</code>, <code>.agents/</code>, dan <code>opencode.json</code>;</li>
+      <li>mencadangkan aturan lama repo ke <code>.agentgate/backup/</code> sebelum menimpanya;</li>
+        <li>membuat <strong>satu commit</strong> bernama <code>chore: pasang aturan Agent Gate</code>.</li>
+      </ul>
+      <p class="warn">Pastikan tidak ada file yang sedang di-stage. Kalau ada, <code>init</code> berhenti dan meminta Anda merapikannya dulu.</p>
+    </div>
+  </article>
+
+  <article class="step">
+    <div class="num">7</div>
+    <h2>Hubungkan client AI ke MCP server</h2>
+    <div class="body">
+      <p>Di web, buka <strong>Akun → Hubungkan client AI</strong>. URL MCP lokal adalah:</p>
+      <div class="codeblock"><pre>http://localhost:5150/mcp</pre><button class="copy" type="button">Salin</button></div>
+      <p>Saat client AI pertama kali memakai server <code>agentgate</code>, ia membuka browser untuk login lewat OAuth. Untuk Claude Code, file <code>.mcp.json</code> dari langkah 6 sudah memuatnya.
+        Untuk Antigravity CLI, jalankan <code>agy</code> sekali secara interaktif supaya login Google dan trust folder repo selesai, lalu login server <code>agentgate</code> lewat <code>/mcp</code>.</p>
+    </div>
+  </article>
+
+  <article class="step">
+    <div class="num">8</div>
+    <h2>Nyalakan runner</h2>
+    <div class="body">
+      <p>Di folder repo, jalankan runner dan biarkan terminal terbuka. Runner adalah bagian yang menjalankan agent di laptop Anda.</p>
+      <div class="codeblock"><pre>cd ~/proyek-baru
+agentgate runner start</pre><button class="copy" type="button">Salin</button></div>
+      <p>Opsi berguna: <code>--client claude</code> memilih client AI, dan <code>--once</code> membuat runner berhenti setelah satu job selesai.</p>
+    </div>
+  </article>
+
+  <article class="step">
+    <div class="num">9</div>
+    <h2>Coba dengan tiket pertama</h2>
+    <div class="body">
+      <ol>
+        <li>Buka board project di <a href="http://localhost:5150/w/pt-contoh/p/KSR">http://localhost:5150/w/pt-contoh/p/KSR</a> (ganti <code>KSR</code> dengan kode project Anda).</li>
+        <li>Buat tiket dan geser ke stage yang dikerjakan agent.</li>
+        <li>Job muncul di terminal runner dan agent mulai bekerja.</li>
+        <li>Hasilnya (diff, PR, evidence tes) kembali ke tiket untuk Anda review.</li>
+      </ol>
+    </div>
+  </article>
+
+  <section class="plain">
+    <h2>Perintah sehari-hari</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Perintah</th><th>Fungsi</th></tr></thead>
+        <tbody>
+          <tr><td><code>agentgate status</code></td><td>Akun, runner, dan status aturan di repo ini</td></tr>
+          <tr><td><code>agentgate doctor</code></td><td>Cek kesiapan perangkat</td></tr>
+          <tr><td><code>agentgate rules check</code></td><td>Bandingkan aturan repo dengan versi server</td></tr>
+          <tr><td><code>agentgate knowledge pull</code></td><td>Tarik dokumen knowledge project ke <code>.agentgate/knowledge/</code></td></tr>
+          <tr><td><code>agentgate logout</code></td><td>Hapus login di perangkat ini</td></tr>
+          <tr><td><code>agentgate uninstall</code></td><td>Lepas Agent Gate dari repo dan pulihkan aturan lama</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="plain">
+    <h2>Kalau ada yang tidak jalan</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Gejala</th><th>Penyebab dan solusi</th></tr></thead>
+        <tbody>
+          <tr><td><code>agentgate: command not found</code></td><td>CLI belum dibangun atau <code>~/.local/bin</code> belum ada di <code>PATH</code>. Ulangi langkah 4.</td></tr>
+          <tr><td><code>login</code> tidak tersambung</td><td>Server belum menyala. Pastikan <code>bin/dev</code> berjalan dan <a href="http://localhost:5150">localhost:5150</a> terbuka di browser.</td></tr>
+          <tr><td>Link <code>/_dev/login</code> ditolak</td><td>Link kedaluwarsa setelah 10 menit. Cetak ulang dengan <code>bin/loco task dev_login</code>.</td></tr>
+          <tr><td>Email verifikasi tidak datang</td><td>Cek Mailpit di <a href="http://localhost:8025">localhost:8025</a>, bukan inbox asli.</td></tr>
+          <tr><td><code>init</code> berhenti sebelum commit</td><td>Ada file yang sudah di-stage. Jalankan <code>git restore --staged .</code>, lalu ulangi.</td></tr>
+          <tr><td><code>init</code> minta project</td><td>Tambahkan <code>--project KODE</code>, dengan kode dari langkah 3.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="plain">
+    <h2>Saat nanti pindah ke server sungguhan</h2>
+    <p>Alur yang sama berlaku. Bedanya hanya di alamat dan cara instal CLI.</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Hal</th><th>Lokal</th><th>Server sungguhan</th></tr></thead>
+        <tbody>
+          <tr><td>Alamat server</td><td><code>http://localhost:5150</code></td><td><code>https://&lt;alamat-server&gt;</code></td></tr>
+          <tr><td>Instal CLI</td><td>Build dari source (langkah 4)</td><td><code>curl -fsSL https://&lt;alamat-server&gt;/install.sh | sh</code></td></tr>
+          <tr><td>Masuk web</td><td>Akun seed atau <code>dev_login</code></td><td>Daftar, verifikasi email, atau Google/GitHub</td></tr>
+          <tr><td>Email</td><td>Mailpit</td><td>SMTP sungguhan</td></tr>
+          <tr><td>URL MCP</td><td><code>http://localhost:5150/mcp</code></td><td><code>https://&lt;alamat-server&gt;/mcp</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script>
+  document.querySelectorAll('.codeblock').forEach(function (block) {
+    var btn = block.querySelector('.copy');
+    var pre = block.querySelector('pre');
+    btn.addEventListener('click', function () {
+      var text = pre.innerText.trim();
+      var done = function () { btn.textContent = 'Tersalin'; setTimeout(function () { btn.textContent = 'Salin'; }, 1500); };
+      var fallback = function () {
+        var r = document.createRange(); r.selectNodeContents(pre);
+        var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+        btn.textContent = 'Tekan Ctrl+C'; setTimeout(function () { btn.textContent = 'Salin'; }, 2000);
+      };
+      try {
+        navigator.clipboard.writeText(text).then(done, fallback);
+      } catch (e) { fallback(); }
+    });
+  });
+</script>
+</body>
+</html>
