@@ -51,6 +51,7 @@ permission_markers!(
     CreateProjects,
     ViewAuditLog,
     ManageTicketSettings,
+    ManageKnowledge,
 );
 
 /// Marker `Require<AnySettings>`: role membuka setidaknya satu halaman Pengaturan

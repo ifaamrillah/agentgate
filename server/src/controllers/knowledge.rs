@@ -322,7 +322,7 @@ async fn home(
         "hidden_groups": hidden.join(", "),
         "owner_options": owner_options(&ctx, &access).await?,
         "flash": flash,
-        "settings_href": access.tenant.can(Permission::ManageTicketSettings).then(|| format!("/w/{}/settings/knowledge", access.tenant.workspace.slug)),
+        "settings_href": access.tenant.can(Permission::ManageKnowledge).then(|| format!("/w/{}/settings/knowledge", access.tenant.workspace.slug)),
     });
     if let (Some(d), serde_json::Value::Object(e)) =
         (data.as_object_mut(), dialogs(&ctx, &access).await?)

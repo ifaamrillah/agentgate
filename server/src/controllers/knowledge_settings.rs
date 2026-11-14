@@ -1,4 +1,4 @@
-//! Pengaturan → Knowledge workspace (M8, `Require<ManageTicketSettings>`):
+//! Pengaturan → Knowledge workspace (M8, `Require<ManageKnowledge>`):
 //!
 //! - `docs` — dokumen workspace (standar lintas project): daftar, dokumen baru, editor (halaman
 //!   sendiri) + pengaturan berlaku-untuk/persona/pemilik, arsipkan;
@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 use crate::{
     controllers::{
-        extractors::{RequestId, Require, Tenant, require::ManageTicketSettings},
+        extractors::{RequestId, Require, Tenant, require::ManageKnowledge},
         flash,
         shell::app_shell,
     },
@@ -133,7 +133,7 @@ async fn project_options(ctx: &AppContext, tenant: &Tenant) -> Result<Vec<ComboO
 #[debug_handler]
 async fn index(
     State(_ctx): State<AppContext>,
-    access: Require<ManageTicketSettings>,
+    access: Require<ManageKnowledge>,
 ) -> Result<Response> {
     format::redirect(&format!("{}/docs", base(&access.tenant.workspace.slug)))
 }
@@ -144,7 +144,7 @@ async fn index(
 async fn docs_index(
     State(ctx): State<AppContext>,
     ViewEngine(v): ViewEngine<TeraView>,
-    access: Require<ManageTicketSettings>,
+    access: Require<ManageKnowledge>,
     session: Session,
 ) -> Result<Response> {
     let (session, flash) = flash::take(session);
@@ -196,7 +196,7 @@ async fn docs_index(
 async fn doc_new(
     State(ctx): State<AppContext>,
     ViewEngine(v): ViewEngine<TeraView>,
-    access: Require<ManageTicketSettings>,
+    access: Require<ManageKnowledge>,
 ) -> Result<Response> {
     render_doc_form(
         &ctx,
@@ -304,7 +304,7 @@ async fn render_doc_form(
 async fn doc_create(
     State(ctx): State<AppContext>,
     ViewEngine(v): ViewEngine<TeraView>,
-    access: Require<ManageTicketSettings>,
+    access: Require<ManageKnowledge>,
     session: Session,
     RequestId(request_id): RequestId,
     Form(pairs): Form<Vec<(String, String)>>,
@@ -354,7 +354,7 @@ async fn workspace_doc(
 async fn doc_edit(
     State(ctx): State<AppContext>,
     ViewEngine(v): ViewEngine<TeraView>,
-    access: Require<ManageTicketSettings>,
+    access: Require<ManageKnowledge>,
     session: Session,
     Path((_, slug)): Path<(String, String)>,
 ) -> Result<Response> {
@@ -377,7 +377,7 @@ async fn doc_edit(
 async fn doc_save(
     State(ctx): State<AppContext>,
     ViewEngine(v): ViewEngine<TeraView>,
-    access: Require<ManageTicketSettings>,
+    access: Require<ManageKnowledge>,
     session: Session,
     RequestId(request_id): RequestId,
     Path((_, slug)): Path<(String, String)>,
@@ -456,7 +456,7 @@ async fn doc_save(
 #[debug_handler]
 async fn doc_archive(
     State(ctx): State<AppContext>,
-    access: Require<ManageTicketSettings>,
+    access: Require<ManageKnowledge>,
     session: Session,
     RequestId(request_id): RequestId,
     Path((_, slug)): Path<(String, String)>,
@@ -476,7 +476,7 @@ async fn doc_archive(
 async fn types_index(
     State(ctx): State<AppContext>,
     ViewEngine(v): ViewEngine<TeraView>,
-    access: Require<ManageTicketSettings>,
+    access: Require<ManageKnowledge>,
     session: Session,
 ) -> Result<Response> {
     let (session, flash) = flash::take(session);
@@ -614,7 +614,7 @@ async fn render_type_form(
 async fn type_new(
     State(ctx): State<AppContext>,
     ViewEngine(v): ViewEngine<TeraView>,
-    access: Require<ManageTicketSettings>,
+    access: Require<ManageKnowledge>,
 ) -> Result<Response> {
     render_type_form(&ctx, &v, &access.tenant, None, &[], None, StatusCode::OK).await
 }
@@ -623,7 +623,7 @@ async fn type_new(
 async fn type_create(
     State(ctx): State<AppContext>,
     ViewEngine(v): ViewEngine<TeraView>,
-    access: Require<ManageTicketSettings>,
+    access: Require<ManageKnowledge>,
     session: Session,
     RequestId(request_id): RequestId,
     Form(pairs): Form<Vec<(String, String)>>,
@@ -660,7 +660,7 @@ async fn find_type(ctx: &AppContext, tenant: &Tenant, id: &str) -> Result<knowle
 async fn type_edit(
     State(ctx): State<AppContext>,
     ViewEngine(v): ViewEngine<TeraView>,
-    access: Require<ManageTicketSettings>,
+    access: Require<ManageKnowledge>,
     Path((_, id)): Path<(String, String)>,
 ) -> Result<Response> {
     let t = find_type(&ctx, &access.tenant, &id).await?;
@@ -680,7 +680,7 @@ async fn type_edit(
 async fn type_save(
     State(ctx): State<AppContext>,
     ViewEngine(v): ViewEngine<TeraView>,
-    access: Require<ManageTicketSettings>,
+    access: Require<ManageKnowledge>,
     session: Session,
     RequestId(request_id): RequestId,
     Path((_, id)): Path<(String, String)>,
@@ -717,7 +717,7 @@ async fn type_save(
 #[debug_handler]
 async fn type_archive(
     State(ctx): State<AppContext>,
-    access: Require<ManageTicketSettings>,
+    access: Require<ManageKnowledge>,
     session: Session,
     RequestId(request_id): RequestId,
     Path((_, id)): Path<(String, String)>,
@@ -741,7 +741,7 @@ const DAYS: [&str; 7] = [
 async fn auto(
     State(ctx): State<AppContext>,
     ViewEngine(v): ViewEngine<TeraView>,
-    access: Require<ManageTicketSettings>,
+    access: Require<ManageKnowledge>,
     session: Session,
 ) -> Result<Response> {
     let (session, flash) = flash::take(session);
@@ -782,7 +782,7 @@ async fn auto(
 #[debug_handler]
 async fn auto_save(
     State(ctx): State<AppContext>,
-    access: Require<ManageTicketSettings>,
+    access: Require<ManageKnowledge>,
     session: Session,
     RequestId(request_id): RequestId,
     Form(pairs): Form<Vec<(String, String)>>,

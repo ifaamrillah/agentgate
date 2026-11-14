@@ -231,7 +231,7 @@ pub struct SettingsLinks {
     pub ticket_code: Option<String>,
     pub personas: Option<String>,
     pub skills: Option<String>,
-    /// Knowledge workspace (M8): `ManageTicketSettings`.
+    /// Knowledge workspace (M8): `ManageKnowledge` (R1).
     pub knowledge: Option<String>,
     /// Runner & CLI: semua anggota (runner milik sendiri).
     pub runner: Option<String>,

@@ -632,3 +632,37 @@ async fn cli_exports_imports_and_backs_up_rules() {
     })
     .await;
 }
+
+/// R1: knowledge workspace memakai izin sendiri `manage_knowledge`, bukan `manage_ticket_settings`.
+#[tokio::test]
+async fn workspace_knowledge_needs_manage_knowledge_not_ticket_settings() {
+    use agentgate_server::models::{permission::Permission, workspace_members};
+    request::<App, _, _>(|request, ctx| async move {
+        let f = fixture(&request, &ctx).await;
+        let wid = f.workspace.workspace_id();
+        let ws = "/w/acme/settings/knowledge/docs";
+        for (email, perms, expect) in [
+            (
+                "tiket@example.com",
+                vec![Permission::ManageTicketSettings],
+                404,
+            ),
+            ("kb@example.com", vec![Permission::ManageKnowledge], 200),
+        ] {
+            let user = a_user().email(email).create(&ctx).await;
+            let role = crate::support::custom_role(&ctx, &f.workspace, email, &perms).await;
+            workspace_members::ActiveModel::add(&ctx.db, wid, user.id, role.id)
+                .await
+                .unwrap();
+            let cookie = sign_in_as(&request, &user).await;
+            let res = get(&request, &cookie, ws).await;
+            assert_eq!(res.status_code(), expect, "{email}");
+        }
+        // Owner/Admin bawaan memegangnya (workspace baru dan migrasi).
+        let admin = builtin_role(&ctx, &f.workspace, RoleKey::Admin).await;
+        assert!(admin.has(Permission::ManageKnowledge));
+        let res = get(&request, &f.cookie, ws).await;
+        assert_eq!(res.status_code(), 200);
+    })
+    .await;
+}
