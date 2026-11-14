@@ -5,7 +5,7 @@
 //!   saat proses mulai ([`warm`]) atau oleh job index, tidak pernah di jalur request: selama
 //!   model belum siap, pencarian jatuh ke leksikal.
 //! - Teks simbol = jenis + nama lengkap + signature + docstring + path + potongan kode (maks.
-//!   30 baris). Hash teks disimpan di `graph_symbols.embed_hash`; `graph_embeddings` dikunci
+//!   [`CODE_LINES`] baris). Hash teks disimpan di `graph_symbols.embed_hash`; `graph_embeddings` dikunci
 //!   (repo, model, hash), jadi index ulang hanya meng-embed simbol yang teksnya berubah.
 //! - Vektor di pgvector; jarak kosinus (`<=>`). Skala project (puluhan ribu simbol) cukup
 //!   dengan scan berurutan; index HNSW menyusul bila perlu (dimensi kolom tidak dikunci).
@@ -25,9 +25,11 @@ use crate::{common::settings::EmbeddingSettings, models::workspaces::WorkspaceId
 /// Dimensi vektor `fake`.
 pub const FAKE_DIM: usize = 64;
 /// Baris kode simbol yang ikut di-embed.
-pub const CODE_LINES: i32 = 30;
+pub const CODE_LINES: i32 = 12;
 /// Batas karakter teks simbol.
-pub const TEXT_MAX: usize = 1600;
+pub const TEXT_MAX: usize = 700;
+/// Batas karakter potongan kode.
+pub const CODE_MAX: i32 = 500;
 
 /// Model yang didukung (kunci config → model fastembed).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -70,7 +72,7 @@ pub fn spec(model: &str) -> Option<ModelSpec> {
 enum Engine {
     Fake,
     #[cfg(feature = "semantic")]
-    Fast(Mutex<fastembed::TextEmbedding>),
+    Fast(Box<Mutex<fastembed::TextEmbedding>>),
 }
 
 /// Mesin embedding yang sudah dimuat.
@@ -255,7 +257,7 @@ fn fastembed_engine(s: &EmbeddingSettings, spec: ModelSpec) -> Result<Embedder, 
     Ok(Embedder {
         model: spec.key.to_string(),
         spec,
-        engine: Engine::Fast(Mutex::new(engine)),
+        engine: Engine::Fast(Box::new(Mutex::new(engine))),
     })
 }
 
@@ -445,7 +447,7 @@ pub async fn index_repo(
     let rows = SymText::find_by_statement(stmt(
         "SELECT s.id, s.kind, s.qualified, s.signature, s.doc, f.path, s.embed_hash,
                 left(array_to_string((string_to_array(f.content, E'\\n'))
-                     [s.start_line:least(s.end_line, s.start_line + $3)], E'\\n'), 1200) AS code
+                     [s.start_line:least(s.end_line, s.start_line + $3)], E'\\n'), $5) AS code
            FROM graph_symbols s JOIN graph_files f ON f.id = s.file_id
           WHERE s.workspace_id = $1 AND s.repo_id = $2 AND s.kind <> 'file' AND NOT s.test
           ORDER BY s.callers DESC, s.id
@@ -454,7 +456,8 @@ pub async fn index_repo(
             wid.get().into(),
             repo.into(),
             (CODE_LINES - 1).into(),
-            i64::try_from(s.max_symbols).unwrap_or(50_000).into(),
+            i64::try_from(s.max_symbols).unwrap_or(20_000).into(),
+            CODE_MAX.into(),
         ],
     ))
     .all(db)
@@ -495,10 +498,12 @@ pub async fn index_repo(
         .iter()
         .filter_map(|r| r.try_get::<String>("", "hash").ok())
         .collect();
-    let missing: Vec<(String, String)> = texts
+    let mut missing: Vec<(String, String)> = texts
         .into_iter()
         .filter(|(h, _)| !have.contains(h))
         .collect();
+    // Teks sepanjang mirip dalam satu batch: padding token lebih sedikit.
+    missing.sort_by_key(|(_, t)| t.len());
     let mut report = EmbedReport::default();
     for chunk in missing.chunks(s.batch_size.max(1) * 4) {
         let (hs, ts): (Vec<String>, Vec<String>) = chunk.iter().cloned().unzip();

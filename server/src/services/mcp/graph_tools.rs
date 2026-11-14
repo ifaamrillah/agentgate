@@ -158,6 +158,9 @@ fn fallback_text(key: &str) -> Value {
         "" => Value::Null,
         "graph-semantic-off" => "Pencarian makna dimatikan di server; hasil leksikal.".into(),
         "graph-semantic-loading" => "Model embedding sedang disiapkan; hasil leksikal.".into(),
+        "graph-semantic-unavailable" => {
+            "Model embedding tidak tersedia di server; hasil leksikal.".into()
+        }
         "graph-semantic-empty" => {
             "Simbol belum punya embedding (index ulang untuk membuatnya); hasil leksikal.".into()
         }

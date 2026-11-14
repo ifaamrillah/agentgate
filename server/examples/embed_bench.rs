@@ -19,8 +19,13 @@ fn pct(sorted: &[f64], p: f64) -> f64 {
 }
 
 fn main() {
-    let model = std::env::args().nth(1).unwrap_or_else(|| "multilingual-e5-small".into());
-    let max: usize = std::env::args().nth(2).and_then(|s| s.parse().ok()).unwrap_or(2000);
+    let model = std::env::args()
+        .nth(1)
+        .unwrap_or_else(|| "multilingual-e5-small".into());
+    let max: usize = std::env::args()
+        .nth(2)
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(2000);
     let settings = EmbeddingSettings {
         model: model.clone(),
         cache_dir: "/workspace/tmp/agentgate-models".into(),
@@ -36,25 +41,36 @@ fn main() {
     let mut texts = Vec::new();
     'outer: for entry in agentgate_graph::walk::walk(root) {
         let Some(src) = entry.content else { continue };
-        let Ok(facts) = agentgate_graph::extract(&entry.path, &src) else { continue };
+        let Ok(facts) = agentgate_graph::extract(&entry.path, &src) else {
+            continue;
+        };
         let lines: Vec<&str> = src.lines().collect();
         for s in facts.symbols {
             let start = s.start.saturating_sub(1) as usize;
-            let end = (s.end as usize).min(start + 30).min(lines.len());
-            let code = lines.get(start..end).map(|l| l.join("\n")).unwrap_or_default();
+            let end = (s.end as usize)
+                .min(start + embed::CODE_LINES as usize)
+                .min(lines.len());
+            let code = lines
+                .get(start..end)
+                .map(|l| l.join("\n"))
+                .unwrap_or_default();
             texts.push(embed::symbol_text(
                 s.kind.as_str(),
                 &s.name,
                 &s.signature,
                 &s.doc,
                 &entry.path,
-                &code.chars().take(1200).collect::<String>(),
+                &code
+                    .chars()
+                    .take(embed::CODE_MAX as usize)
+                    .collect::<String>(),
             ));
             if texts.len() >= max {
                 break 'outer;
             }
         }
     }
+    texts.sort_by_key(String::len);
     let t = Instant::now();
     let vectors = e.passages(&texts, 64).expect("embed");
     let index = t.elapsed().as_secs_f64();
@@ -81,14 +97,39 @@ fn main() {
         }
     }
     lat.sort_by(f64::total_cmp);
-    println!("model={model} dim={} cached_before={cached}", vectors[0].len());
-    println!("load_s={load:.2}");
+    println!(
+        "model={model} dim={} cached_before={cached}",
+        vectors[0].len()
+    );
+    let avg = texts.iter().map(String::len).sum::<usize>() / texts.len();
+    println!("load_s={load:.2} avg_chars={avg}");
     println!(
         "symbols={} index_s={index:.2} per_symbol_ms={:.2} symbols_per_s={:.1}",
         texts.len(),
         index * 1000.0 / texts.len() as f64,
         texts.len() as f64 / index
     );
+    // Contoh kualitas: 3 simbol teratas per query (kosinus; vektor sudah dinormalisasi model).
+    for q in queries {
+        let qv = e.query(q).unwrap();
+        let mut scored: Vec<(f32, &str)> = vectors
+            .iter()
+            .zip(&texts)
+            .map(|(v, t)| {
+                (
+                    v.iter().zip(&qv).map(|(a, b)| a * b).sum::<f32>(),
+                    t.lines().next().unwrap_or(""),
+                )
+            })
+            .collect();
+        scored.sort_by(|a, b| b.0.total_cmp(&a.0));
+        let top: Vec<String> = scored
+            .iter()
+            .take(3)
+            .map(|(_, n)| (*n).to_string())
+            .collect();
+        println!("top \"{q}\": {}", top.join(" | "));
+    }
     println!(
         "query_ms p50={:.1} p95={:.1} max={:.1}",
         pct(&lat, 0.5),

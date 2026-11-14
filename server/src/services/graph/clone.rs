@@ -194,8 +194,7 @@ impl Git<'_> {
         if !out.status.success() {
             let message: String = String::from_utf8_lossy(&out.stderr)
                 .lines()
-                .filter(|l| !l.trim().is_empty())
-                .last()
+                .rfind(|l| !l.trim().is_empty())
                 .unwrap_or_default()
                 .chars()
                 .take(200)

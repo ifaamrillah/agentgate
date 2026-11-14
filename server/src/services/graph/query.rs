@@ -323,7 +323,11 @@ pub async fn search_mode<C: ConnectionTrait>(
         return fallback("graph-semantic-off").await;
     }
     let Some(embedder) = super::embed::ready(settings) else {
-        return fallback("graph-semantic-loading").await;
+        return fallback(match super::embed::state(settings) {
+            Some(Err(_)) => "graph-semantic-unavailable",
+            _ => "graph-semantic-loading",
+        })
+        .await;
     };
     let q_owned = q.trim().to_string();
     let e = embedder.clone();

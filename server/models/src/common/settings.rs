@@ -101,7 +101,7 @@ pub struct EmbeddingSettings {
     /// `fastembed` (ONNX lokal, butuh feature Cargo `semantic`) atau `fake` (vektor hash
     /// deterministik untuk tes/dev tanpa model).
     pub provider: String,
-    /// Nama model fastembed (mis. `multilingual-e5-small`, `bge-small-en-v1.5`).
+    /// Model (`services::graph::embed::MODELS`): `multilingual-e5-small` (default), `multilingual-minilm-q`, `bge-small-en-q`.
     pub model: String,
     /// Volume cache model (diunduh saat start proses, bukan saat request).
     pub cache_dir: String,
@@ -119,7 +119,7 @@ impl Default for EmbeddingSettings {
             model: "multilingual-e5-small".into(),
             cache_dir: String::new(),
             batch_size: 64,
-            max_symbols: 50_000,
+            max_symbols: 20_000,
         }
     }
 }

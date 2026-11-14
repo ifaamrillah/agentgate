@@ -62,7 +62,6 @@ pub fn valid_tag(name: &str) -> bool {
 #[must_use]
 pub fn default_tag(release_name: &str) -> String {
     release_name
-        .trim()
         .split_whitespace()
         .collect::<Vec<_>>()
         .join("-")

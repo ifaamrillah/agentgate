@@ -32,6 +32,7 @@ graph-mode-lexical = Nama saja
 graph-mode-semantic = Makna saja
 graph-semantic-off = Pencarian makna dimatikan di server; hasil berdasarkan nama.
 graph-semantic-loading = Model pencarian makna sedang disiapkan; sementara hasil berdasarkan nama.
+graph-semantic-unavailable = Model pencarian makna tidak tersedia di server ini (lihat log server); hasil berdasarkan nama.
 graph-semantic-failed = Pencarian makna gagal; hasil berdasarkan nama.
 graph-semantic-empty = Simbol project belum punya embedding (index ulang untuk membuatnya); hasil berdasarkan nama.
 graph-search-label = Cari simbol
