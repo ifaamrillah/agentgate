@@ -391,6 +391,10 @@ async fn connected_clients_are_listed_and_revocable_from_account() {
         }
         assert!(steps.contains("codex mcp login agentgate"));
         assert!(steps.contains("~/.cursor/mcp.json"));
+        // Antigravity CLI: file global `mcp_config.json` dengan `serverUrl`, bukan Gemini CLI.
+        assert!(steps.contains("~/.gemini/config/mcp_config.json"));
+        assert!(steps.contains("serverUrl"));
+        assert!(!steps.contains("gemini mcp add"));
         assert!(
             !steps.contains("connect-login-"),
             "kunci Fluent tanpa terjemahan"

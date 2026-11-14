@@ -8,7 +8,7 @@
 //! | semua | `AGENTS.md` (pembuka; dibaca native Codex, Cursor, OpenCode, Copilot) |
 //! | Claude Code | `CLAUDE.md` (`@AGENTS.md`), `.mcp.json`, `.claude/settings.json` (hooks) |
 //! | Codex CLI | `.codex/config.toml` (MCP), `.codex/hooks.json` |
-//! | Gemini CLI | `.gemini/settings.json` (`context.fileName`, MCP `httpUrl`, hooks) |
+//! | Antigravity CLI | `.agents/mcp_config.json` (MCP `serverUrl`), `.agents/hooks.json` |
 //! | Cursor | `.cursor/mcp.json`, `.cursor/hooks.json` |
 //! | OpenCode | `opencode.json` (MCP remote), `.opencode/plugins/agentgate.ts` |
 //! | Copilot CLI | `.mcp.json` (sama dengan Claude), `.github/hooks/agentgate.json` |
@@ -24,7 +24,7 @@
 use super::protocol::RuleFile;
 
 /// Versi isi file aturan (naik bila bentuk file berubah → drift → PR sync).
-pub const RULES_VERSION: u32 = 2;
+pub const RULES_VERSION: u32 = 3;
 
 /// Batas waktu hook `pre-tool` (detik): sama dengan batas tunggu jawaban izin di CLI. Bawaan
 /// client (Claude Code 60 dtk) memotong permintaan izin yang menunggu executor.
@@ -88,9 +88,33 @@ fn codex_config(mcp: &str) -> String {
     )
 }
 
-/// `.gemini/settings.json`: `AGENTS.md` sebagai file konteks, MCP Streamable HTTP (`httpUrl`),
-/// hooks `SessionStart` + `BeforeTool` (shell = `run_shell_command`; `timeout` milidetik).
-fn gemini_settings(mcp: &str) -> String {
+/// `.agents/mcp_config.json` (Antigravity CLI: Streamable HTTP lewat `serverUrl`).
+fn antigravity_mcp(mcp: &str) -> String {
+    format!(
+        "{{\n  \"mcpServers\": {{\n    \"agentgate\": {{\n      \"serverUrl\": {mcp}\n    }}\n  }}\n}}\n"
+    )
+}
+
+/// `.agents/hooks.json` (Antigravity CLI): peta nama hook → event. `SessionStart` berisi daftar
+/// handler langsung; `PreToolUse` memakai matcher (shell = `run_command`; `timeout` detik).
+fn antigravity_hooks() -> String {
+    format!(
+        "{{\n  \"agentgate\": {{\n    \"SessionStart\": [\n      \
+         {{ \"type\": \"command\", \"command\": \"{session}\" }}\n    ],\n    \
+         \"PreToolUse\": [\n      {{\n        \"matcher\": \"run_command\",\n        \
+         \"hooks\": [\n          \
+         {{ \"type\": \"command\", \"command\": \"{pre}\", \"timeout\": {PERMISSION_HOOK_SECS} }}\n        \
+         ]\n      }}\n    ]\n  }}\n}}\n",
+        session = hook("session-start", "antigravity"),
+        pre = hook("pre-tool", "antigravity"),
+    )
+}
+
+/// `.gemini/settings.json` aturan v2 (Gemini CLI, sudah tidak ditulis): `AGENTS.md` sebagai file
+/// konteks, MCP `httpUrl`, hooks `SessionStart` + `BeforeTool` (`timeout` milidetik). Disimpan
+/// untuk mengenali file lama milik Agent Gate ([`is_own_rule_file`]). `mcp` = URL MCP sebagai
+/// string JSON (dengan tanda kutip).
+fn v2_gemini_settings(mcp: &str) -> String {
     format!(
         "{{\n  \"context\": {{\n    \"fileName\": [\"AGENTS.md\"]\n  }},\n  \
          \"mcpServers\": {{\n    \"agentgate\": {{\n      \"httpUrl\": {mcp}\n    }}\n  }},\n  \
@@ -100,8 +124,8 @@ fn gemini_settings(mcp: &str) -> String {
          \"matcher\": \"run_shell_command\",\n        \"hooks\": [\n          \
          {{ \"name\": \"agentgate\", \"type\": \"command\", \"command\": \"{pre}\", \
          \"timeout\": {ms} }}\n        ]\n      }}\n    ]\n  }}\n}}\n",
-        session = hook("session-start", "gemini"),
-        pre = hook("pre-tool", "gemini"),
+        session = "agentgate hook session-start --client gemini",
+        pre = "agentgate hook pre-tool --client gemini",
         ms = PERMISSION_HOOK_SECS * 1000,
     )
 }
@@ -198,7 +222,8 @@ pub fn agent_gate_files(server_url: &str, project_key: &str) -> Vec<RuleFile> {
         file(".claude/settings.json", claude_style_hooks("claude")),
         file(".codex/config.toml", codex_config(&mcp)),
         file(".codex/hooks.json", claude_style_hooks("codex")),
-        file(".gemini/settings.json", gemini_settings(&mcp)),
+        file(".agents/mcp_config.json", antigravity_mcp(&mcp)),
+        file(".agents/hooks.json", antigravity_hooks()),
         file(".cursor/mcp.json", cursor_mcp(&mcp)),
         file(".cursor/hooks.json", cursor_hooks()),
         file("opencode.json", opencode_json(&mcp)),
@@ -213,8 +238,33 @@ const V1_CLAUDE_SETTINGS: &str = "{\n  \"hooks\": {\n    \"SessionStart\": [\n  
     \"PreToolUse\": [\n      {\n        \"matcher\": \"Bash\",\n        \"hooks\": [\n          \
     { \"type\": \"command\", \"command\": \"agentgate hook pre-tool\", \"timeout\": 1800 }\n        ]\n      }\n    ]\n  }\n}\n";
 
+/// File aturan Agent Gate versi lama yang tidak ditulis lagi (Gemini CLI diganti Antigravity CLI
+/// di aturan v3). `init` ulang, `uninstall`, dan `rules sync` menghapusnya bila isinya persis
+/// milik Agent Gate ([`is_own_rule_file`]); bila diubah user, file diperlakukan sebagai aturan lama.
+pub const OBSOLETE_RULE_FILES: &[&str] = &[".gemini/settings.json"];
+
+/// `.gemini/settings.json` persis seperti ditulis aturan v2 untuk server `server_url` (uji
+/// migrasi `init` ulang dari repo lama).
+#[must_use]
+pub fn v2_gemini_settings_for(server_url: &str) -> String {
+    v2_gemini_settings(&quoted(&format!(
+        "{}/mcp",
+        server_url.trim_end_matches('/')
+    )))
+}
+
+/// File aturan usang milik Agent Gate yang masih ada (`read` = isi file relatif root).
+pub fn obsolete_own_files(read: impl Fn(&str) -> Option<String>) -> Vec<String> {
+    OBSOLETE_RULE_FILES
+        .iter()
+        .filter(|p| read(p).is_some_and(|body| is_own_rule_file(p, &body)))
+        .map(|p| (*p).to_string())
+        .collect()
+}
+
 /// File `path` berisi `body` adalah aturan Agent Gate versi sebelumnya yang dikenali pasti
-/// (`AGENTS.md` bertanda versi, `CLAUDE.md` impor, hooks v1). `init` ulang di repo lama tidak
+/// (`AGENTS.md` bertanda versi, `CLAUDE.md` impor, hooks v1, `.gemini/settings.json` v2 untuk
+/// URL server mana pun). `init` ulang di repo lama tidak
 /// mem-backup file ini sebagai "aturan lama" (yang nanti dipulihkan `uninstall`). File lain yang
 /// isinya berbeda dari versi sekarang tetap di-backup: bisa saja berisi tambahan milik user.
 #[must_use]
@@ -223,6 +273,14 @@ pub fn is_own_rule_file(path: &str, body: &str) -> bool {
         "AGENTS.md" => body.contains("<!-- agentgate-rules v"),
         "CLAUDE.md" => body.trim() == "@AGENTS.md",
         ".claude/settings.json" => body == V1_CLAUDE_SETTINGS,
+        ".gemini/settings.json" => serde_json::from_str::<serde_json::Value>(body)
+            .ok()
+            .and_then(|v| {
+                v.pointer("/mcpServers/agentgate/httpUrl")
+                    .and_then(serde_json::Value::as_str)
+                    .map(|url| body == v2_gemini_settings(&quoted(url)))
+            })
+            .unwrap_or(false),
         _ => false,
     }
 }
@@ -273,6 +331,8 @@ pub fn is_legacy_rule_path(rel: &str) -> bool {
         ".claude/agents/",
         ".cursor/rules/",
         ".agents/skills/",
+        ".agents/rules/",
+        ".agent/rules/",
         ".gemini/commands/",
         ".opencode/commands/",
         ".opencode/plugins/",
@@ -285,6 +345,9 @@ pub fn is_legacy_rule_path(rel: &str) -> bool {
         ".mcp.json",
         ".cursorrules",
         ".gemini/settings.json",
+        ".agents/mcp_config.json",
+        ".agents/hooks.json",
+        ".agents/rules.json",
         ".cursor/mcp.json",
         ".cursor/hooks.json",
         "opencode.json",
@@ -318,7 +381,8 @@ mod tests {
                 ".claude/settings.json",
                 ".codex/config.toml",
                 ".codex/hooks.json",
-                ".gemini/settings.json",
+                ".agents/mcp_config.json",
+                ".agents/hooks.json",
                 ".cursor/mcp.json",
                 ".cursor/hooks.json",
                 "opencode.json",
@@ -328,7 +392,7 @@ mod tests {
         );
         let agents = body(&files, "AGENTS.md");
         assert!(agents.contains("ag_context") && agents.contains("`KSR`"));
-        assert!(agents.contains("<!-- agentgate-rules v2 -->"));
+        assert!(agents.contains("<!-- agentgate-rules v3 -->"));
         assert_eq!(body(&files, "CLAUDE.md"), "@AGENTS.md\n");
         // Semua file JSON/TOML valid dan menunjuk server MCP yang sama.
         let mcp = "https://ag.example/mcp";
@@ -342,12 +406,10 @@ mod tests {
         );
         let codex: toml::Table = toml::from_str(body(&files, ".codex/config.toml")).unwrap();
         assert_eq!(codex["mcp_servers"]["agentgate"]["url"].as_str(), Some(mcp));
-        let gemini = json(&files, ".gemini/settings.json");
         assert_eq!(
-            gemini["context"]["fileName"],
-            serde_json::json!(["AGENTS.md"])
+            json(&files, ".agents/mcp_config.json")["mcpServers"]["agentgate"]["serverUrl"],
+            mcp
         );
-        assert_eq!(gemini["mcpServers"]["agentgate"]["httpUrl"], mcp);
         assert_eq!(
             json(&files, ".cursor/mcp.json")["mcpServers"]["agentgate"]["url"],
             mcp
@@ -378,17 +440,18 @@ mod tests {
                 format!("agentgate hook session-start --client {client}")
             );
         }
-        let gemini = json(&files, ".gemini/settings.json");
-        let before = &gemini["hooks"]["BeforeTool"][0];
-        assert_eq!(before["matcher"], "run_shell_command");
+        let agy = json(&files, ".agents/hooks.json");
+        let pre = &agy["agentgate"]["PreToolUse"][0];
+        assert_eq!(pre["matcher"], "run_command");
         assert_eq!(
-            before["hooks"][0]["command"],
-            "agentgate hook pre-tool --client gemini"
+            pre["hooks"][0]["command"],
+            "agentgate hook pre-tool --client antigravity"
         );
-        assert_eq!(before["hooks"][0]["timeout"], 1_800_000);
+        assert_eq!(pre["hooks"][0]["timeout"], 1800);
+        // SessionStart: handler langsung di bawah event (tanpa matcher/hooks).
         assert_eq!(
-            gemini["hooks"]["SessionStart"][0]["hooks"][0]["command"],
-            "agentgate hook session-start --client gemini"
+            agy["agentgate"]["SessionStart"][0]["command"],
+            "agentgate hook session-start --client antigravity"
         );
         let cursor = json(&files, ".cursor/hooks.json");
         assert_eq!(cursor["version"], 1);
@@ -447,6 +510,21 @@ mod tests {
             "agentgate hook pre-tool"
         );
         assert!(!is_own_rule_file("AGENTS.md", "# aturan tim\n"));
+        // `.gemini/settings.json` v2 milik Agent Gate dikenali untuk URL server mana pun.
+        let v2 = v2_gemini_settings(&quoted("https://ag.example/mcp"));
+        let parsed: serde_json::Value = serde_json::from_str(&v2).unwrap();
+        assert_eq!(
+            parsed["hooks"]["BeforeTool"][0]["hooks"][0]["command"],
+            "agentgate hook pre-tool --client gemini"
+        );
+        assert!(is_own_rule_file(".gemini/settings.json", &v2));
+        let edited = v2.replace("\"AGENTS.md\"", "\"AGENTS.md\", \"TIM.md\"");
+        assert!(!is_own_rule_file(".gemini/settings.json", &edited));
+        assert!(!is_own_rule_file(".gemini/settings.json", "{}"));
+        let read = |p: &str| (p == ".gemini/settings.json").then(|| v2.clone());
+        assert_eq!(obsolete_own_files(read), [".gemini/settings.json"]);
+        assert!(obsolete_own_files(|_| Some(edited.clone())).is_empty());
+        assert!(obsolete_own_files(|_| None).is_empty());
         assert!(!is_own_rule_file(".claude/settings.json", "{}"));
         assert!(!is_own_rule_file(
             ".mcp.json",
@@ -480,6 +558,11 @@ mod tests {
             ".cursor/rules/a.mdc",
             ".github/copilot-instructions.md",
             ".opencode/plugins/x.ts",
+            ".gemini/settings.json",
+            "GEMINI.md",
+            ".agents/rules/style.md",
+            ".agents/mcp_config.json",
+            ".agents/hooks.json",
         ] {
             assert!(is_legacy_rule_path(p), "{p}");
         }

@@ -58,7 +58,7 @@ async fn init_backs_up_legacy_rules_and_uninstall_restores_them() {
             .unwrap()
             .contains(&format!("{}/mcp", fake.base))
     );
-    // Aturan v2: config tipis untuk keenam client sekaligus.
+    // Aturan v3: config tipis untuk keenam client sekaligus.
     for f in rules::agent_gate_files(&fake.base, "KSR") {
         assert_eq!(
             fs::read_to_string(repo.join(&f.path)).unwrap(),
@@ -130,11 +130,75 @@ async fn init_backs_up_legacy_rules_and_uninstall_restores_them() {
     );
     assert!(!repo.join("AGENTS.md").exists());
     assert!(!repo.join(".mcp.json").exists());
-    for dir in [".codex", ".gemini", ".cursor", ".opencode", ".github"] {
+    for dir in [".codex", ".agents", ".cursor", ".opencode", ".github"] {
         assert!(!repo.join(dir).exists(), "{dir}");
     }
     assert!(!repo.join("opencode.json").exists());
     assert!(!repo.join(".agentgate/project.toml").exists());
+    assert_eq!(git(&repo, &["status", "--porcelain"]), "");
+}
+
+/// Repo yang di-init dengan aturan v2 (Gemini CLI): init ulang menghapus `.gemini/settings.json`
+/// milik Agent Gate tanpa backup, menulis config Antigravity, dan `uninstall` tidak
+/// memulihkannya. File Gemini milik user tetap lewat backup biasa.
+#[tokio::test(flavor = "multi_thread")]
+async fn reinit_replaces_agent_gate_gemini_files_with_antigravity() {
+    let fake = serve(Arc::new(|fake, req| match req.path.as_str() {
+        "/api/cli/rules" => rules_response(&fake.base, req),
+        "/api/runner/drift" => (204, Value::Null),
+        _ => (404, json!({ "error": "not_found" })),
+    }))
+    .await;
+    let env = Env::new("reinit-gemini");
+    env.login(&fake.base);
+    let repo = env.root.join("kasir");
+    git_repo(&repo);
+    fs::write(repo.join("GEMINI.md"), "aturan gemini tim\n").unwrap();
+    git(&repo, &["add", "."]);
+    git(&repo, &["commit", "-qm", "aturan lama"]);
+    let out = env.run(&repo, &["init", "--project", "KSR", "--yes"]).await;
+    assert!(out.status.success(), "{}", text(&out));
+    assert!(!repo.join("GEMINI.md").exists());
+    // Simulasikan repo aturan v2: `.gemini/settings.json` milik Agent Gate ter-commit.
+    fs::create_dir_all(repo.join(".gemini")).unwrap();
+    fs::write(
+        repo.join(".gemini/settings.json"),
+        rules::v2_gemini_settings_for(&fake.base),
+    )
+    .unwrap();
+    git(&repo, &["add", "."]);
+    git(&repo, &["commit", "-qm", "aturan v2"]);
+
+    // `rules check` melaporkan file usang.
+    let out = env.run(&repo, &["rules", "check"]).await;
+    assert!(!out.status.success(), "{}", text(&out));
+    assert!(String::from_utf8_lossy(&out.stdout).contains(".gemini/settings.json"));
+
+    let out = env.run(&repo, &["init", "--yes"]).await;
+    assert!(out.status.success(), "{}", text(&out));
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("Tidak ada file aturan lama"), "{stdout}");
+    assert!(stdout.contains("versi lama yang dihapus"), "{stdout}");
+    assert!(!repo.join(".gemini").exists());
+    assert!(repo.join(".agents/mcp_config.json").is_file());
+    assert!(repo.join(".agents/hooks.json").is_file());
+    assert_eq!(git(&repo, &["status", "--porcelain"]), "");
+    // Tidak ada backup baru (hanya backup init pertama).
+    assert_eq!(
+        fs::read_dir(repo.join(".agentgate/backup"))
+            .unwrap()
+            .count(),
+        2
+    );
+
+    let out = env.run(&repo, &["uninstall", "--yes"]).await;
+    assert!(out.status.success(), "{}", text(&out));
+    assert_eq!(
+        fs::read_to_string(repo.join("GEMINI.md")).unwrap(),
+        "aturan gemini tim\n"
+    );
+    assert!(!repo.join(".gemini").exists());
+    assert!(!repo.join(".agents").exists());
     assert_eq!(git(&repo, &["status", "--porcelain"]), "");
 }
 

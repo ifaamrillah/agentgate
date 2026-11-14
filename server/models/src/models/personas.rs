@@ -549,7 +549,7 @@ mod tests {
         )]);
         assert!(validate_models(&ok).is_ok());
         let bad = BTreeMap::from([(
-            "gemini".to_string(),
+            "cursor".to_string(),
             ModelChoice {
                 model: String::new(),
                 effort: "high".into(),

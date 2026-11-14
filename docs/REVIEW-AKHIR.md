@@ -20,7 +20,7 @@ Detail per milestone: `docs/PROGRESS.md`. Spec: `docs/spec.md`.
 | M8 Knowledge | Dokumen project/workspace berversi, usulan AI + tinjau side-by-side, pemilik knowledge, `agentgate knowledge pull|sync` |
 | M9 Planning | Backlog/sprint, estimasi AI + kalibrasi, burndown/burnup/velocity/CFD, roadmap, kalender, rilis + release notes, JQL + saved filter + edit massal |
 | M10 Visual | AI Office isometrik live, graph viewer berlapis, pratinjau mockup di domain sandbox, Penghemat token |
-| M11 Integrasi | 6 client AI (Claude Code, Codex, Gemini, Cursor, OpenCode, Copilot), API REST `/api/v1` + webhook keluar, ekspor ZIP, impor CSV, connector Jira |
+| M11 Integrasi | 6 client AI (Claude Code, Codex, Gemini → Antigravity di R4, Cursor, OpenCode, Copilot), API REST `/api/v1` + webhook keluar, ekspor ZIP, impor CSV, connector Jira |
 | M12 Rilis | Realtime runner `LISTEN/NOTIFY` (diuji 10.000 listener), file di S3 + dihapus saat purge, hardening (rate limit DCR, kode OAuth hangus, Permissions-Policy, SSRF GHES), sapuan otorisasi semua route, `/_metrics` + `/_readiness`, halaman **Status sistem**, deploy Compose satu VPS + backup ke luar VPS, rilis CLI `dist` + `/install` + `self-update`, audit a11y + visual, panduan admin |
 
 Tes: lihat angka terakhir di `docs/PROGRESS.md` (baris M12). Benchmark: `docs/benchmarks/`.
@@ -84,7 +84,7 @@ adalah tabel ini. Kolom "Kerjakan" menunjukkan batch revisi yang akan menerapkan
 | JQL | Tambah `OR`, kurung, dan autocomplete | R3 ✅ selesai (2026-11-14) |
 | Batas WIP | Ditegakkan: kartu ditolak pindah saat kolom penuh (Admin bisa paksa) | R3 ✅ selesai (2026-11-14) |
 | Roadmap | Tambah pengelompokan per epic | R3 ✅ selesai (2026-11-14) |
-| Client AI | Gemini CLI diganti Antigravity | R4 |
+| Client AI | Gemini CLI diganti Antigravity | R4 ✅ selesai (2026-11-14); keterbatasan di §4 butir 9 |
 | AI Office | Pemilik memilih **V1 Isometrik Studio** + mode **Denah V2** + **pencahayaan hangat V3**; dibangun dengan SVG + vanilla JS | R5 ✅ selesai (2026-11-14) |
 | Notifikasi | Tetap in-app saja | — |
 | Mata uang biaya | Tetap USD | — |
@@ -136,7 +136,8 @@ Format daftar di bawah: **keputusan** — default sekarang.
 - Index code graph server — clone dangkal 12 bulan di volume cache (statistik git di server), tarball sebagai cadangan; SCIP hanya dari laptop; pencarian hibrid leksikal + semantik (embedding lokal `multilingual-e5-small`, R2).
 - Realtime runner — satu koneksi `LISTEN` per proses web, kanal per workspace, tick cadangan 30 dtk. Browser
   (board, AI Office, log job) masih polling HTMX 2–3 dtk. (M12)
-- `agentgate init` menulis config untuk 6 client sekaligus.
+- `agentgate init` menulis config untuk 6 client sekaligus (aturan v3: Antigravity CLI `.agents/mcp_config.json` +
+  `.agents/hooks.json` menggantikan `.gemini/settings.json`, R4).
 
 ### Visual, integrasi
 
@@ -178,10 +179,26 @@ Paling penting dulu:
    model embedding 465 MB. Disarankan ≥ 10 GB kosong; server berhenti meng-clone bila sisa < 2 GB (pakai tarball).
 8. **Distribusi CLI**: konfirmasi org/repo rilis → isi `CLI_RELEASE_URL`; repo tap Homebrew + token bila ingin
    `brew install`; keputusan code signing macOS/Windows (sekarang tidak).
-9. **Uji dengan client AI asli** (Claude Code sudah sesuai spike; Codex, Gemini, Cursor, OpenCode, Copilot baru
-   diuji dengan binary palsu). Putuskan apakah Gemini CLI tetap didukung (digantikan Antigravity CLI).
+9. **Uji dengan client AI asli** (Claude Code sudah sesuai spike; Codex, Antigravity CLI, Cursor, OpenCode, Copilot
+   baru diuji dengan binary palsu). Gemini CLI sudah diganti **Antigravity CLI (`agy`)** di R4 sesuai dokumentasi
+   resmi (`antigravity.google/docs`, riset di `docs/superpowers/plans/2026-11-14-r4-antigravity.md`). Yang perlu
+   dicek di Antigravity asli (login akun Google sekali secara interaktif):
+   - hook `.agents/hooks.json` (`PreToolUse` `run_command`, `SessionStart`) tetap jalan di `-p` bersama
+     `--dangerously-skip-permissions`, dan `deny` benar-benar memblokir; batas `timeout` 1800 dtk diterima;
+   - worktree job yang belum pernah di-trust: apakah headless memuat `.agents/` (MCP + hook) atau berhenti/bertanya
+     (trust hanya tersimpan di `trustedWorkspaces` user, tanpa flag);
+   - bentuk nyata `stream-json` (`step_update`/`tool_info`, `call_mcp_tool`) dan `usage` (`cache_read_tokens`
+     terpisah dari `input_tokens`?);
+   - pesan kuota habis (docs resmi tidak menyebutnya; forum: `429 RESOURCE_EXHAUSTED`);
+   - login OAuth server MCP `agentgate` lewat `/mcp` (DCR dengan redirect `https://antigravity.google/oauth-callback`
+     lalu tempel kode) dan apakah prompt MCP `ag-<stage>` muncul sebagai slash command;
+   - `--effort` bersama slug model yang sudah memuat effort (`gemini-4-carbon-high`).
+   Keterbatasan dibanding Gemini CLI: tidak ada tool todo (runner tidak menampilkan langkah rencana untuk
+   Antigravity), tidak ada perintah `agy mcp add`/login (Hubungkan menampilkan isi file
+   `~/.gemini/config/mcp_config.json`), tidak ada flag trust/isolasi config user, dan headless tanpa API key wajib
+   login interaktif dulu (API key: `GEMINI_API_KEY` + `modelProvider: "gemini"`).
 10. **Kredensial Jira** asli (Cloud: site + email + API token; atau DC + PAT) dengan project uji.
-11. **Kurs USD → Rupiah** dan tabel harga model bila biaya token perlu tampil dalam Rupiah / untuk Codex/Gemini/Cursor.
+11. **Kurs USD → Rupiah** dan tabel harga model bila biaya token perlu tampil dalam Rupiah / untuk Codex/Antigravity/Cursor.
 12. `SYSTEM_ADMIN_EMAILS`, `METRICS_TOKEN`, dan Prometheus/Grafana bila ingin alert (contoh aturan di
     `docs/admin/operasi.md`); DSN Sentry bila ingin error tracking.
 13. Konfirmasi kebijakan: merge otomatis, retry webhook, rate limit API 600/mnt, DCR 20/IP/jam, auto-ambil runner
@@ -197,7 +214,8 @@ Paling penting dulu:
 
 - Keamanan akun: event keamanan (2FA, password, OAuth) belum diaudit per user; aktifkan 2FA/buat ulang kode pemulihan
   belum minta autentikasi ulang dan belum mencabut sesi lain; reset password belum menghapus TOTP.
-- Adapter 5 client AI selain Claude Code belum diuji dengan client asli.
+- Adapter 5 client AI selain Claude Code belum diuji dengan client asli (Antigravity CLI dibangun dari dokumentasi
+  resmi saja; trust worktree headless dan hook di `-p` paling berisiko).
 - Restore backup belum diuji di stack production sungguhan (sudah diuji ke database smoke lokal).
 - GHES: cek DNS dilakukan saat connect; panggilan berikutnya belum dijaga dari DNS rebinding.
 - Webhook GitHub masuk diproses sinkron (belum antrean + retry); merge otomatis tidak dicoba ulang bila gagal.

@@ -23,6 +23,7 @@ mod m20261125_000002_create_system;
 mod m20261126_000001_r1_revisi;
 mod m20261127_000001_r2_revisi;
 mod m20261128_000001_r3_revisi;
+pub mod m20261129_000001_r4_antigravity;
 
 pub struct Migrator;
 
@@ -52,6 +53,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20261126_000001_r1_revisi::Migration),
             Box::new(m20261127_000001_r2_revisi::Migration),
             Box::new(m20261128_000001_r3_revisi::Migration),
+            Box::new(m20261129_000001_r4_antigravity::Migration),
             // inject-above (do not remove this comment)
         ]
     }

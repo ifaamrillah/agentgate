@@ -969,11 +969,22 @@ async fn register_falls_back_to_the_default_client_preference() {
             &token,
             None,
             "/api/runner/register",
+            &body("antigravity"),
+        )
+        .await;
+        assert_eq!(status, 200, "{info}");
+        assert_eq!(info["client"], "antigravity");
+        // CLI lama dengan `--client gemini` (Gemini CLI sudah tidak didukung): client default.
+        let (status, info) = post_json(
+            &request,
+            &token,
+            None,
+            "/api/runner/register",
             &body("gemini"),
         )
         .await;
         assert_eq!(status, 200, "{info}");
-        assert_eq!(info["client"], "gemini");
+        assert_eq!(info["client"], "codex");
     })
     .await;
 }

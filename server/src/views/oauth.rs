@@ -194,10 +194,11 @@ pub fn client_setup(mcp_url: &str) -> Vec<ClientSetup> {
             "",
             "codex mcp login agentgate",
         ),
+        // Antigravity CLI tidak punya perintah `mcp add`; server ditulis ke file global.
         row(
-            "gemini",
-            format!("gemini mcp add --transport http agentgate {mcp_url}"),
-            "",
+            "antigravity",
+            format!("{{ \"mcpServers\": {{ \"agentgate\": {{ \"serverUrl\": {url} }} }} }}"),
+            "~/.gemini/config/mcp_config.json",
             "",
         ),
         row(
