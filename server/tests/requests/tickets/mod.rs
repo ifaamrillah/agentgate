@@ -10,6 +10,7 @@ mod flow;
 mod manual_evidence;
 mod mockup;
 mod pages;
+mod panel;
 mod search;
 mod settings;
 pub mod stages;

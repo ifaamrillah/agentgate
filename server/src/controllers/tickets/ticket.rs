@@ -145,6 +145,20 @@ async fn render_show(
     errors: PageErrors,
     status: StatusCode,
 ) -> Result<Response> {
+    render_summary(ctx, v, access, form, errors, status, "tickets/show.html").await
+}
+
+/// Isi Ringkasan sebagai halaman penuh (`tickets/show.html`) atau panel samping
+/// (`tickets/panel.html`, R3): data sama, partial `_summary.html` sama.
+async fn render_summary(
+    ctx: &AppContext,
+    v: &TeraView,
+    access: &TicketAccess,
+    form: Option<&TicketForm>,
+    errors: PageErrors,
+    status: StatusCode,
+    template: &str,
+) -> Result<Response> {
     let tenant = &access.access.tenant;
     let wid = tenant.workspace_id();
     let t = &access.ticket;
@@ -332,7 +346,7 @@ async fn render_show(
     let res = views::tickets::render(
         v,
         &shell,
-        "tickets/show.html",
+        template,
         status,
         data!({
             "project": summary(&access.access),
@@ -381,13 +395,37 @@ async fn render_show(
     Ok(res)
 }
 
+/// Permintaan isi panel samping (static/js/ticket-panel.js) membawa header ini. Tanpa header
+/// (dibuka langsung, refresh, link luar, navigasi boosted) = halaman penuh.
+pub const PANEL_HEADER: &str = "x-ticket-panel";
+
 #[debug_handler]
 pub(super) async fn show(
     State(ctx): State<AppContext>,
     ViewEngine(v): ViewEngine<TeraView>,
     access: TicketAccess,
     session: Session,
+    headers: axum::http::HeaderMap,
 ) -> Result<Response> {
+    if headers.get(PANEL_HEADER).is_some_and(|h| h == "1") {
+        // Panel tidak mengambil flash: pesan tetap untuk halaman berikutnya.
+        let mut res = render_summary(
+            &ctx,
+            &v,
+            &access,
+            None,
+            PageErrors::default(),
+            StatusCode::OK,
+            "tickets/panel.html",
+        )
+        .await?;
+        // Isi panel berbeda dengan halaman penuh di URL yang sama: jangan dipakai ulang cache.
+        res.headers_mut().insert(
+            axum::http::header::VARY,
+            axum::http::HeaderValue::from_static("X-Ticket-Panel"),
+        );
+        return Ok(res);
+    }
     let (session, flash) = flash::take(session);
     let res = render_show(
         &ctx,

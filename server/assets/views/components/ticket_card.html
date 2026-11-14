@@ -1,5 +1,6 @@
 {#- Kartu tiket board (board C, prototype `AG.ticketCard`): ikon tipe + kode, judul, prioritas,
-    label, story point, tenggat, avatar penerima. Kartu bisa diseret (static/js/board-dnd.js)
+    label, story point, tenggat, avatar penerima. Judul membuka panel samping (`data-ticket-peek`,
+    static/js/ticket-panel.js, R3). Kartu bisa diseret (static/js/board-dnd.js)
     bila `move` diisi; menu ⋯ berisi form pindah status yang jalan tanpa JS.
     Parameter:
       ticket: map               views::tickets::TicketRow
@@ -36,7 +37,7 @@
     {%- endif %}
     {%- if ticket.assignee %}{{ <avatar initials={ticket.assignee.initials} color={ticket.assignee.color} label={ticket.assignee.name} size="sm"/> }}{% else %}<span class="app-av-empty" title="{{ t(key="ticket-unassigned", lang="id") }}"></span>{% endif %}
   </div>
-  <a class="app-tcard-title" href="{{ ticket.href }}">{{ ticket.title }}</a>
+  <a class="app-tcard-title" href="{{ ticket.href }}" data-ticket-peek>{{ ticket.title }}</a>
   {%- if ticket.stage_state == "review" %}<span class="app-tcard-state">{{ <badge label={t(key="stage-state-review", lang="id")} variant="gate"/> }}</span>{% elif ticket.stage_state == "decision" %}<span class="app-tcard-state">{{ <badge label={t(key="stage-state-decision", lang="id")} variant="destructive"/> }}</span>{% endif %}
   <div class="app-tcard-meta">
     {{ <prio rank={ticket.priority.rank} label={t(key=ticket.priority.label_key, lang="id")}/> }}

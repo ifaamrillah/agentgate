@@ -9,3 +9,19 @@
 {% block heading %}{{ project.name }}
   {%- if project.archived %} <span data-project-archived>{{ <badge label={t(key="project-archived", lang="id")} variant="neutral"/> }}</span>{% endif %}
 {%- endblock heading %}
+{#- Panel samping detail tiket (R3): kartu/baris bertanda `data-ticket-peek` dibuka di sini oleh
+    static/js/ticket-panel.js; isinya tickets/panel.html dari server. -#}
+{% block overlay %}
+<dialog class="app-tpanel" id="ticket-panel" aria-labelledby="ticket-panel-title" data-ticket-panel data-failed-text="{{ t(key="ticket-panel-failed", lang="id") }}">
+  <div class="app-tpanel-body" data-ticket-panel-body></div>
+  <template data-ticket-panel-loading>
+    <div class="app-tpanel-in">
+      <header class="app-tpanel-h">
+        <div class="app-tpanel-t"><h2 id="ticket-panel-title">{{ t(key="ticket-panel-loading", lang="id") }}</h2></div>
+        <div class="app-tpanel-acts"><button type="button" class="btn" data-variant="ghost" data-size="icon-sm" data-ticket-panel-close aria-label="{{ t(key="ticket-panel-close", lang="id") }}">{{ icon(name="x") }}</button></div>
+      </header>
+      <div class="app-tpanel-b"><p class="app-hint" role="status">{{ t(key="ticket-panel-loading", lang="id") }}</p></div>
+    </div>
+  </template>
+</dialog>
+{% endblock overlay %}

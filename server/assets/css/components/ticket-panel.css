@@ -1,0 +1,26 @@
+/* Panel samping detail tiket (R3, acuan prototype `.drawer`): <dialog> modal di sisi kanan,
+   board tetap terlihat di kirinya (latar tipis). Desktop 640px; < 700px layar penuh. Isinya
+   tickets/_summary.html yang sama dengan halaman penuh, satu kolom (Status/Detail di atas). */
+@layer components {
+  .app-tpanel { position: fixed; inset: 0 0 0 auto; margin: 0; width: min(640px, 100vw); max-width: 100vw; height: 100dvh; max-height: 100dvh; padding: 0; border: 0; border-left: 1px solid var(--ag-line); background: var(--ag-bg); color: var(--ag-fg); box-shadow: var(--ag-shadow-lg); overflow: hidden; }
+  .app-tpanel::backdrop { background: rgb(16 16 24 / 0.18); }
+  .app-tpanel[open] { display: flex; flex-direction: column; animation: app-tpanel-in .18s ease-out; }
+  @keyframes app-tpanel-in { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .app-tpanel[open] { animation: none; } }
+  .app-tpanel-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .app-tpanel-in { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .app-tpanel-h { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--ag-line); background: var(--ag-bg); }
+  .app-tpanel-t { flex: 1; min-width: 0; }
+  .app-tpanel-t p { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ag-muted); }
+  .app-tpanel-t h2 { margin: 2px 0 0; font-size: 16px; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
+  .app-tpanel-acts { display: flex; align-items: center; gap: 6px; flex: none; }
+  .app-tpanel-b { flex: 1; min-height: 0; overflow-y: auto; padding: 16px; display: grid; gap: 16px; align-content: start; background: var(--ag-page); overscroll-behavior: contain; }
+  .app-tpanel-b .app-ticket { grid-template-columns: minmax(0, 1fr); }
+  .app-tpanel-b .app-ticket-side { order: -1; }
+  .app-tpanel[aria-busy="true"] .app-tpanel-b { opacity: .6; }
+  @media (max-width: 699px) {
+    .app-tpanel { width: 100vw; border-left: 0; }
+    .app-tpanel-h { padding: 12px; }
+    .app-tpanel-b { padding: 12px; }
+  }
+}

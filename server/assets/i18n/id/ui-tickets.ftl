@@ -315,3 +315,9 @@ custom-field-name-taken = Nama sudah dipakai field lain.
 custom-field-options-required = Jenis Pilihan membutuhkan minimal satu opsi.
 custom-field-value-required = Wajib diisi.
 custom-field-value-invalid = Nilai tidak valid untuk field ini.
+
+## Panel samping detail tiket (R3)
+ticket-panel-full = Buka halaman penuh
+ticket-panel-close = Tutup panel
+ticket-panel-loading = Memuat tiket…
+ticket-panel-failed = Tiket tidak bisa dimuat. Buka halaman penuh untuk mencoba lagi.
