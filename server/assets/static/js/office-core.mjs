@@ -143,36 +143,49 @@ export function roomSigs(chars, P) {
 }
 
 /* ---------------------------------------------------------------- label */
+/* Kandidat geser (lateral × lebar, langkah × tinggi) urut biaya: naik satu langkah lebih murah
+   daripada geser ke samping, supaya label tetap dekat karakternya. */
+const MOVES = [];
+for (let j = 0; j <= 10; j++) for (const fx of [0, -0.6, 0.6, -1.2, 1.2]) MOVES.push([fx, j, Math.abs(fx) * 2 + j]);
+MOVES.sort((a, b) => a[2] - b[2]);
+
 /**
  * Penghindaran tumpukan label HTML (koordinat layar, px). Item:
- * `{id, x, y, w, h, mode: "tag"|"above"|"below", prio?, hideOnHit?}`; `x,y` = jangkar
- * (tag: tengah-bawah label; above: label di atas titik; below: di bawah titik).
- * Prio tinggi ditempatkan dulu (tidak digeser); sisanya digeser menjauh (ke atas, atau ke
- * bawah untuk `below`) dan disembunyikan bila tetap bertabrakan atau geser > `maxShift`.
- * `hideOnHit`: sembunyikan bila menabrak `obstacles` (HUD) atau keluar `view`.
+ * `{id, x, y, w, h, mode: "tag"|"above"|"below", prio?, hideOnHit?, maxShift?, alt?}`; `x,y` =
+ * jangkar (tag: tengah-bawah label; above: label di atas titik; below: di bawah titik).
+ * Prio tinggi ditempatkan dulu. Sisanya mencari posisi bebas terdekat: naik (turun untuk
+ * `below`) atau sedikit ke samping, sejauh `maxShift` (opsi atau per item). Label yang tidak
+ * mendapat tempat disembunyikan; `alt: {x, y, mode}` = jangkar cadangan sebelum menyerah.
+ * `obstacles` (HUD) dan `view` dihindari; label `hideOnHit` disembunyikan bila tetap menabrak,
+ * label lain boleh menimpa HUD bila tidak ada pilihan (yang butuh tindakan tetap tampil).
  * Hasil: `[{id, l, t, w, h, hidden}]` dengan urutan masukan.
  */
 export function declutter(items, { gap = 3, obstacles = [], view = null, maxShift = Infinity } = {}) {
-  const all = items.map((a, i) => {
-    const t = a.mode === "below" ? a.y + 8 : a.mode === "above" ? a.y - a.h - 6 : a.y - a.h;
-    return { ...a, i, l: a.x - a.w / 2, t, t0: t, prio: a.prio || 0, hidden: false };
-  });
+  const top = (a) => (a.mode === "below" ? a.y + 8 : a.mode === "above" ? a.y - a.h - 6 : a.y - a.h);
+  const all = items.map((a, i) => ({ ...a, i, l: a.x - a.w / 2, t: top(a), prio: a.prio || 0, hidden: false }));
   const hit = (a, b) => a.l < b.l + b.w + gap && b.l < a.l + a.w + gap && a.t < b.t + b.h + gap && b.t < a.t + a.h + gap;
+  const outside = (a) => view && (a.l < 0 || a.t < 0 || a.l + a.w > view.w || a.t + a.h > view.h);
   const key = (a) => (a.mode === "below" ? a.t : -(a.t + a.h));
   const placed = [];
+  /* Posisi bebas terdekat dari jangkar `a.x,a.y`; `hard` = HUD/layar wajib dihindari. */
+  const seek = (a, hard) => {
+    const l0 = a.x - a.w / 2, t0 = top(a), dir = a.mode === "below" ? 1 : -1, lim = a.maxShift ?? maxShift;
+    for (const [fx, j] of MOVES) {
+      const c = { l: l0 + fx * a.w, t: t0 + dir * j * (a.h + gap), w: a.w, h: a.h };
+      if (Math.hypot(c.l - l0, c.t - t0) > lim) continue;
+      if (placed.some((b) => hit(c, b))) continue;
+      if (hard && (outside(c) || obstacles.some((o) => hit(c, o)))) continue;
+      return c;
+    }
+    return null;
+  };
   [...all].sort((a, b) => b.prio - a.prio || key(a) - key(b) || a.i - b.i).forEach((a) => {
-    const down = a.mode === "below";
-    for (let n = 0; n < 24; n++) {
-      const o = placed.find((b) => hit(a, b));
-      if (!o) break;
-      a.t = down ? o.t + o.h + gap : o.t - a.h - gap;
-    }
-    if (placed.some((b) => hit(a, b)) || Math.abs(a.t - a.t0) > maxShift) a.hidden = true;
-    if (!a.hidden && a.hideOnHit) {
-      const out = view && (a.l < 0 || a.t < 0 || a.l + a.w > view.w || a.t + a.h > view.h);
-      if (out || obstacles.some((o) => hit(a, o))) a.hidden = true;
-    }
-    if (!a.hidden) placed.push(a);
+    let c = seek(a, true);
+    if (!c && a.alt) { Object.assign(a, { x: a.alt.x, y: a.alt.y, mode: a.alt.mode || a.mode }); c = seek(a, true); }
+    if (!c && !a.hideOnHit) c = seek(a, false);
+    if (!c) { a.hidden = true; return; }
+    a.l = c.l; a.t = c.t;
+    placed.push(a);
   });
   return all.map(({ id, l, t, w, h, hidden }) => ({ id, l, t, w, h, hidden }));
 }
@@ -219,7 +232,7 @@ export function zoomAround(cam, k, sx, sy, min, max) {
 }
 
 /* ---------------------------------------------------------------- mode */
-/** Kunci localStorage mode tampilan per user (pid). */
+/** Kunci localStorage mode tampilan per user (id user). */
 export const modeKey = (me) => (me ? `ag-office-view:${me}` : "ag-office-view");
 export function readMode(store, me) {
   try { return store?.getItem(modeKey(me)) === "plan" ? "plan" : "iso"; } catch { return "iso"; }

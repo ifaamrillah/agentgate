@@ -43,6 +43,19 @@ use crate::{
     },
 };
 
+/// Ikon yang dipakai panggung kantor (badge status di `office-core.mjs` `STATUS_ICONS`, robot
+/// pengganti ikon persona di Denah).
+const OFFICE_ICONS: &[&str] = &[
+    "robot",
+    "terminal-2",
+    "eye",
+    "alert-triangle",
+    "message-2",
+    "coffee",
+    "user",
+    "player-pause",
+];
+
 /// Baris log di panel detail.
 const LOG_LINES: u64 = 14;
 /// Baris aktivitas terbaru di panel ringkasan.
@@ -290,7 +303,7 @@ async fn page(
         .labels
         .values()
         .map(|p| p.icon.clone())
-        .chain(["robot".to_string(), "bulb".to_string()])
+        .chain(OFFICE_ICONS.iter().map(|i| (*i).to_string()))
         .collect();
     let rooms: Vec<serde_json::Value> = l
         .office
@@ -325,6 +338,8 @@ async fn page(
     .collect();
     let data = serde_json::json!({
         "home": home,
+        // Kunci localStorage mode tampilan (Isometrik/Denah) per user.
+        "me": tenant.user.id,
         "state_href": format!("{home}/state"),
         "panel_base": format!("{home}/panel"),
         "selected": selected.as_ref().map(|c| c.id.clone()),

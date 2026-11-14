@@ -1,9 +1,10 @@
-{#- AI Office (M10): kantor isometrik A1 "Vektor lembut" live dari runner. Kanvas digambar
-    static/js/office-engine.mjs (dimuat lazy oleh office.js) dari JSON `state_href` (dipolling
-    3 dtk); label nama, label ruangan, ringkasan, dan tab ruangan adalah HTML. Panel samping
-    server-side (`office/_panel.html`): ringkasan, atau detail karakter (klik → HTMX ke
-    `panel_base?c=`). Tanpa JS halaman tetap berisi panel dan tab ruangan.
-    Prototype: "AI Office" di screens-office.js. Variabel: lihat controllers::office::page. -#}
+{#- AI Office (M10, R5): kantor SVG Isometrik Studio dengan mode Denah, live dari runner.
+    Dunia digambar static/js/office-engine.mjs (dimuat lazy oleh office.js) dari JSON
+    `state_href` (dipolling 3 dtk); label nama (tombol, bisa difokus), label ruangan, ringkasan,
+    sakelar mode, dan tab ruangan adalah HTML. Panel samping server-side (`office/_panel.html`):
+    ringkasan, atau detail karakter (klik → HTMX ke `panel_base?c=`). Tanpa JS halaman tetap
+    berisi panel dan tab ruangan. Acuan: docs/reference/ui-prototype/office-v1/.
+    Variabel: lihat controllers::office::page. -#}
 {% extends "layouts/page.html" %}
 {% block title %}{{ t(key="nav-ai-office", lang="id") }}{% endblock title %}
 {% block width %}wide{% endblock width %}
@@ -22,18 +23,22 @@
 {%- if hidden > 0 %}
 <div class="alert" data-variant="neutral">{{ icon(name="info-circle") }}<span>{{ t(key="office-hidden", lang="id", n=hidden) }}</span></div>
 {%- endif %}
-<div class="app-of" data-office data-state="{{ state_href }}" data-panel="{{ panel_base }}" data-home="{{ home }}"{% if selected %} data-selected="{{ selected }}"{% endif %}>
-  <div class="app-of-stage" tabindex="0" role="application" aria-roledescription="{{ t(key="office-canvas-role", lang="id") }}" aria-label="{{ t(key="office-canvas-label", lang="id") }}" data-office-stage>
-    <canvas class="app-of-cv" aria-hidden="true" data-office-cv></canvas>
+<div class="app-of" data-office data-me="{{ me }}" data-state="{{ state_href }}" data-panel="{{ panel_base }}" data-home="{{ home }}"{% if selected %} data-selected="{{ selected }}"{% endif %}>
+  <div class="app-of-stage" tabindex="0" role="application" aria-roledescription="{{ t(key="office-stage-role", lang="id") }}" aria-label="{{ t(key="office-stage-label", lang="id") }}" data-office-stage>
+    <svg class="app-of-svg" aria-hidden="true" focusable="false" data-office-svg></svg>
     <div class="app-of-labels" data-office-labels></div>
     <noscript><div class="app-of-nojs">{{ t(key="office-nojs", lang="id") }}</div></noscript>
     <div class="app-of-ov" data-pos="tl"><div class="app-of-card app-of-sum" aria-live="polite" data-office-sum>
       {%- for s in counts %}<span{% if s.st == "idle" %} data-hide="sm"{% endif %}><i style="background: {{ s.color }}"></i><b data-office-c="{{ s.st }}">{{ s.n }}</b>{{ t(key=s.label_key, lang="id") }}</span>{% endfor -%}
     </div></div>
     <div class="app-of-ov" data-pos="tr">
-      <button type="button" class="app-of-card app-of-tbtn" aria-pressed="true" title="{{ t(key="office-names", lang="id") }}" data-office-names>{{ icon(name="tag") }}<span data-hide="sm">{{ t(key="office-names", lang="id") }}</span></button>
+      <div class="app-seg app-of-card app-of-mode" role="group" aria-label="{{ t(key="office-mode", lang="id") }}">
+        <button type="button" aria-pressed="true" title="{{ t(key="office-mode-iso", lang="id") }}" data-office-mode="iso">{{ icon(name="building") }}<span>{{ t(key="office-mode-iso", lang="id") }}</span></button>
+        <button type="button" aria-pressed="false" title="{{ t(key="office-mode-plan", lang="id") }}" data-office-mode="plan">{{ icon(name="layout-grid") }}<span>{{ t(key="office-mode-plan", lang="id") }}</span></button>
+      </div>
+      <button type="button" class="app-of-card app-of-tbtn" aria-pressed="true" aria-label="{{ t(key="office-names", lang="id") }}" title="{{ t(key="office-names", lang="id") }}" data-office-names>{{ icon(name="tag") }}<span>{{ t(key="office-names", lang="id") }}</span></button>
     </div>
-    <div class="app-of-ov" data-pos="bl"><canvas class="app-of-mm app-of-card" aria-label="{{ t(key="office-minimap", lang="id") }}" data-office-mm></canvas></div>
+    <div class="app-of-ov" data-pos="bl"><svg class="app-of-mm app-of-card" role="img" aria-label="{{ t(key="office-minimap", lang="id") }}" data-office-mm></svg></div>
     <div class="app-of-ov" data-pos="br"><div class="app-of-card app-of-zoom">
       <button type="button" aria-label="{{ t(key="office-zoom-out", lang="id") }}" title="{{ t(key="office-zoom-out", lang="id") }}" data-office-zoom="out">{{ icon(name="minus") }}</button>
       <button type="button" class="app-of-pct" title="{{ t(key="office-zoom-reset", lang="id") }}" data-office-zoom="100" data-office-pct>100%</button>
@@ -45,7 +50,7 @@
   <aside class="app-of-side" id="office-side" aria-label="{{ t(key="office-side", lang="id") }}" aria-live="polite" data-office-side>
     {% include "office/_panel.html" %}
   </aside>
-  {#- Teks untuk kanvas (label status/ruangan) dan ikon persona (Path2D di dada robot). -#}
+  {#- Teks label (status/ruangan) dan ikon (badge status, token persona di Denah). -#}
   <template data-office-i18n>
     {%- for s in statuses %}<span data-k="st-{{ s.k }}">{{ t(key=s.label_key, lang="id") }}</span>{% endfor %}
     <span data-k="room-meeting">{{ t(key="office-room-meeting", lang="id") }}</span>
@@ -57,6 +62,7 @@
     <span data-k="sub-idle">{{ t(key="office-sub-idle", lang="id", n="{n}") }}</span>
     <span data-k="sub-meeting">{{ t(key="office-sub-meeting", lang="id") }}</span>
     <span data-k="sub-quiet">{{ t(key="office-sub-quiet", lang="id") }}</span>
+    <span data-k="sub-more">{{ t(key="office-sub-more", lang="id", n="{n}") }}</span>
     <span data-k="agent">{{ t(key="job-agent", lang="id", persona="{n}") }}</span>
     <span data-k="focus">{{ t(key="office-focus-room", lang="id", room="{n}") }}</span>
   </template>

@@ -183,6 +183,9 @@ test("label: ruangan bawah didorong ke bawah; tabrakan HUD atau keluar layar dis
   assert.ok(Math.min(by.r1.t, by.r2.t) >= 300, "ruangan 'below' tidak naik ke atas jangkar");
   assert.equal(by.hud.hidden, true);
   assert.equal(by.off.hidden, true);
+  // Jangkar cadangan dipakai bila posisi utama tertutup HUD.
+  const alt = C.declutter([{ id: "r", x: 30, y: 30, w: 80, h: 30, mode: "above", hideOnHit: true, alt: { x: 300, y: 300, mode: "below" } }], { obstacles: [{ l: 0, t: 0, w: 200, h: 40 }], view: { w: 800, h: 600 } });
+  assert.deepEqual([alt[0].hidden, alt[0].l, alt[0].t], [false, 260, 308]);
 });
 
 test("label: prioritas lebih tinggi ditempatkan dulu; label kalah disembunyikan setelah batas geser", () => {
@@ -197,6 +200,28 @@ test("label: prioritas lebih tinggi ditempatkan dulu; label kalah disembunyikan 
   assert.ok(out.filter((o) => o.hidden).length >= 3);
   const vis = out.filter((o) => !o.hidden);
   for (const a of vis) for (const b of vis) if (a !== b) assert.ok(!overlaps(a, b));
+  // Batas geser per item menimpa opsi umum.
+  const two = C.declutter([
+    { id: "a", x: 0, y: 100, w: 40, h: 20, mode: "tag", prio: 1 },
+    { id: "b", x: 0, y: 100, w: 40, h: 20, mode: "tag", maxShift: 5 },
+  ]);
+  assert.equal(two[1].hidden, true);
+});
+
+test("label: HUD dihindari dengan geser ke samping; terpaksa menimpa HUD lebih baik daripada hilang", () => {
+  const hud = { l: 0, t: 140, w: 400, h: 30 };
+  const out = C.declutter([
+    { id: "a", x: 100, y: 200, w: 60, h: 20, mode: "tag", prio: 2 },
+    { id: "b", x: 100, y: 200, w: 60, h: 20, mode: "tag", prio: 1 },
+  ], { obstacles: [hud] });
+  const [a, b] = out;
+  assert.equal(b.hidden, false);
+  assert.equal(b.t, a.t, "geser ke samping pada baris yang sama");
+  assert.ok(!overlaps(a, b) && !overlaps(b, hud));
+  // Tidak ada tempat bebas sama sekali: label biasa tetap tampil (menimpa HUD), label ruangan hilang.
+  const wall = { l: -1000, t: -1000, w: 3000, h: 3000 };
+  const forced = C.declutter([{ id: "t", x: 100, y: 200, w: 60, h: 20, mode: "tag" }, { id: "r", x: 300, y: 300, w: 60, h: 20, mode: "below", hideOnHit: true }], { obstacles: [wall] });
+  assert.deepEqual(forced.map((o) => o.hidden), [false, true]);
 });
 
 test("LOD: zoom jauh hanya badge ikon, dekat semua label", () => {
