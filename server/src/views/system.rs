@@ -2,6 +2,7 @@
 //! (`/install`). Angka mentah dari `services::system::Status` diformat di sini.
 
 use chrono::{DateTime, Utc};
+use loco_rs::prelude::*;
 use serde::Serialize;
 
 use super::{nav::NavItem, time::wib_datetime};
@@ -110,6 +111,29 @@ pub struct StorageRow {
 #[must_use]
 pub fn when(at: Option<&DateTime<Utc>>) -> String {
     at.map(wib_datetime).unwrap_or_default()
+}
+
+/// Halaman instal CLI publik. `released` = `cli_release_url` terisi (installer tersedia).
+///
+/// # Errors
+///
+/// Error render template.
+pub fn install(
+    v: &impl ViewRenderer,
+    base: &str,
+    released: bool,
+    min_version: &str,
+) -> Result<Response> {
+    format::render().view(
+        v,
+        "install/page.html",
+        data!({
+            "base": base,
+            "released": released,
+            "min_version": min_version,
+            "version": agentgate_core::VERSION,
+        }),
+    )
 }
 
 #[cfg(test)]

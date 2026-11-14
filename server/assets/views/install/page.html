@@ -1,0 +1,54 @@
+{#- Petunjuk instal CLI (publik, M12). Variabel: base (URL server ini), released (installer rilis
+    tersedia), min_version (versi CLI minimum, boleh ""), version (versi server). -#}
+{% extends "layouts/base.html" %}
+{% block title %}{{ t(key="install-title", lang="id") }}{% endblock title %}
+{% block body %}
+<main class="app-inst" data-install-page>
+  <a href="/" class="app-brandmark"><span>{{ icon(name="robot") }}</span>{{ t(key="app-name", lang="id") }}</a>
+  <header class="app-inst-head">
+    <h1>{{ t(key="install-title", lang="id") }}</h1>
+    <p class="app-muted">{{ t(key="install-lead", lang="id") }}</p>
+    {%- if min_version %}
+    <p class="app-muted">{{ t(key="install-versions", lang="id", min=min_version, server=version) }}</p>
+    {%- endif %}
+  </header>
+
+  {%- if not released %}
+  {{ <flash kind="warn" title={t(key="install-unreleased-title", lang="id")} message={t(key="install-unreleased-body", lang="id")}/> }}
+  {%- endif %}
+
+  {% <card title={t(key="install-unix-title", lang="id")} description={t(key="install-unix-desc", lang="id")} attrs="data-install=unix"> %}
+    {{ <copy_value value={"curl -fsSL " ~ base ~ "/install.sh | sh"} label={t(key="install-copy-command", lang="id")}/> }}
+  {% </card> %}
+
+  {% <card title={t(key="install-windows-title", lang="id")} description={t(key="install-windows-desc", lang="id")} attrs="data-install=windows"> %}
+    {{ <copy_value value={"irm " ~ base ~ "/install.ps1 | iex"} label={t(key="install-copy-command", lang="id")}/> }}
+  {% </card> %}
+
+  {% <card title={t(key="install-next-title", lang="id")} attrs="data-install=next"> %}
+    <div class="app-inst-step"><span class="app-inst-n">1</span><div>
+      <p>{{ t(key="install-step-login", lang="id") }}</p>
+      {{ <copy_value value={"agentgate login --server " ~ base} label={t(key="install-copy-command", lang="id")}/> }}
+    </div></div>
+    <div class="app-inst-step"><span class="app-inst-n">2</span><div>
+      <p>{{ t(key="install-step-init", lang="id") }}</p>
+      {{ <copy_value value="agentgate init" label={t(key="install-copy-command", lang="id")}/> }}
+    </div></div>
+    <div class="app-inst-step"><span class="app-inst-n">3</span><div>
+      <p>{{ t(key="install-step-runner", lang="id") }}</p>
+      {{ <copy_value value="agentgate runner start" label={t(key="install-copy-command", lang="id")}/> }}
+    </div></div>
+    <div class="app-inst-step"><span class="app-inst-n">4</span><div>
+      <p>{{ t(key="install-step-update", lang="id") }}</p>
+      {{ <copy_value value="agentgate self-update" label={t(key="install-copy-command", lang="id")}/> }}
+    </div></div>
+  {% </card> %}
+
+  {% <card title={t(key="install-verify-title", lang="id")} description={t(key="install-verify-desc", lang="id")} attrs="data-install=verify"> %}
+    {{ <copy_value value="sha256sum --check --ignore-missing sha256.sum" label={t(key="install-copy-command", lang="id")}/> }}
+    {{ <copy_value value="gh attestation verify agentgate-cli-x86_64-unknown-linux-gnu.tar.xz --owner <org>" label={t(key="install-copy-command", lang="id")}/> }}
+  {% </card> %}
+
+  <p class="app-muted"><a href="/login">{{ t(key="install-back-login", lang="id") }}</a></p>
+</main>
+{% endblock body %}

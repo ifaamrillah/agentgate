@@ -11,6 +11,11 @@ publish.workspace = true
 name = "agentgate"
 path = "src/main.rs"
 
+# Satu-satunya paket yang dirilis dist (dist-workspace.toml); publish = false hanya berarti tidak
+# ke crates.io.
+[package.metadata.dist]
+dist = true
+
 [dependencies]
 # Type dan versi bersama dengan server (protokol runner, tanda tangan evidence, aturan).
 agentgate-core = { path = "../core" }

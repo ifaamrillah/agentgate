@@ -51,6 +51,8 @@ pub enum Error {
     Spawn { program: String, source: io::Error },
     #[error("rules drift detected")]
     Drift,
+    #[error("installer exited with status {0}")]
+    UpdateFailed(i32),
     #[error("server closed the runner connection: {0}")]
     ServerClosed(String),
 }
@@ -123,6 +125,9 @@ impl Error {
                 format!("{program} tidak bisa dijalankan: {source}")
             }
             Self::Drift => "File aturan berbeda dari versi server.".into(),
+            Self::UpdateFailed(code) => format!(
+                "Installer gagal (status {code}). Cek koneksi ke server dan halaman /install."
+            ),
             Self::ServerClosed(msg) => format!(
                 "Server menutup koneksi runner ({msg}). Login ulang atau nyalakan ulang runner."
             ),

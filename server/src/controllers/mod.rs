@@ -18,6 +18,7 @@ pub mod graph;
 pub mod graph_api;
 pub mod graph_viewer;
 pub mod imports;
+pub mod install;
 pub mod integrations;
 pub mod invitations;
 pub mod jira;
@@ -67,6 +68,7 @@ pub fn routes(ctx: &AppContext) -> AppRoutes {
         .add_route(tokens::routes())
         .add_route(office::routes())
         .add_route(ops::routes())
+        .add_route(install::routes())
         .add_route(system::routes())
         .add_route(preview::routes())
         .add_route(webhooks::routes())

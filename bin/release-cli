@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Build rilis CLI untuk Linux x86_64 secara LOKAL (cek bahwa build release lolos dan lihat ukuran
+# binary), hasilnya di target/dist/: arsip tar.xz + sha256. TIDAK mempublikasikan apa pun.
+# Rilis resmi semua OS dibuat .github/workflows/release.yml (dist) saat tag v* di-push.
+set -euo pipefail
+. "$(dirname "$0")/_lib.sh"
+ag_load_env
+AG_WORKDIR=/workspace ag_exec bash -c '
+  set -e
+  target=x86_64-unknown-linux-gnu
+  version=$(cargo metadata --no-deps --format-version 1 | sed -n "s/.*\"name\":\"agentgate-cli\",\"version\":\"\([^\"]*\)\".*/\1/p")
+  cargo build --release --locked -p agentgate-cli
+  name="agentgate-cli-$target"
+  out=target/dist
+  rm -rf "$out/$name" && mkdir -p "$out/$name"
+  cp target/release/agentgate "$out/$name/"
+  tar -C "$out" -cJf "$out/$name.tar.xz" "$name"
+  rm -rf "$out/$name"
+  (cd "$out" && sha256sum "$name.tar.xz" > "$name.tar.xz.sha256" && cat "$name.tar.xz.sha256" > sha256.sum)
+  echo "agentgate-cli ${version:-?} → $out/$name.tar.xz"
+  ls -lh "$out"'

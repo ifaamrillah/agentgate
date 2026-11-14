@@ -14,6 +14,7 @@ mod jobs;
 mod knowledge;
 mod runner;
 mod ui;
+mod update;
 
 #[cfg(test)]
 mod testutil;
@@ -94,6 +95,12 @@ enum Cmd {
     },
     /// Periksa kesiapan perangkat ini.
     Doctor,
+    /// Perbarui CLI ke rilis terbaru lewat installer server.
+    SelfUpdate {
+        /// URL server (default: server login saat ini).
+        #[arg(long, env = "AGENTGATE_SERVER")]
+        server: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -332,6 +339,13 @@ async fn run(cmd: Cmd, paths: &Paths) -> Result<ExitCode> {
                     graph::status(&api, project.as_deref(), &mut out).await?;
                 }
             }
+        }
+        Cmd::SelfUpdate { server } => {
+            let server = server
+                .or_else(|| Credentials::load(paths).ok().flatten().map(|c| c.server))
+                .ok_or(Error::ServerRequired)?;
+            update::run(&server)?;
+            println!("CLI diperbarui. Cek versi dengan `agentgate --version`.");
         }
         Cmd::Doctor => {
             if !doctor::doctor(paths, &mut out).await? {
