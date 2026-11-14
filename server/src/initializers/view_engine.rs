@@ -77,7 +77,7 @@ pub struct SentryFn;
 impl tera::Function<TeraResult<Value>> for SentryFn {
     fn call(&self, _kwargs: Kwargs, _state: &State) -> TeraResult<Value> {
         Ok(crate::services::error_tracking::browser()
-            .map_or(Value::none(), |c| Value::from_serializable(c)))
+            .map_or(Value::none(), Value::from_serializable))
     }
 }
 

@@ -321,11 +321,10 @@ async fn merge_one(
     db: &DatabaseConnection,
     settings: &Settings,
     wid: WorkspaceId,
-    actor: Uuid,
+    (actor, request_id): (Uuid, Option<String>),
     ticket_code: &str,
     pr: &pull_requests::Model,
     method: MergeMethod,
-    request_id: Option<String>,
 ) -> Result<Result<pull_requests::Model, &'static str>, DbErr> {
     let Some(repo) = repos::Entity::find_by_id(pr.repo_id).one(db).await? else {
         return Ok(Err(NOT_CONNECTED));
@@ -398,11 +397,10 @@ pub async fn auto_merge(
                 db,
                 settings,
                 wid,
-                actor,
+                (actor, request_id.clone()),
                 &ticket.code,
                 &pr,
                 git.merge_method,
-                request_id.clone(),
             )
             .await?
         } else {
@@ -530,11 +528,10 @@ pub async fn merge_now(
         db,
         settings,
         wid,
-        acting.user.id,
+        (acting.user.id, acting.request_id.clone()),
         &code,
         &pr,
         git.merge_method,
-        acting.request_id.clone(),
     )
     .await?
     {
