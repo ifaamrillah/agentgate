@@ -86,7 +86,7 @@ export function mount(opts) {
     return t;
   };
   const syncLabels = () => {
-    const seen = new Set();
+    const seen = new Set(), want = [];
     // Urutan DOM = urutan Tab: per ruangan (urutan denah), lalu urutan kursi.
     const order = st.chars.filter((c) => P.seats[c.id]).sort((a, b) => {
       const ra = L.rooms.indexOf(L.byKey[P.seats[a.id].room]), rb = L.rooms.indexOf(L.byKey[P.seats[b.id].room]);
@@ -112,7 +112,7 @@ export function mount(opts) {
         el.setAttribute("aria-label", `${charName(c)}, ${tr("st-" + v.st)}${c.tk ? ", " + c.tk : ""}`);
       }
       el._c = c;
-      lab.appendChild(el);
+      want.push(el);
     });
     for (const [id, el] of LB) if (!seen.has(id)) { el.remove(); LB.delete(id); }
     L.rooms.forEach((r) => {
@@ -128,9 +128,16 @@ export function mount(opts) {
       const sig = `<span class="t"><i style="background:${esc(r.c)}"></i>${esc(roomName(r))}</span><small>${roomSubText(r)}</small>`;
       if (el._sig !== sig) { el._sig = sig; el._w = 0; el.innerHTML = sig; el.setAttribute("aria-label", tr("focus", roomName(r))); }
       el.classList.toggle("on", st.room === r.k);
-      lab.appendChild(el);
+      want.push(el);
     });
     for (const [k, el] of RL) if (!L.byKey[k]) { el.remove(); RL.delete(k); }
+    // Susun ulang hanya bila urutan berubah (memindahkan elemen yang sedang fokus membuatnya blur).
+    const cur = [...lab.children];
+    if (cur.length !== want.length || want.some((el, i) => cur[i] !== el)) {
+      const active = document.activeElement;
+      want.forEach((el) => lab.appendChild(el));
+      if (active && lab.contains(active) && document.activeElement !== active) active.focus({ preventScroll: true });
+    }
     markLabels();
   };
   const markLabels = () => { for (const [id, el] of LB) { el.classList.toggle("sel", id === st.sel); el.setAttribute("aria-pressed", String(id === st.sel)); } };
