@@ -23,6 +23,7 @@ use crate::{
     services::{
         audit::{self, AuditAction, AuditSubject},
         tickets::TicketFailure,
+        webhooks::url_guard,
         workspaces::{Acting, lock_as},
     },
 };
@@ -65,31 +66,46 @@ pub fn endpoints(
             settings.git.github_api_base.trim_end_matches('/').into(),
             settings.git.github_web_base.trim_end_matches('/').into(),
         )),
-        GitProviderKind::GithubEnterprise => {
-            let url = url.trim().trim_end_matches('/');
-            let (scheme, rest) = url
-                .split_once("://")
-                .ok_or_else(|| invalid("url", URL_INVALID))?;
-            let host_port = rest.split('/').next().unwrap_or_default();
-            let host = host_port
-                .rsplit_once(':')
-                .map_or(host_port, |(h, _)| h)
-                .to_ascii_lowercase();
-            let loopback = matches!(host.as_str(), "127.0.0.1" | "localhost" | "[::1]");
-            let ok_scheme = scheme == "https" || (scheme == "http" && loopback);
-            let ok_host = !host.is_empty()
-                && host
-                    .chars()
-                    .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '[' | ']' | ':'))
-                && !rest.contains('@')
-                && !rest.contains('?');
-            if !ok_scheme || !ok_host || url.len() > 200 {
-                return Err(invalid("url", URL_INVALID));
-            }
-            let base = format!("{scheme}://{host_port}");
-            Ok((host, format!("{base}/api/v3"), base))
-        }
+        GitProviderKind::GithubEnterprise => enterprise(url, settings.git.allow_loopback),
     }
+}
+
+/// (host, api_base, web_base) GitHub Enterprise Server dari URL isian.
+fn enterprise(url: &str, allow_loopback: bool) -> Result<(String, String, String), TicketFailure> {
+    let url = url.trim().trim_end_matches('/');
+    let (scheme, rest) = url
+        .split_once("://")
+        .ok_or_else(|| invalid("url", URL_INVALID))?;
+    let host_port = rest.split('/').next().unwrap_or_default();
+    let host = host_port
+        .rsplit_once(':')
+        .map_or(host_port, |(h, _)| h)
+        .to_ascii_lowercase();
+    let loopback = matches!(host.as_str(), "127.0.0.1" | "localhost" | "[::1]");
+    let ok_scheme = scheme == "https" || (scheme == "http" && loopback && allow_loopback);
+    // SSRF (M12): IP literal internal (privat, link-local/metadata cloud, loopback di
+    // production) ditolak; nama host diperiksa setelah resolve di [`connect`].
+    let literal = host
+        .trim_start_matches('[')
+        .trim_end_matches(']')
+        .parse::<std::net::IpAddr>()
+        .ok();
+    if (loopback && !allow_loopback)
+        || literal.is_some_and(|ip| url_guard::is_forbidden(ip, allow_loopback))
+    {
+        return Err(invalid("url", URL_INVALID));
+    }
+    let ok_host = !host.is_empty()
+        && host
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '[' | ']' | ':'))
+        && !rest.contains('@')
+        && !rest.contains('?');
+    if !ok_scheme || !ok_host || url.len() > 200 {
+        return Err(invalid("url", URL_INVALID));
+    }
+    let base = format!("{scheme}://{host_port}");
+    Ok((host, format!("{base}/api/v3"), base))
 }
 
 /// Hubungkan (atau ganti token) provider. Repo workspace di host itu langsung ditautkan.
@@ -111,6 +127,12 @@ pub async fn connect(
         return Err(invalid("token", TOKEN_INVALID));
     }
     let (host, api_base, web_base) = endpoints(settings, input.kind, &input.url)?;
+    if input.kind == GitProviderKind::GithubEnterprise {
+        // Semua alamat hasil resolve harus publik (cegah SSRF ke jaringan internal server).
+        url_guard::resolve(&web_base, settings.git.allow_loopback)
+            .await
+            .map_err(|_| invalid("url", URL_INVALID))?;
+    }
     let probe = provider::GithubProvider::new(
         &api_base,
         token,
@@ -356,4 +378,31 @@ pub async fn linked_repos(
         .filter(repos::Column::Provider.eq(sea_orm::ActiveEnum::to_value(&RepoProvider::Github)))
         .all(db)
         .await
+}
+
+#[cfg(test)]
+mod ssrf_tests {
+    use super::*;
+
+    fn ghes(url: &str, allow_loopback: bool) -> bool {
+        enterprise(url, allow_loopback).is_ok()
+    }
+
+    #[test]
+    fn enterprise_url_rejects_internal_addresses() {
+        for url in [
+            "https://10.0.0.5",
+            "https://192.168.1.1:8443",
+            "https://169.254.169.254",
+            "https://127.0.0.1",
+            "http://127.0.0.1:8080",
+            "https://localhost",
+            "http://ghe.example.com",
+        ] {
+            assert!(!ghes(url, false), "{url}");
+        }
+        assert!(ghes("https://ghe.example.com", false));
+        assert!(ghes("http://127.0.0.1:8080", true));
+        assert!(!ghes("https://10.0.0.5", true));
+    }
 }

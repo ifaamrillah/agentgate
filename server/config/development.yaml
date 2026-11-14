@@ -223,6 +223,9 @@ settings:
     webhook_allow_loopback: true
   # Connector Jira (M11): http ke loopback diizinkan untuk Jira palsu lokal; timeout pendek
   # supaya tes yang salah arah gagal cepat. Production memakai default (https publik saja).
+  git:
+    # Server GitHub Enterprise palsu di loopback (tes, seed dev).
+    allow_loopback: true
   jira:
     timeout_seconds: 5
     allow_loopback: true

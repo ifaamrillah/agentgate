@@ -386,7 +386,19 @@ impl GitProvider for GithubProvider {
                 .and_then(|v| v.to_str().ok())
                 .ok_or_else(|| ProviderError::Decode("redirect tanpa location".into()))?
                 .to_string();
-            if !location.starts_with("https://") && !location.starts_with(&self.api_base) {
+            // Redirect hanya ke https di alamat publik, atau ke basis API yang sama (GHES di
+            // loopback saat tes). IP literal internal ditolak (SSRF, M12).
+            let internal = reqwest::Url::parse(&location).ok().is_none_or(|u| {
+                u.host_str().is_none_or(|h| {
+                    let h = h.trim_start_matches('[').trim_end_matches(']');
+                    h.eq_ignore_ascii_case("localhost")
+                        || h.parse::<std::net::IpAddr>().is_ok_and(|ip| {
+                            crate::services::webhooks::url_guard::is_forbidden(ip, false)
+                        })
+                })
+            });
+            let same_api = location.starts_with(&self.api_base);
+            if !same_api && (!location.starts_with("https://") || internal) {
                 return Err(ProviderError::Decode("redirect tidak aman".into()));
             }
             self.http

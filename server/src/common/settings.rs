@@ -75,7 +75,7 @@ impl Default for ApiSettings {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(default, deny_unknown_fields)]
 pub struct GitSettings {
     /// Basis REST API github.com.
     pub github_api_base: String,
@@ -83,6 +83,9 @@ pub struct GitSettings {
     pub github_web_base: String,
     /// Batas waktu satu panggilan API provider (detik).
     pub timeout_seconds: u64,
+    /// Izinkan URL GitHub Enterprise `http://` ke host loopback (server GitHub palsu saat
+    /// development/test). Production: hanya https ke alamat publik (penjaga SSRF webhook, M12).
+    pub allow_loopback: bool,
 }
 
 impl Default for GitSettings {
@@ -91,6 +94,7 @@ impl Default for GitSettings {
             github_api_base: "https://api.github.com".to_string(),
             github_web_base: "https://github.com".to_string(),
             timeout_seconds: 15,
+            allow_loopback: false,
         }
     }
 }
