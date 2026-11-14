@@ -67,6 +67,9 @@
   .app-ev-main { flex: 1; min-width: 0; display: grid; gap: 1px; }
   .app-ev-main > a { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .app-ev-main small { color: var(--ag-muted); font-size: 12px; }
+  /* Bukti manual teks (R1): isi pendek terbungkus, maksimal 6 baris. */
+  .app-ev-text { font-size: 12.5px; color: var(--ag-fg2); white-space: pre-wrap; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
+  .app-ev-manual { align-items: flex-start; }
   .app-ev-thumb img { width: 56px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid var(--ag-line); display: block; }
 
   /* Halaman Log job: kolom utama | samping 320px. */

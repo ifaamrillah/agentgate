@@ -116,7 +116,8 @@ pub async fn purge(
     if !can_purge(&work.access, &work.ticket, acting.user.id) {
         return Err(TicketFailure::NotFound);
     }
-    let keys = ticket_attachments::Model::keys_of(&work.txn, &[ticket_id]).await?;
+    let mut keys = ticket_attachments::Model::keys_of(&work.txn, &[ticket_id]).await?;
+    keys.extend(crate::models::manual_evidence::Model::keys_of(&work.txn, &[ticket_id]).await?);
     audit::record(
         &work.txn,
         acting.actor().audit(
@@ -167,7 +168,8 @@ pub async fn purge_expired(
             txn.rollback().await?;
             break;
         }
-        let keys = ticket_attachments::Model::keys_of(&txn, &ids).await?;
+        let mut keys = ticket_attachments::Model::keys_of(&txn, &ids).await?;
+        keys.extend(crate::models::manual_evidence::Model::keys_of(&txn, &ids).await?);
         let deleted = tickets::Entity::delete_many()
             .filter(tickets::Column::Id.is_in(ids.iter().copied()))
             .exec(&txn)

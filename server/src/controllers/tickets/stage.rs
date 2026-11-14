@@ -89,6 +89,11 @@ pub struct StagePanel {
     /// Job stage terbaru tiket (M5) dan evidence stage sekarang.
     pub job: Option<views::runner::JobView>,
     pub evidence: Vec<views::runner::EvidenceView>,
+    /// Bukti manual stage sekarang (R1), pilihan gate form unggah, dan path unggah (anggota
+    /// dengan `EditProject`, stage punya gate evidence, tiket tidak dibatalkan).
+    pub manual: Vec<super::manual_evidence::ManualEvidenceView>,
+    pub manual_gates: Vec<serde_json::Value>,
+    pub manual_action: Option<String>,
     /// Runner milik pelaku (pilihan di dialog Ambil job).
     pub my_runners: Vec<views::runner::RunnerView>,
     /// Path kembali untuk aksi job.
@@ -179,6 +184,12 @@ pub(super) async fn panel(ctx: &AppContext, access: &TicketAccess) -> Result<Sta
         .iter()
         .map(|e| views::runner::EvidenceView::of(e, &tenant.workspace.slug))
         .collect();
+    let manual = super::manual_evidence::views(db, access, can_decide).await?;
+    let gates_manual = crate::services::tickets::manual_evidence::manual_gates(&rule);
+    let manual_action = (access.can(Permission::EditProject)
+        && !gates_manual.is_empty()
+        && t.cancelled_at.is_none())
+    .then(|| format!("{}/evidence", ticket_href(&tenant.workspace.slug, &t.code)));
     let my_runners = if job.as_ref().is_some_and(|j| j.can_claim) {
         crate::controllers::runner::my_runners(db, tenant).await?
     } else {
@@ -255,6 +266,9 @@ pub(super) async fn panel(ctx: &AppContext, access: &TicketAccess) -> Result<Sta
         current,
         job,
         evidence,
+        manual,
+        manual_gates: super::manual_evidence::gate_options(&gates_manual),
+        manual_action,
         my_runners,
         back: ticket_href(&tenant.workspace.slug, &t.code),
     })

@@ -47,6 +47,24 @@ pub enum ManualStatus {
 }
 
 impl Model {
+    /// Key storage berkas bukti manual tiket-tiket ini (purge tiket).
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn keys_of<C: sea_orm::ConnectionTrait>(
+        db: &C,
+        ticket_ids: &[uuid::Uuid],
+    ) -> Result<Vec<String>, DbErr> {
+        Ok(Entity::find()
+            .filter(Column::TicketId.is_in(ticket_ids.iter().copied()))
+            .all(db)
+            .await?
+            .into_iter()
+            .filter_map(|e| e.storage_key)
+            .collect())
+    }
+
     #[must_use]
     pub fn gate(&self) -> Option<ManualGate> {
         ManualGate::try_from_value(&self.gate).ok()

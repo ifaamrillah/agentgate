@@ -16,6 +16,7 @@ pub mod comments;
 pub mod create;
 pub mod gates;
 pub mod links;
+pub mod manual_evidence;
 pub mod mentions;
 pub mod settings;
 pub mod stages;

@@ -297,12 +297,14 @@ async fn purge_workspaces(
     outcome
 }
 
-/// Key storage semua berkas milik workspace: lampiran tiket, evidence runner, backup aturan,
+/// Key storage semua berkas milik workspace: lampiran tiket, evidence runner, bukti manual,
+/// backup aturan,
 /// arsip ekspor, sumber impor CSV, dan logo project. Tabel baru yang menyimpan key storage wajib
 /// ditambahkan di sini.
 const WORKSPACE_FILES_SQL: &str = "
     SELECT storage_key AS k FROM ticket_attachments WHERE workspace_id = $1
     UNION ALL SELECT storage_key FROM job_evidence WHERE workspace_id = $1
+    UNION ALL SELECT storage_key FROM manual_evidence WHERE workspace_id = $1 AND storage_key IS NOT NULL
     UNION ALL SELECT storage_key FROM rule_backups WHERE workspace_id = $1
     UNION ALL SELECT storage_key FROM data_exports WHERE workspace_id = $1 AND storage_key IS NOT NULL
     UNION ALL SELECT source_key FROM ticket_imports WHERE workspace_id = $1 AND source_key IS NOT NULL
