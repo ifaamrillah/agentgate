@@ -98,6 +98,9 @@ struct StageDoc {
     batas_wip: Option<u16>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     penugasan: Option<PeopleDoc>,
+    /// Izin aksi berbahaya per stage (R3): aksi → `allow|ask|block`.
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    izin_bahaya: std::collections::BTreeMap<String, String>,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -209,6 +212,12 @@ pub fn parse(
             approvers: resolve(&p.approver),
             watchers: resolve(&p.watcher),
         });
+        let mut danger = std::collections::BTreeMap::new();
+        for (action, level) in &s.izin_bahaya {
+            let level = crate::persona::Level::parse(level)
+                .ok_or_else(|| YamlError::unknown("izin_bahaya", level))?;
+            danger.insert(action.trim().to_string(), level);
+        }
         stages.push(Stage {
             key: s.id,
             name: s.nama,
@@ -228,6 +237,7 @@ pub fn parse(
             parallel: s.paralel,
             people,
             wip: s.batas_wip.filter(|n| *n > 0),
+            danger,
         });
     }
     let mut definition = Definition { stages };
@@ -288,6 +298,11 @@ pub fn emit(
                     approver: emails(&s.people.approvers),
                     watcher: emails(&s.people.watchers),
                 }),
+                izin_bahaya: s
+                    .danger
+                    .iter()
+                    .map(|(a, l)| (a.clone(), l.as_str().to_string()))
+                    .collect(),
             })
             .collect(),
     };
@@ -324,6 +339,34 @@ stages:
 
     fn olivia() -> Uuid {
         Uuid::from_u128(7)
+    }
+
+    #[test]
+    fn stage_danger_permissions_round_trip_and_validate() {
+        use crate::persona::{DANGER_ACTIONS, Level};
+        let text = SAMPLE.replace(
+            "    batas_gagal: 2\n",
+            "    batas_gagal: 2\n    izin_bahaya:\n      deploy: allow\n      network: block\n",
+        );
+        let (doc, _) = parse(&text, |_| None).unwrap();
+        let build = doc.definition.stage("build").unwrap();
+        assert_eq!(build.danger.get("deploy"), Some(&Level::Allow));
+        assert!(doc.definition.validate().is_ok());
+        // Override di atas tingkat persona; aksi lain tetap.
+        let levels = build.danger_levels(DANGER_ACTIONS);
+        assert!(levels.contains(&("deploy", Level::Allow)));
+        assert!(levels.contains(&("network", Level::Block)));
+        assert!(levels.contains(&("db_migrate", Level::Ask)));
+        let out = emit(&doc, None, |_| None);
+        assert!(out.contains("izin_bahaya:") && out.contains("deploy: allow"), "{out}");
+        assert_eq!(parse(&out, |_| None).unwrap().0.definition, doc.definition);
+        // Tingkat tidak dikenal → error impor; aksi tidak dikenal → error validasi.
+        let bad = SAMPLE.replace("    batas_gagal: 2\n", "    batas_gagal: 2\n    izin_bahaya:\n      deploy: kadang\n");
+        assert_eq!(parse(&bad, |_| None).unwrap_err().code, UNKNOWN_VALUE);
+        let unknown = SAMPLE.replace("    batas_gagal: 2\n", "    batas_gagal: 2\n    izin_bahaya:\n      terbang: allow\n");
+        let (doc, _) = parse(&unknown, |_| None).unwrap();
+        let issues = doc.definition.validate().unwrap_err();
+        assert!(issues.iter().any(|i| i.code == crate::workflow::definition::DANGER_INVALID));
     }
 
     #[test]

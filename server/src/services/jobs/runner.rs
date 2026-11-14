@@ -668,6 +668,14 @@ pub async fn start(
         },
         personas::Model::danger_levels,
     );
+    // Izin aksi berbahaya stage (R3) menimpa tingkat persona untuk job di stage ini.
+    let danger = match flow
+        .rule(&job.stage_key)
+        .or_else(|| flow.current.stage(&job.stage_key))
+    {
+        Some(stage) => stage.danger_levels(&danger),
+        None => danger,
+    };
     let persona_name = persona
         .as_ref()
         .map_or_else(|| job.persona.clone(), |p| p.name.clone());

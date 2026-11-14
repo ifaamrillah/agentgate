@@ -16,8 +16,12 @@
 //! Field opsional memakai `#[serde(default)]` supaya definisi lama tetap terbaca saat field baru
 //! ditambah.
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+
+use crate::persona::{DANGER_ACTIONS, Level};
 
 /// Batas jumlah stage per workflow.
 pub const MAX_STAGES: usize = 30;
@@ -52,6 +56,7 @@ pub const TOOL_INVALID: &str = "workflow-tool-invalid";
 pub const LIST_TOO_LONG: &str = "workflow-list-too-long";
 pub const PARALLEL_CATEGORY: &str = "workflow-parallel-category";
 pub const PERSONA_INVALID: &str = "workflow-persona-invalid";
+pub const DANGER_INVALID: &str = "workflow-danger-invalid";
 
 /// Semua kode error validasi definisi (tes kontrak i18n memastikan semuanya punya teks).
 pub const ERROR_CODES: &[&str] = &[
@@ -75,6 +80,7 @@ pub const ERROR_CODES: &[&str] = &[
     LIST_TOO_LONG,
     PARALLEL_CATEGORY,
     PERSONA_INVALID,
+    DANGER_INVALID,
 ];
 
 /// Kategori stage = kolom status tiket M2.
@@ -293,12 +299,26 @@ pub struct Stage {
     pub parallel: bool,
     #[serde(default)]
     pub people: People,
-    /// Batas WIP kolom board (M9); `None` = tanpa batas. Melebihi batas hanya diberi tanda.
+    /// Batas WIP kolom board (M9; ditegakkan sejak R3); `None` = tanpa batas.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub wip: Option<u16>,
+    /// Izin aksi berbahaya untuk job agent di stage ini (R3): aksi dari
+    /// [`DANGER_ACTIONS`] → tingkat, menimpa tingkat persona. Aksi yang tidak disebut mengikuti
+    /// persona. Aksi [`crate::persona::ALWAYS_BLOCKED`] tetap selalu diblokir.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub danger: BTreeMap<String, Level>,
 }
 
 impl Stage {
+    /// Tingkat aksi berbahaya untuk job di stage ini: tingkat persona (`base`) ditimpa izin
+    /// stage ([`Stage::danger`]).
+    #[must_use]
+    pub fn danger_levels(&self, base: &[(&'static str, Level)]) -> Vec<(&'static str, Level)> {
+        base.iter()
+            .map(|(a, l)| (*a, self.danger.get(*a).copied().unwrap_or(*l)))
+            .collect()
+    }
+
     /// Stage kosong dengan nama dan kunci (default lainnya).
     #[must_use]
     pub fn new(key: &str, name: &str, category: Category) -> Self {
@@ -321,6 +341,7 @@ impl Stage {
             parallel: false,
             people: People::default(),
             wip: None,
+            danger: BTreeMap::new(),
         }
     }
 
@@ -541,6 +562,13 @@ impl Definition {
                 && !self.stages[..i].iter().any(|o| &o.key == to)
             {
                 push(at, "fail_to", FAIL_TO_INVALID);
+            }
+            if s
+                .danger
+                .keys()
+                .any(|a| !DANGER_ACTIONS.iter().any(|(k, _)| k == a))
+            {
+                push(at, "danger", DANGER_INVALID);
             }
             let people = &s.people;
             if people.executors.len() > LIST_MAX

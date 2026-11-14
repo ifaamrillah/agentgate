@@ -113,6 +113,20 @@
       </div>
       {{ <field id="stage-wip" name="wip" type="number" label={t(key="workflow-wip", lang="id")} value={stage.wip} optional={t(key="field-optional", lang="id")} hint={t(key="workflow-wip-hint", lang="id")}/> }}
     </div>
+    <div class="app-blk app-stack-v" data-gap="sm" data-stage-danger>
+      <p class="app-section-label">{{ t(key="workflow-section-danger", lang="id") }}</p>
+      <p class="app-hint">{% if stage.persona %}{{ t(key="workflow-danger-hint", lang="id") }}{% else %}{{ t(key="workflow-danger-hint-manual", lang="id") }}{% endif %}</p>
+      <div class="app-wf-dz">
+        {%- for d in stage.danger %}
+        <label for="stage-danger-{{ d.action }}"><span>{{ t(key=d.label_key, lang="id") }}</span><small class="app-hint">{{ t(key=d.hint_key, lang="id") }}</small></label>
+        <select class="app-input" id="stage-danger-{{ d.action }}" name="danger_{{ d.action }}">
+          <option value=""{% if not d.level %} selected{% endif %}>{{ t(key="workflow-danger-inherit", lang="id") }}</option>
+          {%- for l in ["allow", "ask", "block"] %}<option value="{{ l }}"{% if d.level == l %} selected{% endif %}>{{ t(key="persona-level-" ~ l, lang="id") }}</option>{% endfor %}
+        </select>
+        {%- endfor %}
+      </div>
+      {%- if errors.danger %}<p class="app-field-error" role="alert">{{ t(key=errors.danger, lang="id") }}</p>{% endif %}
+    </div>
   {% </card> %}
   <div class="app-inline-form app-stage-tools">
     <form method="post" action="{{ paths.move }}"><input type="hidden" name="key" value="{{ stage.key }}"><input type="hidden" name="by" value="-1">{{ <button label={t(key="workflow-move-up", lang="id")} icon="arrow-up" variant="ghost" size="sm" type="submit"/> }}</form>

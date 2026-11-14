@@ -102,6 +102,10 @@
   .app-node-note { font-size: 11.5px; color: var(--ag-muted); padding-left: 12px; }
   .app-node-note[data-tone='danger'] { color: var(--ag-danger); }
   .app-flow-add { border-top: 1px solid var(--ag-line); }
+  /* Izin aksi berbahaya per stage (R3). */
+  .app-wf-dz { display: grid; grid-template-columns: minmax(0, 1fr) 132px; gap: 8px 10px; align-items: center; }
+  .app-wf-dz label { display: grid; min-width: 0; font-size: 13px; }
+  .app-wf-dz label small { font-family: var(--ag-mono); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .app-section-label { font-size: 11.5px; font-weight: 600; color: var(--ag-faint); text-transform: uppercase; letter-spacing: 0.04em; margin: 0; }
   .app-stage-tools { border-top: 1px solid var(--ag-line); }
 

@@ -126,6 +126,7 @@ const ERROR_FIELDS: &[&str] = &[
     "stages",
     "stage",
     "people",
+    "danger",
     "mapping",
     "draft",
     "workflow_name",
@@ -544,6 +545,16 @@ struct StageForm {
     executors: Vec<String>,
     approvers: Vec<String>,
     watchers: Vec<String>,
+    /// Izin aksi berbahaya stage (R3); `level` kosong = ikut persona.
+    danger: Vec<DangerField>,
+}
+
+#[derive(Debug, Serialize)]
+struct DangerField {
+    action: &'static str,
+    label_key: String,
+    hint_key: String,
+    level: &'static str,
 }
 
 impl StageForm {
@@ -570,6 +581,15 @@ impl StageForm {
             executors: ids(&s.people.executors),
             approvers: ids(&s.people.approvers),
             watchers: ids(&s.people.watchers),
+            danger: agentgate_core::persona::DANGER_ACTIONS
+                .iter()
+                .map(|(action, _)| DangerField {
+                    action,
+                    label_key: format!("persona-danger-{}", action.replace('_', "-")),
+                    hint_key: format!("persona-danger-{}-hint", action.replace('_', "-")),
+                    level: s.danger.get(*action).map_or("", |l| l.as_str()),
+                })
+                .collect(),
         }
     }
 }
@@ -614,6 +634,12 @@ fn stage_from(pairs: &[(String, String)]) -> Stage {
         approvers: uuids(pairs, "approvers"),
         watchers: uuids(pairs, "watchers"),
     };
+    // `danger_<aksi>`: kosong = ikut persona; nilai tak dikenal diabaikan.
+    for (action, _) in agentgate_core::persona::DANGER_ACTIONS {
+        if let Some(level) = agentgate_core::persona::Level::parse(get_one(pairs, &format!("danger_{action}"))) {
+            s.danger.insert((*action).to_string(), level);
+        }
+    }
     s
 }
 

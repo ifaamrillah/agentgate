@@ -151,6 +151,9 @@ async fn workflow_is_built_from_a_template_edited_and_published() {
                 ("fail_limit", "3"),
                 ("fail_to", ""),
                 ("wip", "4"),
+                ("danger_db_migrate", "block"),
+                ("danger_deploy", ""),
+                ("danger_network", "nonsense"),
             ],
         )
         .await;
@@ -164,6 +167,17 @@ async fn workflow_is_built_from_a_template_edited_and_published() {
             Some(4),
             "batas WIP tersimpan"
         );
+        // Izin aksi berbahaya stage (R3): kosong/tak dikenal = ikut persona.
+        let danger = &draft.stage("brainstorm").unwrap().danger;
+        assert_eq!(danger.len(), 1);
+        assert_eq!(
+            danger.get("db_migrate"),
+            Some(&agentgate_core::persona::Level::Block)
+        );
+        let page = get(&request, c, &format!("{base}?stage=brainstorm")).await.text();
+        assert_css_exists(&page, "[data-stage-danger] select[name='danger_db_migrate'] option[value='block'][selected]");
+        let yaml = get(&request, c, &format!("{base}?tab=yaml")).await.text();
+        assert!(yaml.contains("izin_bahaya:") && yaml.contains("db_migrate: block"), "{yaml}");
         assert_css_exists(&get(&request, c, &base).await.text(), "[data-draft-bar]");
 
         // Persona yang tidak ada di workspace → 422, draf tidak berubah.

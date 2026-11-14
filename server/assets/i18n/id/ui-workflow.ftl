@@ -373,7 +373,12 @@ flash-stage-people-saved = Penugasan stage disimpan.
 flash-artifact-saved = Versi baru disimpan.
 flash-artifact-created = Artifact dibuat.
 workflow-wip = Batas WIP kolom board
-workflow-wip-hint = Jumlah tiket maksimal di stage ini. Melebihi batas hanya diberi tanda di board. Kosongkan bila tanpa batas.
+workflow-wip-hint = Jumlah tiket maksimal di stage ini. Kartu ditolak masuk kolom yang penuh; Admin project bisa memaksa dengan alasan. Kosongkan bila tanpa batas.
+workflow-section-danger = Izin aksi berbahaya
+workflow-danger-hint = Berlaku untuk job agent di stage ini dan menimpa izin persona. Aksi yang selalu diblokir (force push ke branch utama, hapus database production) tetap diblokir.
+workflow-danger-hint-manual = Stage ini dikerjakan manusia. Izin dipakai bila stage diberi persona agent atau job dipicu @agent.
+workflow-danger-inherit = Ikuti persona
+workflow-danger-invalid = Aksi berbahaya tidak dikenal.
 
 ## Bukti gate manual (R1)
 audit-action-evidence-submitted = Bukti manual diunggah
