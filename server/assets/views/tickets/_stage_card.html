@@ -66,26 +66,30 @@
     {{ <button label={t(key="manual-evidence-upload", lang="id")} icon="upload" variant="outline" size="sm" full={true} dialog="manual-evidence-dialog" attrs="data-manual-upload"/> }}
     {% <dialog id="manual-evidence-dialog" title={t(key="manual-evidence-upload-title", lang="id")} description={t(key="manual-evidence-upload-description", lang="id")} icon="upload"> %}
     <form method="post" action="{{ stage.manual_action }}" enctype="multipart/form-data" data-manual-form>
-      <section><div class="app-stack-v" data-gap="sm">
-        <div class="app-blk"><b class="app-blk-t">{{ t(key="manual-evidence-gate", lang="id") }}</b>
-          <div class="app-choices" data-cols="one" role="radiogroup" aria-label="{{ t(key="manual-evidence-gate", lang="id") }}">
+      <section>
+        {%- if stage.manual_gates | length == 1 %}
+        <input type="hidden" name="gate" value="{{ stage.manual_gates[0].value }}">
+        <p class="app-hint">{{ t(key="manual-evidence-gate", lang="id") }}: <b>{{ t(key=stage.manual_gates[0].label_key, lang="id") }}</b></p>
+        {%- else %}
+        <fieldset class="app-field"><legend class="app-label">{{ t(key="manual-evidence-gate", lang="id") }}</legend>
+          <div class="app-choices" role="radiogroup">
             {%- for g in stage.manual_gates %}
             <label class="app-choice"><input type="radio" class="app-radio" name="gate" value="{{ g.value }}"{% if loop.first %} checked{% endif %}> <span><b>{{ t(key=g.label_key, lang="id") }}</b></span></label>
             {%- endfor %}
           </div>
-        </div>
-        <div class="app-blk"><b class="app-blk-t">{{ t(key="manual-evidence-kind", lang="id") }}</b>
-          <div class="app-choices" role="radiogroup" aria-label="{{ t(key="manual-evidence-kind", lang="id") }}">
+        </fieldset>
+        {%- endif %}
+        <fieldset class="app-field"><legend class="app-label">{{ t(key="manual-evidence-kind", lang="id") }}</legend>
+          <div class="app-choices app-choices-3" role="radiogroup">
             {%- for k in [["screenshot", "manual-evidence-kind-screenshot", "manual-evidence-kind-screenshot-hint"], ["log", "manual-evidence-kind-log", "manual-evidence-kind-log-hint"], ["text", "manual-evidence-kind-text", "manual-evidence-kind-text-hint"]] %}
-            <label class="app-choice"><input type="radio" class="app-radio" name="kind" value="{{ k[0] }}"{% if loop.first %} checked{% endif %}> <span><b>{{ t(key=k[1], lang="id") }}</b><small class="app-hint">{{ t(key=k[2], lang="id") }}</small></span></label>
+            <label class="app-choice" title="{{ t(key=k[2], lang="id") }}"><input type="radio" class="app-radio" name="kind" value="{{ k[0] }}"{% if loop.first %} checked{% endif %}> <span><b>{{ t(key=k[1], lang="id") }}</b></span></label>
             {%- endfor %}
           </div>
-        </div>
+        </fieldset>
         {{ <file_drop id="manual-evidence-file" name="file" title={t(key="manual-evidence-file", lang="id")} hint={t(key="manual-evidence-file-hint", lang="id")} accept="image/png,image/jpeg,image/webp,.log,.txt,.json,.xml,text/plain"/> }}
-        {{ <textarea_field id="manual-evidence-text" name="text" label={t(key="manual-evidence-text", lang="id")} rows={4} optional={t(key="manual-evidence-text-optional", lang="id")}/> }}
+        {{ <textarea_field id="manual-evidence-text" name="text" label={t(key="manual-evidence-text", lang="id")} rows={3} optional={t(key="manual-evidence-text-optional", lang="id")}/> }}
         {{ <field id="manual-evidence-note" name="note" label={t(key="manual-evidence-note", lang="id")} optional={t(key="field-optional", lang="id")}/> }}
-        <p class="app-hint">{{ t(key="manual-evidence-upload-hint", lang="id") }}</p>
-      </div></section>
+      </section>
       <footer>
         <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
         {{ <button label={t(key="manual-evidence-submit", lang="id")} type="submit" icon="upload"/> }}
