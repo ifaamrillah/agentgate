@@ -55,7 +55,7 @@
 {%- else %}
 {% <card title={t(key="tokens-panel-jobs", lang="id")} description={t(key="tokens-jobs-description", lang="id")} count={jobs | length ~ ""} flush={true} attrs="data-tokens-jobs"> %}
   {%- if jobs %}
-  <div class="table-container"><table class="table">
+  <div class="table-container" tabindex="0"><table class="table">
     <thead><tr><th>{{ t(key="tokens-col-job", lang="id") }}</th><th>{{ t(key="tokens-col-ticket", lang="id") }}</th><th data-hide="sm">{{ t(key="tokens-col-client", lang="id") }}</th><th data-align="right">{{ t(key="tokens-input", lang="id") }}</th><th data-align="right" data-hide="sm">{{ t(key="tokens-output", lang="id") }}</th><th data-align="right" data-hide="sm">{{ t(key="tokens-cache", lang="id") }}</th><th data-align="right" data-hide="md">{{ t(key="tokens-col-saved", lang="id") }}</th><th data-align="right">{{ t(key="tokens-col-cost", lang="id") }}</th></tr></thead>
     <tbody>
     {%- for j in jobs %}

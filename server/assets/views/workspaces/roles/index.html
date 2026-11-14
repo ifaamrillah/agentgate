@@ -12,7 +12,7 @@
   <div class="app-page-acts">{{ <button label={t(key="role-new-title", lang="id")} href={new_href} icon="plus"/> }}</div>
 </header>
 {% <card title={t(key="settings-roles-title", lang="id")} count={roles | length ~ ""} flush={true}> %}
-  <div class="table-container">
+  <div class="table-container" tabindex="0">
   <table class="table">
     <thead><tr>
       <th scope="col">{{ t(key="role-column-name", lang="id") }}</th>

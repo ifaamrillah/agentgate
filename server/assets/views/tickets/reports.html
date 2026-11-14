@@ -18,7 +18,7 @@
 {{ <tabs label={t(key="report-tabs", lang="id")} items={tabs}/> }}
 {%- if sprints and tab in ["burndown", "sprint"] %}
 <nav class="app-chips" aria-label="{{ t(key="report-sprint-choose", lang="id") }}" data-sprint-picker data-no-print>
-  {%- for s in sprints %}<a class="app-chip" href="{{ s.href }}"{% if s.current %} aria-pressed="true"{% endif %}>{% if s.state == "active" %}{{ icon(name="player-play") }}{% endif %}{{ s.name }} · {{ s.range }}</a>{% endfor %}
+  {%- for s in sprints %}<a class="app-chip" href="{{ s.href }}"{% if s.current %} aria-current="true"{% endif %}>{% if s.state == "active" %}{{ icon(name="player-play") }}{% endif %}{{ s.name }} · {{ s.range }}</a>{% endfor %}
 </nav>
 {%- endif %}
 {%- if stats %}{{ <stats items={stats}/> }}{% endif %}
@@ -32,7 +32,7 @@
 {%- elif tab == "sprint" %}
 {%- if note_arg %}<p class="app-hint">{{ icon(name="target") }} {{ t(key="report-sprint-goal", lang="id", goal=note_arg) }}</p>{% endif %}
 {% <card title={t(key="report-sprint-done", lang="id")} count={done_rows | length ~ ""} flush={true} attrs="data-report-done"> %}
-  <div class="table-container"><table class="table">
+  <div class="table-container" tabindex="0"><table class="table">
     <thead><tr><th>{{ t(key="report-col-ticket", lang="id") }}</th><th>{{ t(key="report-col-title", lang="id") }}</th><th data-align="right">{{ t(key="report-col-points", lang="id") }}</th><th data-align="right" data-hide="md">{{ t(key="report-col-estimate", lang="id") }}</th><th data-align="right" data-hide="md">{{ t(key="report-col-actual", lang="id") }}</th></tr></thead>
     <tbody>
     {%- for r in done_rows %}<tr data-report-row="{{ r.code }}"><td><a class="app-code" href="{{ r.href }}">{{ r.code }}</a></td><td>{{ r.title }}</td><td data-align="right"><span class="app-code">{% if r.points is not none %}{{ r.points }}{% else %}–{% endif %}</span></td><td data-align="right" data-hide="md"><span class="app-hint">{{ r.estimate }}</span></td><td data-align="right" data-hide="md"{% if r.over %} data-tone="warn"{% endif %}>{{ r.actual }}</td></tr>
@@ -53,7 +53,7 @@
   <div class="app-leg"><span><i data-c="accent"></i>{{ t(key="report-legend-on-target", lang="id") }}</span><span><i data-c="warn"></i>{{ t(key="report-legend-longer", lang="id") }}</span><span><i data-c="muted" data-dash></i>{{ t(key="report-legend-exact", lang="id") }}</span></div>
 {% </card> %}
 {% <card title={t(key="report-calibration-factors", lang="id")} description={t(key="report-note-calibration", lang="id")} flush={true}> %}
-  <div class="table-container"><table class="table" data-calibration>
+  <div class="table-container" tabindex="0"><table class="table" data-calibration>
     <thead><tr><th>{{ t(key="report-col-stage", lang="id") }}</th><th>{{ t(key="report-col-estimate-split", lang="id") }}</th><th>{{ t(key="report-col-actual-median", lang="id") }}</th><th data-align="right">{{ t(key="report-col-factor", lang="id") }}</th></tr></thead>
     <tbody>{% for s in stage_rows %}<tr><td>{{ s.name }}</td><td><span class="app-code">{{ s.estimate }} j</span></td><td><span class="app-code">{{ s.actual }} j</span></td><td data-align="right">{% if s.high %}{{ <badge label={s.factor} variant="destructive" code={true}/> }}{% else %}{{ <badge label={s.factor} variant="neutral" code={true}/> }}{% endif %}</td></tr>{% endfor %}</tbody>
   </table></div>

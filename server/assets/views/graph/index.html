@@ -26,7 +26,7 @@
   {%- if repos | length == 0 %}
   {{ <empty_state title={t(key="graph-no-repos", lang="id")} description={t(key="graph-no-repos-description", lang="id")} icon="git-branch" variant="plain"/> }}
   {%- else %}
-  <div class="table-container"><table class="table">
+  <div class="table-container" tabindex="0"><table class="table">
     <thead><tr>
       <th>{{ t(key="graph-col-repo", lang="id") }}</th>
       <th data-hide="sm">{{ t(key="graph-col-lang", lang="id") }}</th>
@@ -127,7 +127,7 @@
   {%- if bench.pass %}{{ <flash kind="success" title={t(key="graph-bench-pass", lang="id")} message={t(key="graph-bench-summary", lang="id", recall=bench.recall, precision=bench.precision, files=bench.files, ms=bench.millis)}/> }}
   {%- else %}{{ <flash kind="error" title={t(key="graph-bench-fail", lang="id")} message={t(key="graph-bench-summary", lang="id", recall=bench.recall, precision=bench.precision, files=bench.files, ms=bench.millis)}/> }}{% endif %}
   </div>
-  <div class="table-container"><table class="table">
+  <div class="table-container" tabindex="0"><table class="table">
     <thead><tr><th>{{ t(key="graph-col-lang", lang="id") }}</th><th data-align="right">{{ t(key="graph-bench-calls", lang="id") }}</th><th>{{ t(key="graph-bench-recall", lang="id") }}</th><th data-align="right">{{ t(key="graph-bench-precision", lang="id") }}</th></tr></thead>
     <tbody>
     {%- for l in bench.langs %}

@@ -16,7 +16,10 @@
   /* Logo project/workspace: gambar atau inisial di atas warna project. */
   .app-logo {
     --s: 28px; width: var(--s); height: var(--s); border-radius: calc(var(--s) * 0.25); background: var(--c, var(--ag-accent));
-    color: #fff; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; font-size: calc(var(--s) * 0.38);
+    /* Inisial putih di warna gelap, hitam di warna terang (oklch L ≥ 0,6), supaya kontras ≥ 4,5:1
+       untuk warna project apa pun (audit a11y M12). */
+    color: #fff; color: oklch(from var(--c, var(--ag-accent)) clamp(0, (0.6 - l) * 1000, 1) 0 0);
+    display: inline-flex; align-items: center; justify-content: center; font-weight: 600; font-size: calc(var(--s) * 0.38);
     flex-shrink: 0; overflow: hidden; letter-spacing: -0.01em; line-height: 1;
   }
   .app-logo[data-size='xs'] { --s: 18px; } .app-logo[data-size='sm'] { --s: 22px; } .app-logo[data-size='lg'] { --s: 40px; }

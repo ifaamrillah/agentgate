@@ -68,7 +68,8 @@
   --ag-fg: #17171c;
   --ag-fg2: #3d3d47;
   --ag-muted: #63636f;
-  --ag-faint: #8d8d99;
+  /* Teks paling redup tetap ≥ 4,5:1 di latar putih dan abu halaman (audit a11y M12). */
+  --ag-faint: #6e6e7a;
   --ag-accent: #5b5bd6;
   --ag-accent-hover: #4f4fc9;
   --ag-accent-soft: #f0f0fe;
@@ -135,9 +136,11 @@ html.dark {
   --ag-bg: #141418; --ag-bg-sub: #111115; --ag-page: #111115; --ag-side: #0c0c0f; --ag-raised: #1c1c22;
   --ag-muted-bg: #1a1a20; --ag-hover: #23232a; --ag-active: #2a2a33;
   --ag-line: #26262e; --ag-line2: #2f2f39; --ag-input: #3a3a46;
-  --ag-fg: #ececf1; --ag-fg2: #c9c9d3; --ag-muted: #9d9dab; --ag-faint: #767684;
+  --ag-fg: #ececf1; --ag-fg2: #c9c9d3; --ag-muted: #a4a4b2; --ag-faint: #85859a;
   --ag-accent: #7373e6; --ag-accent-hover: #8585ee; --ag-accent-soft: #23234a; --ag-accent-fg: #a9a9ff;
-  --ag-danger: #f06a6a; --ag-danger-soft: #3a1a1c; --ag-danger-line: #5a2a2e;
+  /* Latar tombol primer lebih pekat dari aksen supaya teks putih ≥ 4,5:1 (audit a11y M12). */
+  --ag-accent-btn: #5b5bd6; --ag-accent-btn-hover: #6262da; --ag-danger-btn: #c93c3c;
+  --ag-danger: #f47c7c; --ag-danger-soft: #3a1a1c; --ag-danger-line: #5a2a2e;
   --ag-success: #4cc782; --ag-success-soft: #16301f; --ag-warn: #f0a24b; --ag-warn-soft: #34250f;
   --ag-info: #6aa5f5; --ag-info-soft: #162a44;
   --ag-scrim: rgb(0 0 0 / 0.55); --ag-shadow-xs: 0 1px 2px rgb(0 0 0 / 0.3); --ag-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);

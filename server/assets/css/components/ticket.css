@@ -38,7 +38,7 @@
   .app-chip { height: 26px; padding: 0 9px; border: 1px dashed var(--ag-input); border-radius: 6px; color: var(--ag-muted); display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; white-space: nowrap; }
   .app-chip svg { width: 13px; height: 13px; }
   a.app-chip:hover { border-style: solid; color: var(--ag-fg); }
-  .app-chip[aria-pressed='true'] { border: 1px solid var(--ag-accent); color: var(--ag-accent-fg); background: var(--ag-accent-soft); }
+  .app-chip[aria-pressed='true'], .app-chip[aria-current='true'] { border: 1px solid var(--ag-accent); color: var(--ag-accent-fg); background: var(--ag-accent-soft); }
 
   /* Board: kolom bergulir horizontal; kartu tiket. */
   .app-board-bar { margin-bottom: 4px; }

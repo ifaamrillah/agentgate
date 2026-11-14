@@ -5,7 +5,7 @@
 <div id="decision">
 {% <card title={t(key="decision-title", lang="id")} description={t(key="decision-description", lang="id", stage=stage.current.name, count=stage.fail_count)} variant="danger" attrs="data-decision" flush={true}> %}
   {%- if stage.rounds %}
-  <div class="table-container"><table class="table app-rounds">
+  <div class="table-container" tabindex="0"><table class="table app-rounds">
     <thead><tr><th>{{ t(key="decision-round", lang="id") }}</th><th>{{ t(key="decision-note", lang="id") }}</th><th>{{ t(key="decision-by", lang="id") }}</th></tr></thead>
     <tbody>
     {%- for r in stage.rounds %}

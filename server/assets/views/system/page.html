@@ -44,7 +44,7 @@
 {% </card> %}
 {% <card title={t(key="system-queue", lang="id")} description={t(key="system-queue-description", lang="id", oldest=oldest_queued)} flush={true} attrs="data-queue"> %}
   {%- if queue | length > 0 %}
-  <div class="table-container"><table class="table">
+  <div class="table-container" tabindex="0"><table class="table">
     <thead><tr><th>{{ t(key="system-queue-name", lang="id") }}</th><th class="app-num">{{ t(key="system-queue-queued", lang="id") }}</th><th class="app-num">{{ t(key="system-queue-running", lang="id") }}</th><th class="app-num">{{ t(key="system-queue-failed", lang="id") }}</th></tr></thead>
     <tbody>
     {%- for q in queue %}
@@ -81,12 +81,12 @@
 {% <card title={t(key="system-backup-settings", lang="id")} description={t(key="system-backup-settings-description", lang="id")} flush={true} attrs="data-backup-settings"> %}
   {% <setting_row title={t(key="system-backup-target", lang="id")} description={t(key="system-backup-target-description", lang="id")}> %}<span class="app-code">{% if backup_target %}{{ backup_target }}{% else %}{{ t(key="system-not-set", lang="id") }}{% endif %}</span>{% </setting_row> %}
   {% <setting_row title={t(key="system-backup-schedule", lang="id")}> %}<span>{% if backup_schedule %}{{ backup_schedule }}{% else %}{{ t(key="system-not-set", lang="id") }}{% endif %}</span>{% </setting_row> %}
-  {% <setting_row title={t(key="system-backup-manual", lang="id")} description={t(key="system-backup-manual-description", lang="id")} wide={true}> %}{{ <copy_value value="docker compose -p agentgate-rs-prod run --rm backup backup-now" label={t(key="system-copy-command", lang="id")}/> }}{% </setting_row> %}
-  {% <setting_row title={t(key="system-backup-restore", lang="id")} description={t(key="system-backup-restore-description", lang="id")} wide={true}> %}{{ <copy_value value="docker compose -p agentgate-rs-prod run --rm backup restore <berkas>" label={t(key="system-copy-command", lang="id")}/> }}{% </setting_row> %}
+  {% <setting_row title={t(key="system-backup-manual", lang="id")} description={t(key="system-backup-manual-description", lang="id")} wide={true}> %}{{ <copy_value value="docker compose -f deploy/compose.yaml --env-file deploy/.env exec backup backup.sh now" label={t(key="system-copy-command", lang="id")}/> }}{% </setting_row> %}
+  {% <setting_row title={t(key="system-backup-restore", lang="id")} description={t(key="system-backup-restore-description", lang="id")} wide={true}> %}{{ <copy_value value="docker compose -f deploy/compose.yaml --env-file deploy/.env exec backup backup.sh restore <berkas>" label={t(key="system-copy-command", lang="id")}/> }}{% </setting_row> %}
 {% </card> %}
 {% <card title={t(key="system-backup-history", lang="id")} count={backups | length ~ ""} flush={true} attrs="data-backups"> %}
   {%- if backups | length > 0 %}
-  <div class="table-container"><table class="table">
+  <div class="table-container" tabindex="0"><table class="table">
     <thead><tr><th>{{ t(key="system-backup-at", lang="id") }}</th><th>{{ t(key="system-backup-result", lang="id") }}</th><th class="app-num" data-hide="sm">{{ t(key="system-backup-size", lang="id") }}</th><th data-hide="sm">{{ t(key="system-backup-note", lang="id") }}</th></tr></thead>
     <tbody>
     {%- for b in backups %}

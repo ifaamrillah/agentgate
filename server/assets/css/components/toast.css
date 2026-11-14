@@ -10,5 +10,5 @@
   .toaster .toast .toast-content svg { width: 14px; height: 14px; flex-shrink: 0; }
   .toaster .toast .toast-content h2 { font-size: 13px; font-weight: 500; color: inherit; }
   .toaster .toast .toast-content section { display: block; }
-  .toaster .toast[data-category='error'] .toast-content { background: var(--ag-danger); color: #fff; }
+  .toaster .toast[data-category='error'] .toast-content { background: var(--ag-danger-btn, var(--ag-danger)); color: #fff; }
 }

@@ -23,8 +23,8 @@
   <label class="app-fsearch">{{ icon(name="search") }}<input type="search" name="q" value="{{ filter.q }}" placeholder="{{ t(key="board-search-placeholder", lang="id") }}" aria-label="{{ t(key="board-search-placeholder", lang="id") }}"></label>
   {%- if who %}<input type="hidden" name="who" value="{{ who }}">{% endif %}
   {%- if swim %}<input type="hidden" name="swim" value="{{ swim }}">{% endif %}
-  <a class="app-chip" href="{{ filter.mine_href }}"{% if filter.mine %} aria-pressed="true"{% endif %} data-filter-mine>{{ icon(name="user") }}{{ t(key="ticket-filter-me", lang="id") }}</a>
-  <a class="app-chip" href="{{ filter.unassigned_href }}"{% if filter.unassigned %} aria-pressed="true"{% endif %}>{{ icon(name="circle-dashed") }}{{ t(key="ticket-unassigned", lang="id") }}</a>
+  <a class="app-chip" href="{{ filter.mine_href }}"{% if filter.mine %} aria-current="true"{% endif %} data-filter-mine>{{ icon(name="user") }}{{ t(key="ticket-filter-me", lang="id") }}</a>
+  <a class="app-chip" href="{{ filter.unassigned_href }}"{% if filter.unassigned %} aria-current="true"{% endif %}>{{ icon(name="circle-dashed") }}{{ t(key="ticket-unassigned", lang="id") }}</a>
   {%- if filter.q or who %}<a class="app-fclear" href="{{ filter.clear_href }}">{{ icon(name="x") }}{{ t(key="table-filter-clear", lang="id") }}</a>{% endif %}
   <span data-grow></span>
   <span class="app-hint" data-board-count>{{ t(key="board-count", lang="id", count=filter.total) }}</span>
@@ -36,7 +36,7 @@
 {%- if sprints %}
 <div class="app-fr app-board-sprints">
   <nav class="app-chips" aria-label="{{ t(key="board-sprint", lang="id") }}" data-board-sprints>
-    {%- for c in sprints %}<a class="app-chip" href="{{ c.href }}"{% if c.current %} aria-pressed="true"{% endif %}>{% if c.active %}{{ icon(name="player-play") }}{% endif %}{% if c.label %}{{ c.label }}{% else %}{{ t(key="board-sprint-all", lang="id") }}{% endif %}</a>{% endfor %}
+    {%- for c in sprints %}<a class="app-chip" href="{{ c.href }}"{% if c.current %} aria-current="true"{% endif %}>{% if c.active %}{{ icon(name="player-play") }}{% endif %}{% if c.label %}{{ c.label }}{% else %}{{ t(key="board-sprint-all", lang="id") }}{% endif %}</a>{% endfor %}
   </nav>
   {%- if sprint and sprint.goal %}<span class="app-hint app-board-goal" data-board-goal>{{ icon(name="target") }}{{ sprint.goal }}</span>{% endif %}
   <span data-grow></span>

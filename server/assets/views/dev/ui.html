@@ -197,7 +197,7 @@
       {{ <type_icon icon="bookmark" color="#16a34a" label="Story"/> }}{{ <type_icon icon="bug" color="#dc2626" label="Bug" tile={true}/> }}
       {%- for r in [1, 2, 3, 4] %}{{ <prio rank={r} label={"P" ~ r}/> }}{% endfor %}{{ <prio rank={1} label="Mendesak" full={true}/> }}
       {%- for st in [["backlog", "circle-dashed"], ["todo", "circle"], ["in_progress", "circle-half-2"], ["done", "circle-check"]] %}<span class="app-status-pill" data-status="{{ st[0] }}">{{ icon(name=st[1]) }}{{ st[0] }}</span>{% endfor %}
-      <a class="app-chip" href="/_dev/ui" aria-pressed="true">{{ icon(name="user") }}Saya</a><a class="app-chip" href="/_dev/ui">{{ icon(name="circle-dashed") }}Belum ada penerima</a>
+      <a class="app-chip" href="/_dev/ui" aria-current="true">{{ icon(name="user") }}Saya</a><a class="app-chip" href="/_dev/ui">{{ icon(name="circle-dashed") }}Belum ada penerima</a>
       <span class="app-label-pill">printer</span><span class="app-points">5</span><span class="app-due" data-overdue>{{ icon(name="calendar") }}20 Nov</span>
     </div>
     <div class="app-bcol" style="width: 272px" data-column="todo"><div class="app-bcol-cards" data-cards>{{ <ticket_card ticket={sample}/> }}</div></div>
