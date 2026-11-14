@@ -6,6 +6,7 @@ mod authz_sweep;
 mod csrf;
 mod dev_ui;
 mod device;
+mod error_tracking;
 mod errors;
 mod git;
 mod graph;

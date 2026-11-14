@@ -54,6 +54,10 @@ pub struct SystemSettings {
     pub backup_target: String,
     /// Jadwal backup yang tampil di Status sistem (mis. `setiap hari 02.00 WIB`).
     pub backup_schedule: String,
+    /// DSN Sentry (R1). Kosong = error tracking server dan browser mati.
+    pub sentry_dsn: String,
+    /// Environment Sentry (mis. `production`). Kosong = environment Loco.
+    pub sentry_environment: String,
 }
 
 impl SystemSettings {

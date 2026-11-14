@@ -52,6 +52,25 @@ groups:
 Backup gagal/basi (> 26 jam) tampil sebagai peringatan di Status sistem; untuk alert, query
 `SELECT max(finished_at) FROM system_backups WHERE status = 'ok'` dari exporter SQL.
 
+## Error tracking (Sentry)
+
+Mati bila `SENTRY_DSN` kosong: tidak ada request keluar, tidak ada skrip/meta Sentry di halaman, dan
+CSP tidak berubah. Untuk menyalakan, buat project Sentry (platform Rust; DSN yang sama dipakai
+browser), isi `SENTRY_DSN` (dan `SENTRY_ENVIRONMENT` bila perlu) di `.env` untuk container `web`
+dan `worker`, lalu restart.
+
+- **Server** (crate `sentry`): panic dan setiap respons 5xx. Event 5xx hanya membawa metode, pola
+  route (`/w/{slug}/t/{code}`), dan status. Release = `agentgate@<versi>`.
+- **Browser** (`/static/js/sentry.js`, tanpa SDK pihak ketiga): `window.onerror` dan promise yang
+  tidak ditangani, maksimal 10 event per halaman. CSP `connect-src` ditambah origin ingest Sentry
+  (mis. `https://o123.ingest.sentry.io`) hanya saat DSN diisi; `script-src 'self'` tidak berubah.
+- **Data yang tidak dikirim**: cookie, header `Authorization`/`Cookie`/`X-Runner-*` (hanya
+  `User-Agent`, `Content-Type`, `Accept`, `X-Request-Id` yang tersisa), body request/form, query
+  string dan hash URL (bisa memuat token), data user, data breadcrumb. `send_default_pii` mati dan
+  semua event melewati `services::error_tracking::scrub` sebelum dikirim.
+- Sentry self-host: DSN `http(s)://<key>@<host>[:port]/<project>` didukung; origin CSP mengikuti
+  host dan port DSN.
+
 ## Tugas rutin
 
 - Scheduler di container `worker`: pembersihan harian 03.00 UTC, audit knowledge, sapuan webhook
