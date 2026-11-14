@@ -152,6 +152,12 @@ settings:
     webhook_allow_loopback: true
   # Connector Jira (M11): http ke loopback diizinkan untuk Jira palsu lokal; timeout pendek
   # supaya tes yang salah arah gagal cepat. Production memakai default (https publik saja).
+  system:
+    # Token /_metrics untuk tes (production: env METRICS_TOKEN).
+    metrics_token: metrik-tes
+    admin_emails: sysadmin@agentgate.test
+    cli_release_url: https://github.com/agentgate/agentgate/releases/latest/download
+    cli_min_version: 0.1.0
   git:
     # Server GitHub Enterprise palsu di loopback (tes, seed dev).
     allow_loopback: true

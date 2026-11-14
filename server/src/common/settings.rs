@@ -31,6 +31,42 @@ pub struct Settings {
     /// Connector Jira (M11; opsional di config; tes mengarahkan ke Jira palsu lokal).
     #[serde(default)]
     pub jira: JiraSettings,
+    /// Operasi instance (M12): metrik, admin instance, rilis CLI, backup.
+    #[serde(default)]
+    pub system: SystemSettings,
+}
+
+/// Pengaturan tingkat instance (M12). Semua opsional: kosong = fiturnya mati.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct SystemSettings {
+    /// Token bearer untuk `/_metrics` (Prometheus). Kosong = endpoint 404.
+    pub metrics_token: String,
+    /// Email admin instance (dipisah koma) yang boleh membuka Status sistem (`/system`). Bukan
+    /// Owner workspace: data instance lintas tenant.
+    pub admin_emails: String,
+    /// Basis unduhan rilis CLI (mis. `https://github.com/org/agentgate/releases/latest/download`);
+    /// `/install.sh` dan `/install.ps1` mengarah ke installer di sana. Kosong = 404.
+    pub cli_release_url: String,
+    /// Versi CLI minimum yang didukung server (tampil di halaman instal dan Status sistem).
+    pub cli_min_version: String,
+    /// Tujuan backup Postgres yang tampil di Status sistem (mis. `s3://bucket/postgres`).
+    pub backup_target: String,
+    /// Jadwal backup yang tampil di Status sistem (mis. `setiap hari 02.00 WIB`).
+    pub backup_schedule: String,
+}
+
+impl SystemSettings {
+    /// `email` termasuk admin instance (tanpa beda huruf besar).
+    #[must_use]
+    pub fn is_admin(&self, email: &str) -> bool {
+        let email = email.trim();
+        !email.is_empty()
+            && self
+                .admin_emails
+                .split(',')
+                .any(|a| a.trim().eq_ignore_ascii_case(email))
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]

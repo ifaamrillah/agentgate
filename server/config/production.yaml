@@ -193,6 +193,18 @@ settings:
   preview_base_url: <%= get_env(name="PREVIEW_URL") %>
   # Pengirim semua email aplikasi (header From), alamat yang diizinkan relay SMTP; tanpa default.
   mail_from: <%= get_env(name="MAIL_FROM") %>
+  # Operasi instance (M12). Semua opsional; kosong = fiturnya mati.
+  system:
+    # Token bearer /_metrics (Prometheus). Kosong = 404. `openssl rand -hex 32`.
+    metrics_token: "<%= get_env(name="METRICS_TOKEN", default="") %>"
+    # Email admin instance (koma) yang boleh membuka Status sistem (/system).
+    admin_emails: "<%= get_env(name="SYSTEM_ADMIN_EMAILS", default="") %>"
+    # Basis unduhan rilis CLI (GitHub Releases); /install.sh dan /install.ps1 mengarah ke sana.
+    cli_release_url: "<%= get_env(name="CLI_RELEASE_URL", default="") %>"
+    cli_min_version: "<%= get_env(name="CLI_MIN_VERSION", default="") %>"
+    # Hanya untuk tampilan Status sistem; jadwal sebenarnya di container backup (deploy/).
+    backup_target: "<%= get_env(name="BACKUP_TARGET", default="") %>"
+    backup_schedule: "<%= get_env(name="BACKUP_SCHEDULE_LABEL", default="") %>"
   auth:
     # argon2id m = 19 MiB, t = 2, p = 1: baseline OWASP argon2id.
     argon2_memory_kib: 19456

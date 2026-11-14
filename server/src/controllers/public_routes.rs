@@ -17,6 +17,10 @@ const EXACT: &[&str] = &[
     // Health check bawaan Loco.
     "/_ping",
     "/_health",
+    // Readiness (database + queue) bawaan Loco, untuk orkestrator/reverse proxy (M12).
+    "/_readiness",
+    // Metrik Prometheus: dijaga token bearer sendiri, bukan sesi (M12).
+    "/_metrics",
 ];
 
 /// Prefix (tanpa `/` akhir): cocok untuk path itu sendiri dan semua path di bawahnya.
@@ -60,6 +64,8 @@ mod tests {
             "/logout",
             "/_ping",
             "/_health",
+            "/_readiness",
+            "/_metrics",
             "/password/forgot",
             "/password/reset",
             "/auth/github/callback",

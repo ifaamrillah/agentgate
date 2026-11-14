@@ -13,6 +13,7 @@ pub mod jira;
 pub mod jobs;
 pub mod knowledge;
 pub mod mcp;
+pub mod metrics;
 pub mod mockups;
 pub mod oauth;
 pub mod office;

@@ -196,6 +196,7 @@ pub async fn with_password<C: ConnectionTrait>(
     let keys = [ThrottleKey::Email(email.to_string()), ThrottleKey::Ip(ip)];
     // Pesan percobaan dulu, atomik: burst paralel tidak bisa memverifikasi lebih dari batas.
     if throttle::reserve(db, settings, &keys).await? == ThrottleState::Locked {
+        crate::services::metrics::login_failed();
         return Ok(PasswordSignIn::Locked);
     }
 
@@ -209,6 +210,7 @@ pub async fn with_password<C: ConnectionTrait>(
     };
     // Gagal: percobaan yang sudah dipesan tetap terhitung.
     let Some(user) = user.filter(|u| u.is_active() && verdict != Verify::Mismatch) else {
+        crate::services::metrics::login_failed();
         return Ok(PasswordSignIn::Rejected);
     };
 

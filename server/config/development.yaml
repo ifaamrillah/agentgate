@@ -223,6 +223,14 @@ settings:
     webhook_allow_loopback: true
   # Connector Jira (M11): http ke loopback diizinkan untuk Jira palsu lokal; timeout pendek
   # supaya tes yang salah arah gagal cepat. Production memakai default (https publik saja).
+  system:
+    metrics_token: metrik-dev
+    # Owner seed sekaligus admin instance di dev (Status sistem).
+    admin_emails: owner@agentgate.test
+    cli_release_url: https://github.com/agentgate/agentgate/releases/latest/download
+    cli_min_version: 0.1.0
+    backup_target: s3://agentgate-backup/postgres (contoh)
+    backup_schedule: setiap hari 02.00 WIB (contoh)
   git:
     # Server GitHub Enterprise palsu di loopback (tes, seed dev).
     allow_loopback: true

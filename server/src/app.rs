@@ -99,6 +99,10 @@ impl Hooks for App {
             .insert(std::sync::Arc::new(crate::services::realtime::Hub::new(
                 ctx.db.get_postgres_connection_pool().clone(),
             )));
+        // Penghitung metrik request (M12, `/_metrics`).
+        ctx.shared_store.insert(std::sync::Arc::new(
+            crate::services::metrics::Registry::new(),
+        ));
         if ctx.environment == Environment::Test {
             let storage = loco_rs::storage::Storage::single(loco_rs::storage::drivers::mem::new());
             return Ok(ctx.into_builder().storage(storage.into()).build());
@@ -156,7 +160,14 @@ impl Hooks for App {
         // paling luar: host pratinjau tidak pernah mencapai route aplikasi lain.
         let preview_host =
             std::sync::Arc::new(crate::common::settings::Settings::from_ctx(ctx)?.preview_host());
+        let metrics = crate::services::metrics::Registry::of(ctx)
+            .unwrap_or_else(|| std::sync::Arc::new(crate::services::metrics::Registry::new()));
         Ok(router
+            // Metrik per route (M12): route_layer = setelah routing, label pola route.
+            .route_layer(axum::middleware::from_fn_with_state(
+                metrics,
+                controllers::middleware::metrics::layer,
+            ))
             // Webhook keluar (M11): delivery yang ditulis selama request di-enqueue setelah
             // handler selesai (setelah commit).
             .layer(axum::middleware::from_fn_with_state(

@@ -28,6 +28,7 @@ pub mod mcp;
 pub mod middleware;
 pub mod oauth;
 pub mod office;
+pub mod ops;
 pub mod preview;
 pub mod projects;
 pub mod public_routes;
@@ -64,6 +65,7 @@ pub fn routes(ctx: &AppContext) -> AppRoutes {
         .add_route(imports::routes())
         .add_route(tokens::routes())
         .add_route(office::routes())
+        .add_route(ops::routes())
         .add_route(preview::routes())
         .add_route(webhooks::routes())
         .add_route(api_v1::routes(ctx))
