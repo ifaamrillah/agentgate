@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Matikan container dev checkout ini. Volume (data dev, cache build) tidak pernah dihapus.
+#   bin/down          -> di worktree: container app worktree ini saja
+#                        di checkout utama: app utama + layanan bersama (db, s3, mailpit)
+#   bin/down --force  -> checkout utama: tetap matikan walau ada worktree yang sedang jalan
+set -euo pipefail
+. "$(dirname "$0")/_lib.sh"
+ag_load_env
+
+FORCE=""
+case "${1:-}" in
+  --force) FORCE=1 ;;
+  "") ;;
+  *) ag_die "argumen tidak dikenal: $1 (pakai: bin/down [--force])" ;;
+esac
+
+if [ -n "$AG_ID" ]; then
+  ag_compose_app stop app >/dev/null
+  ag_compose_app rm -f app >/dev/null
+  echo "agentgate: container app worktree $AG_ID dimatikan"
+  exit 0
+fi
+
+# Layanan bersama dipakai semua worktree: jangan matikan diam-diam selagi ada yang jalan.
+RUNNING="$(ag_running_worktree_apps)"
+if [ -n "$RUNNING" ] && [ -z "$FORCE" ]; then
+  {
+    echo "agentgate: masih ada worktree yang memakai layanan bersama:"
+    printf '  %s\n' $RUNNING
+    echo "Matikan dulu dengan bin/down di worktree tersebut, atau ulangi dengan bin/down --force."
+  } >&2
+  exit 1
+fi
+
+# Tanpa --volumes: volume data external, tapi tetap tidak diminta supaya niatnya jelas.
+COMPOSE_IGNORE_ORPHANS=true docker compose -p "$AG_MAIN_PROJECT" \
+  -f "$AG_ROOT_DIR/docker/compose.shared.yaml" -f "$AG_ROOT_DIR/docker/compose.app.yaml" \
+  --progress quiet down
+echo "agentgate: checkout utama dan layanan bersama dimatikan (data tetap aman)"

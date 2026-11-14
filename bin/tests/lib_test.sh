@@ -29,5 +29,11 @@ fi
 printf 'WORKTREE_ID=feature_x\nWORKTREE_PORT=5151\n' >"$TMP/repo/worktrees/x/.worktree"
 OUT=$(. "$TMP/repo/worktrees/x/bin/_lib.sh"; ag_load_env; echo "$AG_DB_DEV $AG_DB_TEST $COMPOSE_PROJECT_NAME $AG_PREFERRED_PORT $SESSION_COOKIE_SUFFIX")
 [ "$OUT" = "agentgate_dev_feature_x agentgate_test_feature_x agentgate-rs-feature-x 5151 _feature_x" ] || fail "env worktree salah: $OUT"
+
+# Checkout utama: satu project compose dengan layanan bersama.
+mkdir -p "$TMP/main/bin"
+cp "$ROOT/bin/_lib.sh" "$TMP/main/bin/"
+OUT=$(. "$TMP/main/bin/_lib.sh"; ag_load_env; echo "$AG_DB_DEV $COMPOSE_PROJECT_NAME $AG_ID_OR_MAIN")
+[ "$OUT" = "agentgate_dev agentgate-rs main" ] || fail "env checkout utama salah: $OUT"
 rm -rf "$TMP"
 echo "lib_test: ok"

@@ -7,6 +7,10 @@
 AG_ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 AG_MAIN_PORT=5150
 AG_DB_HOST_PORT=54329
+# Project compose checkout utama: layanan bersama (db, s3, mailpit) + app checkout utama.
+AG_MAIN_PROJECT=agentgate-rs
+# Project lama sebelum digabung; container-nya dipindah sekali oleh ag_migrate_legacy_projects.
+AG_LEGACY_PROJECTS="agentgate-rs-shared agentgate-rs-main"
 
 ag_die() {
   echo "agentgate: $*" >&2
@@ -63,7 +67,12 @@ ag_load_env() {
     AG_ID_OR_MAIN="main"
     SESSION_COOKIE_SUFFIX=""
   fi
-  COMPOSE_PROJECT_NAME="agentgate-rs-$(printf '%s' "$AG_ID_OR_MAIN" | tr '_' '-')"
+  # Checkout utama satu project dengan layanan bersama; worktree punya project app sendiri.
+  if [ -n "$AG_ID" ]; then
+    COMPOSE_PROJECT_NAME="agentgate-rs-$(printf '%s' "$AG_ID" | tr '_' '-')"
+  else
+    COMPOSE_PROJECT_NAME="$AG_MAIN_PROJECT"
+  fi
   # Host db di dalam network Docker; dari host sendiri pakai 127.0.0.1:$AG_DB_HOST_PORT.
   DATABASE_URL="postgres://agentgate:agentgate@db:5432/${AG_DB_DEV}"
   TEST_DATABASE_URL="postgres://agentgate:agentgate@db:5432/${AG_DB_TEST}"
@@ -82,31 +91,67 @@ ag_load_env() {
   export AG_ROOT="$AG_ROOT_DIR"
 }
 
+# Layanan bersama selalu dioperasikan lewat file shared saja, dengan nama service eksplisit,
+# supaya dari worktree pun tidak pernah menyentuh container app checkout utama. Container app
+# di project yang sama bukan "orphan" yang perlu dibuang: COMPOSE_IGNORE_ORPHANS meredam
+# peringatannya dan mencegah --remove-orphans tak sengaja.
 ag_compose_shared() {
-  docker compose -p agentgate-rs-shared -f "$AG_ROOT_DIR/docker/compose.shared.yaml" "$@"
+  COMPOSE_IGNORE_ORPHANS=true \
+    docker compose -p "$AG_MAIN_PROJECT" -f "$AG_ROOT_DIR/docker/compose.shared.yaml" "$@"
 }
 
 ag_compose_app() {
-  docker compose -p "$COMPOSE_PROJECT_NAME" -f "$AG_ROOT_DIR/docker/compose.app.yaml" "$@"
+  COMPOSE_IGNORE_ORPHANS=true \
+    docker compose -p "$COMPOSE_PROJECT_NAME" -f "$AG_ROOT_DIR/docker/compose.app.yaml" "$@"
 }
 
-# Volume cache yang dibagi semua checkout dibuat di sini (bukan oleh project compose app),
-# supaya `down --volumes` saat menutup worktree tidak ikut menghapusnya.
-AG_SHARED_VOLUMES="agentgate-rs-cargo-registry agentgate-rs-cargo-git agentgate-rs-dev-cache"
+# Volume dan network dibuat di sini (bukan oleh compose), supaya `down --volumes` dari project
+# mana pun tidak bisa menghapus data dev atau cache bersama.
+AG_SHARED_VOLUMES="agentgate-rs-pg-data agentgate-rs-s3-data agentgate-rs-cargo-registry agentgate-rs-cargo-git agentgate-rs-dev-cache"
+AG_NETWORK="agentgate-rs"
+AG_SHARED_SERVICES="db s3 mailpit"
+
+ag_ensure_volume() {
+  docker volume inspect "$1" >/dev/null 2>&1 || docker volume create "$1" >/dev/null
+}
+
+# Sekali jalan: container dari project lama (agentgate-rs-shared, agentgate-rs-main) dihapus
+# supaya bisa dibuat ulang di project agentgate-rs. Hanya container; volume bernama (data dev,
+# cache build) dan network tetap, jadi tidak ada data yang hilang.
+ag_migrate_legacy_projects() {
+  local p ids
+  for p in $AG_LEGACY_PROJECTS; do
+    ids="$(docker ps -aq --filter "label=com.docker.compose.project=$p" 2>/dev/null)"
+    if [ -n "$ids" ]; then
+      echo "agentgate: memindahkan container project lama $p ke project $AG_MAIN_PROJECT" >&2
+      # shellcheck disable=SC2086
+      docker rm -f $ids >/dev/null || ag_die "gagal menghapus container project lama $p"
+    fi
+  done
+}
 
 ag_ensure_shared() {
   local v
-  for v in $AG_SHARED_VOLUMES; do
-    docker volume inspect "$v" >/dev/null 2>&1 || docker volume create "$v" >/dev/null
-  done
+  ag_migrate_legacy_projects
+  for v in $AG_SHARED_VOLUMES; do ag_ensure_volume "$v"; done
+  docker network inspect "$AG_NETWORK" >/dev/null 2>&1 || docker network create "$AG_NETWORK" >/dev/null
   if ! ag_compose_shared ps --status running --services 2>/dev/null | grep -qx db; then
-    ag_compose_shared --progress quiet up -d --wait >&2 || ag_die "gagal menyalakan layanan bersama (db, s3, mailpit)"
+    # shellcheck disable=SC2086
+    ag_compose_shared --progress quiet up -d --wait $AG_SHARED_SERVICES >&2 \
+      || ag_die "gagal menyalakan layanan bersama (db, s3, mailpit)"
     ag_ensure_bucket
   fi
 }
 
+# Container app worktree yang sedang jalan (nama project, satu per baris). Dipakai pengaman
+# bin/down: layanan bersama tidak boleh dimatikan selama masih ada worktree yang memakainya.
+ag_running_worktree_apps() {
+  docker ps --filter "network=$AG_NETWORK" --format '{{.Label "com.docker.compose.project"}}' 2>/dev/null \
+    | grep -v -x -e "$AG_MAIN_PROJECT" -e '' | sort -u || true
+}
+
 # Bucket S3 dev (lampiran tiket, logo) di SeaweedFS bersama, dipastikan setiap layanan bersama
-# dinyalakan. Idempoten: bucket yang sudah ada dibiarkan. Hanya menyentuh container layanan bersama agentgate-rs-shared.
+# dinyalakan. Idempoten: bucket yang sudah ada dibiarkan. Hanya menyentuh container s3 layanan bersama.
 AG_S3_BUCKET="agentgate-dev"
 ag_ensure_bucket() {
   ag_compose_shared exec -T s3 sh -c "echo s3.bucket.list | weed shell 2>/dev/null | grep -qw $AG_S3_BUCKET \
@@ -132,6 +177,7 @@ ag_ensure_app() {
     # Mountpoint volume target/ dibuat lebih dulu oleh user host; kalau tidak, Docker
     # membuatnya sebagai root dan folder itu tidak bisa dihapus user.
     mkdir -p "$AG_ROOT_DIR/target"
+    ag_ensure_volume "agentgate-rs-target-$AG_ID_OR_MAIN"
     ag_compose_app --progress quiet up -d --wait app >&2 || ag_die "gagal menyalakan container app"
   fi
   export AG_PORT

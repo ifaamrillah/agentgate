@@ -1,5 +1,5 @@
 # Container toolchain satu checkout/worktree. Project name di-set bin/_lib.sh:
-# agentgate-rs-main untuk checkout utama, agentgate-rs-<id> untuk worktree.
+# agentgate-rs (sama dengan layanan bersama) untuk checkout utama, agentgate-rs-<id> untuk worktree.
 services:
   app:
     build:
@@ -25,11 +25,13 @@ services:
       - dev-cache:/home/dev/.cache
     networks: [agentgate-rs]
 
+# Semua volume external (dibuat bin/_lib.sh), supaya `down --volumes` tidak menghapus apa pun.
+# Volume target milik worktree dihapus eksplisit oleh bin/worktree saat worktree ditutup.
 volumes:
   target:
     name: agentgate-rs-target-${AG_ID_OR_MAIN:-main}
-  # Dibuat oleh bin/_lib.sh (ag_ensure_shared) dan dibagi semua checkout; external supaya
-  # `down --volumes` sebuah worktree tidak menghapusnya.
+    external: true
+  # Dibagi semua checkout.
   cargo-registry:
     name: agentgate-rs-cargo-registry
     external: true
