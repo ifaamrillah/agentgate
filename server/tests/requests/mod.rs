@@ -12,6 +12,7 @@ mod git;
 mod git_app;
 mod git_r2;
 mod graph;
+mod graph_semantic;
 mod graph_viewer;
 mod health;
 mod home;

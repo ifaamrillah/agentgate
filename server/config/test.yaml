@@ -172,3 +172,5 @@ settings:
   graph:
     clone:
       enabled: false
+    embedding:
+      provider: fake

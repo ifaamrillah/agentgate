@@ -26,6 +26,14 @@ graph-stat-complex = Fungsi kompleks
 graph-stat-complex-hint = cyclomatic > { $value }
 
 graph-search = Cari
+graph-mode = Mode pencarian
+graph-mode-hybrid = Nama + makna
+graph-mode-lexical = Nama saja
+graph-mode-semantic = Makna saja
+graph-semantic-off = Pencarian makna dimatikan di server; hasil berdasarkan nama.
+graph-semantic-loading = Model pencarian makna sedang disiapkan; sementara hasil berdasarkan nama.
+graph-semantic-failed = Pencarian makna gagal; hasil berdasarkan nama.
+graph-semantic-empty = Simbol project belum punya embedding (index ulang untuk membuatnya); hasil berdasarkan nama.
 graph-search-label = Cari simbol
 graph-search-placeholder = Nama fungsi, kelas, route… mis. "reserve stock"
 graph-filter-kind = Jenis simbol

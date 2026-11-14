@@ -3,7 +3,8 @@
     kosong. Prototype: "Status index code graph" + "Graph viewer" di screens-m7-m8-m10.js (viewer
     visual menyusul di M10). Variabel: project, views, views_action, return_to, paths,
     graph_tabs, can_edit, repos, indexed, reindex_action, stats, q, kind, repo_filter, kinds,
-    results ([SymbolRow]), modules, flash. -#}
+    results ([SymbolRow]), modules, flash, mode, modes, mode_used, fallback (R2: pencarian
+    hibrid/leksikal/semantik). -#}
 {% extends "layouts/project.html" %}
 {% block title %}{{ t(key="project-view-graph", lang="id") }} · {{ project.name }}{% endblock title %}
 {% block width %}wide{% endblock width %}
@@ -36,8 +37,14 @@
       {%- for r in repos %}<option value="{{ r.name }}"{% if repo_filter == r.name %} selected{% endif %}>{{ r.name }}</option>{% endfor %}
     </select>
     {%- endif %}
+    <select class="app-input" name="mode" aria-label="{{ t(key="graph-mode", lang="id") }}" data-search-mode>
+      {%- for m in modes %}<option value="{{ m.value }}"{% if mode == m.value %} selected{% endif %}>{{ t(key=m.label_key, lang="id") }}</option>{% endfor %}
+    </select>
     {{ <button label={t(key="graph-search", lang="id")} icon="search" type="submit"/> }}
   </form>
+  {%- if q and fallback %}
+  <p class="app-graph-search-note" data-search-fallback="{{ fallback }}">{{ icon(name="info-circle") }} {{ t(key=fallback, lang="id") }}</p>
+  {%- endif %}
   {%- if q %}
   {%- for s in results %}
   <a class="app-lrow app-sym" href="{{ s.href }}" data-symbol="{{ s.qualified }}">

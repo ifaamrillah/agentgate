@@ -63,7 +63,9 @@ async fn finish(
     auth: BearerSession,
     Json(req): Json<FinishRequest>,
 ) -> Result<Response> {
-    let out = tri!(ingest::finish(&ctx.db, &auth.session.acting(), req).await);
+    let (out, repo) = tri!(ingest::finish(&ctx.db, &auth.session.acting(), req).await);
+    // Embedding simbol (R2) di latar belakang; pencarian leksikal sudah jalan.
+    crate::services::graph::embed::enqueue(&ctx, repo.workspace_id, repo.id).await?;
     Ok(Json(out).into_response())
 }
 

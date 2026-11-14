@@ -22,6 +22,8 @@
   .app-graph-search { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 16px; border-bottom: 1px solid var(--ag-line); }
   .app-graph-search > input.app-input { flex: 1 1 260px; }
   .app-graph-search > select.app-input { flex: 0 1 170px; width: auto; }
+  .app-graph-search-note { display: flex; align-items: center; gap: 6px; margin: 0; padding: 8px 16px; border-bottom: 1px solid var(--ag-line); color: var(--ag-muted); font-size: 12.5px; }
+  .app-graph-search-note svg { width: 14px; height: 14px; flex: none; }
 
   /* Baris simbol: ikon jenis, nama + lokasi, signature, angka pemanggil. */
   .app-sym { align-items: flex-start; }

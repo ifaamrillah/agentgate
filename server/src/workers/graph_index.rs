@@ -8,7 +8,7 @@ use uuid::Uuid;
 use crate::{
     common::settings::Settings,
     models::{repos, workspaces},
-    services::graph::{fetch, ingest},
+    services::graph::{embed, fetch, ingest},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -42,11 +42,13 @@ impl BackgroundWorker<GraphIndexArgs> for GraphIndexWorker {
             return Ok(());
         };
         let settings = Settings::from_ctx(&self.ctx)?;
-        if let Err(e) =
-            fetch::fetch_and_index(db, &settings, wid, &repo, args.requested_by, args.full).await
+        match fetch::fetch_and_index(db, &settings, wid, &repo, args.requested_by, args.full).await
         {
-            tracing::warn!(error = %e, repo = %repo.id, "graph index failed");
-            ingest::fail(db, wid, &repo, &e.message()).await?;
+            Ok(_) => embed::enqueue(&self.ctx, repo.workspace_id, repo.id).await?,
+            Err(e) => {
+                tracing::warn!(error = %e, repo = %repo.id, "graph index failed");
+                ingest::fail(db, wid, &repo, &e.message()).await?;
+            }
         }
         Ok(())
     }

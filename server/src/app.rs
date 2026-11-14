@@ -113,6 +113,14 @@ impl Hooks for App {
                 },
             );
         }
+        // Model embedding code graph (R2) dimuat/diunduh di latar belakang saat start, bukan
+        // di jalur request. Tes memakai provider `fake`.
+        if let Ok(s) = Settings::from_ctx(&ctx) {
+            crate::services::graph::embed::configure(s.graph.embedding.clone());
+            if ctx.environment != Environment::Test {
+                crate::services::graph::embed::warm(s.graph.embedding.clone());
+            }
+        }
         // Penghitung metrik request (M12, `/_metrics`).
         ctx.shared_store.insert(std::sync::Arc::new(
             crate::services::metrics::Registry::new(),
@@ -218,6 +226,10 @@ impl Hooks for App {
         // Index code graph oleh server (M7).
         queue
             .register(crate::workers::graph_index::GraphIndexWorker::build(ctx))
+            .await?;
+        // Embedding simbol code graph setelah index (R2).
+        queue
+            .register(crate::workers::graph_embed::GraphEmbedWorker::build(ctx))
             .await?;
         // PR knowledge setelah usulan di-approve (R2).
         queue

@@ -194,6 +194,8 @@ struct SearchQuery {
     kind: String,
     #[serde(default)]
     repo: String,
+    #[serde(default)]
+    mode: String,
 }
 
 #[debug_handler]
@@ -216,11 +218,14 @@ async fn search(
         .find(|r| r.name == sq.repo.trim())
         .map(|r| r.id);
     let q = sq.q.trim().chars().take(200).collect::<String>();
-    let results: Vec<SymbolRow> = if q.is_empty() || !base.indexed() {
-        Vec::new()
+    let mode = query::SearchMode::parse(&sq.mode).unwrap_or_default();
+    let (results, fallback): (Vec<SymbolRow>, &str) = if q.is_empty() || !base.indexed() {
+        (Vec::new(), "")
     } else {
-        query::search(
+        let settings = crate::common::settings::Settings::from_ctx(&ctx)?;
+        let out = query::search_mode(
             &ctx.db,
+            &settings.graph.embedding,
             wid,
             access.project.id,
             &q,
@@ -230,11 +235,13 @@ async fn search(
                 include_tests: true,
             },
             50,
+            mode,
         )
-        .await?
-        .iter()
-        .map(|h| symbol_row(h, &sb))
-        .collect()
+        .await?;
+        (
+            out.hits.iter().map(|h| symbol_row(h, &sb)).collect(),
+            out.fallback,
+        )
     };
     let names: HashMap<Uuid, &str> = base.repos.iter().map(|r| (r.id, r.name.as_str())).collect();
     let modules: Vec<serde_json::Value> = base
@@ -286,6 +293,13 @@ async fn search(
             "kind": sq.kind,
             "repo_filter": sq.repo,
             "kinds": kinds,
+            "mode": mode.as_str(),
+            "modes": [
+                { "value": "hybrid", "label_key": "graph-mode-hybrid" },
+                { "value": "lexical", "label_key": "graph-mode-lexical" },
+                { "value": "semantic", "label_key": "graph-mode-semantic" },
+            ],
+            "fallback": fallback,
             "results": results,
             "modules": modules,
             "symbol_base": sb,

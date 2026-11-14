@@ -166,6 +166,217 @@ pub async fn search<C: ConnectionTrait>(
     .await
 }
 
+/// Mode pencarian simbol (R2).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SearchMode {
+    /// Leksikal + semantik digabung (Reciprocal Rank Fusion). Default.
+    #[default]
+    Hybrid,
+    /// Nama/pecahan nama/doc saja.
+    Lexical,
+    /// Kemiripan makna (embedding) saja.
+    Semantic,
+}
+
+impl SearchMode {
+    /// Dari parameter (`hybrid`/`lexical`/`semantic`; kosong = hybrid).
+    #[must_use]
+    pub fn parse(s: &str) -> Option<Self> {
+        match s.trim() {
+            "" | "hybrid" => Some(Self::Hybrid),
+            "lexical" => Some(Self::Lexical),
+            "semantic" => Some(Self::Semantic),
+            _ => None,
+        }
+    }
+
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Hybrid => "hybrid",
+            Self::Lexical => "lexical",
+            Self::Semantic => "semantic",
+        }
+    }
+}
+
+/// Hasil pencarian beserta mode yang benar-benar dipakai (semantik bisa jatuh ke leksikal
+/// bila embedding mati, model belum siap, atau project belum di-embed).
+#[derive(Debug, Clone)]
+pub struct SearchOutcome {
+    pub hits: Vec<SymbolHit>,
+    pub mode: SearchMode,
+    /// Alasan jatuh ke leksikal (kosong = sesuai permintaan).
+    pub fallback: &'static str,
+}
+
+/// Konstanta RRF (Cormack dkk. 2009).
+pub const RRF_K: f64 = 60.0;
+/// Kandidat per daftar sebelum digabung.
+const FUSE_POOL: u64 = 50;
+
+/// Gabungkan beberapa daftar peringkat dengan Reciprocal Rank Fusion.
+#[must_use]
+pub fn fuse(lists: &[&[SymbolHit]], limit: usize) -> Vec<SymbolHit> {
+    let mut score: std::collections::HashMap<Uuid, (f64, usize, SymbolHit)> =
+        std::collections::HashMap::new();
+    let mut order = 0usize;
+    for list in lists {
+        for (rank, hit) in list.iter().enumerate() {
+            let add = 1.0 / (RRF_K + rank as f64 + 1.0);
+            score
+                .entry(hit.id)
+                .and_modify(|e| e.0 += add)
+                .or_insert_with(|| {
+                    order += 1;
+                    (add, order, hit.clone())
+                });
+        }
+    }
+    let mut all: Vec<_> = score.into_values().collect();
+    all.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
+    all.into_iter().take(limit).map(|e| e.2).collect()
+}
+
+/// Cari simbol menurut kemiripan makna dengan vektor query.
+///
+/// # Errors
+///
+/// Error database.
+pub async fn search_semantic<C: ConnectionTrait>(
+    db: &C,
+    wid: WorkspaceId,
+    project: Uuid,
+    model: &str,
+    vector: &[f32],
+    filter: &SearchFilter,
+    limit: u64,
+) -> Result<Vec<SymbolHit>, DbErr> {
+    let sql = format!(
+        "{SELECT_EMBED}
+           AND s.kind <> 'file'
+           AND ($3::text IS NULL OR s.kind = $3)
+           AND ($4::uuid IS NULL OR s.repo_id = $4)
+           AND ($5 OR NOT s.test)
+         ORDER BY e.embedding <=> $7::vector, s.id
+         LIMIT $8"
+    );
+    SymbolHit::find_by_statement(stmt(
+        sql,
+        vec![
+            wid.get().into(),
+            project.into(),
+            filter.kind.map(|k| k.as_str().to_string()).into(),
+            filter.repo.into(),
+            filter.include_tests.into(),
+            model.to_string().into(),
+            super::embed::literal(vector).into(),
+            i64::try_from(limit.min(200)).unwrap_or(50).into(),
+        ],
+    ))
+    .all(db)
+    .await
+}
+
+const SELECT_EMBED: &str = "SELECT s.id, s.repo_id, r.name AS repo, f.path, f.lang, s.name,
+    s.qualified, s.kind, s.start_line, s.end_line, s.exported, s.test, s.module, s.central,
+    s.dead, s.callers, s.callees, s.complexity, s.signature, s.doc
+  FROM graph_symbols s
+  JOIN graph_files f ON f.id = s.file_id
+  JOIN repos r ON r.id = s.repo_id
+  JOIN graph_embeddings e ON e.repo_id = s.repo_id AND e.model = $6 AND e.hash = s.embed_hash
+  WHERE s.workspace_id = $1 AND r.project_id = $2";
+
+/// Pencarian dengan mode (UI Cari simbol, MCP `ag_search`).
+///
+/// # Errors
+///
+/// Error database.
+#[allow(clippy::too_many_arguments)]
+pub async fn search_mode<C: ConnectionTrait>(
+    db: &C,
+    settings: &crate::common::settings::EmbeddingSettings,
+    wid: WorkspaceId,
+    project: Uuid,
+    q: &str,
+    filter: &SearchFilter,
+    limit: u64,
+    mode: SearchMode,
+) -> Result<SearchOutcome, DbErr> {
+    let lexical = |n| search(db, wid, project, q, filter, n);
+    if mode == SearchMode::Lexical {
+        return Ok(SearchOutcome {
+            hits: lexical(limit).await?,
+            mode,
+            fallback: "",
+        });
+    }
+    let fallback = |reason: &'static str| async move {
+        Ok(SearchOutcome {
+            hits: search(db, wid, project, q, filter, limit).await?,
+            mode: SearchMode::Lexical,
+            fallback: reason,
+        })
+    };
+    if !settings.enabled {
+        return fallback("graph-semantic-off").await;
+    }
+    let Some(embedder) = super::embed::ready(settings) else {
+        return fallback("graph-semantic-loading").await;
+    };
+    let q_owned = q.trim().to_string();
+    let e = embedder.clone();
+    let vector = match tokio::task::spawn_blocking(move || e.query(&q_owned)).await {
+        Ok(Ok(v)) => v,
+        _ => return fallback("graph-semantic-failed").await,
+    };
+    let semantic = search_semantic(
+        db,
+        wid,
+        project,
+        &embedder.model,
+        &vector,
+        filter,
+        if mode == SearchMode::Semantic {
+            limit
+        } else {
+            FUSE_POOL
+        },
+    )
+    .await?;
+    if semantic.is_empty() {
+        return fallback("graph-semantic-empty").await;
+    }
+    if mode == SearchMode::Semantic {
+        return Ok(SearchOutcome {
+            hits: semantic,
+            mode,
+            fallback: "",
+        });
+    }
+    let lex = lexical(FUSE_POOL).await?;
+    // Nama persis tetap di urutan pertama (yang dicari biasanya simbol itu sendiri).
+    let whole = q.trim().to_lowercase();
+    let exact: Vec<SymbolHit> = lex
+        .iter()
+        .filter(|h| h.name.to_lowercase() == whole || h.qualified.to_lowercase() == whole)
+        .cloned()
+        .collect();
+    let mut hits = exact.clone();
+    for h in fuse(&[&lex, &semantic], usize::try_from(limit).unwrap_or(50)) {
+        if !exact.iter().any(|x| x.id == h.id) {
+            hits.push(h);
+        }
+    }
+    hits.truncate(usize::try_from(limit).unwrap_or(50));
+    Ok(SearchOutcome {
+        hits,
+        mode,
+        fallback: "",
+    })
+}
+
 /// Simbol menurut id.
 ///
 /// # Errors

@@ -7,6 +7,7 @@
 //! - [`query`]: cari simbol, trace, snippet, dampak, kode mati, query Cypher.
 pub mod build;
 pub mod clone;
+pub mod embed;
 pub mod fetch;
 pub mod ingest;
 pub mod query;
