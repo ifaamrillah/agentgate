@@ -102,14 +102,43 @@ async fn advanced_search_filters_and_bulk_edit() {
         };
         assert!(pos(&a) < pos(&b), "high sebelum low");
 
-        // Query salah → pesan, tanpa hasil.
+        // OR, NOT, dan kurung (R3).
+        let html = request
+            .get("/w/acme/search/advanced")
+            .add_query_param("q", "(text ~ qris OR text ~ struk) AND NOT priority = high")
+            .add_cookie(f.cookie.clone())
+            .await
+            .text();
+        assert!(html.contains(&format!("data-ticket-row=\"{b}\"")), "{html}");
+        assert!(!html.contains(&format!("data-ticket-row=\"{a}\"")));
+        assert!(!html.contains(&format!("data-ticket-row=\"{c}\"")));
+        let html = request
+            .get("/w/acme/search/advanced")
+            .add_query_param("q", "text ~ qris OR text ~ laporan")
+            .add_cookie(f.cookie.clone())
+            .await
+            .text();
+        assert!(html.contains(&format!("data-ticket-row=\"{a}\"")));
+        assert!(html.contains(&format!("data-ticket-row=\"{c}\"")));
+        assert!(!html.contains(&format!("data-ticket-row=\"{b}\"")));
+
+        // Query salah → pesan Fluent, tanpa hasil.
         let page = request
             .get("/w/acme/search/advanced")
             .add_query_param("q", "warna = merah")
             .add_cookie(f.cookie.clone())
             .await;
         assert_eq!(page.status_code(), 200);
-        assert!(page.text().contains("data-jql-error"));
+        let html = page.text();
+        assert!(html.contains("data-jql-error"));
+        assert!(html.contains("Field “warna” tidak dikenal"), "{html}");
+        let html = request
+            .get("/w/acme/search/advanced")
+            .add_query_param("q", "(priority = low")
+            .add_cookie(f.cookie.clone())
+            .await
+            .text();
+        assert!(html.contains("Kurung belum ditutup."), "{html}");
 
         // Saved filter: nama kosong 422, lalu tersimpan.
         let res = request
@@ -238,6 +267,75 @@ async fn advanced_search_filters_and_bulk_edit() {
                 .unwrap()
                 .is_empty()
         );
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn query_autocomplete_suggests_fields_operators_and_values() {
+    request::<App, _, _>(|request, ctx| async move {
+        let f = fixture(&request, &ctx).await;
+        let today = planning::today();
+        request
+            .post("/w/acme/p/KSR/backlog/sprints")
+            .add_cookie(f.cookie.clone())
+            .form(&[
+                ("name", "Sprint QRIS"),
+                ("starts_on", today.to_string().as_str()),
+                ("ends_on", (today + Duration::days(7)).to_string().as_str()),
+            ])
+            .await;
+        create_ticket(
+            &request,
+            &f.cookie,
+            &[("title", "Bayar"), ("labels", "pembayaran, kasir")],
+        )
+        .await;
+        let suggest = |q: &'static str| {
+            let request = &request;
+            let cookie = f.cookie.clone();
+            async move {
+                let res = request
+                    .get("/w/acme/search/advanced/suggest")
+                    .add_query_param("q", q)
+                    .add_cookie(cookie)
+                    .await;
+                assert_eq!(res.status_code(), 200, "{}", res.text());
+                res.json::<serde_json::Value>()
+            }
+        };
+        let inserts = |v: &serde_json::Value| -> Vec<String> {
+            v["items"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|i| i["insert"].as_str().unwrap().to_string())
+                .collect()
+        };
+
+        // Field yang diketik sebagian (awalan dulu) + keterangan dari Fluent.
+        let v = suggest("assig").await;
+        assert_eq!(v["partial"], "assig");
+        assert_eq!(inserts(&v)[0], "assignee ");
+        assert!(v["items"][0]["hint"].as_str().unwrap().contains("currentUser()"));
+        // Operator per field: label tanpa <, points dengan <.
+        let ops = inserts(&suggest("label ").await);
+        assert!(ops.contains(&"in (".to_string()) && !ops.iter().any(|o| o.starts_with('<')));
+        assert!(inserts(&suggest("points ").await).contains(&"<= ".to_string()));
+        // Nilai dari data: label, sprint (dikutip), project, fungsi.
+        let labels = inserts(&suggest("label = ").await);
+        assert!(labels.contains(&"pembayaran ".to_string()), "{labels:?}");
+        let sprints = inserts(&suggest("sprint = \"Spr").await);
+        assert_eq!(sprints, vec!["\"Sprint QRIS\" ".to_string()]);
+        assert!(inserts(&suggest("sprint in ").await).contains(&"openSprints() ".to_string()));
+        assert!(inserts(&suggest("project in (").await).contains(&"KSR".to_string()));
+        assert!(inserts(&suggest("assignee = ").await).contains(&"currentUser() ".to_string()));
+        // Sambungan setelah syarat lengkap; `)` hanya di dalam kurung.
+        let joins = inserts(&suggest("(status = done ").await);
+        assert!(joins.contains(&"OR ".to_string()) && joins.contains(&") ".to_string()));
+        assert!(inserts(&suggest("status = done ").await).contains(&"ORDER BY ".to_string()));
+        // Query yang tidak terbaca: tanpa saran.
+        assert!(inserts(&suggest("warna ").await).is_empty());
     })
     .await;
 }

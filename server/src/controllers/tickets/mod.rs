@@ -408,6 +408,8 @@ pub fn routes() -> Routes {
         .add("/w/{slug}/inbox/{id}/read", post(inbox::read))
         .add("/w/{slug}/search", get(inbox::search))
         .add("/w/{slug}/search/advanced", get(advanced::index))
+        // Autocomplete kotak query (static/js/jql-suggest.js).
+        .add("/w/{slug}/search/advanced/suggest", get(advanced::suggest))
         .add(
             "/w/{slug}/search/advanced/filters",
             post(advanced::save_filter),

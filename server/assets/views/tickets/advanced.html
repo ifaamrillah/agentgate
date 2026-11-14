@@ -48,7 +48,7 @@
     {%- endif %}
     <details class="app-jql-help">
       <summary>{{ t(key="search-fields", lang="id") }}</summary>
-      <dl>{% for f in fields %}<dt><code>{{ f.name }}</code></dt><dd>{{ f.hint }}</dd>{% endfor %}</dl>
+      <dl>{% for f in fields %}<dt><code>{{ f.name }}</code></dt><dd>{{ t(key=f.hint, lang="id") }}</dd>{% endfor %}</dl>
       <p class="app-hint">{{ t(key="search-syntax-hint", lang="id") }}</p>
     </details>
     {% </card> %}

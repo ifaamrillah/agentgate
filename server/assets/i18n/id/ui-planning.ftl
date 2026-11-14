@@ -400,14 +400,14 @@ board-wip-over = Melebihi batas WIP { $wip }
 
 ## Pencarian lanjutan, saved filter, edit massal
 search-advanced-title = Pencarian lanjutan
-search-advanced-description = Tulis query ala JQL. Gabungkan syarat dengan AND, pakai =, !=, ~, in (…), is EMPTY, dan ORDER BY.
+search-advanced-description = Tulis query ala JQL. Gabungkan syarat dengan AND, OR, NOT, dan kurung; pakai =, !=, ~, in (…), is EMPTY, dan ORDER BY.
 search-advanced-link = Pencarian lanjutan
 search-basic = Pencarian dasar
 search-query = Query
 search-query-placeholder = stage = Review AND assignee = currentUser() ORDER BY priority
 search-run = Jalankan
 search-fields = Field yang bisa dipakai
-search-syntax-hint = Nilai berisi spasi ditulis dalam tanda kutip, mis. sprint = "Sprint 4". Fungsi: currentUser(), openSprints(). Tanggal memakai format TTTT-BB-HH.
+search-syntax-hint = NOT lebih kuat dari AND, AND lebih kuat dari OR; pakai kurung untuk mengubah urutan, mis. (label = qris OR label = struk) AND status != done. Nilai berisi spasi ditulis dalam tanda kutip, mis. sprint = "Sprint 4". Fungsi: currentUser(), openSprints(). Tanggal memakai format TTTT-BB-HH.
 search-total = { $total } tiket cocok dengan query.
 search-total-limited = { $total } tiket cocok; { $limit } pertama ditampilkan. Persempit query untuk melihat sisanya.
 search-error-title = Query belum bisa dijalankan
@@ -451,3 +451,75 @@ search-bulk-note = Sprint dan versi harus milik project tiketnya. Tiket yang tid
 search-bulk-apply = Terapkan
 search-flash-bulk-done = Tiket terpilih diperbarui.
 search-flash-bulk-partial = Sebagian tiket dilewati karena tidak cocok atau tidak boleh Anda ubah.
+
+## Query JQL: pesan error (R3, planning::jql)
+jql-quote-open = Tanda kutip belum ditutup.
+jql-bang = Operator “!” harus ditulis “!=”.
+jql-field-unknown = Field “{ $name }” tidak dikenal. Coba: { $list }.
+jql-order-by = Tulis “ORDER BY field”.
+jql-order-field = Field urutan belum ditulis setelah ORDER BY.
+jql-order-last = ORDER BY harus di akhir query.
+jql-join = Gabungkan syarat dengan AND atau OR.
+jql-clause-start = Syarat harus diawali nama field, mis. assignee = currentUser().
+jql-op-unknown = Operator untuk “{ $name }” tidak dikenal. Pakai =, !=, ~, in, not in, is EMPTY.
+jql-op-compare = Operator <, > hanya untuk points dan due, bukan “{ $name }”.
+jql-value-missing = Nilai untuk “{ $name }” belum ditulis.
+jql-not-in = Tulis “not in (…)”.
+jql-in-paren = Nilai in harus di dalam kurung, mis. in (a, b).
+jql-in-sep = Pisahkan nilai in dengan koma dan tutup dengan “)”.
+jql-paren-open = Kurung belum ditutup.
+jql-paren-close = Ada kurung tutup “)” tanpa kurung buka.
+jql-empty-group = Kurung tidak boleh kosong.
+jql-is-empty = Operator is hanya untuk EMPTY, mis. assignee is EMPTY.
+jql-too-many = Maksimal { $max } syarat per query.
+jql-too-deep = Kurung dan NOT bersarang maksimal { $depth } tingkat.
+jql-dangling = Syarat belum ditulis setelah { $name }.
+
+## Query JQL: keterangan field (bantuan + autocomplete)
+jql-field-project = Kunci project, mis. KSR
+jql-field-stage = Kunci atau nama stage workflow
+jql-field-status = backlog, todo, in_progress, done
+jql-field-assignee = Nama/email penerima, currentUser(), EMPTY
+jql-field-type = Kunci atau nama tipe tiket
+jql-field-sprint = Nama sprint, openSprints(), EMPTY
+jql-field-label = Label tiket
+jql-field-priority = low, medium, high, urgent
+jql-field-points = Story point; bisa <, >, EMPTY
+jql-field-text = Kode, judul, dan deskripsi (pakai ~)
+jql-field-fixversion = Nama rilis (Fix version)
+jql-field-component = Nama component
+jql-field-due = Tenggat TTTT-BB-HH; bisa <, >, EMPTY
+jql-field-created = Tanggal dibuat (ORDER BY)
+jql-field-updated = Tanggal diubah (ORDER BY)
+
+## Query JQL: autocomplete
+jql-suggest-label = Saran query
+jql-suggest-kind-field = Field
+jql-suggest-kind-op = Operator
+jql-suggest-kind-value = Nilai
+jql-suggest-kind-keyword = Kata kunci
+jql-suggest-hint = Ketik untuk saran; ↑/↓ memilih, Enter atau Tab menyisipkan, Esc menutup.
+jql-op-eq = sama dengan
+jql-op-ne = tidak sama dengan
+jql-op-like = mengandung teks
+jql-op-in = salah satu dari daftar
+jql-op-not-in = bukan salah satu dari daftar
+jql-op-is-empty = kosong
+jql-op-is-not-empty = terisi
+jql-op-lt = kurang dari
+jql-op-le = kurang dari atau sama dengan
+jql-op-gt = lebih dari
+jql-op-ge = lebih dari atau sama dengan
+jql-kw-and = kedua syarat terpenuhi
+jql-kw-or = salah satu syarat terpenuhi
+jql-kw-not = kebalikan syarat berikutnya
+jql-kw-open = kelompokkan syarat
+jql-kw-close = tutup kelompok
+jql-kw-order = urutkan hasil
+jql-kw-asc = naik
+jql-kw-desc = turun
+jql-kw-list-next = nilai berikutnya
+jql-kw-list-close = tutup daftar
+jql-fn-current-user = Anda sendiri
+jql-fn-open-sprints = sprint yang belum selesai
+jql-value-empty = tanpa nilai
