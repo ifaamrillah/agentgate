@@ -70,7 +70,7 @@ async fn instance_admin_sees_every_panel_and_backup_history() {
             .add_cookie(cookie.clone())
             .await
             .text();
-        assert!(html.contains("m20261127_000001_r2_revisi"));
+        assert!(html.contains("m20261128_000001_r3_revisi"));
         assert_eq!(
             request
                 .get("/system/tidak-ada")
