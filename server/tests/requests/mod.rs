@@ -2,6 +2,7 @@ mod account;
 mod agents;
 mod api;
 mod auth;
+mod authz_sweep;
 mod csrf;
 mod dev_ui;
 mod device;
