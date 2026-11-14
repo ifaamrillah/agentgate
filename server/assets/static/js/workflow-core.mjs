@@ -13,6 +13,8 @@ export const ROW_H = 100;
 export const PAD = 28;
 export const FAIL_LANE = 120;
 export const LANE_STEP = 22;
+/** Ruang label panah gagal di kanan lajur ("Gagal → Development, maks 3×"). */
+export const LABEL_W = 200;
 export const ZOOM_MIN = 0.35;
 export const ZOOM_MAX = 2;
 
@@ -76,7 +78,7 @@ export function layout(stages) {
     return { keys: [...r], x: first.x - 12, y: first.y - 14, w: last.x + NODE.w - first.x + 24, h: NODE.h + 28 };
   });
 
-  const width = right + Math.max(FAIL_LANE, fails.length ? 36 + fails.length * LANE_STEP + 90 : 0) + PAD;
+  const width = right + Math.max(FAIL_LANE, fails.length ? 36 + fails.length * LANE_STEP + LABEL_W : 0) + PAD;
   const height = PAD * 2 + (R.length ? (R.length - 1) * ROW_H + NODE.h : 0);
   return { pos, width, height, edges, badges, fails, groups };
 }
