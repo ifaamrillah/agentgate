@@ -141,8 +141,8 @@ function accessory(g, acc, bot, col) {
     rr(-w, top + 4.5, w * 2, 4.4, 2, { fill: dk(col, 18) }, g);
     S("circle", { cx: 0, cy: top - 5.5, r: 3, fill: lt(col, 30) }, g);
   } else if (acc === "beret") {
-    S("ellipse", { cx: -2, cy: top + 1.5, rx: w + 1.5, ry: 4.6, fill: col, transform: `rotate(-8 -2 ${top + 1.5})` }, g);
-    S("circle", { cx: -1, cy: top - 3, r: 1.3, fill: dk(col, 25) }, g);
+    S("path", { d: `M${-w + 1} ${top + 4} Q${-w - 1} ${top - 4} ${-2} ${top - 4.5} Q${w} ${top - 4} ${w + 1} ${top + 2} Q${w - 2} ${top + 5} 0 ${top + 4.5} Q${-w + 4} ${top + 5} ${-w + 1} ${top + 4}Z`, fill: col }, g);
+    S("path", { d: `M-2 ${top - 4.5} q0.5 -2.4 2 -2.6`, fill: "none", stroke: dk(col, 25), "stroke-width": 1.4, "stroke-linecap": "round" }, g);
   }
 }
 

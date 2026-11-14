@@ -228,7 +228,8 @@ test("LOD: zoom jauh hanya badge ikon, dekat semua label", () => {
   assert.equal(C.lodOf(0.3), "far");
   assert.equal(C.lodOf(0.7), "mid");
   assert.equal(C.lodOf(1.2), "near");
-  assert.equal(C.lodOf(0.5, "plan"), "far");
+  assert.equal(C.lodOf(0.38, "plan"), "far");
+  assert.equal(C.lodOf(0.38), "mid");
   assert.equal(C.tagShows("far", "working", false), "none");
   assert.equal(C.tagShows("far", "review", false), "icon");
   assert.equal(C.tagShows("far", "working", true), "full", "yang dipilih tetap berlabel");

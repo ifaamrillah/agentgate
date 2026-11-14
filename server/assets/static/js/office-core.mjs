@@ -192,7 +192,7 @@ export function declutter(items, { gap = 3, obstacles = [], view = null, maxShif
 
 /** Tingkat detail dari zoom: `far` (badge ikon saja), `mid`, `near`. */
 export function lodOf(z, mode = "iso") {
-  if (z < (mode === "plan" ? 0.55 : 0.5)) return "far";
+  if (z < (mode === "plan" ? 0.4 : 0.36)) return "far";
   return z < 0.85 ? "mid" : "near";
 }
 /** Isi label karakter pada LOD: `full` (nama + badge), `icon` (badge ikon), `none`. */
