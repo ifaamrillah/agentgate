@@ -58,7 +58,7 @@
     </header>
     <div class="app-of-db">
       <div class="app-of-dh">
-        <canvas class="app-of-pv" width="104" height="116" aria-hidden="true" data-office-pv="{{ c.id }}"></canvas>
+        <svg class="app-of-pv" viewBox="-30 -68 60 74" aria-hidden="true" focusable="false" data-office-pv="{{ c.id }}"></svg>
         <div>{{ <badge label={t(key=c.label_key, lang="id")} variant={c.variant}/> }}<p class="app-hint">{% if c.room == "MEET" %}{{ t(key="office-room-meeting", lang="id") }}{% elif c.room == "PANTRY" %}{{ t(key="office-room-pantry", lang="id") }}{% else %}{{ panel.room_name }}{% endif %}{% if c.runner %} · {{ c.runner }}{% endif %}</p></div>
       </div>
       {%- if c.st == "decision" %}
@@ -135,7 +135,7 @@
     <input type="hidden" name="key" value="{{ panel.subject_key }}">
     <input type="hidden" name="c" value="{{ c.id }}">
     <section><div class="app-of-look">
-      <div class="app-of-look-pv"><canvas width="400" height="440" aria-hidden="true" data-office-look-pv="{{ c.id }}"></canvas></div>
+      <div class="app-of-look-pv"><svg viewBox="-30 -68 60 74" aria-hidden="true" focusable="false" data-office-look-pv="{{ c.id }}"></svg></div>
       <div class="app-stack-v" data-gap="md">
         {{ <field id="office-alias" name="alias" label={t(key="office-look-alias", lang="id")} value={c.look.alias} placeholder={c.short} maxlength="24" optional={t(key="field-optional", lang="id")} hint={t(key="office-look-alias-hint", lang="id")}/> }}
         {{ <color_picker id="office-shirt" name="shirt" label={t(key="office-look-shirt", lang="id")} value={c.look.shirt}/> }}

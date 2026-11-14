@@ -85,7 +85,7 @@ adalah tabel ini. Kolom "Kerjakan" menunjukkan batch revisi yang akan menerapkan
 | Batas WIP | Ditegakkan: kartu ditolak pindah saat kolom penuh (Admin bisa paksa) | R3 |
 | Roadmap | Tambah pengelompokan per epic | R3 |
 | Client AI | Gemini CLI diganti Antigravity | R4 |
-| AI Office | Pemilik memilih **V1 Isometrik Studio** + mode **Denah V2** + **pencahayaan hangat V3**; dibangun dengan SVG + vanilla JS | R5 |
+| AI Office | Pemilik memilih **V1 Isometrik Studio** + mode **Denah V2** + **pencahayaan hangat V3**; dibangun dengan SVG + vanilla JS | R5 ✅ selesai (2026-11-14) |
 | Notifikasi | Tetap in-app saja | — |
 | Mata uang biaya | Tetap USD | — |
 | Kredensial CLI | Tetap file 0600 | — |
@@ -140,7 +140,7 @@ Format daftar di bawah: **keputusan** — default sekarang.
 
 ### Visual, integrasi
 
-- AI Office — Canvas 2D vanilla (bukan PixiJS), maks. 8 ruangan, antrean job tidak tampil.
+- AI Office — SVG + vanilla JS (R5: Isometrik + Denah, bukan PixiJS), maks. 8 ruangan project, antrean job tidak tampil.
 - Pratinjau mockup — domain terpisah `PREVIEW_URL`, token HMAC 1 jam.
 - Biaya token — USD (belum Rupiah); "token ≈ byte/4" untuk estimasi.
 - API publik — token bertindak sebagai pembuatnya + scope; rate limit 600/menit.
@@ -218,5 +218,5 @@ Paling penting dulu:
 - Tabel datatable di 390px digulir horizontal.
 - Antrean job dan daftar token/webhook disortir di memori (cukup sampai ratusan/ribuan baris).
 - Event knowledge dan planning belum masuk audit log.
-- Builder workflow belum kanvas graf; AI Office tanpa animasi pulang; graph viewer layout sederhana.
+- Builder workflow belum kanvas graf; AI Office tanpa animasi berjalan antar-kursi (R5); graph viewer layout sederhana.
 - Kredensial CLI di file 0600, belum keychain OS.

@@ -1,0 +1,153 @@
+/* Token adegan per variasi. Gambar SVG memakai var(--x), jadi tema berganti tanpa render ulang. */
+
+/* ---------- karakter bersama ---------- */
+.of-stage {
+  --ch-shadow: rgba(40, 30, 20, .2); --pants: #3b4256; --shoes: #2a2a30; --eye: #2a2320;
+  --bot-shell: #f8f8fb; --bot-shell-d: #e3e4ec; --bot-visor: #23273b; --bot-joint: #a9aebb;
+  --mug: #ffffff; --mug-handle: #d9d9de; --ink: #3b2f29;
+}
+:root[data-theme="dark"] .of-stage {
+  --ch-shadow: rgba(0, 0, 0, .45); --pants: #2b3042; --bot-shell: #e9eaf2; --bot-shell-d: #c9cbd8; --bot-visor: #151827;
+  --mug: #e9e7e2; --ink: #17110e;
+}
+.ch { cursor: pointer; }
+.ch .hit { pointer-events: all; }
+.halo { fill: color-mix(in oklab, var(--c) 18%, transparent); stroke: var(--c); stroke-width: 1.6; }
+.halo.st-online { fill: none; stroke-dasharray: 3 3; opacity: .8; }
+.halo.st-offline { fill: none; stroke-dasharray: 2 3; opacity: .7; }
+.halo.st-review, .halo.st-decision { animation: halo 1.8s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+.selring { fill: none; stroke: var(--accent); stroke-width: 2.4; opacity: 0; }
+.ch.sel .selring { opacity: 1; }
+@keyframes halo { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .55; transform: scale(1.12); } }
+.chibi .bob { animation: breathe 3.6s ease-in-out infinite; }
+.chibi.st-working .arm { animation: type .32s ease-in-out infinite alternate; transform-box: fill-box; }
+.chibi.st-working .arm-r { animation-delay: .16s; }
+.chibi.st-working .head { animation: nod 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 100%; }
+.chibi.st-meeting .head { animation: talk 1.6s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 100%; }
+.chibi.st-offline { filter: saturate(.15); opacity: .72; }
+.chibi.st-offline .bob { animation: none; }
+.chibi.st-offline .eyes { opacity: .25; }
+.chibi .antenna { animation: blink 2.4s steps(1) infinite; }
+.chibi.st-offline .antenna { animation: none; opacity: .4; }
+@keyframes breathe { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-.8px); } }
+@keyframes type { from { transform: translateY(0); } to { transform: translateY(-1.6px); } }
+@keyframes nod { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-2deg); } }
+@keyframes talk { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
+@keyframes blink { 0%, 70% { opacity: 1; } 71%, 100% { opacity: .45; } }
+.screen-glow { animation: blink 3s steps(1) infinite; }
+
+/* ---------- V1 · Isometrik Studio ---------- */
+.v1 {
+  background: radial-gradient(120% 90% at 50% 0%, #fbfaf7 0%, #efebe4 100%);
+  --drop: rgba(70, 55, 35, .22); --slab: #e7e1d7; --slab-l: #d9d1c4; --slab-r: #cbc1b2; --corridor: #ece6dc; --runner: #e4ddd1;
+  --wall: #e6e9ef; --wall-in: #d5dae3; --wall-in2: #e4e8ef; --wall-cap: #b9c0cc; --skirt: #c9cfd9; --edge: rgba(255, 255, 255, .6);
+  --frame: #ffffff; --sky1: #a9d4f5; --sky2: #e8f4fd; --cloud: #ffffff; --sun: #fffbe9;
+  --floor: #f5eee2; --floor-pantry: #f1f3ee; --floor-meet: #eef2f6; --plank: rgba(120, 90, 50, .09); --ao: rgba(80, 60, 30, .10);
+  --low: #f0ebe3; --shadow: rgba(60, 45, 25, .26);
+  --desk: #fdfcf9; --desk-leg: #b7b0a5; --desk-panel: #e9e4dc; --mon: #333847; --paper: #ffffff;
+  --chair: #59647d; --chair-leg: #3f4757; --wood: #d4a679; --cabinet: #f4f1ec; --counter: #d9c3a5; --machine: #444a58; --metal: #c8ccd3; --fridge: #f3f5f8; --water: #a7d8f5;
+  --sofa: #8eaccc; --cushion: #f2c78e; --rug: #f1e6dc; --shade: #fbf4e4; --lamp: #ffcf7a;
+  --pot: #ece6dc; --soil: #8a6a4f; --trunk: #8a6a4f; --leaf1: #72c08c; --leaf2: #4f9f6c; --leaf3: #a9e0b8;
+  --board: #ffffff; --note1: #ffe08a; --note2: #ffc1d0; --note3: #b9e3ff; --book1: #f2b880; --book2: #9cc7a8; --book3: #e8e1d4;
+  --tv: #2b2f3a; --tv-screen: #3f4a6b;
+}
+:root[data-theme="dark"] .v1 {
+  background: radial-gradient(120% 90% at 50% 10%, #1b1c21 0%, #101114 100%);
+  --drop: rgba(0, 0, 0, .55); --slab: #2b2c32; --slab-l: #222328; --slab-r: #1b1c20; --corridor: #2a2a2f; --runner: #313137;
+  --wall: #30333c; --wall-in: #262931; --wall-in2: #2e3139; --wall-cap: #454955; --skirt: #23252c; --edge: rgba(255, 255, 255, .08);
+  --frame: #4a4b54; --sky1: #141a33; --sky2: #2a3866; --cloud: #c9d2ff; --sun: #000;
+  --floor: #34312c; --floor-pantry: #2f322f; --floor-meet: #2d3138; --plank: rgba(0, 0, 0, .22); --ao: rgba(0, 0, 0, .3);
+  --low: #3a3a40; --shadow: rgba(0, 0, 0, .55);
+  --desk: #4b4c53; --desk-leg: #6c6d75; --desk-panel: #3b3c42; --mon: #17181d; --paper: #c9c6bf;
+  --chair: #3e475c; --chair-leg: #2a3040; --wood: #8a6a4c; --cabinet: #404148; --counter: #6b5a46; --machine: #1e2027; --metal: #7c808a; --fridge: #50525a; --water: #4f8fb5;
+  --sofa: #4d6582; --cushion: #b48b55; --rug: #3c3833; --shade: #ffe3a8; --lamp: #ffb347;
+  --pot: #5b5650; --soil: #3b2d22; --trunk: #5b4a3a; --leaf1: #3f8a5c; --leaf2: #2f6e48; --leaf3: #5aa477;
+  --board: #d8d6d0; --note1: #c9ad5c; --note2: #c58a99; --note3: #7ea3c0; --book1: #a2754c; --book2: #5d806a; --book3: #8a857a;
+  --tv: #0d0e12; --tv-screen: #2b3a66;
+}
+.v1 .sunpatch { opacity: .8; }
+:root[data-theme="dark"] .v1 .sunpatch { display: none; }
+.v1 .lampglow { opacity: 0; }
+:root[data-theme="dark"] .v1 .lampglow { opacity: .55; mix-blend-mode: screen; }
+:root[data-theme="dark"] .v1 .cloud { opacity: .8; rx: 1.6; ry: 1.6; }
+:root[data-theme="dark"] .v1 .screen-glow { filter: drop-shadow(0 0 4px currentColor); }
+
+/* ---------- V2 · Denah ---------- */
+.v2 {
+  background: #fafaf9;
+  --dot: #e2e2e6; --drop: rgba(20, 20, 40, .10); --corridor: #f4f3f1; --guide: #c9c9d0;
+  --wall: #3b3b45; --wall-in: #6b6b76; --door: #a8a8b3; --glass: #d9ecf8; --glass-line: #8fc1e3;
+  --floor: #ffffff; --floor-pantry: #fbfaf7; --floor-meet: #fbfcfe; --tile: rgba(0, 0, 0, .045);
+  --line-f: #d6d6dd; --desk: #f7f7f8; --mon: #3a3d48; --kb: #e3e4e8; --chair: #e6e7ec; --board: #ffffff;
+  --pot: #efe9e1; --leaf1: #79c393; --leaf2: #57a873; --leaf3: #b9e5c6; --rug: #f4f2ef; --sofa: #b8c8db; --wood: #ecdcc7; --paper: #fff;
+  --cushion: #f3dcb6; --counter: #f1ece5; --sink: #dfe7ee; --fridge: #f4f6f9; --accent-c: #d97a09; --tv: #2c2f38;
+  --note1: #ffe08a; --note2: #ffc1d0; --note3: #b9e3ff; --book1: #f2b880; --book2: #9cc7a8; --book3: #c9c2f0;
+  --tok-shadow: rgba(20, 20, 40, .12);
+}
+:root[data-theme="dark"] .v2 {
+  background: #0d0d0f;
+  --dot: #222227; --drop: rgba(0, 0, 0, .5); --corridor: #141416; --guide: #3a3a42;
+  --wall: #8c8c99; --wall-in: #5c5c68; --door: #4a4a54; --glass: #1d3550; --glass-line: #4d86b8;
+  --floor: #19191c; --floor-pantry: #1a1a1b; --floor-meet: #181a1e; --tile: rgba(255, 255, 255, .035);
+  --line-f: #34343b; --desk: #222226; --mon: #0b0c10; --kb: #34353b; --chair: #2b2c31; --board: #26262b;
+  --pot: #2d2a27; --leaf1: #3f8f5d; --leaf2: #2f7349; --leaf3: #5fae7e; --rug: #1f1f22; --sofa: #3a4a5e; --wood: #3a3128; --paper: #3a3a3f;
+  --cushion: #5a4a33; --counter: #26241f; --sink: #2a3540; --fridge: #2a2b30; --tv: #050507;
+  --note1: #8a7840; --note2: #8a5a66; --note3: #4f6f88; --book1: #8a6844; --book2: #4e6e58; --book3: #5d5885;
+  --tok-shadow: rgba(0, 0, 0, .5);
+}
+.v2 .tok .ring { fill: none; stroke: var(--c); stroke-width: 3; }
+.v2 .tok.st-idle .ring { stroke: var(--line-f); stroke-width: 2; }
+.v2 .tok.st-working .ring { stroke-dasharray: 22 6; animation: spin 6s linear infinite; transform-origin: 0 0; }
+.v2 .tok.st-offline .ring { stroke-dasharray: 3 4; }
+.v2 .tok.st-offline .face, .v2 .tok.st-offline svg { opacity: .45; }
+.v2 .tok.st-online .ring { stroke-width: 2; }
+.v2 .tok .pulse { fill: none; stroke: var(--c); stroke-width: 2; opacity: 0; }
+.v2 .tok.st-review .pulse, .v2 .tok.st-decision .pulse { animation: tokpulse 1.8s ease-out infinite; transform-origin: 0 0; }
+.v2 .tok .ini { font: 600 14px "Geist", sans-serif; fill: rgba(0, 0, 0, .55); }
+.v2 .tok .selring { fill: none; stroke: var(--accent); stroke-width: 2.5; opacity: 0; }
+.v2 .tok.sel .selring { opacity: 1; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes tokpulse { 0% { opacity: .8; transform: scale(.8); } 100% { opacity: 0; transform: scale(1.35); } }
+.v2 .of-rl .t { font-size: 13.5px; }
+.v2 .of-rl small { padding-left: 15px; }
+
+/* ---------- V3 · Diorama hangat ---------- */
+.v3 {
+  background: linear-gradient(#f7f1e8 0%, #f3e9dc 70%, #eadfce 100%);
+  --ink: #4a3a30; --drop: rgba(74, 58, 48, .18);
+  --ground: #dfe6c9; --path: #e9dfcf; --facade: #eadccb; --roof: #c98f6b; --planter: #b7835f; --slab: #ddcdb8;
+  --sign: #fffaf2; --sky1: #9fd0f3; --sky2: #e6f4fc; --sun: #ffd76a; --cloud: #ffffff; --frame: #fffaf2; --curtain: #e9b9a0;
+  --wall: #f6ecdf; --wall-pantry: #eef3e6; --wall-meet: #e8eef5; --ceil: #e6d8c6;
+  --floor: #e2bf98; --floor-pantry: #f3ede4; --floor-meet: #d9c3a6; --plank: rgba(110, 70, 30, .16);
+  --rug: #f4e6d6; --wood: #c98f62; --paper: #fffdf7; --mug: #ffffff; --laptop: #5a5f6e; --laptop-off: #8a8f9b;
+  --chair: #6d7d96; --chair-leg: #4b5466; --sofa: #e3a07a; --cushion: #f6d38f;
+  --pot: #d9805a; --leaf1: #7cbf7a; --leaf2: #579b5f; --trunk: #9a6b4b;
+  --board: #fffdf7; --note1: #ffe08a; --note2: #ffc1d0; --note3: #b9e3ff; --book1: #f2b880; --book2: #9cc7a8; --book3: #efe6d5;
+  --cabinet: #f7f1e7; --counter: #b88a66; --machine: #4a4e5a; --metal: #b8bcc4; --fridge: #f2f4f6; --accent-c: #e5484d;
+  --tv: #3a3532; --tv-screen: #4b5a7a; --cardboard: #d8b384;
+  --lamp: #ffd28a; --lampshade: #f3c46b; --bulb: #fff3c9;
+  --st-review: #e3962b; --st-online: #30a46c;
+  --ch-shadow: rgba(74, 58, 48, .22);
+}
+:root[data-theme="dark"] .v3 {
+  background: linear-gradient(#0e1222 0%, #151a2c 65%, #1a1a20 100%);
+  --ink: #0d0a08; --drop: rgba(0, 0, 0, .5);
+  --ground: #1e2419; --path: #26241f; --facade: #3a332d; --roof: #5b3d2c; --planter: #4a3426; --slab: #2f2924;
+  --sign: #2a2520; --sky1: #0f1630; --sky2: #26335e; --sun: #f4f1d0; --cloud: #3b4672; --frame: #5a5048; --curtain: #6b4a3f;
+  --wall: #4a3f36; --wall-pantry: #3c4136; --wall-meet: #383f4a; --ceil: #2e2722;
+  --floor: #6b4c33; --floor-pantry: #4a4540; --floor-meet: #5a4a3a; --plank: rgba(0, 0, 0, .25);
+  --rug: #4f4136; --wood: #7a5538; --paper: #d8d2c4; --mug: #e2ddd2; --laptop: #23252c; --laptop-off: #3a3d45;
+  --chair: #3b4558; --chair-leg: #262b36; --sofa: #8a5a43; --cushion: #9c7b45;
+  --pot: #8a4f36; --leaf1: #3f7a45; --leaf2: #2e5f36; --trunk: #5a3f2c;
+  --board: #d9d3c6; --note1: #c9ad5c; --note2: #c58a99; --note3: #7ea3c0; --book1: #a2754c; --book2: #5d806a; --book3: #8a857a;
+  --cabinet: #4c443c; --counter: #6b4e38; --machine: #18191e; --metal: #6f737c; --fridge: #5a5c62;
+  --tv: #0f0d0c; --tv-screen: #2b3a66; --cardboard: #7a5f42;
+  --lamp: #ffb347; --lampshade: #f0b24f; --bulb: #fff1c2;
+  --ch-shadow: rgba(0, 0, 0, .45);
+}
+.v3 .v3-glow { opacity: .25; mix-blend-mode: multiply; }
+:root[data-theme="dark"] .v3 .v3-glow { opacity: .75; mix-blend-mode: screen; }
+:root[data-theme="dark"] .v3 .v3-sun { r: 5; }
+.v3 .v3-sign { font: 600 13px "Geist", sans-serif; fill: var(--ink); letter-spacing: .02em; }
+:root[data-theme="dark"] .v3 .v3-sign { fill: #f0e4d4; }
+.v3 .halo { stroke-width: 2; }

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>AI Office Variasi</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/scenes.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand"><span class="logo">AG</span><span><b>AI Office</b> <span class="muted">· prototype variasi visual</span></span></div>
+    <nav class="seg" id="vtabs" aria-label="Variasi">
+      <button type="button" data-v="v1">V1 · Isometrik Studio</button>
+      <button type="button" data-v="v2">V2 · Denah</button>
+      <button type="button" data-v="v3">V3 · Diorama hangat</button>
+      <button type="button" data-v="now">Sekarang</button>
+    </nav>
+    <button type="button" class="btn" id="theme" aria-label="Ganti tema"></button>
+  </header>
+  <main class="page">
+    <div class="head">
+      <h1 id="vtitle">AI Office</h1>
+      <p id="vdesc" class="muted"></p>
+    </div>
+    <section id="live">
+      <nav class="of-tabs" aria-label="Filter ruangan"></nav>
+      <div class="of">
+        <div class="of-stage" tabindex="0" role="application" aria-label="Kantor virtual. Seret untuk menggeser, scroll untuk zoom.">
+          <svg class="of-svg" aria-hidden="true"></svg>
+          <div class="of-labels"></div>
+          <div class="of-ov tl"><div class="card of-sum" aria-live="polite"></div></div>
+          <div class="of-ov bl"><svg class="card of-mm" aria-label="Mini-map: klik atau seret untuk berpindah"></svg></div>
+          <div class="of-ov br"><div class="card of-zoom">
+            <button type="button" data-zoom="out" aria-label="Perkecil" title="Perkecil"></button>
+            <button type="button" data-zoom="100" data-pct title="Kembali ke 100%">100%</button>
+            <button type="button" data-zoom="in" aria-label="Perbesar" title="Perbesar"></button>
+            <button type="button" data-zoom="fit" title="Pas layar"></button>
+          </div></div>
+        </div>
+        <aside class="of-side" aria-label="Detail kantor" aria-live="polite"></aside>
+      </div>
+    </section>
+    <section id="now" hidden>
+      <div class="now-grid">
+        <figure><img id="now-a" alt="AI Office versi sekarang, zoom awal"><figcaption>Zoom awal (90%) · data contoh yang sama, dirender oleh <code>office-engine.mjs</code> asli</figcaption></figure>
+        <figure><img id="now-b" alt="AI Office versi sekarang, pas layar"><figcaption>Pas layar (53%)</figcaption></figure>
+      </div>
+    </section>
+  </main>
+  <script src="js/icons.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/svg.js"></script>
+  <script src="js/core.js"></script>
+  <script src="js/v1-iso.js"></script>
+  <script src="js/v2-plan.js"></script>
+  <script src="js/v3-diorama.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

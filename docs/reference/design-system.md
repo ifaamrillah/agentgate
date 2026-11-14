@@ -304,17 +304,21 @@ katalog `/_dev/ui` di commit yang sama.
   `app-mk-frame[data-dev=web|mobile]` (bar `app-mk-bar` + `app-mk-url`), iframe `sandbox` dari
   domain `PREVIEW_URL`, bandingkan dengan screenshot QA `app-mk-cmp`, thumbnail `app-mk-thumbs`,
   kartu keputusan lengket `app-mk-side`.
-- **AI Office** (`/w/{slug}/office`, menu samping, `components/office.css`): `app-of` = panggung
-  `app-of-stage` (kanvas `static/js/office-engine.mjs`, dimuat lazy oleh `office.js`) + panel
-  `app-of-side` (344px; < 1200px di bawah kanvas). Di atas kanvas: overlay `app-of-ov[data-pos]`
-  berisi kartu `app-of-card` (ringkasan `app-of-sum`, tombol `app-of-tbtn`, zoom `app-of-zoom`,
-  mini-map `app-of-mm`), petunjuk `app-of-hint`. Label HTML: karakter `app-of-lb`
-  (`plain|warn|dng|gray`, `.sel`, `.cmp` saat zoom kecil; warn/dng mengambang + ping kecuali
-  `prefers-reduced-motion`) dan ruangan `app-of-rl` (`.on` saat difokus). Tab ruangan =
-  `app-tabs app-of-tabs` dengan tombol `aria-pressed`. Panel: kartu `card` (Perlu tindakan
-  `app-of-todo`, Runner `app-of-run`, Aktivitas `app-of-feed`) atau detail `app-of-dcard`
-  (pratinjau `app-of-pv`, `app-props`, progres + `log_view` dipolling, aksi `app-of-acts`).
-  Dialog Kustom karakter `app-of-look` (pratinjau besar + `color_picker` + chip `app-of-chip`).
+- **AI Office** (`/w/{slug}/office`, menu samping, `components/office.css`, R5): `app-of` = panggung
+  `app-of-stage[data-mode=iso|plan]` (SVG `app-of-svg`; `static/js/office-engine.mjs` + `office-svg.mjs`
+  + logika murni `office-core.mjs`, dimuat lazy oleh `office.js`) + panel `app-of-side` (344px;
+  < 1200px di bawah panggung). Warna adegan = token `--of-*` (terang/gelap ditukar di CSS, SVG tidak
+  digambar ulang); cahaya hangat `.of-warm`. Overlay `app-of-ov[data-pos]` berisi kartu `app-of-card`
+  (ringkasan `app-of-sum`, sakelar `app-seg app-of-mode` Isometrik/Denah yang disimpan per user di
+  localStorage `ag-office-view:<id user>`, tombol label `app-of-tbtn`, zoom `app-of-zoom`, mini-map SVG
+  `app-of-mm`), petunjuk `app-of-hint`. Label HTML: karakter `app-of-tag` (tombol berurutan logis =
+  urutan Tab, `data-show=full|icon|none`; zoom jauh hanya badge ikon; `.clip` = tersembunyi tetapi
+  tetap bisa difokus) dan ruangan `app-of-rl` (`.on` saat difokus); posisi dari `declutter`. Animasi
+  hanya `prefers-reduced-motion: no-preference`. Tab ruangan = `app-tabs app-of-tabs` dengan tombol
+  `aria-pressed`. Panel: kartu `card` (Perlu tindakan `app-of-todo`, Runner `app-of-run`, Aktivitas
+  `app-of-feed`) atau detail `app-of-dcard` (pratinjau SVG `app-of-pv`, `app-props`, progres +
+  `log_view` dipolling, aksi `app-of-acts`). Dialog Kustom karakter `app-of-look` (pratinjau SVG
+  besar + `color_picker` + chip `app-of-chip`). Acuan visual: `ui-prototype/office-v1/`.
   Warna status kanvas = warna `badge`: bekerja ai, butuh approval gate, butuh keputusan
   destructive, rapat info, menganggur/jeda neutral, online success.
 
