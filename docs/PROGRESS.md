@@ -19,7 +19,7 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 | M9 Planning & laporan | selesai (2026-11-13) | Backlog & sprint (rencana/mulai/selesaikan dengan pemindahan sisa, kapasitas dari velocity, seret-lepas, log scope per tiket), story point + estimasi AI per stage (draft → tiket, MCP `ag_planning`, minta estimasi, kalibrasi), laporan burndown/burnup/velocity/sprint report/CFD/kalibrasi/cycle time (SVG server-side, cetak/PDF), Roadmap (Gantt sprint/progres/estimasi/rilis/blocks) dan Kalender (tenggat, perkiraan selesai AI, rilis), Rilis + release notes berversi (susun AI, terbitkan, pulihkan, rilis sekarang), Components (modul code graph, pemilik, penerima default), board Scrum (sprint aktif, swimlane penerima/epic, batas WIP), pencarian lanjutan ala JQL + saved filter (pribadi/tim/workspace) + edit massal; 656 tes |
 | M10 Visual | selesai (2026-11-13) | AI Office isometrik A1 live dari job/runner/tiket (kanvas Canvas 2D tanpa PixiJS, denah parametris per project + Ruang rapat/Pantry/Lounge, geser/zoom/pinch/keyboard, mini-map, label, tab ruangan, panel ringkasan/detail dengan log live, approve/reject kembali ke kantor, kustom karakter teraudit); graph viewer berlapis Project → Repo → Modul → File → Fungsi (SVG server-side, sorot tiket dari file berubah job, analisis dampak, filter layer/bahasa, cari); pratinjau mockup HTML di domain sandbox terpisah (token HMAC 1 jam, CSP sandbox, Web/Mobile, versi, bandingkan dengan screenshot QA, approve/revisi); Penghemat token (ringkasan, fitur wajib/opsional dengan toggle teraudit, per tiket, per job; rincian token + biaya + file berubah dari runner, pencatat penghematan di tool MCP); 693 tes |
 | M11 Multi-client & integrasi | selesai (2026-11-14) | Aturan repo v2 untuk 6 client (Claude Code, Codex, Gemini CLI, Cursor, OpenCode, Copilot CLI): config MCP + hook tipis per client, `agentgate hook --client`, adapter runner headless/interaktif + parser JSONL per client, `doctor` 6 client, halaman Hubungkan client; API publik REST `/api/v1` (token `ag_pat_` ber-scope, rate limit 600/mnt, OpenAPI) + webhook keluar (outbox transaksional, HMAC, retry 5×, auto-nonaktif, log pengiriman); Ekspor data ZIP (JSON + Markdown/YAML, worker, 7 hari, audit); Impor CSV wizard 4 langkah (pemetaan otomatis Jira/Trello/Linear, alias kode lama, laporan baris dilewati); Connector Jira Cloud/DC (impor sekali, mirror AG→Jira dari outbox, dua arah lewat polling JQL dengan gate ditegakkan, pemetaan status/field/user, log sinkron); race init htmx JS diperbaiki + tes `node --test`; 786 tes Rust + 8 tes JS |
-| M12 Rilis | belum mulai | |
+| M12 Rilis | selesai (2026-11-14) | Realtime runner `LISTEN/NOTIFY` (kanal per workspace; uji beban 10.000 listener p99 4,8 ms, `docs/benchmarks/2026-11-14-listen-notify.md`); file staging/prod di S3 + berkas ikut dihapus saat purge workspace; hardening (rate limit DCR per IP, kode OAuth hangus setelah gagal, Permissions-Policy/Referrer-Policy, SSRF URL GHES + redirect tarball); sapuan otorisasi semua route `/w/{slug}` (lintas workspace 404, tanpa login → /login); `/_metrics` Prometheus (token) + `/_readiness`; halaman Status sistem `/system` (admin instance); deploy Compose satu VPS (`docker/prod/Dockerfile`, `deploy/`: Caddy, SeaweedFS, backup pg_dump + rclone ke luar VPS, diuji smoke + restore); rilis CLI `dist` (workflow tag `v*`, `/install`, `/install.sh|ps1`, `agentgate self-update`, `bin/release-cli`); audit a11y axe + sweep visual 3 mode; `docs/admin/`, `docs/panduan/`, `docs/REVIEW-AKHIR.md`; TESTCOUNT |
 
 ## Keputusan teknis (di luar spec)
 
@@ -202,6 +202,13 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
   pendek terpotong. Event planning (sprint, rilis, component, saved filter) belum masuk audit log. Burnup memakai
   poin tiket saat ini, bukan poin historis. Komitmen sprint menghitung poin tiket yang sudah selesai sebelum mulai.
 
+- **M12 Rilis (2026-11-14)** — selesai di M12: DCR rate limit + kode OAuth hangus (utang M4), runner WebSocket lewat
+  `LISTEN/NOTIFY` (utang M5), logo/lampiran di S3 di staging/prod (utang UI Tenang), purge workspace menghapus berkas
+  storage (utang M2), binary rilis + skrip instal CLI (utang M5). Sisa: browser masih polling; GHES belum dijaga dari
+  DNS rebinding setelah connect; restore backup baru diuji ke database smoke lokal; metrik per proses dan backup basi
+  belum jadi metrik; Milkdown (daftar) dan runner offline di AI Office masih ditandai axe. Daftar lengkap urut risiko:
+  `docs/REVIEW-AKHIR.md` §5.
+
 - **M11 Multi-client & integrasi (2026-11-14)**: adapter client selain Claude Code hanya diuji dengan binary palsu
   (format JSONL dari spike); isolasi config global "best effort" di Gemini/Cursor/OpenCode/Copilot; biaya token Codex
   kosong (tanpa tabel harga); bila hook project Codex tidak dimuat, pembatas hanya sandbox `workspace-write`; parser
@@ -214,6 +221,27 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
   Notifikasi M11 (ekspor siap/gagal, webhook nonaktif) hanya in-app.
 
 ## Keputusan sementara (dipakai sampai review akhir pemilik produk)
+
+Rangkuman terkelompok semua keputusan M0–M12: `docs/REVIEW-AKHIR.md` §3.
+
+- M12: admin instance (halaman Status sistem `/system`) = email di `SYSTEM_ADMIN_EMAILS`, bukan Owner workspace;
+  bukan admin → 404. Dev: `owner@agentgate.test`.
+- M12: `/_metrics` butuh bearer `METRICS_TOKEN` (kosong/salah → 404) dan diblok Caddy dari internet; `/_readiness`
+  publik (bawaan Loco).
+- M12: DCR dibatasi 20 pendaftaran per IP per jam (429 + `Retry-After`); kode otorisasi dihapus setelah satu percobaan
+  tukar gagal.
+- M12: URL GitHub Enterprise hanya https ke alamat publik (dicek literal + DNS saat connect); redirect tarball hanya ke
+  api_base yang sama atau https host publik.
+- M12: realtime runner = satu `LISTEN agentgate_jobs` per proses web, kanal broadcast per workspace, tick cadangan
+  30 dtk; browser tetap polling (SSE belum).
+- M12: deploy satu VPS Compose (`agentgate-rs-prod`); worker + scheduler satu proses; `statement_timeout` 30 dtk per role
+  DB; backup harian 19.00 UTC ke S3 luar VPS, retensi 14 hari, riwayat di tabel `system_backups`.
+- M12: rilis CLI dengan `dist` 0.30.2 (5 target, installer shell/PowerShell/Homebrew, sha256, atestasi), workflow
+  ditulis tangan; tap Homebrew belum dipublikasikan; `self-update` menjalankan ulang installer lewat server.
+- M12: Sentry/error tracking belum dipasang (butuh DSN); error terlihat di log JSON, `/_metrics`, dan Status sistem.
+- M12: token warna `faint` (terang `#6e6e7a`, gelap `#85859a`), `danger` gelap `#f47c7c`, tombol primer/bahaya mode
+  gelap lebih pekat (`--ag-accent-btn`, `--ag-danger-btn`) agar lolos WCAG AA; inisial logo project hitam/putih
+  mengikuti terang warna; chip tautan memakai `aria-current`.
 
 - Sapaan UI memakai "Anda" (mengikuti prototype).
 - Logo project disimpan di disk server sampai abstraksi storage S3 dikerjakan (paling lambat M12).
@@ -357,6 +385,12 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
   koneksi **dijeda** agar dev tidak memanggil Jira sungguhan.
 
 ## Perlu dari user (dikumpulkan untuk akhir)
+
+Daftar terkonsolidasi dan berurutan prioritas: `docs/REVIEW-AKHIR.md` §4.
+
+- M12: VPS + domain aplikasi dan domain pratinjau, bucket S3 di luar VPS untuk backup, `SYSTEM_ADMIN_EMAILS`,
+  `METRICS_TOKEN` + Prometheus bila ingin alert, DSN Sentry bila ingin error tracking, org/repo rilis CLI
+  (`CLI_RELEASE_URL`), repo tap Homebrew + token, keputusan code signing.
 
 - M11: verifikasi adapter dengan client asli (terpasang + login): Codex (`.codex/` project tetap dimuat dengan
   `--ignore-user-config`? `-a never` di exec? timeout hook), Gemini (hook jalan dengan `--skip-trust`? sub-field `stats`,
