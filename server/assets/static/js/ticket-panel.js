@@ -124,6 +124,19 @@
     }
   }, true);
 
+  // Editor teks kaya (Milkdown/ProseMirror) memakai Esc sendiri dan dialog tidak menerima
+  // `cancel`: Esc pertama keluar dari editor ke tombol tutup, Esc berikutnya menutup panel.
+  document.addEventListener("keydown", (e) => {
+    const d = dialog();
+    if (e.key !== "Escape" || !d?.open) return;
+    const editor = document.activeElement?.closest?.(".ProseMirror, .milkdown");
+    if (editor && d.contains(editor)) {
+      e.preventDefault();
+      e.stopPropagation();
+      d.querySelector("[data-ticket-panel-close]")?.focus();
+    }
+  }, true);
+
   window.addEventListener("popstate", (e) => {
     const d = dialog();
     if (e.state?.agPanel && d) {
