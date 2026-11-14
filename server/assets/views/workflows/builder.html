@@ -121,7 +121,9 @@
         <label for="stage-danger-{{ d.action }}"><span>{{ t(key=d.label_key, lang="id") }}</span><small class="app-hint">{{ t(key=d.hint_key, lang="id") }}</small></label>
         <select class="app-input" id="stage-danger-{{ d.action }}" name="danger_{{ d.action }}">
           <option value=""{% if not d.level %} selected{% endif %}>{{ t(key="workflow-danger-inherit", lang="id") }}</option>
-          {%- for l in ["allow", "ask", "block"] %}<option value="{{ l }}"{% if d.level == l %} selected{% endif %}>{{ t(key="persona-level-" ~ l, lang="id") }}</option>{% endfor %}
+          <option value="allow"{% if d.level == "allow" %} selected{% endif %}>{{ t(key="persona-level-allow", lang="id") }}</option>
+          <option value="ask"{% if d.level == "ask" %} selected{% endif %}>{{ t(key="persona-level-ask", lang="id") }}</option>
+          <option value="block"{% if d.level == "block" %} selected{% endif %}>{{ t(key="persona-level-block", lang="id") }}</option>
         </select>
         {%- endfor %}
       </div>
