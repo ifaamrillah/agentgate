@@ -49,6 +49,13 @@ has_origin() { git -C "$MAIN_DIR" remote get-url origin >/dev/null 2>&1; }
 
 # psql di container db bersama. Argumen diteruskan ke psql.
 db_psql() { ag_compose_shared exec -T db psql -U agentgate -d postgres -v ON_ERROR_STOP=1 "$@"; }
+# Database tes slot nextest (bin/test) milik worktree $1: agentgate_test_<id>_s<N>.
+drop_test_slots() {
+  local db
+  for db in $(db_psql -tAc "SELECT datname FROM pg_database WHERE datname ~ '^agentgate_test_$1_s[0-9]+\$'"); do
+    db_psql -c "DROP DATABASE IF EXISTS \"$db\" WITH (FORCE)" >/dev/null || return 1
+  done
+}
 db_exists() { [ "$(db_psql -tAc "SELECT 1 FROM pg_database WHERE datname = '$1'")" = "1" ]; }
 db_size() { db_psql -tAc "SELECT pg_size_pretty(pg_database_size('$1'))" 2>/dev/null || echo "-"; }
 
@@ -262,6 +269,7 @@ cmd_close() {
     ag_ensure_shared
     db_psql -c "DROP DATABASE IF EXISTS \"agentgate_dev_$id\" WITH (FORCE)" >/dev/null || die2 "gagal drop agentgate_dev_$id; worktree dibiarkan"
     db_psql -c "DROP DATABASE IF EXISTS \"agentgate_test_$id\" WITH (FORCE)" >/dev/null || die2 "gagal drop agentgate_test_$id; worktree dibiarkan"
+    drop_test_slots "$id" || die2 "gagal drop database slot tes agentgate_test_${id}_s*; worktree dibiarkan"
   fi
   if [ -d "$path" ]; then
     git -C "$MAIN_DIR" worktree remove --force "$path" || die2 "git worktree remove gagal"
@@ -344,7 +352,11 @@ cmd_prune() {
   ag_ensure_shared
   owned=" $(worktree_paths | while IFS= read -r d; do read_worktree_file "$d" && echo "$WT_ID"; done | tr '\n' ' ') "
   for db in $(db_psql -tAc "SELECT datname FROM pg_database WHERE datname ~ '^agentgate_(dev|test)_'"); do
+    # Slot tes checkout utama (agentgate_test_s<N>) bukan milik worktree.
+    case "$db" in agentgate_test_s[0-9]*) [ -z "$(printf '%s' "${db#agentgate_test_s}" | tr -d 0-9)" ] && continue ;; esac
     id="${db#agentgate_dev_}"; id="${id#agentgate_test_}"
+    # Slot tes worktree (agentgate_test_<id>_s<N>) milik worktree <id>.
+    id="$(printf '%s' "$id" | sed -E 's/_s[0-9]+$//')"
     case "$owned" in *" $id "*) continue ;; esac
     if [ "$(db_psql -tAc "SELECT count(*) FROM pg_stat_activity WHERE datname = '$db'")" != 0 ]; then
       echo "lewati $db (masih ada koneksi)"; continue
@@ -377,6 +389,7 @@ cmd_release() {
   ag_ensure_shared
   db_psql -c "DROP DATABASE IF EXISTS \"agentgate_dev_$WT_ID\" WITH (FORCE)" >/dev/null || die2 "gagal drop database dev"
   db_psql -c "DROP DATABASE IF EXISTS \"agentgate_test_$WT_ID\" WITH (FORCE)" >/dev/null || die2 "gagal drop database test"
+  drop_test_slots "$WT_ID" || die2 "gagal drop database slot tes"
 }
 
 sub="${1:-}"

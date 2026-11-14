@@ -113,7 +113,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "agentgate-server"
+name = "agentgate-models"
 version = "0.1.0"
 dependencies = [
  "agentgate-core",
@@ -121,10 +121,39 @@ dependencies = [
  "ammonia",
  "argon2",
  "async-trait",
+ "base64 0.22.1",
+ "chacha20poly1305",
+ "chrono",
+ "fluent-templates",
+ "loco-rs",
+ "pulldown-cmark",
+ "rand 0.9.5",
+ "reqwest 0.12.28",
+ "sea-orm",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "subtle",
+ "thiserror 2.0.21",
+ "tokio",
+ "unic-langid",
+ "uuid",
+ "validator",
+ "workspace-hack",
+]
+
+[[package]]
+name = "agentgate-server"
+version = "0.1.0"
+dependencies = [
+ "agentgate-core",
+ "agentgate-graph",
+ "agentgate-models",
+ "argon2",
+ "async-trait",
  "axum",
  "axum-test",
  "base64 0.22.1",
- "chacha20poly1305",
  "chrono",
  "csv",
  "flate2",
@@ -134,7 +163,6 @@ dependencies = [
  "hmac 0.12.1",
  "loco-rs",
  "migration",
- "pulldown-cmark",
  "qrcodegen",
  "rand 0.9.5",
  "reqwest 0.12.28",
@@ -147,7 +175,6 @@ dependencies = [
  "serde_urlencoded",
  "serde_yaml_ng",
  "sha2 0.10.9",
- "subtle",
  "tar",
  "tera",
  "thiserror 2.0.21",
@@ -155,9 +182,9 @@ dependencies = [
  "totp-rs",
  "tower",
  "tracing",
- "unic-langid",
  "uuid",
  "validator",
+ "workspace-hack",
  "zip",
 ]
 
@@ -3122,6 +3149,7 @@ dependencies = [
  "async-trait",
  "loco-rs",
  "sea-orm-migration",
+ "workspace-hack",
 ]
 
 [[package]]
@@ -6643,6 +6671,92 @@ name = "wit-bindgen"
 version = "0.57.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ebf944e87a7c253233ad6766e082e3cd714b5d03812acc24c318f549614536e"
+
+[[package]]
+name = "workspace-hack"
+version = "0.1.0"
+dependencies = [
+ "aho-corasick",
+ "axum",
+ "axum-extra",
+ "bitflags",
+ "cc",
+ "chrono",
+ "cipher",
+ "clap",
+ "clap_builder",
+ "cookie",
+ "crc32fast",
+ "crossbeam-utils",
+ "crypto-common 0.1.6",
+ "derive_more",
+ "derive_more-impl",
+ "digest 0.10.7",
+ "digest 0.11.3",
+ "either",
+ "fastrand",
+ "futures",
+ "futures-channel",
+ "futures-core",
+ "futures-sink",
+ "futures-util",
+ "getrandom 0.2.17",
+ "getrandom 0.4.3",
+ "hashbrown 0.17.1",
+ "hyper",
+ "hyper-rustls",
+ "hyper-util",
+ "idna",
+ "indexmap",
+ "libc",
+ "loco-rs",
+ "md-5",
+ "memchr",
+ "mio",
+ "num-traits",
+ "once_cell",
+ "percent-encoding",
+ "proc-macro2",
+ "quote",
+ "rand 0.10.3",
+ "regex-automata",
+ "regex-syntax",
+ "rustix",
+ "rustls",
+ "rustls-webpki",
+ "semver",
+ "serde",
+ "serde_core",
+ "serde_json",
+ "sha2 0.11.1",
+ "slab",
+ "smallvec",
+ "socket2",
+ "spin 0.9.9",
+ "stable_deref_trait",
+ "subtle",
+ "syn 2.0.119",
+ "syn 3.0.10",
+ "sync_wrapper",
+ "thiserror 2.0.21",
+ "tinystr",
+ "tokio",
+ "tokio-rustls",
+ "tokio-tungstenite",
+ "tokio-util",
+ "toml",
+ "tower",
+ "tower-http",
+ "tracing",
+ "tracing-core",
+ "tungstenite",
+ "typenum",
+ "uuid",
+ "yoke",
+ "zerofrom",
+ "zeroize",
+ "zerovec",
+]
 
 [[package]]
 name = "writeable"

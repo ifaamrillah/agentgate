@@ -22,6 +22,8 @@ path = "src/bin/main.rs"
 # auth_session_encrypted: jar cookie terenkripsi (AES-256-GCM) untuk transaksi login OAuth;
 # multi-tenancy: trait TenantEntity untuk query per workspace.
 loco-rs = { workspace = true, features = ["cli", "with-db", "cache_inmem", "worker", "db-postgres", "compression", "generators", "mailer", "auth_session", "auth_session_encrypted", "auth_oauth", "multi-tenancy", "storage_aws_s3"] }
+# Lapisan data (entity, model, common) di crate sendiri (server/models).
+agentgate-models = { path = "models" }
 # Migrasi SeaORM milik server.
 migration = { path = "migration" }
 # Type dan versi bersama dengan CLI.
@@ -45,8 +47,6 @@ axum = { version = "0.8", features = ["ws"] }
 tracing = "0.1"
 # i18n: file Fluent dimuat saat runtime dan fungsi `t()` untuk Tera.
 fluent-templates = { version = "0.15", features = ["tera"] }
-# Identifier bahasa untuk Fluent.
-unic-langid = { version = "0.9", features = ["macros"] }
 # Tera 2 langsung (versi sama dengan Loco) untuk mendaftarkan fungsi template sendiri (`icon`).
 tera = "2.4"
 # Error domain bertipe.
@@ -59,8 +59,6 @@ sha2 = "0.10"
 hex = "0.4"
 # Server MCP (Streamable HTTP) untuk client AI (M4).
 rmcp = { version = "=3.9.0", default-features = false, features = ["server", "transport-streamable-http-server"] }
-# Perbandingan rahasia constant-time.
-subtle = "2"
 # CSPRNG (OsRng) untuk token dan nonce.
 rand = { version = "0.9", features = ["os_rng"] }
 # Password di struct form dengan Debug yang disamarkan.
@@ -69,8 +67,6 @@ secrecy = { version = "0.10", features = ["serde"] }
 totp-rs = { version = "5", features = ["otpauth"] }
 # QR code untuk URI otpauth, dirender sebagai SVG inline (tanpa image/PNG).
 qrcodegen = "1.8"
-# Enkripsi XChaCha20-Poly1305 untuk secret TOTP di database (kunci ENCRYPTION_KEY).
-chacha20poly1305 = "0.10"
 # HMAC-SHA256 untuk token dev_login bertanda tangan.
 hmac = "0.12"
 # Encoding token (base64url) dan kunci enkripsi (base64).
@@ -90,10 +86,6 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 flate2 = "1"
 tar = "0.4"
 
-# Render Markdown (GFM: tabel, checklist, coret) untuk deskripsi tiket, komentar, artifact, dan
-# knowledge (M8), lalu disanitasi allowlist sebelum tampil.
-pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
-ammonia = "4"
 
 # Prompt password tanpa echo untuk task user:set_password.
 rpassword = "7"
@@ -104,6 +96,8 @@ zip = { version = "9", default-features = false, features = ["deflate-flate2"] }
 serde_yaml_ng = "0.10"
 # Impor tiket dari CSV (M11): pemisah koma/titik koma, kolom berkutip dan baris ganda.
 csv = "1"
+# Feature dependency seragam di seluruh workspace (cargo hakari, .config/hakari.toml).
+workspace-hack = { version = "0.1", path = "../workspace-hack" }
 
 [dev-dependencies]
 # Helper tes request/boot dan assertion selector HTML (`assert_css_*`).

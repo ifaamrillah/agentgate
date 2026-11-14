@@ -5,6 +5,9 @@ name: agentgate-rs-shared
 services:
   db:
     image: pgvector/pgvector:pg18
+    # bin/test menjalankan tes paralel (default 8 proses, masing-masing pool hingga 10 koneksi
+    # database + queue), ditambah server dev tiap worktree: batas bawaan 100 terlalu kecil.
+    command: postgres -c max_connections=300
     environment:
       POSTGRES_USER: agentgate
       POSTGRES_PASSWORD: agentgate

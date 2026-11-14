@@ -81,7 +81,9 @@ berlaku.
   (`default-features = false` bila masuk akal).
 - Dev tools wajib: `cargo fmt`, `cargo clippy`, `cargo deny` (advisory keamanan, lisensi, crate
   duplikat, dan crate terlarang dalam satu tool, diatur di `deny.toml`), `cargo insta` (snapshot
-  test), `watchexec` (restart otomatis), dan `sccache` bila memakai modul Worktree. Alasan dan pengaturan kecepatan build di §14.
+  test), `watchexec` (restart otomatis), `cargo nextest` (tes paralel, §9), `cargo hakari`
+  (feature dependency seragam, §14), dan `sccache` bila memakai modul Worktree. Alasan dan
+  pengaturan kecepatan build di §14.
 
 ## 2. Lint dan gaya kode
 
@@ -112,12 +114,14 @@ berlaku.
 ## 3. Layout repository
 
 ```
+models/               crate lapisan data (agentgate-models, §14 "Memecah crate"); di-re-export
+  src/common/         oleh crate server sebagai `crate::common` dan `crate::models`
+  src/models/         (src/models di crate server adalah symlink ke sini, untuk `bin/loco db entities`)
+    _entities/        DIGENERATE oleh `bin/loco db entities`, JANGAN diedit
+    <name>.rs         logika satu entitas (impl Model/ActiveModel)
 src/
   app.rs              Hooks: routes, workers, tasks, seed, truncate, initializers
   controllers/        adapter HTTP tipis (lihat §6)
-  models/
-    _entities/        DIGENERATE oleh `bin/loco db entities`, JANGAN diedit
-    <name>.rs         logika satu entitas (impl Model/ActiveModel)
   services/<domain>/  workflow lintas beberapa model (lihat §5), opsional
   services/auth/      password, sesi, reset password, rate limit login (lihat §7)
   services/embeddings/ client provider embedding (modul Vector, lihat §4)
@@ -962,10 +966,16 @@ buruk. Jalan resminya satu, dan dijaga ketat:
 
 - Tes dijalankan lewat `bin/test`. Helper `loco_rs::testing`: `boot_test` untuk model/worker,
   `request::<App, Migrator, _, _>` untuk HTTP.
-- **Tes yang menyentuh database berjalan berurutan lewat `bin/test`** (`--test-threads=1`), karena
-  semuanya berbagi satu database test yang di-truncate. Tidak memakai `#[serial]` per tes: satu tes
-  yang lupa diberi atribut itu menjadi flaky dan sulit dilacak, sedangkan pengaturan di satu script
-  tidak bisa lupa. Durasi suite penuh di CI dipantau; rencana saat melewati batas ada di "Ditunda".
+- **Tes berjalan paralel lewat `cargo nextest`** (`bin/test`): setiap tes di prosesnya sendiri, dan
+  setiap proses memakai database slot-nya sendiri. `config/test.yaml` membentuk URI
+  `<TEST_DATABASE_URL>_s<slot>` dari `NEXTEST_TEST_GLOBAL_SLOT`; nextest menjamin satu slot hanya
+  dipakai satu tes pada satu waktu. `bin/test` memigrasi slot 0, lalu membuat ulang slot lain sebagai
+  clone-nya (`CREATE DATABASE ... TEMPLATE`) setiap run. Di dalam slot, hook `truncate` tetap
+  mengosongkan tabel sebelum setiap tes.
+- Jumlah proses paralel: `AG_TEST_THREADS` (default 8). Postgres bersama diset
+  `max_connections=300` (`docker/compose.shared.yaml`) untuk menampung pool semua proses.
+- Tidak memakai `#[serial]` per tes. Tes yang mengubah env var proses (`std::env::set_var`) aman
+  karena setiap tes punya proses sendiri.
 - Setiap tes tetap independen (tidak bergantung urutan atau sisa data tes lain), supaya peralihan
   ke tes paralel tidak butuh menulis ulang.
 - `dangerously_truncate: true` hanya di `config/test.yaml`, dengan hook `truncate` mendaftarkan tabelnya.
@@ -1176,9 +1186,10 @@ berubah); **2** gagal di tengah (aman diulang dengan perintah yang sama). Setiap
 
 **Perintah sehari-hari: selalu lewat wrapper**
 - `bin/dev`, `bin/test`, dan `bin/loco <argumen>` memuat environment dari `.worktree` (`DATABASE_URL`,
-  `PORT`, suffix cookie), lalu menjalankan `cargo loco start` / `cargo test` / `cargo loco <argumen>`.
+  `PORT`, suffix cookie), lalu menjalankan `cargo loco start` / `cargo nextest run` / `cargo loco <argumen>`.
   Ketiganya memakai satu env loader yang sama.
-- **Jangan pernah mengetik `cargo loco` atau `cargo test` langsung**, termasuk di checkout utama.
+- **Jangan pernah mengetik `cargo loco`, `cargo test`, atau `cargo nextest` langsung**, termasuk di
+  checkout utama.
   `development.yaml` dan `test.yaml` sengaja **tidak** memberi default untuk `DATABASE_URL` (§10):
   perintah yang lupa wrapper gagal saat boot, bukan diam-diam memigrasi database utama dengan skema
   branch fitur.
@@ -1189,7 +1200,7 @@ berubah); **2** gagal di tengah (aman diulang dengan perintah yang sama). Setiap
 2. Buka URL yang dicetak, lalu masuk dengan `bin/loco task dev_login email:...` (user seed), atau
    lewat form login bila user itu sudah diberi password dengan `user:set_password`.
 3. Kerjakan fitur: `bin/loco g migration ...`, `bin/loco db migrate`, `bin/loco db entities`,
-   `bin/test`, commit, `git push -u origin feature/document-upload`.
+   `bin/test <filter>` untuk bagian yang diubah, commit, `git push -u origin feature/document-upload`.
 4. Sinkronkan dengan `staging` secara rutin (`git merge origin/staging`), lalu `bin/loco db migrate`. Bila
    skema bentrok atau migrasi gagal, `bin/worktree reset-db`.
 5. Sebelum minta review: `bin/ci` hijau di worktree.
@@ -1360,6 +1371,20 @@ doctest = false
 ```
 - Developer yang butuh debugger dengan info lengkap menimpanya sementara lewat env
   (`CARGO_PROFILE_DEV_DEBUG=true bin/dev`), tidak mengubah `Cargo.toml`.
+- **Job paralel: `CARGO_BUILD_JOBS=8`** di image dev (`docker/dev/Dockerfile`), bisa ditimpa per
+  mesin lewat `AG_CARGO_JOBS` (`docker/compose.app.yaml`). Angka ini juga membatasi thread codegen
+  rustc (jobserver), bukan hanya jumlah crate paralel: dengan 4, compile ulang crate server hanya
+  memakai 4 core. Dinaikkan bila RAM lega; link binary tes (~250 MB) butuh beberapa GB.
+- **Feature dependency seragam lewat `cargo hakari`** (crate `workspace-hack`, `.config/hakari.toml`).
+  Tanpanya feature berbeda antara `cargo loco start` (paket server saja, tanpa dev-dependency),
+  `cargo nextest --workspace` (ikut CLI dan dev-dependency), dan clippy: mis. tokio mendapat
+  feature `process` dari CLI hanya di build workspace. Setiap perpindahan perintah lalu meng-compile
+  ulang dependency dan crate aplikasi. Dengan workspace-hack, `bin/dev` dan `bin/test` memakai
+  artifact dependency yang sama. Setelah mengubah dependency:
+  `bin/sh cargo hakari generate && bin/sh cargo hakari manage-deps`; `bin/ci` menjalankan
+  `cargo hakari verify`. CLI, core, dan graph tidak bergantung pada workspace-hack (CLI dirilis
+  lintas OS), dan image produksi mengosongkan workspace-hack (`docker/prod/Dockerfile`) supaya
+  feature khusus tes (loco `testing`) tidak ikut ter-compile.
 - **Linker tidak dikonfigurasi di repo.** Sejak Rust 1.90, x86_64 Linux sudah memakai `rust-lld`
   secara default (dicek di Rust 1.99: `-fuse-ld=lld`), yang jauh lebih cepat dari linker sistem
   lama. Developer yang mau `mold` atau
@@ -1386,8 +1411,11 @@ doctest = false
   Loco) yang men-`mod` subfolder `requests/`, `models/`, `workers/`, `tasks/`, `support/`. Setiap
   file `.rs` di root `tests/` adalah binary tersendiri yang di-link ulang terhadap seluruh aplikasi
   dan dependency-nya; sepuluh file berarti sepuluh kali link.
-- `bin/test` meneruskan argumen ke `cargo test`, jadi saat mengerjakan satu fitur cukup menjalankan
-  sebagian (`bin/test reset_token`). Suite penuh dijalankan sebelum push dan di `bin/ci`.
+- **Selama mengerjakan fitur, jalankan tes yang relevan saja**: `bin/test` meneruskan argumen ke
+  nextest sebagai filter (`bin/test reset_token`, `bin/test tickets::mockup`). Untuk memeriksa
+  compile cukup `bin/sh cargo check -p agentgate-server --tests`. Suite penuh (`bin/test` tanpa
+  argumen, ~1–2 menit) dijalankan sekali sebelum commit akhir/merge, dan selalu di `bin/ci`.
+  Menjalankan suite penuh setelah setiap perubahan kecil adalah penyebab utama fitur terasa lama.
 - Parameter argon2 minimal di `test.yaml` (§7; m = 8 KiB, t = 1: <0,1 ms per hash) dan job
   `ForegroundBlocking` (§8) menjaga tes tetap cepat tanpa mengubah perilaku yang dites.
 - Starter memakai feature `testing-core` di dev-dependencies, yang tidak berisi assertion selector
@@ -1410,14 +1438,28 @@ doctest = false
   lain, sehingga server worktree A diam-diam menjalankan kode branch B.
 - `target/` satu worktree bisa beberapa GB. Profil di atas menguranginya, `bin/worktree list`
   menampilkan ukurannya, dan worktree ditutup setelah di-merge (§11) supaya disk tidak penuh.
+- `target/` checkout utama tidak pernah dihapus otomatis dan cache incremental-nya terus tumbuh
+  (pernah mencapai 126 GB, 94 GB di antaranya `debug/incremental`). Cache sebesar itu memperlambat
+  I/O build. Periksa dengan `bin/sh du -sh target`; bila di atas ~30 GB, `bin/sh cargo clean`
+  (dependency kembali cepat lewat `sccache`).
 
 **Memecah crate**
-- Bila anggaran rebuild di atas terlampaui, langkah pertama adalah memindahkan `models/` (beserta
-  `_entities/`) ke crate sendiri dalam satu workspace. Mengubah controller atau view tidak lagi
-  memicu compile ulang model, crate aplikasi yang di-compile ulang jadi lebih kecil, dan arah
-  dependensi `models` → layer lain dijamin compiler (pola teks untuk `models/` di `bin/ci` bisa
-  dihapus). Output `bin/loco db entities` diarahkan ke crate baru itu.
+- **Sudah dilakukan (2026-11-14):** `common/` dan `models/` (beserta `_entities/`) ada di crate
+  `agentgate-models` (`server/models/`). Crate server me-re-export keduanya
+  (`pub use agentgate_models::{common, models};`), jadi path `crate::models::...` dan
+  `crate::common::...` tidak berubah. Mengubah controller, service, atau view tidak lagi
+  meng-compile ulang model, dan arah `models` → layer server dijamin compiler. Arah `common` →
+  `models` (satu crate) tetap dicek `bin/check-layers server/models/src` di `bin/ci`.
+- `bin/loco db entities` menulis ke `src/models/_entities` relatif dari `server/` (path itu
+  di-hardcode Loco). `server/src/models` adalah **symlink** ke `server/models/src/models`, jadi hasil
+  generate langsung masuk ke crate baru. Symlink itu tidak di-`mod` oleh crate server.
+- **Angka acuan setelah perubahan ini** (Agent Gate, ~110 ribu baris; 8 job; Docker, laptop 16 core):
+  ubah satu service → build tes ~21 dtk; ubah satu model → ~28 dtk; build `bin/dev` ~18 dtk; suite
+  penuh 806 tes paralel ~72 dtk. Sebelumnya (4 job, tanpa workspace-hack, tes berurutan): build
+  tes ~3 menit dan suite penuh ~6 menit.
 - Pemecahan berikutnya (mis. `services/`) hanya setelah diukur ulang dengan `cargo build --timings`.
+  `services/` saat ini tidak bisa dipisah begitu saja: service memanggil worker dan mailer, dan
+  worker memanggil service.
 
 **CI dan Docker**
 - CI meng-cache `~/.cargo/registry`, `~/.cargo/git`, dan `target/` dengan key dari hash
@@ -1469,10 +1511,6 @@ Aturan berikut sengaja tidak dimasukkan. Tambahkan hanya saat fitur atau kebutuh
   saat ada file yang terlalu besar untuk di-stream lewat aplikasi. URL dibuat hanya setelah cek
   otorisasi yang sama dengan controller unduhan, berumur pendek, dan tidak pernah disimpan atau
   di-log.
-- **Tes database paralel**: saat suite penuh di CI melewati **5 menit** (angka per tim, tulis di
-  sini), pindah ke `cargo nextest`
-  (setiap tes di proses sendiri) dengan satu database per tes yang di-clone dari database test
-  template yang sudah dimigrasi (`createdb -T`). Tes yang sudah independen (§9) tidak perlu diubah.
 - **Data staging di worktree** (modul Worktree; `bin/worktree new --from staging`): tambahkan bila
   dibutuhkan. Bila memakai modul Storage, database staging merujuk file di S3 staging, jadi clone
   database saja menghasilkan dokumen tanpa file.
