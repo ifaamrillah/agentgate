@@ -24,6 +24,7 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 | R5 AI Office baru | selesai (2026-11-14) | Kanvas Canvas 2D diganti panggung SVG + vanilla JS sesuai prototype `office-v1`: Isometrik Studio (V1) sebagai tampilan utama + sakelar Denah (V2) yang disimpan per user di localStorage, kolam cahaya hangat V3 (multiply terang/screen gelap), chibi dengan aksesori/gaya rambut/hijab dari `look`, tema gelap lewat token CSS tanpa gambar ulang, label HTML yang menghindari tumpukan (geser naik/samping, jangkar cadangan, hindari HUD), zoom jauh = badge ikon saja, label karakter berupa tombol berurutan logis (Tab/Enter/Escape, `aria-label`), animasi hanya tanpa `prefers-reduced-motion`; semua fungsi M10 tetap (ruangan per project + Ruang rapat/Pantry, karakter job/persona/tiket/runner online, geser/zoom/pinch/keyboard, mini-map, tab ruangan, panel log live + Approve/Reject + Kustom teraudit, polling 3 dtk); 826 tes Rust + 26 tes JS (18 baru untuk logika murni `office-core.mjs`) |
 | R2 Revisi git & code graph | selesai (2026-11-14) | Semua baris R2 di `REVIEW-AKHIR.md` §3.0: GitHub App sebagai cara utama (alur pasang + verifikasi OAuth `/user/installations`, state HMAC, token instalasi dari JWT RS256 di-cache, izin/repo dari instalasi, satu webhook `/webhooks/github-app` untuk installation/installation_repositories/PR/check/push, Segarkan, ditangguhkan), PAT + GHES tetap; clone dangkal `--shallow-since` 12 bulan di volume cache + fetch inkremental, statistik git dihitung server, kredensial lewat header env git (tidak di URL/config/log), batas waktu/ukuran/disk (`df`), tarball cadangan, clone yatim dibersihkan cleanup; embedding lokal fastembed (feature `semantic`, `multilingual-e5-small`, ONNX Runtime dinamis) inkremental per hash teks simbol ke pgvector, pencarian hibrid RRF di Cari simbol + MCP `ag_search mode`, bisa dimatikan; PR knowledge otomatis setelah approve (branch `agentgate/knowledge-*`, commit tambahan selama PR terbuka, status di halaman dokumen); git tag saat Rilis sekarang (HEAD branch utama atau commit, peringatan bila provider tidak tertaut); 844 tes Rust (18 baru; GitHub palsu + kunci RSA tes, repo bare lokal untuk clone, provider embedding `fake`) + 26 tes JS |
 | R3 Revisi tiket, workflow, planning | selesai (2026-11-14) | Semua baris R3 di `REVIEW-AKHIR.md` §3.0: panel samping detail tiket dari board/daftar/backlog/roadmap (`<dialog>` modal native di kanan, fokus terkunci, `pushState` ke URL tiket sehingga Back menutup/Forward membuka, Esc/tutup/klik latar, "Buka halaman penuh", 390px layar penuh; partial `_summary.html` dipakai bersama halaman penuh; header `X-Ticket-Panel`), builder workflow sebagai kanvas graf (`workflow-core.mjs` murni + `workflow-canvas.js`: tata letak otomatis, panah maju + lencana transisi, panah `gagal_ke` merah putus-putus berlabel, kotak paralel, geser/zoom/pinch/keyboard, kamera per workflow; sakelar Kanvas/Daftar diingat), izin aksi berbahaya per stage (utang M3; `Stage.danger`, YAML `izin_bahaya`, menimpa persona di JobSpec), JQL `OR`/`NOT`/kurung dengan presedensi Jira + error Fluent (utang M9) + autocomplete field/operator/nilai (endpoint saran, combobox ARIA), batas WIP ditegakkan di semua jalur pindah kartu (board drag/menu, form detail, "tandai selesai", API, MCP, sinkron Jira) dengan paksa Admin beralasan (audit `ticket.wip_overridden`) dan penolakan di browser tanpa memindah kartu, roadmap per epic (batang rentang anak + progres, buka/tutup, grup Tanpa epic, panah blocks dari epic yang tertutup; tooltip roadmap ke Fluent); 855 tes Rust (11 baru + kasus baru di tes lama: parser/konteks JQL, saran, WIP semua jalur, panel, roadmap epic, izin stage) + 38 tes JS (12 baru: `jql-core`, `workflow-core`) |
+| R4 Antigravity CLI | selesai (2026-11-14) | Gemini CLI diganti Antigravity CLI (`agy`) sesuai dokumentasi resmi (riset + URL di `docs/superpowers/plans/2026-11-14-r4-antigravity.md`): adapter runner (`agy -p … --output-format stream-json --dangerously-skip-permissions [--model] [--effort]`, env `AGY_CLI_DISABLE_AUTO_UPDATE`, interaktif `-i`, parser `init`/`step_update`/`result`, usage `cache_read_tokens`, kuota "Resource has been exhausted"), aturan v3 (`.agents/mcp_config.json` `serverUrl` + `.agents/hooks.json` `PreToolUse run_command` 1800 dtk + `SessionStart`), `.gemini/settings.json` milik Agent Gate v2 dikenali byte-per-byte lalu dihapus `init`/`uninstall`/`rules sync` (dilaporkan `rules check`; bila diubah user = aturan lama yang di-backup), `.agents/rules/`, `.agents/hooks.json`, `.agents/mcp_config.json` milik user ikut di-backup, dialek hook (`toolCall.args.CommandLine`, `auto_approve`/`deny`, RTK lewat `overwrite`, `injectSteps`), katalog client (model `gemini-4-*`/`gemini-3.x`, effort low–max), Hubungkan (isi `~/.gemini/config/mcp_config.json`, login `/mcp`), `doctor` menandai Gemini CLI yang masih terpasang, migrasi `m20261129_000001_r4_antigravity` (runner, client default, kunci `personas.models`; riwayat `jobs.client` tetap); 860 tes Rust (5 baru + kasus baru di tes lama: parser Antigravity, migrasi, init ulang dari aturan v2, doctor) + 38 tes JS |
 
 ## Keputusan teknis (di luar spec)
 
@@ -105,6 +106,11 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 | 2026-11-14 | R3: kanvas builder memakai node HTML (tautan ke panel stage) + SVG garis, tata letak otomatis dari urutan definisi; posisi tidak disimpan | Tanpa kolom posisi di definisi; node tetap tautan biasa (keyboard, screen reader, tanpa JS) |
 | 2026-11-14 | R3: autocomplete JQL — konteks kursor dihitung server (`jql::context`, tokenizer yang sama dengan parser), JS hanya menyisipkan | Satu tata bahasa; nilai saran dari data yang boleh dilihat pelaku |
 | 2026-11-14 | R3: roadmap epic = epic terdekat di rantai induk (maks. 5 tingkat); anak epic yang tertutup diwakili baris epic untuk panah blocks | Subtask story ikut epic-nya; panah tidak hilang saat epic ditutup |
+| 2026-11-14 | R4: Gemini CLI dihapus (bukan alias); kunci client `antigravity`, binary `agy` | Satu client Google yang masih dikembangkan; CLI lama `--client gemini` jatuh ke client default |
+| 2026-11-14 | R4: job Antigravity memakai `--dangerously-skip-permissions`; aksi berbahaya hanya dibatasi hook `PreToolUse` (`deny` = blok keras) | Headless men-*soft-deny* aksi yang butuh izin, jadi tanpa flag job berhenti diam-diam; penegakan tetap di `agentgate hook` seperti client lain |
+| 2026-11-14 | R4: "izinkan" di hook Antigravity = `auto_approve` (bukan `allow`) | `allow` hanya meneruskan ke kebijakan bawaan yang bisa tetap bertanya; `auto_approve` setara `allow` Claude Code dan tetap menghormati aturan user |
+| 2026-11-14 | R4: `.gemini/settings.json` lama dikenali hanya bila isinya persis aturan v2 (URL apa pun) | Menghapus file milik Agent Gate tanpa menyentuh tambahan user; file yang diubah user diperlakukan sebagai aturan lama (backup + pulih saat uninstall) |
+| 2026-11-14 | R4: migrasi mengosongkan model persona `gemini-2.5-pro`/`gemini-2.5-flash` saat kunci dipetakan | Bukan slug Antigravity; headless menolak model tak dikenal (job gagal) |
 
 ## Temuan spike yang mengubah rencana
 
@@ -112,7 +118,8 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
   `.mcp.json` project, jadi runner wajib memberi `--mcp-config .mcp.json` eksplisit. `HOME`/`CLAUDE_CONFIG_DIR`
   tidak boleh diganti (kredensial langganan ada di sana).
 - **Gemini CLI**: setting yang benar sekarang `context.fileName` (bukan `contextFileName`). Gemini CLI
-  untuk pengguna gratis/Google One sudah digantikan "Antigravity CLI" (2026-06-18) — perlu dicek ulang di M11.
+  untuk pengguna gratis/Google One sudah digantikan "Antigravity CLI" (2026-06-18). **R4: Gemini CLI diganti
+  Antigravity CLI (`agy`)**; riset di `docs/superpowers/plans/2026-11-14-r4-antigravity.md`.
 - **Folder trust**: Codex, Gemini, Copilot, Cursor mengabaikan config project di folder yang belum dipercaya;
   setiap adapter butuh langkah trust sendiri (M5/M11).
 - **RTK**: `agentgate hook` memanggil `rtk rewrite` sendiri, bukan `rtk init -g` (yang menulis config global user).
@@ -419,15 +426,15 @@ Daftar terkonsolidasi dan berurutan prioritas: `docs/REVIEW-AKHIR.md` §4.
   (`CLI_RELEASE_URL`), repo tap Homebrew + token, keputusan code signing.
 
 - M11: verifikasi adapter dengan client asli (terpasang + login): Codex (`.codex/` project tetap dimuat dengan
-  `--ignore-user-config`? `-a never` di exec? timeout hook), Gemini (hook jalan dengan `--skip-trust`? sub-field `stats`,
-  `/mcp auth agentgate`), Cursor (nama binary `agent`/`cursor-agent`, field usage), OpenCode V2 (API plugin, key
+  `--ignore-user-config`? `-a never` di exec? timeout hook), Antigravity CLI (R4, menggantikan Gemini; daftar di
+  catatan R4 di bawah), Cursor (nama binary `agent`/`cursor-agent`, field usage), OpenCode V2 (API plugin, key
   `mcp.servers`), Copilot (`--trust-folder`, format JSONL, `modifiedArgs`, `~/.copilot/mcp-config.json`), dan perintah
-  login di halaman Hubungkan. Juga keputusan apakah Gemini CLI tetap didukung (digantikan Antigravity CLI).
+  login di halaman Hubungkan. (Keputusan Gemini CLI: diganti Antigravity CLI di R4.)
 - M11: kredensial Jira asli untuk uji nyata (site Jira Cloud + email + API token, dan/atau Jira Data Center + PAT) dengan
   project uji; konfirmasi satu koneksi per workspace cukup dan polling 5 menit untuk dua arah.
 - M11: setujui kebijakan webhook (retry 5×, auto-nonaktif setelah 5 gagal beruntun) dan rate limit API 600/menit; pastikan
   `public_base_url` produksi benar (dipakai halaman Dokumentasi API).
-- M11: tabel harga per model bila biaya token Codex/Gemini/Cursor perlu tampil.
+- M11: tabel harga per model bila biaya token Codex/Antigravity/Cursor perlu tampil.
 - Disk host: sempat tersisa ±12 GB (bahkan penuh) saat M11 berjalan; setelah worktree ditutup ±88 GB (volume `agentgate-rs-target-main` ±115 GB; build gagal sekali karena disk
   penuh). Worktree M11 sudah ditutup; pertimbangkan `cargo clean` berkala atau membersihkan build cache Docker.
 
@@ -473,6 +480,35 @@ Daftar terkonsolidasi dan berurutan prioritas: `docs/REVIEW-AKHIR.md` §4.
   allowlist nama client).
 
 ## Catatan untuk sesi berikutnya
+
+- **R4 selesai dan di-merge ke `staging` (2026-11-14)**, `bin/ci` hijau sebelum dan sesudah merge. Rencana + riset
+  (URL sumber per fakta): `docs/superpowers/plans/2026-11-14-r4-antigravity.md`. Database dev perlu
+  `bin/loco db migrate` (`m20261129_000001_r4_antigravity`). Screenshot Hubungkan client AI (desktop, 390px, gelap) di
+  scratchpad sesi (`shots-r4/`). Repo yang sudah di-init perlu `agentgate init` ulang atau `agentgate rules sync`
+  (aturan v3).
+  **Perlu diverifikasi dengan Antigravity CLI asli** (adapter dibangun dari dokumentasi, diuji dengan binary palsu):
+  1. Hook `.agents/hooks.json` jalan di `agy -p` bersama `--dangerously-skip-permissions`; `decision: "deny"` memblokir
+     `run_command`; `auto_approve` tidak menimpa aturan deny user; `timeout: 1800` diterima; exit code hook bila
+     `agentgate` gagal (tidak terdokumentasi).
+  2. Trust: worktree baru (`~/.local/state/agentgate/wt/...`) belum ada di `trustedWorkspaces`; apakah headless memuat
+     `.agents/mcp_config.json` + hook, mengabaikannya, atau menunggu input (status `WAITING`). Tidak ada flag trust;
+     runner sengaja tidak menulis settings global user.
+  3. Bentuk nyata `stream-json`: `tool_info` di langkah `ACTIVE` vs `DONE`, `call_mcp_tool` (`ServerName`/`ToolName`)
+     vs `mcp_<server>_<tool>`, `text_delta` kumulatif atau inkremental, `usage` (`cache_read_tokens` terpisah dari
+     `input_tokens` menurut contoh docs), `subagent_info`.
+  4. Pesan kuota habis (tidak terdokumentasi; forum: `429 RESOURCE_EXHAUSTED` / "Resource has been exhausted (e.g.
+     check quota)") dan apakah muncul di `result.error` atau stderr.
+  5. Login OAuth MCP: `/mcp` di sesi `agy` → DCR ke server Agent Gate dengan redirect
+     `https://antigravity.google/oauth-callback` (sudah lolos validasi redirect https) → tempel kode; token disimpan di
+     keyring/`mcp_oauth_tokens.json`. Juga apakah prompt MCP `ag-<stage>` tampil sebagai slash command.
+  6. `--effort` bersama slug model yang sudah memuat effort (`gemini-4-carbon-high`); model katalog di persona.
+  7. `-p <prompt>`: `-p` menerima nilai atau boolean + argumen posisional (keduanya didukung bentuk argv sekarang);
+     prompt sangat panjang (batas argv OS).
+  8. Interaktif `agy -i <prompt>` di terminal launcher job attach; `AGY_CLI_DISABLE_AUTO_UPDATE` dihormati.
+  **Keterbatasan dibanding Gemini CLI**: tidak ada tool todo (tidak ada langkah rencana di halaman job), tidak ada
+  `agy mcp add`/`login` (Hubungkan menampilkan isi file), tidak ada flag trust maupun isolasi config user
+  (`~/.gemini/config/` tetap berlaku), headless butuh login interaktif sekali (atau `GEMINI_API_KEY` +
+  `modelProvider: "gemini"` / ADC), tidak ada biaya di output.
 
 - **R3 selesai dan di-merge ke `staging` (2026-11-14)**, `bin/ci` hijau sebelum dan sesudah merge. Rencana:
   `docs/superpowers/plans/2026-11-14-r3-revisi.md`. Database dev perlu `bin/loco db migrate`
