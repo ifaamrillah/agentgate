@@ -253,6 +253,8 @@ pub const MESSAGE_KEYS: &[&str] = &[
     "flash-project-workflow-saved",
     "flash-workflow-imported",
     "flash-stage-moved",
+    "ticket-flash-wip-forced",
+    "ticket-wip-full-detail",
     "flash-stage-approved",
     "flash-stage-rejected",
     "flash-stage-decided",

@@ -128,6 +128,9 @@ pub enum AuditAction {
     /// Admin memaksa transisi walau gate belum terpenuhi (alasan di `changes`).
     #[sea_orm(string_value = "ticket.transition_forced")]
     TicketTransitionForced,
+    /// Admin memindah tiket ke kolom yang batas WIP-nya penuh (R3; alasan di `changes`).
+    #[sea_orm(string_value = "ticket.wip_overridden")]
+    TicketWipOverridden,
     #[sea_orm(string_value = "persona.created")]
     PersonaCreated,
     #[sea_orm(string_value = "persona.updated")]
@@ -339,6 +342,7 @@ impl AuditAction {
             | Self::WorkflowMigrated
             | Self::TicketStageJumped
             | Self::TicketTransitionForced
+            | Self::TicketWipOverridden
             | Self::EvidenceSubmitted
             | Self::EvidenceApproved
             | Self::EvidenceRejected => AuditGroup::Ticket,

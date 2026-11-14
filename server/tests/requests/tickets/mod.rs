@@ -14,6 +14,7 @@ mod search;
 mod settings;
 pub mod stages;
 mod trash;
+mod wip;
 mod workflows;
 
 use agentgate_server::models::{tickets, users, workspaces};

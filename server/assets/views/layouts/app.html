@@ -127,7 +127,7 @@
       </div>
       {%- endif %}
       {%- if flash is defined and flash and flash.kind != "success" %}
-      {{ <flash kind={flash.kind} message={t(key=flash.key, lang="id")}/> }}
+      {% if flash.text %}{% set flash_msg = flash.text %}{% else %}{% set flash_msg = t(key=flash.key, lang="id") %}{% endif %}<div data-flash-key="{{ flash.key }}">{{ <flash kind={flash.kind} message={flash_msg}/> }}</div>
       {%- endif %}
       {% block content %}{% endblock content %}
     </div>

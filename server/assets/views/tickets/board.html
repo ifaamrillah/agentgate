@@ -2,11 +2,13 @@
     filter cepat (cari, Saya, Belum ada penerima), drag-drop antar kolom (static/js/board-dnd.js:
     drop mengisi form tersembunyi lalu submit biasa) dan menu ⋯ per kartu tanpa JS.
     Board Scrum (M9): chip sprint (bawaan sprint aktif; "Semua tiket"), batas WIP per kolom
-    (melebihi = ditandai), swimlane per penerima/epic (`?swim=`).
+    (R3: ditegakkan; angka = beban project di stage itu, kolom penuh menolak kartu baru, Admin bisa
+    memaksa dengan alasan), swimlane per penerima/epic (`?swim=`).
     Variabel: project, views, views_action, return_to (layouts/project.html), columns
-    ([StageColumn {key, name, status, cards, wip, over}]; untuk menu pindah kartu), lanes
+    ([StageColumn {key, name, status, cards, wip, load, over, full}]; untuk menu pindah kartu), lanes
     ([{title, count, columns}]), swim, swims, sprints (chip), sprint (terpilih: name, goal, range),
-    filter (BoardFilter), who, paths (BoardPaths), can_edit,
+    filter (BoardFilter), who, paths (BoardPaths), can_edit, can_force (Admin project: paksa
+    pindah ke kolom yang batas WIP-nya penuh, R3),
     drafts (jumlah draft tiket brainstorming; 0 = tautan disembunyikan), flash. -#}
 {% extends "layouts/project.html" %}
 {% block title %}{{ t(key="project-view-board", lang="id") }} · {{ project.name }}{% endblock title %}
@@ -54,11 +56,15 @@
 {%- if swim %}<h2 class="app-lane-h" data-lane>{% if lane.title %}{{ lane.title }}{% elif swim == "assignee" %}{{ t(key="ticket-unassigned", lang="id") }}{% else %}{{ t(key="board-no-epic", lang="id") }}{% endif %} <span class="app-bcol-n">{{ lane.count }}</span></h2>{% endif %}
 <div class="app-board"{% if swim %} data-lane-board{% endif %} data-board{% if can_edit %} data-board-dnd{% endif %}>
   {%- for col in lane.columns %}
-  <section class="app-bcol" data-column="{{ col.key }}" data-category="{{ col.status.value }}"{% if col.over %} data-over{% endif %} aria-labelledby="col-{{ lid }}{{ col.key }}">
+  <section class="app-bcol" data-column="{{ col.key }}" data-category="{{ col.status.value }}"{% if col.over %} data-over{% endif %}{% if col.full %} data-wip-full data-wip-msg="{{ t(key="ticket-wip-full-detail", lang="id", stage=col.name, wip=col.wip) }}"{% endif %} data-column-name="{{ col.name }}" aria-labelledby="col-{{ lid }}{{ col.key }}">
     <header class="app-bcol-h">
       <span class="app-status" data-status="{{ col.status.value }}">{{ icon(name=col.status.icon) }}</span>
       <h2 id="col-{{ lid }}{{ col.key }}">{{ col.name }}</h2>
-      <span class="app-bcol-n"{% if col.over %} data-over title="{{ t(key="board-wip-over", lang="id", wip=col.wip) }}"{% endif %} data-wip>{{ col.cards | length }}{% if col.wip %} / {{ col.wip }}{% endif %}</span>
+      {%- if col.wip %}
+      <span class="app-bcol-n"{% if col.over %} data-over{% elif col.full %} data-full{% endif %} title="{% if col.over %}{{ t(key="board-wip-over", lang="id", wip=col.wip) }}{% elif col.full %}{{ t(key="board-wip-full", lang="id", wip=col.wip) }}{% else %}{{ t(key="board-wip-load", lang="id", load=col.load, wip=col.wip) }}{% endif %}" data-wip>{{ col.load }} / {{ col.wip }}{% if col.full %}<span class="sr-only"> · {{ t(key="board-wip-full", lang="id", wip=col.wip) }}</span>{% endif %}</span>
+      {%- else %}
+      <span class="app-bcol-n" data-wip>{{ col.cards | length }}</span>
+      {%- endif %}
       {%- if can_edit %}<a class="app-bcol-add" href="{{ paths.new_ticket }}?stage={{ col.key }}&amp;status={{ col.status.value }}" aria-label="{{ t(key="board-add-in", lang="id", column=col.name) }}">{{ icon(name="plus") }}</a>{% endif %}
     </header>
     <div class="app-bcol-cards" data-cards>
@@ -75,6 +81,27 @@
 <form method="post" hidden data-board-move-form>
   <input type="hidden" name="stage"><input type="hidden" name="before"><input type="hidden" name="return_to" value="{{ return_to }}">
 </form>
+{#- Penolakan batas WIP di sisi browser (board-dnd.js); server tetap menegakkan. -#}
+<div class="alert app-board-reject" data-variant="destructive" role="alert" hidden data-board-reject>
+  {{ icon(name="lock") }}
+  <h2>{{ t(key="board-wip-rejected", lang="id") }}</h2>
+  <section><p data-board-reject-msg></p>{% if can_force %}<p>{{ <button label={t(key="board-wip-force", lang="id")} icon="alert-triangle" variant="outline" size="sm" attrs="data-wip-force-open"/> }}</p>{% endif %}</section>
+</div>
+{%- if can_force %}
+{% <dialog id="wip-force" title={t(key="board-wip-force", lang="id")} description={t(key="board-wip-force-description", lang="id")} icon="alert-triangle" tone="warn"> %}
+<form method="post" data-wip-force-form>
+  <input type="hidden" name="stage"><input type="hidden" name="return_to" value="{{ return_to }}">
+  <section><div class="app-stack-v" data-gap="sm">
+    <p class="app-hint" data-wip-force-msg></p>
+    {{ <textarea_field id="wip-force-reason" name="reason" label={t(key="stage-reason", lang="id")} rows={3} required={true} hint={t(key="board-wip-force-hint", lang="id")}/> }}
+  </div></section>
+  <footer>
+    <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+    {{ <button label={t(key="board-wip-force-submit", lang="id")} variant="primary" type="submit" attrs="data-wip-force-submit"/> }}
+  </footer>
+</form>
+{% </dialog> %}
+{%- endif %}
 {%- endif %}
 </div>
 {% endblock content %}

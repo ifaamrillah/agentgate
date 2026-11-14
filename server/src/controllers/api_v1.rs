@@ -63,6 +63,8 @@ pub struct ApiError {
     status: StatusCode,
     code: String,
     field: Option<String>,
+    /// Kalimat untuk manusia (Fluent), mis. alasan batas WIP penuh.
+    message: Option<String>,
 }
 
 impl ApiError {
@@ -71,6 +73,7 @@ impl ApiError {
             status,
             code: code.to_string(),
             field: None,
+            message: None,
         }
     }
 
@@ -85,6 +88,9 @@ impl IntoResponse for ApiError {
         if let Some(f) = self.field {
             body["field"] = json!(f);
         }
+        if let Some(m) = self.message {
+            body["message"] = json!(m);
+        }
         (self.status, Json(body)).into_response()
     }
 }
@@ -93,7 +99,8 @@ impl From<TicketFailure> for ApiError {
     fn from(e: TicketFailure) -> Self {
         match e {
             TicketFailure::NotFound => Self::not_found(),
-            TicketFailure::Invalid(errors) => {
+            TicketFailure::Invalid(ref errors) => {
+                let message = e.message();
                 let (field, code) = errors
                     .errors
                     .iter()
@@ -103,6 +110,7 @@ impl From<TicketFailure> for ApiError {
                     status: StatusCode::UNPROCESSABLE_ENTITY,
                     code,
                     field: Some(field).filter(|f| !f.is_empty()),
+                    message,
                 }
             }
             TicketFailure::Db(e) => {
@@ -409,6 +417,7 @@ async fn type_id_of(
             status: StatusCode::UNPROCESSABLE_ENTITY,
             code: "ticket-type-unknown".into(),
             field: Some("type".into()),
+            message: None,
         })
 }
 
@@ -509,6 +518,7 @@ async fn transition(
             status: StatusCode::UNPROCESSABLE_ENTITY,
             code: stages::STAGE_UNKNOWN.into(),
             field: Some("to".into()),
+            message: None,
         });
     }
     let moved = stages::move_to(
@@ -583,6 +593,7 @@ fn project_required(q: &ProjectQuery) -> std::result::Result<(), ApiError> {
             status: StatusCode::BAD_REQUEST,
             code: "project_required".into(),
             field: Some("project".into()),
+            message: None,
         })
     } else {
         Ok(())

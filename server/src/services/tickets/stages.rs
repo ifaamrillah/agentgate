@@ -17,6 +17,11 @@
 //!   Development) atau tetap di stage. Putaran gagal mencapai `fail_limit` → `decision`.
 //! - **Keputusan** (Butuh keputusan): lima pilihan spec, lihat [`Decision`].
 //! - **Lompat stage / paksa transisi**: `AdministerProject`, alasan wajib, audit log.
+//! - **Batas WIP** (R3): pindah ke stage yang beban kolomnya (tiket aktif project di stage itu)
+//!   sudah mencapai `wip` ditolak (`ticket-wip-full`) di semua jalur pindah kartu (board, menu,
+//!   ubah status, "tandai selesai", API, MCP, sinkron Jira). Admin project bisa memaksa dengan
+//!   alasan ([`move_over_wip`], audit `ticket.wip_overridden`). Approve, keputusan, dan lompat
+//!   Admin tidak dicek: itu alur gate, bukan pindah kartu.
 //!
 //! Approver = penugasan approver stage sekarang di tiket; stage tanpa approver boleh diputuskan
 //! siapa pun yang memegang `EditProject`. Relasi *blocks* tetap ditegakkan di semua jalur
@@ -74,6 +79,8 @@ pub const FORCE_DISABLED: &str = "ticket-force-disabled";
 pub const DECISION_INVALID: &str = "ticket-decision-invalid";
 pub const DECISION_TARGET_INVALID: &str = "ticket-decision-target-invalid";
 pub const PEOPLE_INVALID: &str = "ticket-stage-people-invalid";
+/// Kolom tujuan sudah mencapai batas WIP (R3); parameter `stage`, `wip`.
+pub const WIP_FULL: &str = "ticket-wip-full";
 pub const ERROR_CODES: &[&str] = &[
     STAGE_UNKNOWN,
     NEEDS_APPROVAL,
@@ -92,6 +99,7 @@ pub const ERROR_CODES: &[&str] = &[
     DECISION_INVALID,
     DECISION_TARGET_INVALID,
     PEOPLE_INVALID,
+    WIP_FULL,
 ];
 /// Batas catatan reject/keputusan dan alasan lompat/paksa.
 pub const NOTE_MAX_LEN: usize = 2_000;
@@ -422,7 +430,56 @@ pub async fn move_to(
     target: Target,
     before: Option<Uuid>,
 ) -> Result<tickets::Model, TicketFailure> {
-    let work = Working::begin(db, acting, ticket_id, Permission::EditProject, false).await?;
+    move_with(db, acting, ticket_id, target, before, None).await
+}
+
+/// Pindah walau kolom tujuan sudah mencapai batas WIP (R3): Admin project, alasan wajib. Bila
+/// kolom ternyata belum penuh, sama dengan pindah biasa (tanpa audit). Aturan lain (gate,
+/// approval, blocks) tetap berlaku.
+///
+/// # Errors
+///
+/// [`TicketFailure::Invalid`] (`ticket-reason-required`, kode [`move_to`]), `NotFound` (bukan
+/// Admin), atau error database.
+pub async fn move_over_wip(
+    db: &DatabaseConnection,
+    acting: &Acting<'_>,
+    ticket_id: Uuid,
+    stage_key: &str,
+    reason: &str,
+) -> Result<tickets::Model, TicketFailure> {
+    let reason = reason.trim();
+    if reason.is_empty() {
+        return Err(TicketFailure::field("reason", REASON_REQUIRED));
+    }
+    if reason.chars().count() > NOTE_MAX_LEN {
+        return Err(TicketFailure::field("reason", NOTE_TOO_LONG));
+    }
+    move_with(
+        db,
+        acting,
+        ticket_id,
+        Target::Stage(stage_key.trim().to_string()),
+        None,
+        Some(reason),
+    )
+    .await
+}
+
+async fn move_with(
+    db: &DatabaseConnection,
+    acting: &Acting<'_>,
+    ticket_id: Uuid,
+    target: Target,
+    before: Option<Uuid>,
+    wip_reason: Option<&str>,
+) -> Result<tickets::Model, TicketFailure> {
+    let permission = if wip_reason.is_some() {
+        Permission::AdministerProject
+    } else {
+        Permission::EditProject
+    };
+    let work = Working::begin(db, acting, ticket_id, permission, false).await?;
     let flow = Flow::load(&work.txn, work.wid, &work.ticket).await?;
     let to = match target {
         Target::Stage(key) => flow.current.stage(&key).cloned(),
@@ -444,7 +501,7 @@ pub async fn move_to(
     let ticket = if to.key == work.ticket.stage_key {
         work.ticket.clone()
     } else {
-        move_in(&work, acting, &flow, &to).await?
+        move_in(&work, acting, &flow, &to, wip_reason).await?
     };
     let mut model = ticket.into_active_model();
     model.position = Set(position);
@@ -459,16 +516,68 @@ pub fn category(status: &TicketStatus) -> Option<Category> {
     Category::parse(&status.to_value())
 }
 
-/// Langkah [`move_to`] di transaksi `work` (juga dipakai ubah status dari form detail).
+/// Beban kolom `to` melebihi batas WIP-nya bila `ticket` masuk: `Some((jumlah sekarang, batas))`.
+/// Tiket yang sudah di stage itu tidak dihitung dua kali.
+///
+/// # Errors
+///
+/// Error database.
+pub(crate) async fn wip_overflow<C: ConnectionTrait>(
+    db: &C,
+    wid: WorkspaceId,
+    ticket: &tickets::Model,
+    to: &Stage,
+) -> Result<Option<(i64, u16)>, DbErr> {
+    let Some(limit) = to.wip.filter(|w| *w > 0) else {
+        return Ok(None);
+    };
+    if ticket.stage_key == to.key {
+        return Ok(None);
+    }
+    let load = tickets::Model::count_by_stage(db, wid, ticket.project_id)
+        .await?
+        .into_iter()
+        .find(|(k, _)| *k == to.key)
+        .map_or(0, |(_, n)| n);
+    Ok((load >= i64::from(limit)).then_some((load, limit)))
+}
+
+/// Error `ticket-wip-full` dengan nama stage dan batasnya.
+pub(crate) fn wip_full(to: &Stage, limit: u16) -> TicketFailure {
+    let mut errors = validator::ValidationErrors::new();
+    let mut e = validator::ValidationError::new(WIP_FULL);
+    e.add_param("stage".into(), &to.name);
+    e.add_param("wip".into(), &limit.to_string());
+    // Kalimat lengkap untuk API/MCP/flash ([`TicketFailure::message`]); template memakai kode.
+    e.message = Some(
+        crate::common::i18n::text(
+            "ticket-wip-full-detail",
+            &[("stage", &to.name), ("wip", &limit.to_string())],
+        )
+        .into(),
+    );
+    errors.add("stage", e);
+    TicketFailure::errors(errors)
+}
+
+/// Langkah [`move_to`] di transaksi `work` (juga "tandai selesai"). `wip_reason` = Admin memaksa
+/// melewati batas WIP ([`move_over_wip`]).
 pub(crate) async fn move_in(
     work: &Working,
     acting: &Acting<'_>,
     flow: &Flow,
     to: &Stage,
+    wip_reason: Option<&str>,
 ) -> Result<tickets::Model, TicketFailure> {
     check_move(&work.txn, work.wid, &work.ticket, flow, to).await?;
     let to_status = TicketStatus::parse(to.category.as_str()).unwrap_or(TicketStatus::Todo);
     ensure_can_move(&work.txn, work.wid, &work.ticket, to_status).await?;
+    let overflow = wip_overflow(&work.txn, work.wid, &work.ticket, to).await?;
+    if let Some((_, limit)) = overflow
+        && wip_reason.is_none()
+    {
+        return Err(wip_full(to, limit));
+    }
     let from_status = work.ticket.status.clone();
     let from = work.ticket.stage_key.clone();
     let ticket = enter_stage(&work.txn, work.wid, work.ticket.clone(), flow, to).await?;
@@ -478,6 +587,21 @@ pub(crate) async fn move_in(
             changes,
             serde_json::json!({ "status": { "from": from_status, "to": ticket.status } }),
         );
+    }
+    if let (Some((load, limit)), Some(reason)) = (overflow, wip_reason) {
+        changes = merge(
+            changes,
+            serde_json::json!({ "wip_override": { "reason": reason, "wip": limit, "load": load } }),
+        );
+        crate::services::audit::record(
+            &work.txn,
+            acting.actor().audit(
+                AuditAction::TicketWipOverridden,
+                (AuditSubject::Ticket, ticket.id),
+                merge(changes.clone(), serde_json::json!({ "code": ticket.code })),
+            ),
+        )
+        .await?;
     }
     work.event(acting.user.id, EventKind::StageChanged, changes)
         .await?;
@@ -627,7 +751,7 @@ pub async fn complete(
             .next(&work.ticket.stage_key)
             .cloned()
             .ok_or_else(|| invalid(LAST_STAGE))?;
-        move_in(&work, acting, &flow, &next).await?
+        move_in(&work, acting, &flow, &next, None).await?
     };
     work.txn.commit().await?;
     Ok(ticket)

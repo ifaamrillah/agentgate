@@ -645,11 +645,45 @@ pub struct StatusForm {
     return_to: Option<String>,
 }
 
+/// Pindah ditolak saat dikirim dari board/daftar (`return_to`): kembali ke halaman itu dengan
+/// flash berisi alasannya (kartu tampil lagi di posisi semula), bukan ke halaman tiket.
+fn rejected_back(
+    session: Session,
+    slug: &str,
+    return_to: Option<&str>,
+    failure: &TicketFailure,
+) -> Option<Result<Response>> {
+    let to = return_to.map(str::trim).filter(|r| !r.is_empty())?;
+    let fallback = format!("/w/{slug}");
+    let to = safe_return(slug, Some(to), &fallback);
+    let TicketFailure::Invalid(errors) = failure else {
+        return None;
+    };
+    let code = super::stage::stage_error(errors);
+    let code = if code.is_empty() {
+        errors
+            .errors
+            .values()
+            .flatten()
+            .next()
+            .map(|e| e.code.to_string())
+            .unwrap_or_default()
+    } else {
+        code
+    };
+    let text = failure.message().unwrap_or_default();
+    Some(
+        flash::set(session, &Flash::error_text(&code, text))
+            .and_then(|session| Ok((session, format::redirect(&to)?).into_response())),
+    )
+}
+
 #[debug_handler]
 pub(super) async fn status(
     State(ctx): State<AppContext>,
     ViewEngine(v): ViewEngine<TeraView>,
     access: TicketAccess,
+    session: Session,
     RequestId(request_id): RequestId,
     Form(form): Form<StatusForm>,
 ) -> Result<Response> {
@@ -689,6 +723,17 @@ pub(super) async fn status(
             let fallback = ticket_href(slug, &ticket.code);
             format::redirect(&safe_return(slug, form.return_to.as_deref(), &fallback))
         }
+        Err(failure @ TicketFailure::Invalid(_))
+            if form.return_to.as_deref().is_some_and(|r| !r.trim().is_empty()) =>
+        {
+            rejected_back(
+                session,
+                &tenant.workspace.slug,
+                form.return_to.as_deref(),
+                &failure,
+            )
+            .unwrap_or_else(|| Err(failure.into()))
+        }
         Err(TicketFailure::Invalid(errors)) => {
             render_show(
                 &ctx,
@@ -703,6 +748,54 @@ pub(super) async fn status(
                 StatusCode::UNPROCESSABLE_ENTITY,
             )
             .await
+        }
+        Err(e) => Err(e.into()),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct WipForceForm {
+    #[serde(default)]
+    stage: String,
+    #[serde(default)]
+    reason: String,
+    #[serde(default)]
+    return_to: Option<String>,
+}
+
+pub const FLASH_WIP_FORCED: &str = "ticket-flash-wip-forced";
+
+/// Admin project memindah tiket ke kolom yang batas WIP-nya penuh (R3), alasan wajib, audit.
+/// Sukses atau ditolak sama-sama kembali ke `return_to` (board) dengan flash.
+#[debug_handler]
+pub(super) async fn move_over_wip(
+    State(ctx): State<AppContext>,
+    access: TicketAccess,
+    session: Session,
+    RequestId(request_id): RequestId,
+    Form(form): Form<WipForceForm>,
+) -> Result<Response> {
+    access.require(Permission::AdministerProject)?;
+    let tenant = &access.access.tenant;
+    let slug = &tenant.workspace.slug;
+    let fallback = ticket_href(slug, &access.ticket.code);
+    let back = safe_return(slug, form.return_to.as_deref(), &fallback);
+    match service::stages::move_over_wip(
+        &ctx.db,
+        &acting(tenant, request_id),
+        access.ticket.id,
+        &form.stage,
+        &form.reason,
+    )
+    .await
+    {
+        Ok(_) => {
+            let session = flash::set(session, &Flash::success(FLASH_WIP_FORCED))?;
+            Ok((session, format::redirect(&back)?).into_response())
+        }
+        Err(failure @ TicketFailure::Invalid(_)) => {
+            rejected_back(session, slug, Some(&back), &failure)
+                .unwrap_or_else(|| Err(failure.into()))
         }
         Err(e) => Err(e.into()),
     }

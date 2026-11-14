@@ -150,6 +150,9 @@ pub async fn run(
             .cloned()
             .ok_or_else(|| TicketFailure::field("status", stages::STAGE_UNKNOWN))?;
         stages::check_move(&work.txn, work.wid, &updated, &flow, &to).await?;
+        if let Some((_, limit)) = stages::wip_overflow(&work.txn, work.wid, &updated, &to).await? {
+            return Err(stages::wip_full(&to, limit));
+        }
         let from = flow
             .rule(&updated.stage_key)
             .map_or_else(|| updated.stage_key.clone(), |s| s.name.clone());

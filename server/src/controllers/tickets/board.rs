@@ -376,8 +376,9 @@ async fn swim_lanes(
     definitions: &[agentgate_core::workflow::Definition],
     list: &[tickets::Model],
     swim: &str,
+    loads: &[(String, i64)],
 ) -> Result<Vec<serde_json::Value>> {
-    let lane = |title: String, sub: &[tickets::Model]| serde_json::json!({ "title": title, "count": sub.len(), "columns": stage_columns(lookup, definitions, sub) });
+    let lane = |title: String, sub: &[tickets::Model]| serde_json::json!({ "title": title, "count": sub.len(), "columns": stage_columns(lookup, definitions, sub, loads) });
     let mut groups: Vec<(Option<Uuid>, String)> = Vec::new();
     match swim {
         "assignee" => {
@@ -567,7 +568,10 @@ pub(super) async fn board(
         }))
         .collect();
     let definitions = project_definitions(&ctx, &access, &tickets).await?;
-    let lanes = swim_lanes(&ctx, &access, &lookup, &definitions, &tickets, swim).await?;
+    // Beban kolom = tiket aktif project per stage (yang ditegakkan batas WIP), bukan hanya kartu
+    // yang lolos filter/sprint.
+    let loads = tickets::Model::count_by_stage(&ctx.db, wid, access.project.id).await?;
+    let lanes = swim_lanes(&ctx, &access, &lookup, &definitions, &tickets, swim, &loads).await?;
     let shell = app_shell(
         &ctx,
         &access.tenant.user,
@@ -586,7 +590,8 @@ pub(super) async fn board(
             "views": nav::project_views(&home, &access.tenant.user.project_views, "board"),
             "views_action": PROJECT_VIEWS_ACTION,
             "return_to": paths.board,
-            "columns": stage_columns(&lookup, &definitions, &tickets),
+            "columns": stage_columns(&lookup, &definitions, &tickets, &loads),
+            "can_force": access.role.has(Permission::AdministerProject),
             "lanes": lanes,
             "swim": swim,
             "swims": swims,

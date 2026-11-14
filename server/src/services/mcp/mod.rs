@@ -94,7 +94,7 @@ impl From<crate::services::tickets::TicketFailure> for ToolError {
             TicketFailure::NotFound => Self::new(
                 "Tidak ditemukan, atau role Anda tidak mengizinkan aksi ini di project tersebut.",
             ),
-            TicketFailure::Invalid(errors) => {
+            TicketFailure::Invalid(ref errors) => {
                 let codes: Vec<String> = errors
                     .errors
                     .iter()
@@ -102,7 +102,12 @@ impl From<crate::services::tickets::TicketFailure> for ToolError {
                         errs.iter().map(move |e| format!("{field}: {}", e.code))
                     })
                     .collect();
-                Self::new(format!("Ditolak: {}", codes.join(", ")))
+                match e.message() {
+                    Some(m) if !m.is_empty() => {
+                        Self::new(format!("Ditolak: {m} ({})", codes.join(", ")))
+                    }
+                    _ => Self::new(format!("Ditolak: {}", codes.join(", "))),
+                }
             }
             TicketFailure::Db(e) => e.into(),
         }

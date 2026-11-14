@@ -30,6 +30,7 @@ audit-action-workflow-migrated = Tiket dimigrasi ke versi workflow baru
 audit-action-project-workflows-changed = Workflow project diubah
 audit-action-ticket-stage-jumped = Stage tiket dilompati
 audit-action-ticket-transition-forced = Transisi tiket dipaksa
+audit-action-ticket-wip-overridden = Batas WIP dilewati Admin
 audit-subject-workflow = Workflow
 
 ## Error gate
@@ -38,6 +39,9 @@ ticket-needs-approval = Stage ini harus di-approve dulu. Minta review.
 ticket-jump-admin-only = Melewati stage yang punya gate atau approval hanya untuk Admin project.
 ticket-gates-unmet = Gate stage ini belum terpenuhi.
 ticket-stage-busy = Stage ini sedang menunggu review atau keputusan.
+ticket-wip-full = Kolom tujuan sudah mencapai batas WIP. Selesaikan atau pindahkan tiket lain dari kolom itu dulu.
+ticket-wip-full-detail = Kolom { $stage } sudah penuh (batas WIP { $wip } tiket). Selesaikan atau pindahkan tiket lain dari kolom itu dulu.
+ticket-flash-wip-forced = Tiket dipindah melewati batas WIP. Alasan tercatat di audit log.
 ticket-not-approver = Anda bukan approver stage ini.
 ticket-not-in-review = Stage ini tidak sedang menunggu review.
 ticket-not-in-decision = Tiket ini tidak sedang menunggu keputusan.

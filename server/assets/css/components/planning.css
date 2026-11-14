@@ -218,6 +218,13 @@
   .app-board[data-lane-board] { min-height: 0; }
   .app-bcol[data-over] { box-shadow: inset 0 2px 0 var(--ag-warn); }
   .app-bcol-n[data-over] { color: var(--ag-warn); font-weight: 600; }
+  /* Batas WIP ditegakkan (R3): kolom penuh menolak kartu; drop ditolak bergetar singkat. */
+  .app-bcol-n[data-full] { color: var(--ag-warn); font-weight: 600; background: var(--ag-warn-soft, transparent); border-radius: 999px; padding: 0 6px; }
+  .app-bcol[data-wip-full][data-drop] { outline: 2px dashed var(--ag-danger); outline-offset: -2px; background: color-mix(in srgb, var(--ag-danger) 6%, transparent); }
+  .app-bcol[data-wip-reject] { animation: app-wip-shake .3s ease-in-out 2; }
+  @keyframes app-wip-shake { 0%, 100% { transform: none; } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+  @media (prefers-reduced-motion: reduce) { .app-bcol[data-wip-reject] { animation: none; } }
+  .app-board-reject[hidden] { display: none; }
 
   /* Pencarian lanjutan (JQL): saved filter kiri + kotak query + hasil */
   .app-jql { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 16px; align-items: start; min-width: 0; }

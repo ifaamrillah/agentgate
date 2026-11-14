@@ -397,6 +397,13 @@ board-swim-assignee = Penerima
 board-swim-epic = Epic
 board-no-epic = Tanpa epic
 board-wip-over = Melebihi batas WIP { $wip }
+board-wip-full = Penuh: batas WIP { $wip } tercapai
+board-wip-load = { $load } dari batas WIP { $wip } tiket di project ini
+board-wip-rejected = Kartu tidak dipindah
+board-wip-force = Paksa pindah
+board-wip-force-description = Kolom ini sudah mencapai batas WIP. Sebagai Admin project, Anda bisa tetap memindahkan tiket dengan alasan yang tercatat di audit log.
+board-wip-force-hint = Mis. hotfix produksi yang harus dikerjakan sekarang.
+board-wip-force-submit = Pindahkan tetap
 
 ## Pencarian lanjutan, saved filter, edit massal
 search-advanced-title = Pencarian lanjutan
