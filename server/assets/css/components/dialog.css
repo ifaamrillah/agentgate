@@ -14,7 +14,20 @@
   .dialog[open] { animation: app-pop 0.16s ease; }
   .dialog > * { display: grid; gap: 0; padding: 0; max-width: none; width: 100%; background: none; border: 0; box-shadow: none; }
   /* Basecoat memusatkan isi dengan `position: fixed` + translate/scale; di sini <dialog> sendiri yang diposisikan. */
-  .dialog > *, .dialog:is([open], :popover-open) > * { position: static; inset: auto; translate: none; scale: none; transform: none; max-height: none; z-index: auto; }
+  /* Translate/scale Basecoat dinetralkan lewat variabel --tw-*, bukan `translate: none`: minifier
+     Tailwind (lightningcss) membuang `translate/scale: none` dari aturan ini, sehingga isi dialog
+     tergeser -50% ke kiri-atas dan terpotong. Variabel tidak ikut dibuang. Diuji bin/tests/css_test.sh. */
+  .dialog > *, .dialog:is([open], :popover-open) > * {
+    position: static; inset: auto; transform: none; max-height: none; z-index: auto;
+    --tw-translate-x: 0px; --tw-translate-y: 0px; --tw-scale-x: 100%; --tw-scale-y: 100%; --tw-scale-z: 100%;
+    translate: 0px 0px; scale: 1;
+  }
+  @starting-style { .dialog:is([open], :popover-open) > * { --tw-scale-x: 100%; --tw-scale-y: 100%; scale: 1; } }
+  /* Isi panjang (URL, kode) tidak boleh melebarkan dialog: dialog hanya bergulir vertikal. */
+  .dialog { overflow-x: hidden; }
+  /* Dialog sering ditulis di dalam sel tabel/baris aksi (nowrap, rata kanan): putus warisan teksnya. */
+  .dialog { white-space: normal; text-align: left; font-weight: 400; overflow-wrap: anywhere; }
+  .dialog > * > *, .dialog > * > form > * { min-width: 0; }
   .dialog > * > header { padding: 18px 20px 0; display: flex; flex-direction: row; gap: 12px; align-items: flex-start; text-align: left; }
   .dialog > * > header > div { flex: 1; min-width: 0; }
   .dialog > * > header h2 { font-size: 16px; font-weight: 600; }
