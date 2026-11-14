@@ -114,7 +114,9 @@ impl WebhookEvent {
             | EventKind::DecisionNeeded
             | EventKind::Decided
             | EventKind::ArtifactSaved
-            | EventKind::PeopleChanged => Self::TicketUpdated,
+            | EventKind::PeopleChanged
+            | EventKind::EvidenceSubmitted
+            | EventKind::EvidenceDecided => Self::TicketUpdated,
         })
     }
 }

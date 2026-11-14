@@ -60,6 +60,12 @@ pub enum EventKind {
     /// Penugasan stage diubah.
     #[sea_orm(string_value = "people_changed")]
     PeopleChanged,
+    /// Bukti gate manual diunggah (`changes.name`, `changes.gate`; R1).
+    #[sea_orm(string_value = "evidence_submitted")]
+    EvidenceSubmitted,
+    /// Bukti gate manual disetujui/ditolak (`changes.status`, `changes.name`, `changes.note`).
+    #[sea_orm(string_value = "evidence_decided")]
+    EvidenceDecided,
 }
 
 impl TenantEntity for Entity {

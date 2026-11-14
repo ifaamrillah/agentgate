@@ -239,6 +239,11 @@ pub async fn set_active(
 ) -> Result<webhooks::Model, TicketFailure> {
     let txn = db.begin().await?;
     let hook = find_locked(&txn, acting, id).await?;
+    // Webhook yang dinonaktifkan otomatis hanya diaktifkan ulang Owner/Admin bawaan (R1): tujuan
+    // yang gagal beruntun perlu diperiksa dulu oleh pengelola workspace.
+    if active && hook.is_failing() && !acting.role.is_admin_everywhere() {
+        return Err(TicketFailure::NotFound);
+    }
     if hook.is_active() == active {
         txn.commit().await?;
         return Ok(hook);

@@ -20,6 +20,7 @@ mod m20261123_000001_create_exports_imports;
 mod m20261124_000001_create_jira;
 mod m20261125_000001_realtime_notify;
 mod m20261125_000002_create_system;
+mod m20261126_000001_r1_revisi;
 
 pub struct Migrator;
 
@@ -46,6 +47,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20261124_000001_create_jira::Migration),
             Box::new(m20261125_000001_realtime_notify::Migration),
             Box::new(m20261125_000002_create_system::Migration),
+            Box::new(m20261126_000001_r1_revisi::Migration),
             // inject-above (do not remove this comment)
         ]
     }

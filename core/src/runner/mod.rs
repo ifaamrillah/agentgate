@@ -11,6 +11,13 @@ pub mod protocol;
 pub mod rules;
 pub mod signing;
 
+/// Runner dianggap online bila heartbeat terakhirnya lebih baru dari ini (detik). Dipakai server
+/// (daftar runner, Status sistem, AI Office) dan CLI; keputusan pemilik R1: 90 detik.
+pub const ONLINE_SECONDS: i64 = 90;
+/// Interval heartbeat runner (detik): tiga heartbeat per jendela online, jadi satu-dua heartbeat
+/// yang hilang tidak membuat runner tampil offline.
+pub const HEARTBEAT_SECONDS: u64 = 30;
+
 /// Batas kata judul di nama branch.
 const BRANCH_WORDS: usize = 4;
 /// Batas panjang slug judul di nama branch.
@@ -52,6 +59,16 @@ pub fn sha256_hex(bytes: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn online_window_is_ninety_seconds_with_thirty_second_heartbeat() {
+        assert_eq!(ONLINE_SECONDS, 90);
+        assert_eq!(HEARTBEAT_SECONDS, 30);
+        assert_eq!(
+            i64::try_from(HEARTBEAT_SECONDS * 3).unwrap(),
+            ONLINE_SECONDS
+        );
+    }
 
     #[test]
     fn branch_names_follow_convention() {

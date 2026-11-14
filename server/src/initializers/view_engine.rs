@@ -70,6 +70,17 @@ impl tera::Function<TeraResult<Value>> for MarkdownFn {
     }
 }
 
+/// Fungsi Tera `sentry()`: konfigurasi Sentry browser (`dsn`, `environment`, `release`), atau
+/// `none` bila error tracking mati (R1).
+pub struct SentryFn;
+
+impl tera::Function<TeraResult<Value>> for SentryFn {
+    fn call(&self, _kwargs: Kwargs, _state: &State) -> TeraResult<Value> {
+        Ok(crate::services::error_tracking::browser()
+            .map_or(Value::none(), Value::from_serializable))
+    }
+}
+
 /// Bangun view engine aplikasi. Dipakai initializer dan tes (satu implementasi).
 pub fn build_view_engine() -> Result<TeraView> {
     let locales = i18n::loader()?;
@@ -82,6 +93,7 @@ pub fn build_view_engine() -> Result<TeraView> {
         tera.register_function("icon", IconFn(icons.clone()));
         tera.register_function("palette", PaletteFn);
         tera.register_function("markdown", MarkdownFn);
+        tera.register_function("sentry", SentryFn);
         Ok(())
     })
 }

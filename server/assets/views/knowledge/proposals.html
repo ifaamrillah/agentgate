@@ -47,9 +47,9 @@
   {%- if can_approve %}
   <div class="app-kb-rvfoot">
     <span class="app-kb-note">{{ icon(name="git-commit") }}{{ t(key="kb-approve-note", lang="id") }}</span>
-    {{ <button label={t(key="kb-reject", lang="id")} icon="x" variant="outline" dialog="kb-reject"/> }}
+    {{ <button label={t(key="kb-reject", lang="id")} icon="x" variant="danger" dialog="kb-reject"/> }}
     {%- if not p.new_doc %}{{ <button label={t(key="kb-edit-first", lang="id")} icon="pencil" variant="outline" href={current.edit_href}/> }}{% endif %}
-    <form method="post" action="{{ current.approve_action }}" id="kb-approve">{% if queue | length > 1 %}{{ <button label={t(key="kb-approve-next", lang="id")} icon="check" type="submit"/> }}{% else %}{{ <button label={t(key="kb-approve", lang="id")} icon="check" type="submit"/> }}{% endif %}</form>
+    <form method="post" action="{{ current.approve_action }}" id="kb-approve">{% if queue | length > 1 %}{{ <button label={t(key="kb-approve-next", lang="id")} icon="check" variant="success" type="submit"/> }}{% else %}{{ <button label={t(key="kb-approve", lang="id")} icon="check" variant="success" type="submit"/> }}{% endif %}</form>
   </div>
   {% <dialog id="kb-reject" title={t(key="kb-reject-title", lang="id")} description={t(key="kb-reject-description", lang="id")} icon="x" tone="danger"> %}
   <form method="post" action="{{ current.reject_action }}">

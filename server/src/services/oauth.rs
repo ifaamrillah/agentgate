@@ -383,6 +383,8 @@ pub(crate) async fn ensure_grant<C: ConnectionTrait>(
     if let Some(g) = existing {
         return Ok(g);
     }
+    // Persetujuan pertama user mana pun membuka akses token client ini (R1).
+    oauth_clients::Model::mark_approved(txn, client.id).await?;
     let g = oauth_grants::ActiveModel {
         workspace_id: Set(workspace.id),
         user_id: Set(user_id),
@@ -525,7 +527,7 @@ pub async fn exchange_code(
     let pkce_ok =
         crate::common::crypto::ct_eq(s256(verifier).as_bytes(), row.code_challenge.as_bytes());
     if expired
-        || client.is_none_or(|c| c.client_id != client_id)
+        || client.is_none_or(|c| c.client_id != client_id || !c.is_approved())
         || row.redirect_uri != redirect_uri
         || !pkce_ok
     {
@@ -574,7 +576,9 @@ pub async fn refresh(
     let client = oauth_clients::Entity::find_by_id(grant.client_id)
         .one(&txn)
         .await?;
-    if row.expires_at < Utc::now() || client.is_none_or(|c| c.client_id != client_id) {
+    if row.expires_at < Utc::now()
+        || client.is_none_or(|c| c.client_id != client_id || !c.is_approved())
+    {
         return Err(INVALID_GRANT);
     }
     let mut used = row.into_active_model();

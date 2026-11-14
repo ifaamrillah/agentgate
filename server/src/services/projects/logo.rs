@@ -1,7 +1,7 @@
 //! Logo project (rules §8 storage): file disimpan lewat `ctx.storage` dengan key dari id
 //! (`projects/<project>/logo-<uuid>`), database menyimpan key, tipe, dan ukuran. Tipe dibaca
-//! dari isi berkas (PNG, JPEG, WebP), bukan dari nama atau header. SVG ditolak: bisa memuat
-//! skrip dan butuh sanitasi yang belum ada.
+//! dari isi berkas (PNG, JPEG, WebP, SVG), bukan dari nama atau header. SVG (R1) disimpan
+//! **setelah sanitasi** allowlist (`services::projects::svg`) dan disajikan dengan CSP ketat.
 //!
 //! Urutan tulis: upload dulu, lalu baris DB di transaksi bersama audit; bila transaksi gagal,
 //! file baru dihapus. File lama tidak pernah ditimpa: dihapus setelah commit.
@@ -55,19 +55,30 @@ fn invalid(code: &'static str) -> ProjectFailure {
     ProjectFailure::Invalid(errors.into())
 }
 
-/// Validasi berkas logo: tidak kosong, maksimal [`MAX_BYTES`], tipe dari isi.
+/// Content type logo SVG tersanitasi.
+pub const SVG_TYPE: &str = "image/svg+xml";
+
+/// Validasi berkas logo: tidak kosong, maksimal [`MAX_BYTES`], tipe dari isi. Mengembalikan
+/// tipe dan isi yang disimpan (SVG: hasil sanitasi; selain itu isi asli).
 ///
 /// # Errors
 ///
 /// [`ProjectFailure::Invalid`] pada field `logo`.
-pub fn validate(data: &[u8]) -> Result<&'static str, ProjectFailure> {
+pub fn validate(data: &Bytes) -> Result<(&'static str, Bytes), ProjectFailure> {
     if data.is_empty() {
         return Err(invalid(LOGO_EMPTY));
     }
     if data.len() > MAX_BYTES {
         return Err(invalid(LOGO_TOO_LARGE));
     }
-    sniff(data).ok_or_else(|| invalid(LOGO_TYPE_INVALID))
+    if let Some(t) = sniff(data) {
+        return Ok((t, data.clone()));
+    }
+    if super::svg::looks_like_svg(data) {
+        let clean = super::svg::sanitize(data).map_err(|_| invalid(LOGO_TYPE_INVALID))?;
+        return Ok((SVG_TYPE, Bytes::from(clean)));
+    }
+    Err(invalid(LOGO_TYPE_INVALID))
 }
 
 async fn remove_quietly(storage: &Storage, key: &str) {
@@ -89,7 +100,7 @@ pub async fn replace(
     project_id: Uuid,
     data: Bytes,
 ) -> Result<projects::Model, loco_rs::Error> {
-    let content_type = validate(&data)?;
+    let (content_type, data) = validate(&data)?;
     let admin = Administering::begin(db, acting, project_id).await?;
     let key = format!("projects/{project_id}/logo-{}", Uuid::now_v7());
     let size = i32::try_from(data.len()).unwrap_or(i32::MAX);
@@ -186,8 +197,28 @@ mod tests {
 
     #[test]
     fn rejects_empty_and_large() {
-        assert!(matches!(validate(b""), Err(ProjectFailure::Invalid(_))));
-        let big = vec![0x89; MAX_BYTES + 1];
+        assert!(matches!(
+            validate(&Bytes::new()),
+            Err(ProjectFailure::Invalid(_))
+        ));
+        let big = Bytes::from(vec![0x89; MAX_BYTES + 1]);
         assert!(matches!(validate(&big), Err(ProjectFailure::Invalid(_))));
+    }
+
+    #[test]
+    fn svg_is_stored_sanitized() {
+        let raw =
+            Bytes::from_static(b"<svg onload='alert(1)'><script>alert(1)</script><rect/></svg>");
+        let (t, data) = validate(&raw).unwrap();
+        assert_eq!(t, SVG_TYPE);
+        let text = std::str::from_utf8(&data).unwrap();
+        assert!(
+            !text.contains("script") && !text.contains("onload"),
+            "{text}"
+        );
+        assert!(matches!(
+            validate(&Bytes::from_static(b"<svg><g></svg>")),
+            Err(ProjectFailure::Invalid(_))
+        ));
     }
 }

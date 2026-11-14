@@ -99,6 +99,20 @@ impl Hooks for App {
             .insert(std::sync::Arc::new(crate::services::realtime::Hub::new(
                 ctx.db.get_postgres_connection_pool().clone(),
             )));
+        // Sentry browser (R1): DSN publik untuk `<meta>` di layout; kosong = mati.
+        if let Ok(s) = Settings::from_ctx(&ctx) {
+            crate::services::error_tracking::set_browser(
+                crate::services::error_tracking::BrowserConfig {
+                    dsn: s.system.sentry_dsn.trim().to_string(),
+                    environment: if s.system.sentry_environment.is_empty() {
+                        ctx.environment.to_string()
+                    } else {
+                        s.system.sentry_environment.clone()
+                    },
+                    release: format!("agentgate@{}", agentgate_core::VERSION),
+                },
+            );
+        }
         // Penghitung metrik request (M12, `/_metrics`).
         ctx.shared_store.insert(std::sync::Arc::new(
             crate::services::metrics::Registry::new(),
@@ -162,7 +176,16 @@ impl Hooks for App {
             std::sync::Arc::new(crate::common::settings::Settings::from_ctx(ctx)?.preview_host());
         let metrics = crate::services::metrics::Registry::of(ctx)
             .unwrap_or_else(|| std::sync::Arc::new(crate::services::metrics::Registry::new()));
+        let error_report =
+            std::sync::Arc::new(controllers::middleware::error_report::ErrorReport {
+                origin: crate::services::error_tracking::browser()
+                    .and_then(|c| crate::services::error_tracking::dsn_origin(&c.dsn)),
+            });
         Ok(router
+            // Error tracking (R1): 5xx ke Sentry (pola route), CSP connect-src bila DSN diisi.
+            .route_layer(axum::middleware::from_fn(
+                controllers::middleware::error_report::capture,
+            ))
             // Metrik per route (M12): route_layer = setelah routing, label pola route.
             .route_layer(axum::middleware::from_fn_with_state(
                 metrics,
@@ -176,6 +199,10 @@ impl Hooks for App {
             ))
             .layer(axum::middleware::from_fn(
                 controllers::middleware::csrf::layer,
+            ))
+            .layer(axum::middleware::from_fn_with_state(
+                error_report,
+                controllers::middleware::error_report::csp,
             ))
             .layer(axum::middleware::from_fn_with_state(
                 preview_host,

@@ -3,7 +3,7 @@
 //! stage Code Review di-approve (mode merge `auto_on_review`).
 
 use agentgate_core::{
-    git::{CiState, MergeMode, PrState, summarize, ticket_code_in},
+    git::{CiState, MergeMethod, MergeMode, PrState, summarize, ticket_code_in},
     runner::protocol::{LogStream, PullRequestInfo, PullRequestOpen},
 };
 use sea_orm::{
@@ -12,7 +12,9 @@ use sea_orm::{
 };
 use uuid::Uuid;
 
-use super::{NOT_CONNECTED, invalid, provider::PullInfo, provider_code, provider_for};
+use super::{
+    MERGE_NOT_READY, NOT_CONNECTED, invalid, provider::PullInfo, provider_code, provider_for,
+};
 use crate::{
     common::settings::Settings,
     models::{
@@ -299,9 +301,73 @@ pub(crate) async fn notify_ticket(
     notify_users(db, wid, actor, users, kind, ticket.id).await
 }
 
+/// CI PR lulus: status gabungan hijau dan, bila project mewajibkan CI, setiap check wajib
+/// lulus (aturan yang sama dengan gate `ci_green`).
+#[must_use]
+pub fn ci_ok(settings: &agentgate_core::git::GitSettings, pr: &pull_requests::Model) -> bool {
+    let checks = pr.checks();
+    pr.ci() == CiState::Success
+        && (!settings.require_ci
+            || settings.required_checks.iter().all(|name| {
+                checks
+                    .iter()
+                    .any(|c| c.name.eq_ignore_ascii_case(name) && c.state == CiState::Success)
+            }))
+}
+
+/// Merge satu PR lewat provider dengan cara merge project, lalu tandai merged + audit
+/// `pull_request.merged`. `Ok(Err(kode))` = provider menolak/tidak terhubung.
+async fn merge_one(
+    db: &DatabaseConnection,
+    settings: &Settings,
+    wid: WorkspaceId,
+    (actor, request_id): (Uuid, Option<String>),
+    ticket_code: &str,
+    pr: &pull_requests::Model,
+    method: MergeMethod,
+) -> Result<Result<pull_requests::Model, &'static str>, DbErr> {
+    let Some(repo) = repos::Entity::find_by_id(pr.repo_id).one(db).await? else {
+        return Ok(Err(NOT_CONNECTED));
+    };
+    let result = match connection_of(db, wid, &repo).await? {
+        Some(conn) => match provider_for(&conn, settings) {
+            Ok(p) => p
+                .merge_pull(&repo.full_name, pr.number, method)
+                .await
+                .map_err(|e| provider_code(&e)),
+            Err(_) => Err(super::TOKEN_INVALID),
+        },
+        None => Err(NOT_CONNECTED),
+    };
+    if let Err(code) = result {
+        return Ok(Err(code));
+    }
+    let mut m = pr.clone().into_active_model();
+    m.state = Set(PrState::Merged.as_str().into());
+    m.merged_at = Set(Some(now()));
+    m.closed_at = Set(Some(now()));
+    let pr = m.update(db).await?;
+    audit::record(
+        db,
+        AuditEntry {
+            workspace_id: wid,
+            actor_id: Some(actor),
+            action: AuditAction::PullRequestMerged,
+            subject: (AuditSubject::PullRequest, pr.id),
+            changes: serde_json::json!({
+                "repo": repo.full_name, "number": pr.number, "ticket": ticket_code,
+                "method": method.as_str(),
+            }),
+            request_id,
+        },
+    )
+    .await?;
+    Ok(Ok(pr))
+}
+
 /// Mode merge otomatis: setelah stage ber-persona Code Reviewer di-approve, PR terbuka tiket
-/// yang CI-nya hijau di-merge lewat provider. Gagal → notifikasi `merge_failed`, tidak
-/// membatalkan approve. Mengembalikan jumlah PR yang di-merge.
+/// yang CI-nya hijau di-merge lewat provider (cara merge project). Gagal → notifikasi
+/// `merge_failed`, tidak membatalkan approve. Mengembalikan jumlah PR yang di-merge.
 ///
 /// # Errors
 ///
@@ -317,7 +383,8 @@ pub async fn auto_merge(
     let Some(project) = projects::Model::find_in(db, wid, ticket.project_id).await? else {
         return Ok(0);
     };
-    if project.git_settings().merge_mode != MergeMode::AutoOnReview {
+    let git = project.git_settings();
+    if git.merge_mode != MergeMode::AutoOnReview {
         return Ok(0);
     }
     let mut merged = 0;
@@ -325,46 +392,22 @@ pub async fn auto_merge(
         if !matches!(pr.state(), PrState::Open) {
             continue;
         }
-        let Some(repo) = repos::Entity::find_by_id(pr.repo_id).one(db).await? else {
-            continue;
-        };
-        let result = if pr.ci() == CiState::Success {
-            match connection_of(db, wid, &repo).await? {
-                Some(conn) => match provider_for(&conn, settings) {
-                    Ok(p) => p
-                        .merge_pull(&repo.full_name, pr.number)
-                        .await
-                        .map_err(|e| provider_code(&e).to_string()),
-                    Err(_) => Err(super::TOKEN_INVALID.to_string()),
-                },
-                None => Err(NOT_CONNECTED.to_string()),
-            }
+        let result = if ci_ok(&git, &pr) {
+            merge_one(
+                db,
+                settings,
+                wid,
+                (actor, request_id.clone()),
+                &ticket.code,
+                &pr,
+                git.merge_method,
+            )
+            .await?
         } else {
-            Err("ci-not-green".to_string())
+            Err("ci-not-green")
         };
         match result {
-            Ok(()) => {
-                merged += 1;
-                let mut m = pr.clone().into_active_model();
-                m.state = Set(PrState::Merged.as_str().into());
-                m.merged_at = Set(Some(now()));
-                m.closed_at = Set(Some(now()));
-                let pr = m.update(db).await?;
-                audit::record(
-                    db,
-                    AuditEntry {
-                        workspace_id: wid,
-                        actor_id: Some(actor),
-                        action: AuditAction::PullRequestMerged,
-                        subject: (AuditSubject::PullRequest, pr.id),
-                        changes: serde_json::json!({
-                            "repo": repo.full_name, "number": pr.number, "ticket": ticket.code,
-                        }),
-                        request_id: request_id.clone(),
-                    },
-                )
-                .await?;
-            }
+            Ok(_) => merged += 1,
             Err(code) => {
                 tracing::warn!(pr = pr.number, code, "auto merge failed");
                 notify_ticket(db, wid, None, ticket.id, NotificationKind::MergeFailed).await?;
@@ -374,11 +417,34 @@ pub async fn auto_merge(
     Ok(merged)
 }
 
-/// Persona Code Reviewer bawaan: approve stage-nya memicu merge otomatis.
+/// Mode merge manual (default, R1): approve stage Code Reviewer menandai PR terbuka tiket siap
+/// di-merge (`merge_ready_at`); tombol Merge tampil untuk PR bertanda yang CI-nya hijau.
+async fn mark_merge_ready(
+    db: &DatabaseConnection,
+    wid: WorkspaceId,
+    ticket: &tickets::Model,
+) -> Result<(), DbErr> {
+    pull_requests::Entity::update_many()
+        .col_expr(
+            pull_requests::Column::MergeReadyAt,
+            sea_orm::sea_query::Expr::value(now()),
+        )
+        .filter(pull_requests::Column::WorkspaceId.eq(wid.get()))
+        .filter(pull_requests::Column::TicketId.eq(ticket.id))
+        .filter(
+            pull_requests::Column::State.is_in([PrState::Open.as_str(), PrState::Draft.as_str()]),
+        )
+        .exec(db)
+        .await?;
+    Ok(())
+}
+
+/// Persona Code Reviewer bawaan: approve stage-nya memicu merge (otomatis atau tombol Merge).
 pub const REVIEWER_PERSONA: &str = "reviewer";
 
 /// Dipanggil setelah approve berhasil. `before` = tiket sebelum approve (stage yang
-/// di-approve). Merge otomatis hanya untuk stage ber-persona Code Reviewer.
+/// di-approve). Hanya stage ber-persona Code Reviewer: mode otomatis langsung merge, mode
+/// manual menandai PR siap di-merge.
 ///
 /// # Errors
 ///
@@ -399,7 +465,82 @@ pub async fn after_approve(
     if !reviewer {
         return Ok(0);
     }
-    auto_merge(db, settings, wid, actor, before, request_id).await
+    let auto = projects::Model::find_in(db, wid, before.project_id)
+        .await?
+        .is_some_and(|p| p.git_settings().merge_mode == MergeMode::AutoOnReview);
+    if auto {
+        auto_merge(db, settings, wid, actor, before, request_id).await
+    } else {
+        mark_merge_ready(db, wid, before).await?;
+        Ok(0)
+    }
+}
+
+/// PR boleh di-merge lewat tombol Merge: mode manual, sudah ditandai siap (review di-approve),
+/// masih terbuka, dan CI lulus.
+#[must_use]
+pub fn can_merge_now(git: &agentgate_core::git::GitSettings, pr: &pull_requests::Model) -> bool {
+    git.merge_mode == MergeMode::Manual
+        && pr.merge_ready_at.is_some()
+        && pr.state() == PrState::Open
+        && ci_ok(git, pr)
+}
+
+/// Tombol Merge (mode manual): pelaku dengan `EditProject` me-merge PR lewat provider.
+///
+/// # Errors
+///
+/// `NotFound` (PR/izin), `Invalid` (`git-merge-not-ready`, kode provider), error database.
+pub async fn merge_now(
+    db: &DatabaseConnection,
+    settings: &Settings,
+    acting: &crate::services::workspaces::Acting<'_>,
+    pr_id: Uuid,
+) -> Result<pull_requests::Model, TicketFailure> {
+    let wid = acting.workspace_id();
+    let pr = pull_requests::Entity::find_by_id(pr_id)
+        .filter(pull_requests::Column::WorkspaceId.eq(wid.get()))
+        .one(db)
+        .await?
+        .ok_or(TicketFailure::NotFound)?;
+    crate::services::tickets::access_in(
+        db,
+        acting,
+        pr.project_id,
+        crate::models::permission::Permission::EditProject,
+    )
+    .await?;
+    let project = projects::Model::find_in(db, wid, pr.project_id)
+        .await?
+        .ok_or(TicketFailure::NotFound)?;
+    let git = project.git_settings();
+    if !can_merge_now(&git, &pr) {
+        return Err(TicketFailure::field("merge", MERGE_NOT_READY));
+    }
+    let code = match pr.ticket_id {
+        Some(t) => tickets::Model::find_in(db, wid, t)
+            .await?
+            .map(|t| t.code)
+            .unwrap_or_default(),
+        None => String::new(),
+    };
+    match merge_one(
+        db,
+        settings,
+        wid,
+        (acting.user.id, acting.request_id.clone()),
+        &code,
+        &pr,
+        git.merge_method,
+    )
+    .await?
+    {
+        Ok(pr) => Ok(pr),
+        Err(code) => {
+            tracing::warn!(pr = pr.number, code, "manual merge failed");
+            Err(TicketFailure::field("merge", code))
+        }
+    }
 }
 
 /// Branch PR sinkronisasi aturan (sama dengan CLI `agentgate rules sync`).

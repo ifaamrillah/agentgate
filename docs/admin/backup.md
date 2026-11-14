@@ -4,7 +4,11 @@ Container `backup` menjalankan `deploy/backup/backup.sh` setiap hari pukul `BACK
 
 1. `pg_dump --format=custom` seluruh database → `s3://BACKUP_REMOTE_BUCKET/PREFIX/postgres/agentgate-<waktu>.dump`;
 2. `rclone sync` bucket file aplikasi → `…/PREFIX/files` (salinan cermin);
-3. dump lebih tua dari `BACKUP_RETENTION_DAYS` (default 14) dihapus;
+3. retensi (`deploy/backup/retention.sh`): semua dump `BACKUP_RETENTION_DAYS` hari terakhir (default
+   14) disimpan, ditambah **satu salinan bulanan** (dump pertama setiap bulan kalender UTC) selama
+   `BACKUP_MONTHLY_MONTHS` bulan (default 6, dihitung 31 hari per bulan). Dump lain dihapus; berkas
+   dengan nama di luar pola `agentgate-YYYYmmddTHHMMSSZ.dump` tidak pernah disentuh. Logika ini
+   diuji `bin/tests/backup_retention_test.sh` (bagian `bin/ci`);
 4. hasil (ok/gagal, ukuran, lokasi, pesan) dicatat di tabel `system_backups` → Status sistem → Backup.
 
 Tujuan backup **harus di luar VPS** (provider berbeda lebih baik). Gunakan kunci akses khusus
@@ -16,6 +20,7 @@ backup yang hanya boleh menulis ke bucket itu.
 C="docker compose -f deploy/compose.yaml --env-file deploy/.env"
 $C exec backup backup.sh now          # backup sekarang
 $C exec backup backup.sh list         # daftar dump
+$C exec backup backup.sh prune        # jalankan retensi saja (tanpa backup baru)
 ```
 
 ## Pulihkan

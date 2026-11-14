@@ -78,6 +78,9 @@ pub enum NotificationKind {
     /// Sinkron Jira gagal (token ditolak, Jira tidak terjangkau; M11; tanpa tiket/project).
     #[sea_orm(string_value = "jira_failed")]
     JiraFailed,
+    /// Bukti gate manual menunggu persetujuan approver stage (R1).
+    #[sea_orm(string_value = "evidence_review")]
+    EvidenceReview,
 }
 
 impl TenantEntity for Entity {

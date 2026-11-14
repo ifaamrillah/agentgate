@@ -73,8 +73,13 @@ pub trait GitProvider: Send + Sync {
         head: &str,
     ) -> Result<Option<PullInfo>, ProviderError>;
     async fn pull(&self, full_name: &str, number: i64) -> Result<PullInfo, ProviderError>;
-    /// Merge (squash).
-    async fn merge_pull(&self, full_name: &str, number: i64) -> Result<(), ProviderError>;
+    /// Merge dengan cara `method` (squash/merge/rebase, Konvensi git project).
+    async fn merge_pull(
+        &self,
+        full_name: &str,
+        number: i64,
+        method: agentgate_core::git::MergeMethod,
+    ) -> Result<(), ProviderError>;
     /// Pasang webhook (event PR dan CI) → id hook.
     async fn create_webhook(
         &self,
@@ -349,7 +354,12 @@ impl GitProvider for GithubProvider {
         Ok(pr.into())
     }
 
-    async fn merge_pull(&self, full_name: &str, number: i64) -> Result<(), ProviderError> {
+    async fn merge_pull(
+        &self,
+        full_name: &str,
+        number: i64,
+        method: agentgate_core::git::MergeMethod,
+    ) -> Result<(), ProviderError> {
         let (o, r) = split(full_name)?;
         let _: serde_json::Value = self
             .send(
@@ -357,7 +367,7 @@ impl GitProvider for GithubProvider {
                     reqwest::Method::PUT,
                     &format!("/repos/{o}/{r}/pulls/{number}/merge"),
                 )
-                .json(&json!({ "merge_method": "squash" })),
+                .json(&json!({ "merge_method": method.as_str() })),
             )
             .await?;
         Ok(())

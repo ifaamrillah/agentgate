@@ -18,6 +18,9 @@
           · <span class="app-pr-diff"><ins>+{{ pr.additions }}</ins> <del>−{{ pr.deletions }}</del></span></small>
       </span>
       {{ <pr_state state={pr.state}/> }}
+      {%- if pr.merge_href %}
+      <form method="post" action="{{ pr.merge_href }}">{{ <button label={t(key="pr-merge", lang="id")} icon="git-merge" variant="success" size="sm" type="submit" attrs="data-merge"/> }}</form>
+      {%- endif %}
       {{ <button label={t(key="pr-open-provider", lang="id")} icon="external-link" variant="outline" size="sm" href={pr.url} attrs="target=_blank rel=noopener data-pr-link"/> }}
     </div>
     <div class="app-pr-checks">

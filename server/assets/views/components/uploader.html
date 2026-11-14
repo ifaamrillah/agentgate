@@ -9,8 +9,9 @@
       title: string             judul kecil, sudah diterjemahkan (mis. "Logo terpasang")
       hint: string              keterangan (mis. tipe dan ukuran maksimal)
       upload_label: string      teks tombol (mis. "Unggah logo")
+      accept: string            atribut accept input berkas (default PNG/JPEG/WebP/SVG)
       error: string             kode error unggah (default "") -#}
-{% component uploader(action: string, title: string, hint: string, upload_label: string, initials: string, color: string = "", image: string = "", remove_action: string = "", error: string = "") %}
+{% component uploader(action: string, title: string, hint: string, upload_label: string, initials: string, color: string = "", image: string = "", remove_action: string = "", error: string = "", accept: string = "image/png,image/jpeg,image/webp,image/svg+xml") %}
 <div class="app-up" data-uploader>
   {{ <project_logo initials={initials} color={color} image={image} size="xl"/> }}
   <div class="app-up-body">
@@ -19,7 +20,7 @@
     {%- if error %}<p class="app-field-error" role="alert">{{ t(key=error, lang="id") }}</p>{% endif %}
     <div class="app-up-acts">
       <form method="post" action="{{ action }}" enctype="multipart/form-data">
-        <input type="file" name="file" accept="image/png,image/jpeg,image/webp" aria-label="{{ upload_label }}" tabindex="-1">
+        <input type="file" name="file" accept="{{ accept }}" aria-label="{{ upload_label }}" tabindex="-1">
         <button type="submit" class="btn" data-variant="outline" data-size="sm" data-uploader-pick>{{ icon(name="upload") }}{{ upload_label }}</button>
       </form>
       {%- if image and remove_action %}

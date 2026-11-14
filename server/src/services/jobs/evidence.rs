@@ -199,7 +199,8 @@ pub async fn of_job<C: ConnectionTrait>(
         .await
 }
 
-/// Gate evidence stage sekarang: (`tests_passed`, `screenshot_exists`).
+/// Gate evidence stage sekarang: (`tests_passed`, `screenshot_exists`), dari evidence runner
+/// atau bukti manual yang sudah disetujui.
 /// Hasil test = laporan test **terbaru** sejak masuk stage (tes gagal setelah lulus = belum).
 ///
 /// # Errors
@@ -218,5 +219,8 @@ pub async fn gate_status<C: ConnectionTrait>(
     let shots = all
         .iter()
         .any(|e| e.kind() == Some(EvidenceKind::Screenshot));
-    Ok((tests, shots))
+    // Bukti manual yang disetujui approver stage juga memenuhi gate (R1).
+    let (manual_tests, manual_shots) =
+        crate::services::tickets::manual_evidence::approved_gates(db, wid, ticket).await?;
+    Ok((tests || manual_tests, shots || manual_shots))
 }

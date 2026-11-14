@@ -347,6 +347,21 @@ pub async fn events(
     Ok(out)
 }
 
+/// Auto-ambil dan batas paralel efektif runner: runner tim memakai pengaturan per runner
+/// (Owner/Admin, auto-ambil default nyala), runner pribadi memakai pengaturan pribadi pemiliknya
+/// (auto-ambil default mati).
+async fn effective_limits<C: ConnectionTrait>(
+    db: &C,
+    wid: crate::models::workspaces::WorkspaceId,
+    runner: &runners::Model,
+) -> Result<(bool, Option<i32>), DbErr> {
+    if runner.team {
+        return Ok((runner.auto_claim, runner.max_parallel));
+    }
+    let prefs = runner_prefs::Model::of(db, wid, runner.user_id).await?;
+    Ok((prefs.auto_claim, prefs.max_parallel))
+}
+
 /// Auto-ambil (pengaturan runner): selama runner idle (di bawah batas paralel), job antrean
 /// yang boleh diambil pemilik runner langsung dikunci ke runner ini.
 async fn auto_claim(
@@ -356,8 +371,8 @@ async fn auto_claim(
 ) -> Result<(), DbErr> {
     let acting = session.acting();
     let wid = acting.workspace_id();
-    let prefs = runner_prefs::Model::of(db, wid, session.user.id).await?;
-    if !prefs.auto_claim {
+    let (auto, max_parallel) = effective_limits(db, wid, runner).await?;
+    if !auto {
         return Ok(());
     }
     let busy = jobs::Entity::find()
@@ -366,17 +381,17 @@ async fn auto_claim(
         .all(db)
         .await?
         .len();
-    let limit = prefs
-        .max_parallel
-        .map_or(1, |m| usize::try_from(m).unwrap_or(1));
+    let limit = max_parallel.map_or(1, |m| usize::try_from(m).unwrap_or(1));
     if busy >= limit {
         return Ok(());
     }
     if let Some(row) = queue(db, &acting).await?.into_iter().find(|r| {
         r.can_claim
                 && r.job.status() == JobStatus::Queued
-                // Job knowledge hanya auto-diambil runner peminta/pemilik knowledge.
-                && (r.job.ticket_id.is_some() || r.job.requested_by == Some(session.user.id))
+                // Job knowledge hanya auto-diambil runner peminta/pemilik knowledge, atau runner tim.
+                && (r.job.ticket_id.is_some()
+                    || runner.team
+                    || r.job.requested_by == Some(session.user.id))
     }) {
         match claim(db, &acting, row.job.id, Some(runner.id)).await {
             Ok(_) | Err(TicketFailure::Invalid(_) | TicketFailure::NotFound) => {}
@@ -513,9 +528,8 @@ async fn runner_has_room(
     if job.status().is_active() && job.runner_id == Some(runner.id) {
         return Ok(());
     }
-    let prefs =
-        runner_prefs::Model::of(db, session.workspace.workspace_id(), session.user.id).await?;
-    let Some(max) = prefs.max_parallel else {
+    let (_, max_parallel) = effective_limits(db, session.workspace.workspace_id(), runner).await?;
+    let Some(max) = max_parallel else {
         return Ok(());
     };
     let active = jobs::Entity::find()

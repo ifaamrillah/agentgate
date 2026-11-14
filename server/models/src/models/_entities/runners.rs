@@ -29,6 +29,9 @@ pub struct Model {
     pub connected_at: Option<DateTimeWithTimeZone>,
     pub last_seen_at: Option<DateTimeWithTimeZone>,
     pub revoked_at: Option<DateTimeWithTimeZone>,
+    pub team: bool,
+    pub auto_claim: bool,
+    pub max_parallel: Option<i32>,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
 }

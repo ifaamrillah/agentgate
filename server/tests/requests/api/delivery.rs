@@ -210,9 +210,15 @@ async fn failures_retry_with_backoff_then_disable_the_webhook() {
             .get("/w/acme/settings/api/hooks")
             .add_cookie(f.cookie.clone())
             .await;
+        let html = res.text();
         assert_css_exists(
-            &res.text(),
+            &html,
             &format!("tr[data-hook='{}'][data-state='off']", h.id),
+        );
+        // R1: alert penyebab + tombol Aktifkan ulang untuk Owner/Admin.
+        assert_css_exists(
+            &html,
+            &format!("[data-hook-failing='{}'] [data-reenable]", h.id),
         );
 
         // Aktifkan lagi lalu kirim ulang: penerima sudah pulih (antrean 500 habis).

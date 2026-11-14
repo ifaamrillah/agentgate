@@ -100,8 +100,8 @@
     </div>
     <footer class="app-of-acts">
       {%- if c.st == "review" and panel.can_decide %}
-      <form method="post" action="{{ panel.approve }}" data-office-approve><input type="hidden" name="return_to" value="{{ panel.return_to }}">{{ <button label={t(key="office-approve", lang="id")} icon="check" type="submit"/> }}</form>
-      {{ <button label={t(key="office-reject", lang="id")} icon="x" variant="outline" dialog="office-reject"/> }}
+      <form method="post" action="{{ panel.approve }}" data-office-approve><input type="hidden" name="return_to" value="{{ panel.return_to }}">{{ <button label={t(key="office-approve", lang="id")} icon="check" variant="success" type="submit"/> }}</form>
+      {{ <button label={t(key="office-reject", lang="id")} icon="x" variant="danger" dialog="office-reject"/> }}
       {%- elif c.st == "decision" %}
       {{ <button label={t(key="office-decide", lang="id")} icon="alert-triangle" href={c.ticket_href}/> }}
       {%- elif c.st == "review" and panel.live %}
@@ -123,7 +123,7 @@
     </div></section>
     <footer>
       <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
-      {{ <button label={t(key="office-reject-send", lang="id")} type="submit" icon="x" variant="destructive"/> }}
+      {{ <button label={t(key="office-reject-send", lang="id")} type="submit" icon="x" variant="danger"/> }}
     </footer>
   </form>
   {% </dialog> %}

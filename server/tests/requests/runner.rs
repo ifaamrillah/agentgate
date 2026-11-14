@@ -1373,3 +1373,101 @@ async fn start_refuses_jobs_beyond_max_parallel() {
     })
     .await;
 }
+
+/// R1: panel Runner tim dan pengaturan tim hanya Owner/Admin; runner pribadi tidak auto-ambil
+/// (pengaturan pribadi default mati), runner tim auto-ambil sejak ditandai.
+#[tokio::test]
+async fn team_runner_settings_are_admin_only_and_team_runners_auto_claim() {
+    request::<App, _, _>(|request, ctx| async move {
+        let f = fixture(&request, &ctx).await;
+        let (job, token) = ticket_in_dev(&request, &ctx, &f).await;
+        let runner = register(&request, &token, &SECRET).await;
+
+        // Member: tidak melihat panel tim dan tidak bisa mengubah runner tim.
+        let (_, mia) = member(&request, &ctx, &f, "Mia Member").await;
+        let res = request
+            .get("/w/acme/runner/team")
+            .add_cookie(mia.clone())
+            .await;
+        assert_eq!(res.status_code(), 404);
+        let html = request
+            .get("/w/acme/runner/mine")
+            .add_cookie(mia.clone())
+            .await
+            .text();
+        assert_css_exists(&html, "[data-subnav] [data-nav='mine']");
+        assert_css_not_exists(&html, "[data-subnav] [data-nav='team']");
+        let res = web_post(
+            &request,
+            &mia,
+            &format!("/w/acme/runner/runners/{runner}/team"),
+            &[("team", "1")],
+        )
+        .await;
+        assert_eq!(res.status_code(), 404);
+
+        // Runner pribadi: auto-ambil mati → event tidak mengunci job.
+        let (status, _) = get_json(
+            &request,
+            &token,
+            &format!("/api/runner/events?runner={runner}"),
+        )
+        .await;
+        assert_eq!(status, 200);
+        let row =
+            agentgate_server::models::jobs::Entity::find_by_id(Uuid::parse_str(&job).unwrap())
+                .one(&ctx.db)
+                .await
+                .unwrap()
+                .unwrap();
+        assert_eq!(row.status, "queued");
+
+        // Owner menandai runner tim → auto-ambil menyala (default runner tim), lalu mengambil job.
+        let res = web_post(
+            &request,
+            &f.cookie,
+            &format!("/w/acme/runner/runners/{runner}/team"),
+            &[("team", "1"), ("max_parallel", "2")],
+        )
+        .await;
+        assert_eq!(res.status_code(), 303);
+        let r = agentgate_server::models::runners::Entity::find_by_id(
+            Uuid::parse_str(&runner).unwrap(),
+        )
+        .one(&ctx.db)
+        .await
+        .unwrap()
+        .unwrap();
+        assert!(r.team && r.auto_claim);
+        assert_eq!(r.max_parallel, Some(2));
+        let html = request
+            .get("/w/acme/runner/team")
+            .add_cookie(f.cookie.clone())
+            .await
+            .text();
+        assert_css_exists(
+            &html,
+            &format!("[data-runner='{runner}'] [data-team-runner]"),
+        );
+        assert_css_exists(&html, "[data-team-form]");
+        get_json(
+            &request,
+            &token,
+            &format!("/api/runner/events?runner={runner}"),
+        )
+        .await;
+        let row =
+            agentgate_server::models::jobs::Entity::find_by_id(Uuid::parse_str(&job).unwrap())
+                .one(&ctx.db)
+                .await
+                .unwrap()
+                .unwrap();
+        assert_eq!(row.status, "claimed");
+        assert_eq!(row.runner_id, Some(r.id));
+        let audit = crate::support::newest_audit_events(&ctx.db, f.workspace.workspace_id(), 1)
+            .await
+            .unwrap();
+        assert_eq!(audit[0].action, "runner.updated");
+    })
+    .await;
+}

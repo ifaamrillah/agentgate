@@ -8,8 +8,8 @@
 //!   `EditProject`;
 //! - approve/tolak usulan: pemilik knowledge project, atau `AdministerProject` (juga bila belum
 //!   ada pemilik);
-//! - dokumen workspace, jenis custom, pengaturan update otomatis: `ManageTicketSettings`
-//!   (Owner/Admin bawaan, sama dengan workflow).
+//! - dokumen workspace, jenis custom, pengaturan update otomatis: `ManageKnowledge`
+//!   (Owner/Admin bawaan; role custom bisa diberi izin ini).
 //!
 //! AI tidak pernah menimpa dokumen langsung: semua hasilnya masuk sebagai usulan.
 
@@ -127,7 +127,7 @@ pub async fn user_can<C: ConnectionTrait>(
 /// Pelaku boleh mengelola knowledge workspace (dokumen workspace, jenis custom, pengaturan).
 #[must_use]
 pub fn can_manage_workspace(acting: &Acting<'_>) -> bool {
-    acting.role.has(Permission::ManageTicketSettings)
+    acting.role.has(Permission::ManageKnowledge)
 }
 
 /// Slug dari judul: huruf kecil ASCII, angka, tanda hubung; maksimal 60 karakter.

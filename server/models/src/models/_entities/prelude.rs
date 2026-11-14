@@ -32,6 +32,7 @@ pub use super::knowledge_sources::Entity as KnowledgeSources;
 pub use super::knowledge_types::Entity as KnowledgeTypes;
 pub use super::knowledge_versions::Entity as KnowledgeVersions;
 pub use super::login_throttles::Entity as LoginThrottles;
+pub use super::manual_evidence::Entity as ManualEvidence;
 pub use super::notifications::Entity as Notifications;
 pub use super::oauth_clients::Entity as OauthClients;
 pub use super::oauth_codes::Entity as OauthCodes;

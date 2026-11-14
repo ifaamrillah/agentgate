@@ -24,6 +24,7 @@ pub const FLASH_QUOTA_WAIT: &str = "job-flash-quota-wait";
 pub const FLASH_PERMISSION: &str = "job-flash-permission";
 pub const FLASH_PREFS: &str = "runner-flash-prefs";
 pub const FLASH_REVOKED: &str = "runner-flash-revoked";
+pub const FLASH_TEAM_SAVED: &str = "runner-flash-team-saved";
 
 /// Kunci teks yang dipakai dari Rust (kontrak i18n).
 pub const MESSAGE_KEYS: &[&str] = &[
@@ -34,6 +35,7 @@ pub const MESSAGE_KEYS: &[&str] = &[
     FLASH_PERMISSION,
     FLASH_PREFS,
     FLASH_REVOKED,
+    FLASH_TEAM_SAVED,
 ];
 
 /// Kunci Fluent + varian badge status job.
@@ -279,6 +281,12 @@ pub struct RunnerView {
     pub owner: PersonView,
     pub mine: bool,
     pub revoke_href: Option<String>,
+    /// Runner tim (R1) dan pengaturannya.
+    pub team: bool,
+    pub auto_claim: bool,
+    pub max_parallel: String,
+    /// Form pengaturan runner tim (hanya Owner/Admin bawaan).
+    pub team_href: Option<String>,
 }
 
 /// Job yang sedang dikerjakan runner.
@@ -297,6 +305,7 @@ impl RunnerView {
         slug: &str,
         viewer: Uuid,
         can_revoke: bool,
+        can_manage_team: bool,
     ) -> Self {
         let online = r.is_online();
         let (state, state_key) = match (online, job.is_some()) {
@@ -318,6 +327,10 @@ impl RunnerView {
             owner: PersonView::of(owner),
             mine: r.user_id == viewer,
             revoke_href: can_revoke.then(|| format!("/w/{slug}/runner/runners/{}/revoke", r.id)),
+            team: r.team,
+            auto_claim: r.auto_claim,
+            max_parallel: r.max_parallel.map(|n| n.to_string()).unwrap_or_default(),
+            team_href: can_manage_team.then(|| format!("/w/{slug}/runner/runners/{}/team", r.id)),
         }
     }
 }

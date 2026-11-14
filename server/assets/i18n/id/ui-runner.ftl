@@ -3,6 +3,7 @@
 ## Audit
 audit-action-runner-registered = Runner didaftarkan
 audit-action-runner-revoked = Runner dicabut
+audit-action-runner-updated = Pengaturan runner diubah
 audit-action-job-cancelled = Job dibatalkan
 audit-action-job-permission-decided = Permintaan izin aksi dijawab
 audit-subject-runner = Runner
@@ -69,7 +70,7 @@ age-days = { $n } hari lalu
 
 ## Runner & CLI
 runner-title = Runner & CLI
-runner-description = Job AI selalu berjalan di runner pribadi milik executor, dengan langganan AI executor itu. Runner tidak pernah menyala otomatis.
+runner-description = Job AI berjalan di runner milik executor, dengan langganan AI executor itu. Runner pribadi tidak mengambil job otomatis kecuali Anda menyalakan auto-ambil; runner tim diatur Owner/Admin.
 runner-panel-perm = Permintaan izin
 runner-panel-perm-desc = Job dijeda menunggu jawaban
 runner-panel-queue = Antrean job
@@ -92,7 +93,7 @@ runner-queue-empty = Antrean kosong
 runner-queue-empty-description = Job muncul di sini saat tiket masuk stage yang dikerjakan agent.
 runner-start-info = Runner dinyalakan dari terminal dengan agentgate runner start, selalu dengan konfirmasi.
 runner-mine-description = Runner tidak pernah menyala otomatis. Job memakai langganan AI Anda sendiri.
-runner-team-description = Runner hanya menerima job dari stage yang executor-nya pemilik runner.
+runner-team-description = Semua runner di workspace. Runner tim mengambil job dengan pengaturan per runner; runner pribadi memakai pengaturan pemiliknya.
 runner-mine-empty = Anda belum punya runner
 runner-team-empty = Belum ada runner di workspace ini
 runner-empty-description = Pasang CLI, login, lalu jalankan agentgate runner start di laptop Anda.
@@ -109,7 +110,7 @@ runner-stat-pending = Menunggu izin
 runner-held = Job yang Anda pegang
 runner-held-description = Job yang sudah Anda ambil dan belum selesai.
 runner-held-empty = Tidak ada job yang Anda pegang
-runner-settings-description = Berlaku untuk semua runner milik Anda di workspace ini.
+runner-settings-description = Berlaku untuk runner pribadi Anda di workspace ini. Runner tim diatur Owner/Admin.
 runner-auto-claim = Auto-ambil
 runner-auto-claim-hint = Selama runner menyala dan idle, job untuk Anda langsung diambil tanpa klik.
 runner-max-parallel = Batas job paralel
@@ -255,3 +256,13 @@ evidence-passed = Lulus
 evidence-failed = Gagal
 evidence-tests = { $total } tes, { $failed } gagal
 agent-waiting-runner = menunggu runner Anda online
+
+## Runner tim (R1)
+runner-team-badge = Runner tim
+runner-team-settings = Atur
+runner-team-settings-title = Atur runner { $name }
+runner-team-settings-description = Hanya Owner/Admin. Runner tim mengambil job dengan pengaturan di bawah, bukan pengaturan pribadi pemiliknya.
+runner-team-flag = Runner tim
+runner-team-flag-hint = Jadikan runner bersama tim. Auto-ambil menyala saat pertama ditandai.
+runner-team-auto-hint = Selama runner menyala dan idle, job yang boleh diambil pemilik runner langsung diambil.
+runner-flash-team-saved = Pengaturan runner tim disimpan.

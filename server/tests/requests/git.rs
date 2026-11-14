@@ -514,7 +514,12 @@ async fn approving_review_merges_green_prs_when_auto_merge_is_on() {
         let res = request
             .post("/w/acme/p/KSR/settings/git")
             .add_cookie(f.cookie.clone())
-            .form(&[("panel", "out"), ("code_output", "pr"), ("merge_mode", "auto_on_review")])
+            .form(&[
+                ("panel", "out"),
+                ("code_output", "pr"),
+                ("merge_mode", "auto_on_review"),
+                ("merge_method", "rebase"),
+            ])
             .await;
         assert_eq!(res.status_code(), 303, "{}", res.text());
         let complete = |request: &TestServer| {
@@ -554,6 +559,7 @@ async fn approving_review_merges_green_prs_when_auto_merge_is_on() {
             .await;
         assert_eq!(res.status_code(), 303, "{}", res.text());
         assert_eq!(gh.merges(), vec![(REPO.to_string(), 150)]);
+        assert_eq!(gh.merge_methods(), vec!["rebase".to_string()]);
         let pr = pull_requests::Entity::find()
             .filter(pull_requests::Column::Number.eq(150))
             .one(&ctx.db)
@@ -820,5 +826,76 @@ async fn server_reindexes_code_graph_on_demand_and_after_merge() {
             assert_eq!(res.status_code(), 404);
         },
     )
+    .await;
+}
+
+/// R1: merge otomatis default mati. Approve stage Code Reviewer menandai PR siap; tombol Merge
+/// muncul bila CI hijau dan me-merge lewat provider (squash bawaan).
+#[tokio::test]
+async fn manual_mode_shows_merge_button_after_review_and_green_ci() {
+    let gh = fake_github::start().await;
+    request_with_settings(settings_for(gh.base_url.clone()), |request, ctx| async move {
+        let f = fixture(&request, &ctx).await;
+        let (conn, secret) = connected(&request, &ctx, &f, &gh).await;
+        use_workflow(&request, &ctx, &f, review_flow()).await;
+        create_ticket(&request, &f.cookie, &[("title", "Checkout QRIS")]).await;
+        let complete = |request: &TestServer| {
+            request
+                .post("/w/acme/t/KSR-1/stage/complete")
+                .add_cookie(f.cookie.clone())
+                .form(&[("x", "")])
+        };
+        assert_eq!(complete(&request).await.status_code(), 303);
+        let gh_pr = {
+            let mut st = gh.state.lock().unwrap();
+            st.pulls.push(fake_github::Pull {
+                repo: REPO.into(), number: 151, title: "feat".into(), body: String::new(),
+                head: "ag/KSR-1-checkout".into(), base: "main".into(), sha: "z2".into(), merged: false,
+            });
+            st.pulls[0].json()
+        };
+        let id = conn.id.to_string();
+        let payload = json!({ "action": "opened", "repository": { "full_name": REPO }, "pull_request": gh_pr });
+        assert_eq!(webhook(&request, &id, "pull_request", &secret, &payload).await, 204);
+        assert_eq!(
+            webhook(&request, &id, "check_run", &secret, &check_payload("z2", "test", "success")).await,
+            204
+        );
+        let pr = pull_requests::Entity::find()
+            .filter(pull_requests::Column::Number.eq(151))
+            .one(&ctx.db)
+            .await
+            .unwrap()
+            .unwrap();
+        let merge_path = format!("/w/acme/t/KSR-1/pr/{}/merge", pr.id);
+
+        // Sebelum review di-approve: tanpa tombol, POST ditolak tanpa merge.
+        let html = request.get("/w/acme/t/KSR-1/pr").add_cookie(f.cookie.clone()).await.text();
+        loco_rs::testing::prelude::assert_css_not_exists(&html, "[data-merge]");
+        let res = request.post(&merge_path).add_cookie(f.cookie.clone()).await;
+        assert_eq!(res.status_code(), 303);
+        assert!(gh.merges().is_empty());
+
+        assert_eq!(complete(&request).await.status_code(), 303);
+        let res = request
+            .post("/w/acme/t/KSR-1/stage/approve")
+            .add_cookie(f.cookie.clone())
+            .form(&[("x", "")])
+            .await;
+        assert_eq!(res.status_code(), 303, "{}", res.text());
+        // Default mati: approve tidak me-merge.
+        assert!(gh.merges().is_empty());
+        let html = request.get("/w/acme/t/KSR-1/pr").add_cookie(f.cookie.clone()).await.text();
+        loco_rs::testing::prelude::assert_css_exists(&html, "[data-pr='151'] button[data-merge][data-variant='success']");
+
+        let res = request.post(&merge_path).add_cookie(f.cookie.clone()).await;
+        assert_eq!(res.status_code(), 303);
+        assert_eq!(gh.merges(), vec![(REPO.to_string(), 151)]);
+        assert_eq!(gh.merge_methods(), vec!["squash".to_string()]);
+        let pr = pull_requests::Entity::find_by_id(pr.id).one(&ctx.db).await.unwrap().unwrap();
+        assert_eq!(pr.state, "merged");
+        let html = request.get("/w/acme/t/KSR-1/pr").add_cookie(f.cookie.clone()).await.text();
+        loco_rs::testing::prelude::assert_css_not_exists(&html, "[data-merge]");
+    })
     .await;
 }

@@ -15,6 +15,8 @@ bila kosong. Contoh lengkap: `deploy/.env.example`.
 | `GOOGLE_CLIENT_ID`/`_SECRET`, `GITHUB_CLIENT_ID`/`_SECRET` | tidak | login OAuth; callback `{APP_URL}/auth/google/callback` dan `/auth/github/callback` |
 | `SYSTEM_ADMIN_EMAILS` | tidak | email (koma) admin instance: halaman `/system` |
 | `METRICS_TOKEN` | tidak | bearer untuk `/_metrics`; kosong = 404 |
+| `SENTRY_DSN` | tidak | error tracking Sentry server + browser; kosong = mati. Lihat operasi.md |
+| `SENTRY_ENVIRONMENT` | tidak | environment Sentry (default environment Loco, mis. `production`) |
 | `CLI_RELEASE_URL` | tidak | basis unduhan rilis CLI (`…/releases/latest/download`); kosong = `/install.sh` 404 |
 | `CLI_MIN_VERSION` | tidak | versi CLI minimum yang ditampilkan di `/install` |
 | `BACKUP_*` | ya (backup) | tujuan backup di luar VPS, jam, retensi; lihat backup.md |

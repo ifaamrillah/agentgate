@@ -5,6 +5,7 @@ pub mod auth;
 pub mod cleanup;
 pub mod device;
 pub mod drafts;
+pub mod error_tracking;
 pub mod exports;
 pub mod git;
 pub mod graph;

@@ -485,7 +485,7 @@ pub(crate) async fn move_in(
 }
 
 /// Penugasan stage sekarang dan apakah pelaku boleh memutuskan (approve/reject/keputusan).
-async fn may_decide<C: ConnectionTrait>(
+pub(crate) async fn may_decide<C: ConnectionTrait>(
     db: &C,
     wid: WorkspaceId,
     ticket: &tickets::Model,
@@ -548,7 +548,7 @@ async fn set_state<C: ConnectionTrait>(
     model.update(db).await
 }
 
-async fn notify_all<C: ConnectionTrait>(
+pub(crate) async fn notify_all<C: ConnectionTrait>(
     db: &C,
     wid: WorkspaceId,
     actor: Uuid,

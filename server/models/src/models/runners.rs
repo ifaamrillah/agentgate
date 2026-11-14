@@ -6,8 +6,8 @@ pub use super::_entities::runners::{ActiveModel, Column, Entity, Model};
 
 standard_behavior!(ActiveModel);
 
-/// Batas umur heartbeat runner online.
-pub const ONLINE_SECONDS: i64 = 60;
+/// Batas umur heartbeat runner online (bersama CLI, `agentgate_core::runner`).
+pub use agentgate_core::runner::ONLINE_SECONDS;
 
 impl Model {
     #[must_use]

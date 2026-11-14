@@ -1,8 +1,9 @@
 {#- Komponen tombol (atau tautan berbentuk tombol bila `href` diisi).
     Parameter:
       label: string             teks tombol (sudah diterjemahkan; "" = tombol ikon, wajib aria_label)
-      variant: primary|outline|secondary|ghost|destructive|danger|link   (default primary)
-               destructive = teks merah di permukaan netral; danger = merah penuh (konfirmasi hapus)
+      variant: primary|outline|secondary|ghost|destructive|danger|success|link   (default primary)
+               destructive = teks merah di permukaan netral; danger = merah penuh (konfirmasi hapus,
+               Reject); success = hijau penuh (Approve)
       size: default|sm|lg|icon|icon-sm   (default "default")
       type: button|submit       (default button)
       icon: nama ikon Tabler    (default "" = tanpa ikon)
@@ -16,7 +17,7 @@
       attrs: string             penanda tes tanpa tanda kutip, mis. "data-save" (default "")
       class: hanya untuk layout (margin, lebar), bukan warna/ukuran -#}
 {% component button(label: string = "", variant: string = "primary", size: string = "default", type: string = "button", icon: string = "", href: string = "", dialog: string = "", full: bool = false, disabled: bool = false, aria_label: string = "", name: string = "", value: string = "", form: string = "", attrs: string = "", class: string = "") %}
-{%- if variant not in ["primary", "outline", "secondary", "ghost", "destructive", "danger", "link"] %}{{ throw(message="button: variant tidak dikenal: " ~ variant) }}{% endif -%}
+{%- if variant not in ["primary", "outline", "secondary", "ghost", "destructive", "danger", "success", "link"] %}{{ throw(message="button: variant tidak dikenal: " ~ variant) }}{% endif -%}
 {%- if size not in ["default", "sm", "lg", "icon", "icon-sm"] %}{{ throw(message="button: size tidak dikenal: " ~ size) }}{% endif -%}
 {%- if href -%}
 <a href="{{ href }}" class="btn {{ class }}" data-variant="{{ variant }}" data-size="{{ size }}"{% if full %} data-full{% endif %}{% if aria_label %} aria-label="{{ aria_label }}"{% endif %}{% if disabled %} aria-disabled="true"{% endif %} {{ attrs }}>

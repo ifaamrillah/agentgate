@@ -7,6 +7,7 @@ mod blocks;
 mod comments;
 mod drafts;
 mod flow;
+mod manual_evidence;
 mod mockup;
 mod pages;
 mod search;

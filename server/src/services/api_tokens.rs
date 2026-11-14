@@ -29,8 +29,19 @@ use crate::{
 pub const SCOPES_REQUIRED: &str = "api-token-scopes-required";
 pub const EXPIRY_INVALID: &str = "api-token-expiry-invalid";
 pub const PROJECT_INVALID: &str = "api-token-project-invalid";
+pub const RATE_LIMIT_INVALID: &str = "api-token-rate-limit-invalid";
 /// Kode error yang dipakai dari Rust (kontrak i18n).
-pub const ERROR_CODES: &[&str] = &[SCOPES_REQUIRED, EXPIRY_INVALID, PROJECT_INVALID];
+pub const ERROR_CODES: &[&str] = &[
+    SCOPES_REQUIRED,
+    EXPIRY_INVALID,
+    PROJECT_INVALID,
+    RATE_LIMIT_INVALID,
+];
+
+/// Rentang rate limit per token yang boleh diatur Owner/Admin (request per menit). Batas atas
+/// menjaga satu token tidak bisa membanjiri server (10× default).
+pub const RATE_LIMIT_MIN: i32 = 60;
+pub const RATE_LIMIT_MAX: i32 = 6_000;
 
 /// Isian form Token baru.
 #[derive(Debug, Clone, Default)]
@@ -155,6 +166,54 @@ pub async fn revoke(
     Ok(token)
 }
 
+/// Ubah rate limit token (R1): hanya Owner/Admin bawaan. `None` = kembali ke default instance.
+/// Audit `api_token.updated`; tanpa perubahan → tanpa audit.
+///
+/// # Errors
+///
+/// `Invalid` (`api-token-rate-limit-invalid`, di luar [`RATE_LIMIT_MIN`]–[`RATE_LIMIT_MAX`]),
+/// `NotFound` (token bukan milik workspace/dicabut, atau pelaku bukan Owner/Admin), error database.
+pub async fn set_rate_limit(
+    db: &DatabaseConnection,
+    acting: &Acting<'_>,
+    token_id: Uuid,
+    limit: Option<i32>,
+) -> Result<api_tokens::Model, TicketFailure> {
+    if limit.is_some_and(|n| !(RATE_LIMIT_MIN..=RATE_LIMIT_MAX).contains(&n)) {
+        return Err(TicketFailure::field("rate_limit", RATE_LIMIT_INVALID));
+    }
+    let txn = db.begin().await?;
+    lock_as(&txn, acting, roles::Model::is_admin_everywhere)
+        .await?
+        .ok_or(TicketFailure::NotFound)?;
+    let token = api_tokens::Model::find_in(&txn, acting.workspace_id(), token_id)
+        .await?
+        .filter(|t| t.revoked_at.is_none())
+        .ok_or(TicketFailure::NotFound)?;
+    let before = token.rate_limit_per_minute;
+    if before == limit {
+        txn.rollback().await?;
+        return Ok(token);
+    }
+    let mut m = sea_orm::IntoActiveModel::into_active_model(token);
+    m.rate_limit_per_minute = sea_orm::ActiveValue::Set(limit);
+    let token = sea_orm::ActiveModelTrait::update(m, &txn).await?;
+    audit::record(
+        &txn,
+        acting.actor().audit(
+            AuditAction::ApiTokenUpdated,
+            (AuditSubject::ApiToken, token.id),
+            serde_json::json!({
+                "name": token.name,
+                "rate_limit_per_minute": { "from": before, "to": limit },
+            }),
+        ),
+    )
+    .await?;
+    txn.commit().await?;
+    Ok(token)
+}
+
 /// Pemanggil API yang sudah terautentikasi: token dan pembuatnya (keadaan terbaru).
 #[derive(Debug, Clone)]
 pub struct ApiCaller {
@@ -233,6 +292,8 @@ pub async fn authenticate<C: ConnectionTrait>(
     if !workspace.is_open_to(&role) || workspace.requires_two_factor_from(&user) {
         return Ok(AuthOutcome::Invalid);
     }
+    // Limit per token (diatur Owner/Admin) menggantikan default instance.
+    let limit = token.rate_limit_per_minute.unwrap_or(limit);
     let used = api_rate_limits::hit(db, token.id, now).await?;
     if used > limit {
         return Ok(AuthOutcome::Limited);

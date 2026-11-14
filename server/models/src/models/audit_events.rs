@@ -159,6 +159,9 @@ pub enum AuditAction {
     RunnerRegistered,
     #[sea_orm(string_value = "runner.revoked")]
     RunnerRevoked,
+    /// Runner ditandai/dilepas sebagai runner tim, atau auto-ambil/batas paralelnya diubah (R1).
+    #[sea_orm(string_value = "runner.updated")]
+    RunnerUpdated,
     /// Job dibatalkan executor/Admin project.
     #[sea_orm(string_value = "job.cancelled")]
     JobCancelled,
@@ -193,6 +196,9 @@ pub enum AuditAction {
     ApiTokenCreated,
     #[sea_orm(string_value = "api_token.revoked")]
     ApiTokenRevoked,
+    /// Rate limit per token diubah Owner/Admin (R1).
+    #[sea_orm(string_value = "api_token.updated")]
+    ApiTokenUpdated,
     /// Webhook keluar dibuat (M11).
     #[sea_orm(string_value = "webhook.created")]
     WebhookCreated,
@@ -213,6 +219,14 @@ pub enum AuditAction {
     /// Impor CSV tiket selesai.
     #[sea_orm(string_value = "import.completed")]
     ImportCompleted,
+    /// Bukti gate manual diunggah anggota (R1).
+    #[sea_orm(string_value = "evidence.submitted")]
+    EvidenceSubmitted,
+    /// Bukti gate manual disetujui approver stage (memenuhi gate).
+    #[sea_orm(string_value = "evidence.approved")]
+    EvidenceApproved,
+    #[sea_orm(string_value = "evidence.rejected")]
+    EvidenceRejected,
     /// Koneksi Jira dibuat (M11; token tidak pernah dicatat).
     #[sea_orm(string_value = "jira.connected")]
     JiraConnected,
@@ -324,7 +338,10 @@ impl AuditAction {
             | Self::WorkflowDeleted
             | Self::WorkflowMigrated
             | Self::TicketStageJumped
-            | Self::TicketTransitionForced => AuditGroup::Ticket,
+            | Self::TicketTransitionForced
+            | Self::EvidenceSubmitted
+            | Self::EvidenceApproved
+            | Self::EvidenceRejected => AuditGroup::Ticket,
             Self::PersonaCreated
             | Self::PersonaUpdated
             | Self::PersonaDeleted
@@ -338,12 +355,14 @@ impl AuditAction {
             | Self::McpRevoked
             | Self::RunnerRegistered
             | Self::RunnerRevoked
+            | Self::RunnerUpdated
             | Self::JobCancelled
             | Self::JobPermissionDecided => AuditGroup::Agent,
             Self::ProjectGitUpdated | Self::ProjectTokenSaverUpdated => AuditGroup::Project,
             Self::OfficeLookUpdated => AuditGroup::Agent,
             Self::ApiTokenCreated
             | Self::ApiTokenRevoked
+            | Self::ApiTokenUpdated
             | Self::WebhookCreated
             | Self::WebhookUpdated
             | Self::WebhookDeleted
@@ -471,6 +490,9 @@ pub enum AuditSubject {
     TicketImport,
     #[sea_orm(string_value = "jira_connection")]
     JiraConnection,
+    /// Bukti gate manual (`manual_evidence`, R1).
+    #[sea_orm(string_value = "evidence")]
+    Evidence,
 }
 
 /// Data satu baris audit untuk [`ActiveModel::append`].

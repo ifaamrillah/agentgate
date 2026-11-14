@@ -62,10 +62,20 @@ str_enum!(
 str_enum!(
     /// Mode merge PR.
     MergeMode {
-        /// Manusia menekan merge di provider.
+        /// Default (R1): setelah stage Code Review di-approve dan CI hijau, tombol Merge muncul
+        /// di Agent Gate untuk manusia (merge lewat provider).
         Manual => "manual",
-        /// PR di-merge saat stage Code Review di-approve dan CI hijau.
+        /// PR di-merge otomatis saat stage Code Review di-approve dan CI hijau.
         AutoOnReview => "auto_on_review",
+    }
+);
+
+str_enum!(
+    /// Cara merge PR di provider (tombol Merge maupun merge otomatis).
+    MergeMethod {
+        Squash => "squash",
+        Merge => "merge",
+        Rebase => "rebase",
     }
 );
 
@@ -106,6 +116,7 @@ pub struct GitSettings {
     pub code_language: Language,
     pub code_output: CodeOutput,
     pub merge_mode: MergeMode,
+    pub merge_method: MergeMethod,
     /// Gate `ci_green` juga mewajibkan setiap check di [`Self::required_checks`] lulus.
     pub require_ci: bool,
     pub required_checks: Vec<String>,
@@ -121,6 +132,7 @@ impl Default for GitSettings {
             code_language: Language::En,
             code_output: CodeOutput::Pr,
             merge_mode: MergeMode::Manual,
+            merge_method: MergeMethod::Squash,
             require_ci: true,
             required_checks: Vec::new(),
         }

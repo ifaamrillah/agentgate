@@ -3,6 +3,8 @@
 ## Izin dan audit
 permission-manage-ticket-settings = Atur tiket
 permission-manage-ticket-settings-desc = Mengatur tipe tiket, field custom, dan template kode tiket.
+permission-manage-knowledge = Atur knowledge
+permission-manage-knowledge-desc = Mengelola dokumen knowledge workspace, jenis dokumen custom, dan update otomatis.
 audit-group-ticket = Tiket
 audit-action-ticket-trashed = Tiket dipindah ke sampah
 audit-action-ticket-restored = Tiket dipulihkan

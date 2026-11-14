@@ -29,6 +29,76 @@
     <div class="app-evs" style="padding: 0">{% for e in stage.evidence %}{{ <evidence_item item={e}/> }}{% endfor %}</div>
   </div>
   {%- endif %}
+  {%- if stage.manual or stage.manual_action %}
+  <div class="app-blk" data-manual-evidence>
+    <p class="app-hint app-stage-gate-head">{{ icon(name="upload") }}{{ t(key="manual-evidence-head", lang="id", count=stage.manual | length) }}</p>
+    {%- for m in stage.manual %}
+    <div class="app-ev app-ev-manual" data-manual="{{ m.id }}" data-status="{{ m.status }}">
+      <span class="app-tile"{% if m.status == "approved" %} data-tone="success"{% elif m.status == "rejected" %} data-tone="danger"{% endif %}>{{ icon(name=m.icon) }}</span>
+      <span class="app-ev-main">
+        {%- if m.href %}<a class="app-link" href="{{ m.href }}" target="_blank" rel="noopener">{{ m.name }}</a>{% else %}<b>{{ m.name }}</b>{% endif %}
+        <small><span data-manual-label>{{ t(key="manual-evidence-label", lang="id") }}</span> · {{ t(key=m.gate_key, lang="id") }} · {{ m.submitter }} · {{ m.at }}</small>
+        {%- if m.body %}<span class="app-ev-text">{{ m.body }}</span>{% endif %}
+        {%- if m.note %}<small>{{ m.note }}</small>{% endif %}
+        {%- if m.decision_note %}<small>{{ t(key="manual-evidence-decision-note", lang="id", note=m.decision_note) }}</small>{% endif %}
+      </span>
+      {{ <badge label={t(key=m.status_key, lang="id")} variant={m.status_variant}/> }}
+    </div>
+    {%- if m.approve_action %}
+    <div class="app-stage-pair" data-manual-actions="{{ m.id }}">
+      <form method="post" action="{{ m.approve_action }}">{{ <button label={t(key="manual-evidence-approve", lang="id")} icon="check" variant="success" size="sm" type="submit" full={true} attrs="data-manual-approve"/> }}</form>
+      {{ <button label={t(key="manual-evidence-reject", lang="id")} icon="x" variant="danger" size="sm" dialog={"manual-reject-" ~ m.id} attrs="data-manual-reject"/> }}
+    </div>
+    {% <dialog id={"manual-reject-" ~ m.id} title={t(key="manual-evidence-reject-title", lang="id", name=m.name)} description={t(key="manual-evidence-reject-description", lang="id")} icon="x" tone="danger"> %}
+    <form method="post" action="{{ m.reject_action }}">
+      <section><div class="app-stack-v" data-gap="sm">
+        {{ <textarea_field id={"manual-reject-note-" ~ m.id} name="note" label={t(key="manual-evidence-reject-note", lang="id")} rows={3} required={true}/> }}
+      </div></section>
+      <footer>
+        <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+        {{ <button label={t(key="manual-evidence-reject", lang="id")} type="submit" variant="danger"/> }}
+      </footer>
+    </form>
+    {% </dialog> %}
+    {%- endif %}
+    {%- endfor %}
+    {%- if stage.manual_action %}
+    {{ <button label={t(key="manual-evidence-upload", lang="id")} icon="upload" variant="outline" size="sm" full={true} dialog="manual-evidence-dialog" attrs="data-manual-upload"/> }}
+    {% <dialog id="manual-evidence-dialog" title={t(key="manual-evidence-upload-title", lang="id")} description={t(key="manual-evidence-upload-description", lang="id")} icon="upload"> %}
+    <form method="post" action="{{ stage.manual_action }}" enctype="multipart/form-data" data-manual-form>
+      <section>
+        {%- if stage.manual_gates | length == 1 %}
+        <input type="hidden" name="gate" value="{{ stage.manual_gates[0].value }}">
+        <p class="app-hint">{{ t(key="manual-evidence-gate", lang="id") }}: <b>{{ t(key=stage.manual_gates[0].label_key, lang="id") }}</b></p>
+        {%- else %}
+        <fieldset class="app-field"><legend class="app-label">{{ t(key="manual-evidence-gate", lang="id") }}</legend>
+          <div class="app-choices" role="radiogroup">
+            {%- for g in stage.manual_gates %}
+            <label class="app-choice"><input type="radio" class="app-radio" name="gate" value="{{ g.value }}"{% if loop.first %} checked{% endif %}> <span><b>{{ t(key=g.label_key, lang="id") }}</b></span></label>
+            {%- endfor %}
+          </div>
+        </fieldset>
+        {%- endif %}
+        <fieldset class="app-field"><legend class="app-label">{{ t(key="manual-evidence-kind", lang="id") }}</legend>
+          <div class="app-choices app-choices-3" role="radiogroup">
+            {%- for k in [["screenshot", "manual-evidence-kind-screenshot", "manual-evidence-kind-screenshot-hint"], ["log", "manual-evidence-kind-log", "manual-evidence-kind-log-hint"], ["text", "manual-evidence-kind-text", "manual-evidence-kind-text-hint"]] %}
+            <label class="app-choice" title="{{ t(key=k[2], lang="id") }}"><input type="radio" class="app-radio" name="kind" value="{{ k[0] }}"{% if loop.first %} checked{% endif %}> <span><b>{{ t(key=k[1], lang="id") }}</b></span></label>
+            {%- endfor %}
+          </div>
+        </fieldset>
+        {{ <file_drop id="manual-evidence-file" name="file" title={t(key="manual-evidence-file", lang="id")} hint={t(key="manual-evidence-file-hint", lang="id")} accept="image/png,image/jpeg,image/webp,.log,.txt,.json,.xml,text/plain"/> }}
+        {{ <textarea_field id="manual-evidence-text" name="text" label={t(key="manual-evidence-text", lang="id")} rows={3} optional={t(key="manual-evidence-text-optional", lang="id")}/> }}
+        {{ <field id="manual-evidence-note" name="note" label={t(key="manual-evidence-note", lang="id")} optional={t(key="field-optional", lang="id")}/> }}
+      </section>
+      <footer>
+        <button type="button" class="btn" data-variant="outline" data-dialog-close>{{ t(key="action-cancel", lang="id") }}</button>
+        {{ <button label={t(key="manual-evidence-submit", lang="id")} type="submit" icon="upload"/> }}
+      </footer>
+    </form>
+    {% </dialog> %}
+    {%- endif %}
+  </div>
+  {%- endif %}
   <dl class="app-props app-stage-props">
     <dt>{{ t(key="stage-role-executor", lang="id") }}</dt>
     <dd>{% for p in stage.people.executors %}{{ <avatar initials={p.initials} color={p.color} label={p.name} size="sm"/> }}{% else %}<span class="app-hint">—</span>{% endfor %}</dd>
@@ -46,10 +116,10 @@
   {%- if not stage.cancelled %}
   <div class="app-blk app-stage-acts" data-stage-actions>
     {%- if stage.state == "review" and stage.can_decide %}
-    <form method="post" action="{{ paths.approve }}">{{ <button label={t(key="stage-approve", lang="id")} icon="check" variant="primary" type="submit" full={true} attrs="data-approve"/> }}</form>
+    <form method="post" action="{{ paths.approve }}">{{ <button label={t(key="stage-approve", lang="id")} icon="check" variant="success" type="submit" full={true} attrs="data-approve"/> }}</form>
     <div class="app-stage-pair">
       {{ <button label={t(key="stage-edit-approve", lang="id")} icon="pencil" variant="outline" href={paths.artifacts}/> }}
-      {{ <button label={t(key="stage-reject", lang="id")} icon="x" variant="outline" dialog="reject-dialog" attrs="data-reject"/> }}
+      {{ <button label={t(key="stage-reject", lang="id")} icon="x" variant="danger" dialog="reject-dialog" attrs="data-reject"/> }}
     </div>
     <p class="app-hint">{{ t(key="stage-one-approver", lang="id") }}</p>
     {%- elif stage.state == "decision" and stage.can_decide %}

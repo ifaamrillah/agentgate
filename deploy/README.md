@@ -22,7 +22,7 @@ docker compose -f deploy/compose.yaml --env-file deploy/.env up -d
 | `worker` | `start --worker --scheduler` | job antrean + jadwal harian; **scheduler hanya boleh satu** |
 | `db` | Postgres 18 + pgvector | `statement_timeout` 30 dtk per role |
 | `s3`, `s3-init` | SeaweedFS | lampiran, logo, evidence, ekspor; bisa diganti S3 eksternal |
-| `backup` | `backup.sh loop` | harian `BACKUP_HOUR_UTC`, retensi `BACKUP_RETENTION_DAYS` |
+| `backup` | `backup.sh loop` | harian `BACKUP_HOUR_UTC`; retensi harian `BACKUP_RETENTION_DAYS` (14) + bulanan `BACKUP_MONTHLY_MONTHS` (6) |
 | `caddy` | Caddy 2 | port 80/443; `/_metrics` diblok dari luar |
 
 ## Aritmetika koneksi Postgres

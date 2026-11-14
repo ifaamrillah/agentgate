@@ -43,6 +43,9 @@ pub enum Permission {
     /// Provider git dan integrasi luar workspace (M6).
     #[sea_orm(string_value = "manage_integrations")]
     ManageIntegrations,
+    /// Knowledge workspace: dokumen workspace, jenis custom, pengaturan update otomatis (R1).
+    #[sea_orm(string_value = "manage_knowledge")]
+    ManageKnowledge,
 }
 
 impl std::fmt::Display for Permission {
@@ -61,6 +64,7 @@ pub const SETTINGS_PERMISSIONS: &[Permission] = &[
     Permission::ViewAuditLog,
     Permission::ManageTicketSettings,
     Permission::ManageIntegrations,
+    Permission::ManageKnowledge,
 ];
 
 /// Satu role bawaan: key-nya dan izinnya.
@@ -86,6 +90,7 @@ pub const BUILTIN_ROLES: &[BuiltinRole] = &[
             Permission::ViewProject,
             Permission::ManageTicketSettings,
             Permission::ManageIntegrations,
+            Permission::ManageKnowledge,
         ],
     },
     // Semua kecuali ManageWorkspace (hapus, 2FA wajib, transfer tetap milik Owner).
@@ -102,6 +107,7 @@ pub const BUILTIN_ROLES: &[BuiltinRole] = &[
             Permission::ViewProject,
             Permission::ManageTicketSettings,
             Permission::ManageIntegrations,
+            Permission::ManageKnowledge,
         ],
     },
     BuiltinRole {

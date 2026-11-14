@@ -36,6 +36,7 @@ pub struct Model {
     pub job_id: Option<Uuid>,
     pub merged_at: Option<DateTimeWithTimeZone>,
     pub closed_at: Option<DateTimeWithTimeZone>,
+    pub merge_ready_at: Option<DateTimeWithTimeZone>,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
 }

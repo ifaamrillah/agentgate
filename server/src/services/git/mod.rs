@@ -26,7 +26,11 @@ pub const URL_INVALID: &str = "git-url-invalid";
 pub const NOT_CONNECTED: &str = "git-not-connected";
 pub const PROVIDER_REJECTED: &str = "git-provider-rejected";
 pub const REPO_NOT_FOUND: &str = "git-repo-not-found";
+/// Tombol Merge ditekan untuk PR yang belum siap (review belum di-approve, CI belum hijau,
+/// sudah di-merge, atau mode merge otomatis).
+pub const MERGE_NOT_READY: &str = "git-merge-not-ready";
 pub const ERROR_CODES: &[&str] = &[
+    MERGE_NOT_READY,
     TOKEN_INVALID,
     UNREACHABLE,
     URL_INVALID,

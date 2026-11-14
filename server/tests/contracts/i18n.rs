@@ -119,6 +119,13 @@ fn every_validation_error_code_has_a_message() {
         agentgate_server::services::imports::ERROR_CODES,
         agentgate_server::services::jira::ERROR_CODES,
         agentgate_server::services::exports::ERROR_CODES,
+        agentgate_server::services::tickets::manual_evidence::ERROR_CODES,
+        agentgate_server::controllers::tickets::manual_evidence::MESSAGE_KEYS,
+        &[
+            "pr-flash-merged",
+            "api-flash-token-limit",
+            "runner-flash-team-saved",
+        ],
     ]
     .concat();
     let missing: Vec<_> = codes.iter().filter(|c| !keys.contains(**c)).collect();

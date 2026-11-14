@@ -87,6 +87,7 @@ pub static TOKENS_TABLE: TableSpec = TableSpec {
         ColumnSpec::new("api-col-scopes").hide("sm"),
         ColumnSpec::new("api-col-used").sort("used").hide("sm"),
         ColumnSpec::new("api-col-expires").sort("expires"),
+        ColumnSpec::new("api-col-limit").hide("sm"),
         ColumnSpec::new("api-col-actions").right(),
     ],
     filters: &[FilterSpec {
@@ -288,7 +289,14 @@ async fn render_page(
                         .project_id
                         .and_then(|p| project_names.get(&p).map(|(_, n)| n.clone()))
                         .unwrap_or_default();
-                    TokenRow::of(t, &creator, &project, &base)
+                    TokenRow::of(
+                        t,
+                        &creator,
+                        &project,
+                        &base,
+                        settings.api.rate_limit_per_minute,
+                        tenant.role.is_admin_everywhere(),
+                    )
                 })
                 .collect();
             let state = TOKENS_TABLE.parse(query);
@@ -352,6 +360,21 @@ async fn render_page(
             let table = TableView::new(&HOOKS_TABLE, &state, &format!("{base}/hooks"), total);
             data["table"] = serde_json::to_value(table)?;
             data["rows"] = serde_json::to_value(page)?;
+            // Webhook yang dinonaktifkan otomatis (gagal beruntun): alert + tombol Aktifkan ulang
+            // untuk Owner/Admin bawaan (R1).
+            let failing: Vec<serde_json::Value> = hooks
+                .iter()
+                .filter(|h| h.is_failing())
+                .map(|h| {
+                    let row = HookRow::of(h, &project_names, &base);
+                    serde_json::json!({
+                        "id": h.id, "host": row.host, "failures": h.consecutive_failures,
+                        "toggle_action": row.toggle_action,
+                    })
+                })
+                .collect();
+            data["failing_hooks"] = serde_json::Value::from(failing);
+            data["can_reenable"] = serde_json::Value::from(tenant.role.is_admin_everywhere());
         }
         "log" => {
             let state = LOG_TABLE.parse(query);
@@ -546,6 +569,42 @@ async fn revoke_token(
         &Flash::success(iv::FLASH_TOKEN_REVOKED),
         &format!("{}/tokens", base(&tenant.workspace.slug)),
     )
+}
+
+/// Ubah rate limit token (Owner/Admin bawaan, R1). Kosong = kembali ke default.
+#[debug_handler]
+async fn set_token_limit(
+    State(ctx): State<AppContext>,
+    tenant: Tenant,
+    session: Session,
+    RequestId(request_id): RequestId,
+    id: IdOr404<api_tokens::Entity>,
+    Form(form): Form<Vec<(String, String)>>,
+) -> Result<Response> {
+    require(&tenant)?;
+    let raw = value(&form, "rate_limit");
+    let limit = if raw.trim().is_empty() {
+        Ok(None)
+    } else {
+        raw.trim().parse::<i32>().map(Some)
+    };
+    let to = format!("{}/tokens", base(&tenant.workspace.slug));
+    let result = match limit {
+        Ok(limit) => {
+            token_svc::set_rate_limit(&ctx.db, &acting(&tenant, request_id), id.id, limit).await
+        }
+        Err(_) => Err(TicketFailure::field(
+            "rate_limit",
+            token_svc::RATE_LIMIT_INVALID,
+        )),
+    };
+    match result {
+        Ok(_) => redirect_with(session, &Flash::success(iv::FLASH_TOKEN_LIMIT), &to),
+        Err(TicketFailure::Invalid(_)) => {
+            redirect_with(session, &Flash::error(token_svc::RATE_LIMIT_INVALID), &to)
+        }
+        Err(e) => Err(e.into()),
+    }
 }
 
 fn hook_input(form: &[(String, String)]) -> WebhookInput {
@@ -756,6 +815,10 @@ pub fn routes() -> Routes {
         .add(
             "/w/{slug}/settings/api/tokens/{id}/revoke",
             post(revoke_token),
+        )
+        .add(
+            "/w/{slug}/settings/api/tokens/{id}/limit",
+            post(set_token_limit),
         )
         .add(
             "/w/{slug}/settings/api/hooks",

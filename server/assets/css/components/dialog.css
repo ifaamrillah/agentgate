@@ -6,6 +6,8 @@
   .dialog {
     width: calc(100% - 32px); max-width: 480px; padding: 0; border: 0; border-radius: 12px; background: var(--ag-raised); color: var(--ag-fg);
     box-shadow: var(--ag-shadow-lg); margin: 10vh auto auto; overflow: hidden;
+    /* Dialog tinggi tetap muat di layar: isi bergulir, tidak terpotong (R1). */
+    max-height: calc(90vh - 16px); overflow-y: auto;
   }
   .dialog[data-size='lg'] { max-width: 640px; }
   .dialog::backdrop { background: var(--ag-scrim); }

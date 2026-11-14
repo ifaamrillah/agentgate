@@ -177,6 +177,8 @@ pub struct PrView {
     pub checks: Vec<CheckView>,
     pub ticket: Option<TicketRef>,
     pub job_href: Option<String>,
+    /// Tombol Merge (mode merge manual, review di-approve, CI hijau; R1). Diisi controller.
+    pub merge_href: Option<String>,
     pub updated: Age,
     pub merged_at: Option<DateTime<FixedOffset>>,
 }
@@ -222,6 +224,7 @@ impl PrView {
                 .collect(),
             ticket,
             job_href: pr.job_id.map(|j| format!("/w/{slug}/jobs/{j}")),
+            merge_href: None,
             updated: age(&pr.updated_at, chrono::Utc::now()),
             merged_at: pr.merged_at,
         }
@@ -351,6 +354,7 @@ mod tests {
             job_id: None,
             merged_at: None,
             closed_at: None,
+            merge_ready_at: None,
             created_at: now,
             updated_at: now,
         }

@@ -24,6 +24,7 @@ pub mod components;
 mod drafts;
 pub mod estimate;
 mod inbox;
+pub mod manual_evidence;
 mod pulls;
 pub mod releases;
 pub mod reports;
@@ -335,6 +336,7 @@ pub fn routes() -> Routes {
         .add("/w/{slug}/t/{code}", get(ticket::show).post(ticket::update))
         .add("/w/{slug}/t/{code}/activity", get(ticket::activity))
         .add("/w/{slug}/t/{code}/pr", get(pulls::index))
+        .add("/w/{slug}/t/{code}/pr/{id}/merge", post(pulls::merge))
         .add("/w/{slug}/t/{code}/status", post(ticket::status))
         .add("/w/{slug}/t/{code}/comments", post(ticket::comment))
         .add(
@@ -361,6 +363,22 @@ pub fn routes() -> Routes {
         .add("/w/{slug}/t/{code}/estimate/ai", post(estimate::request_ai))
         .add("/w/{slug}/t/{code}/stage/complete", post(stage::complete))
         .add("/w/{slug}/t/{code}/stage/approve", post(stage::approve))
+        .add(
+            "/w/{slug}/t/{code}/evidence",
+            post(manual_evidence::submit).layer(DefaultBodyLimit::max(manual_evidence::BODY_LIMIT)),
+        )
+        .add(
+            "/w/{slug}/t/{code}/evidence/{id}",
+            get(manual_evidence::download),
+        )
+        .add(
+            "/w/{slug}/t/{code}/evidence/{id}/approve",
+            post(manual_evidence::approve),
+        )
+        .add(
+            "/w/{slug}/t/{code}/evidence/{id}/reject",
+            post(manual_evidence::reject),
+        )
         .add("/w/{slug}/t/{code}/stage/reject", post(stage::reject))
         .add("/w/{slug}/t/{code}/stage/decide", post(stage::decide))
         .add(

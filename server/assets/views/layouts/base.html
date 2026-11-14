@@ -10,6 +10,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
   <title>{% block title %}{% endblock title %} · {{ t(key="app-name", lang="id") }}</title>
+  {%- set sentry_cfg = sentry() %}
+  {%- if sentry_cfg %}
+  <meta name="ag-sentry-dsn" content="{{ sentry_cfg.dsn }}">
+  <meta name="ag-sentry-environment" content="{{ sentry_cfg.environment }}">
+  <meta name="ag-sentry-release" content="{{ sentry_cfg.release }}">
+  <script src="/static/js/sentry.js"></script>
+  {%- endif %}
   <script src="/static/js/theme.js"></script>
   <link rel="stylesheet" href="/static/css/app.css">
   <script src="/static/vendor/htmx-4.0.1.min.js" defer></script>

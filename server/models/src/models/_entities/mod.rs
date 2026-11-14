@@ -32,6 +32,7 @@ pub mod knowledge_sources;
 pub mod knowledge_types;
 pub mod knowledge_versions;
 pub mod login_throttles;
+pub mod manual_evidence;
 pub mod notifications;
 pub mod oauth_clients;
 pub mod oauth_codes;

@@ -266,9 +266,14 @@ async fn queue<C: ConnectionTrait>(db: &C) -> Result<(Vec<QueueRow>, Vec<FailedJ
 pub async fn status(ctx: &AppContext) -> Result<Status, DbErr> {
     let db = &ctx.db;
     let uptime = Utc::now().signed_duration_since(DateTime::<Utc>::from(metrics::started_at()));
+    // Konstanta angka (bukan input user), sama dengan `runners::Model::is_online`.
     let runners_online = scalar_i64(
         db,
-        "SELECT count(*) AS n FROM runners WHERE revoked_at IS NULL AND last_seen_at > now() - interval '60 seconds'",
+        &format!(
+            "SELECT count(*) AS n FROM runners WHERE revoked_at IS NULL \
+             AND last_seen_at > now() - interval '{} seconds'",
+            crate::models::runners::ONLINE_SECONDS
+        ),
     )
     .await?;
     let runners_total = scalar_i64(

@@ -70,6 +70,10 @@ pub fn permission_keys(permission: Permission) -> (&'static str, &'static str) {
             "permission-manage-integrations",
             "permission-manage-integrations-desc",
         ),
+        Permission::ManageKnowledge => (
+            "permission-manage-knowledge",
+            "permission-manage-knowledge-desc",
+        ),
     }
 }
 
