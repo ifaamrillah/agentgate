@@ -1,5 +1,5 @@
 {#- Pencarian lanjutan (prototype M9 "Pencarian lanjutan"): saved filter di kiri, kotak query ala
-    JQL + daftar field, hasil (maks. `limit` baris, centang untuk edit massal), dialog Simpan
+    JQL + daftar field + autocomplete (static/js/jql-suggest.js, R3), hasil (maks. `limit` baris, centang untuk edit massal), dialog Simpan
     filter dan Edit massal. Variabel: base, basic, q, error, rows, total, limited, limit, saved,
     teams, fields, sprints, releases, people, priorities, me, save_error, return_to, flash. -#}
 {% extends "layouts/page.html" %}
@@ -38,7 +38,13 @@
     {% <card attrs="data-jql-box"> %}
     <form method="get" action="{{ base }}" class="app-jql-q">
       <label for="jql-q" class="sr-only">{{ t(key="search-query", lang="id") }}</label>
-      <input class="app-input" id="jql-q" name="q" value="{{ q }}" spellcheck="false" autocomplete="off" placeholder="{{ t(key="search-query-placeholder", lang="id") }}" data-mono{% if error %} aria-invalid="true" aria-describedby="jql-error"{% endif %}>
+      <span class="app-jql-field">
+        <input class="app-input" id="jql-q" name="q" value="{{ q }}" spellcheck="false" autocomplete="off" placeholder="{{ t(key="search-query-placeholder", lang="id") }}" data-mono
+          role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="jql-q-list" data-jql-suggest="{{ base }}/suggest"
+          {%- if error %} aria-invalid="true" aria-describedby="jql-error jql-q-help"{% else %} aria-describedby="jql-q-help"{% endif %}>
+        <ul class="app-jql-sug" id="jql-q-list" role="listbox" aria-label="{{ t(key="jql-suggest-label", lang="id") }}" hidden data-jql-list></ul>
+      </span>
+      <span class="sr-only" id="jql-q-help">{{ t(key="jql-suggest-hint", lang="id") }}</span>
       {{ <button label={t(key="search-run", lang="id")} icon="search" type="submit" attrs="data-jql-run"/> }}
     </form>
     {%- if error %}

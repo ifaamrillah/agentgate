@@ -231,6 +231,17 @@
   .app-jql-sf form { margin: 0; }
   .app-jql-q { display: flex; gap: 8px; min-width: 0; }
   .app-jql-q .app-input { flex: 1; min-width: 0; font-family: var(--ag-mono); font-size: 13px; }
+  /* Autocomplete (R3): daftar saran di bawah kotak query. */
+  .app-jql-field { position: relative; flex: 1; min-width: 0; display: flex; }
+  .app-jql-field .app-input { width: 100%; }
+  .app-jql-sug { position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; right: 0; max-height: 280px; overflow-y: auto; margin: 0; padding: 4px; list-style: none; border: 1px solid var(--ag-line2); border-radius: 8px; background: var(--ag-raised); box-shadow: var(--ag-shadow-md, 0 8px 24px rgb(0 0 0 / .12)); }
+  .app-jql-sug li { display: flex; align-items: baseline; gap: 10px; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+  .app-jql-sug li code { font-family: var(--ag-mono); font-size: 12.5px; color: var(--ag-fg); white-space: nowrap; }
+  .app-jql-sug li span { color: var(--ag-muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .app-jql-sug li[data-kind="keyword"] code { color: var(--ag-accent-fg); }
+  .app-jql-sug li[data-kind="op"] code { color: var(--ag-fg2); }
+  .app-jql-sug li:hover, .app-jql-sug li[aria-selected="true"] { background: var(--ag-hover); }
+  .app-jql-sug li[aria-selected="true"] { outline: 1px solid var(--ag-accent); outline-offset: -1px; }
   .app-jql-err { display: flex; gap: 6px; align-items: flex-start; margin: 0; color: var(--ag-danger); font-size: 13px; }
   .app-jql-err svg { width: 14px; height: 14px; flex: none; margin-top: 2px; }
   .app-jql-help summary { cursor: pointer; font-size: 13px; color: var(--ag-fg2); }
