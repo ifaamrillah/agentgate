@@ -36,7 +36,7 @@
 <div id="buttons">
 {% <card title="button" description="Varian dan ukuran; tombol bisa berupa tautan, pembuka dialog, atau submit."> %}
   <div class="app-bar">
-    {%- for variant in ["primary", "secondary", "outline", "ghost", "destructive", "danger", "link"] %}{{ <button label={variant} variant={variant}/> }}{% endfor %}
+    {%- for variant in ["primary", "secondary", "outline", "ghost", "destructive", "danger", "success", "link"] %}{{ <button label={variant} variant={variant}/> }}{% endfor %}
   </div>
   <div class="app-bar">
     {{ <button label="Kecil" size="sm" icon="plus"/> }}{{ <button label="Besar" size="lg"/> }}

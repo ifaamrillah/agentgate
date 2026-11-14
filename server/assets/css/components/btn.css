@@ -1,6 +1,7 @@
 /* Override `.btn` Basecoat menjadi tombol prototype: 30px, border tipis, bayangan halus.
    Varian (data-variant): primary (aksen), outline/secondary (netral, default prototype),
-   ghost, destructive (teks merah di permukaan netral), danger (merah penuh), link.
+   ghost, destructive (teks merah di permukaan netral), danger (merah penuh), success (hijau
+   penuh: Approve), link.
    Ukuran (data-size): default 30px, sm 26px, lg 36px, icon/icon-sm persegi. */
 @layer components {
   .btn {
@@ -30,6 +31,8 @@
   .btn[data-variant='destructive']:hover { background: var(--ag-danger-soft); }
   .btn[data-variant='danger'] { background: var(--ag-danger-btn, var(--ag-danger)); border-color: var(--ag-danger-btn, var(--ag-danger)); color: #fff; }
   .btn[data-variant='danger']:hover { filter: brightness(0.94); }
+  .btn[data-variant='success'] { background: var(--ag-success-btn); border-color: var(--ag-success-btn); color: #fff; }
+  .btn[data-variant='success']:hover { background: var(--ag-success-btn-hover); border-color: var(--ag-success-btn-hover); }
   .btn[data-variant='link'] { border: 0; box-shadow: none; background: none; padding: 0; height: auto; color: var(--ag-accent-fg); }
   .btn[data-variant='link']:hover { text-decoration: underline; text-underline-offset: 3px; }
   .btn:is([disabled], [aria-disabled='true']) { opacity: 0.5; pointer-events: none; }

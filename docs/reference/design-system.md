@@ -33,6 +33,7 @@ sub-navigasi E, tabel A, stat A, board C, prioritas C, layar masuk B. Rancangan 
 | Teks | `fg` #17171c, `fg2` #3d3d47, `muted` #63636f, `faint` #6e6e7a (M12: dinaikkan agar ≥ 4,5:1) |
 | Aksen | `accent` #5b5bd6, `accent-soft` #f0f0fe, `accent-fg` #4747c2 |
 | Status | `success` #1c7f45, `warn` #a35407, `danger` #cf2e2e, `info` #1d63c9 (masing-masing `-soft`) |
+| Tombol status | `success` latar `--ag-success-btn` #1c7f45 (gelap #1a7340, 5,0:1 / 5,9:1 dengan teks putih), `danger` latar `--ag-danger-btn` |
 | Prioritas (C) | P1 merah solid, P2 oranye lembut, P3 kuning lembut, P4 abu (`.app-prio[data-p]`) |
 | Font | Geist 400/500/600, Geist Mono 400/500 (kode, kunci, slug). Teks dasar 13px |
 | Radius | tombol/input 6px, kartu 10px, panel utama 12px |
@@ -70,7 +71,7 @@ Semua di `server/assets/views/components/`; parameter lengkap ada di komentar ke
 
 | Komponen | Pakai untuk | Data Rust |
 |---|---|---|
-| `button` | tombol/tautan/pembuka dialog (`dialog="id"`); varian primary, outline, secondary, ghost, destructive, danger, link; ukuran sm, lg, icon, icon-sm | — |
+| `button` | tombol/tautan/pembuka dialog (`dialog="id"`); varian primary, outline, secondary, ghost, destructive, danger, success, link (Approve = `success`, Reject/Revisi = `danger`; teks putih ≥ 4,5:1 terang dan gelap); ukuran sm, lg, icon, icon-sm | — |
 | `field`, `textarea_field`, `select_field` | isian dengan label, hint, error Fluent (`error`, `error_min/max`), `prefix` | — |
 | `combo` (+ `combo_options`) | pilihan orang/tim yang bisa dicari, satu atau banyak (`multiple`), opsi dari server (`src` → GET `?q=` membalas `combo_options`) | `views::ui::ComboOption` |
 | `color_picker` | 18 warna palet + warna lain (hex) | `palette()` |

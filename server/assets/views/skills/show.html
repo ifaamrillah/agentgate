@@ -119,7 +119,7 @@
       <div class="alert" data-variant="destructive">{{ icon(name="alert-triangle") }}<span>{{ t(key="skill-approve-danger", lang="id") }}</span></div>
       {{ <field id="skill-confirm" name="confirm" label={t(key="skill-confirm", lang="id", pack=raw.key)} error={errors.confirm.code} mono={true} autocomplete="off" required={true}/> }}
       {%- endif %}
-      {{ <button label={t(key="skill-approve", lang="id")} type="submit" icon="check" full={true}/> }}
+      {{ <button label={t(key="skill-approve", lang="id")} type="submit" icon="check" variant="success" full={true}/> }}
     </form>
     <form method="post" action="{{ href }}/reject" class="app-stack-v" data-gap="sm" data-skill-reject>
       {{ <textarea_field id="skill-reject-note" name="note" label={t(key="skill-reject-note", lang="id")} rows={2} error={errors.note.code} required={true}/> }}

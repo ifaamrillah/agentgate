@@ -426,6 +426,15 @@ async fn rejects_count_rounds_and_the_limit_asks_for_a_decision() {
         let code = create_ticket(&request, &f.cookie, &[("title", "Gagal terus")]).await;
         to_review(&request, &f.cookie).await;
 
+        // Approve hijau (`success`), Reject merah (`danger`), keputusan pemilik R1.
+        let html = request
+            .get("/w/acme/t/KSR-1")
+            .add_cookie(f.cookie.clone())
+            .await
+            .text();
+        assert_css_exists(&html, "button[data-approve][data-variant='success']");
+        assert_css_exists(&html, "button[data-reject][data-variant='danger']");
+
         // Reject tanpa catatan ditolak (dialog terbuka dengan error).
         let res = post(
             &request,

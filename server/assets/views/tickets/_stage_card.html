@@ -46,10 +46,10 @@
   {%- if not stage.cancelled %}
   <div class="app-blk app-stage-acts" data-stage-actions>
     {%- if stage.state == "review" and stage.can_decide %}
-    <form method="post" action="{{ paths.approve }}">{{ <button label={t(key="stage-approve", lang="id")} icon="check" variant="primary" type="submit" full={true} attrs="data-approve"/> }}</form>
+    <form method="post" action="{{ paths.approve }}">{{ <button label={t(key="stage-approve", lang="id")} icon="check" variant="success" type="submit" full={true} attrs="data-approve"/> }}</form>
     <div class="app-stage-pair">
       {{ <button label={t(key="stage-edit-approve", lang="id")} icon="pencil" variant="outline" href={paths.artifacts}/> }}
-      {{ <button label={t(key="stage-reject", lang="id")} icon="x" variant="outline" dialog="reject-dialog" attrs="data-reject"/> }}
+      {{ <button label={t(key="stage-reject", lang="id")} icon="x" variant="danger" dialog="reject-dialog" attrs="data-reject"/> }}
     </div>
     <p class="app-hint">{{ t(key="stage-one-approver", lang="id") }}</p>
     {%- elif stage.state == "decision" and stage.can_decide %}

@@ -78,8 +78,8 @@
       </div>
       {%- if in_review and stage.can_decide %}
       <footer class="app-mk-foot">
-        {{ <button label={t(key="mockup-revise", lang="id")} icon="pencil" variant="outline" dialog="mockup-revise"/> }}
-        <form method="post" action="{{ paths.approve }}"><input type="hidden" name="return_to" value="{{ return_to }}">{{ <button label={t(key="mockup-approve", lang="id")} icon="check" type="submit" attrs="data-mockup-approve"/> }}</form>
+        {{ <button label={t(key="mockup-revise", lang="id")} icon="pencil" variant="danger" dialog="mockup-revise"/> }}
+        <form method="post" action="{{ paths.approve }}"><input type="hidden" name="return_to" value="{{ return_to }}">{{ <button label={t(key="mockup-approve", lang="id")} icon="check" variant="success" type="submit" attrs="data-mockup-approve"/> }}</form>
       </footer>
       {%- endif %}
     </section>

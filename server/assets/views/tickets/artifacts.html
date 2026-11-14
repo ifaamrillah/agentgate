@@ -54,8 +54,8 @@
     {%- if preview.in_review and stage.can_decide %}
     <div class="app-blk app-artifact-decide">
       <span class="app-hint">{{ t(key="artifact-review-hint", lang="id") }}</span>
-      {{ <button label={t(key="stage-reject", lang="id")} icon="x" variant="outline" size="sm" dialog="reject-dialog"/> }}
-      <form method="post" action="{{ paths.approve }}">{{ <button label={t(key="stage-approve", lang="id")} icon="check" size="sm" type="submit" attrs="data-approve"/> }}</form>
+      {{ <button label={t(key="stage-reject", lang="id")} icon="x" variant="danger" size="sm" dialog="reject-dialog"/> }}
+      <form method="post" action="{{ paths.approve }}">{{ <button label={t(key="stage-approve", lang="id")} icon="check" variant="success" size="sm" type="submit" attrs="data-approve"/> }}</form>
     </div>
     {%- endif %}
   {% </card> %}
