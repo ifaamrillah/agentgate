@@ -762,7 +762,10 @@ pub(super) async fn status(
             format::redirect(&safe_return(slug, form.return_to.as_deref(), &fallback))
         }
         Err(failure @ TicketFailure::Invalid(_))
-            if form.return_to.as_deref().is_some_and(|r| !r.trim().is_empty()) =>
+            if form
+                .return_to
+                .as_deref()
+                .is_some_and(|r| !r.trim().is_empty()) =>
         {
             rejected_back(
                 session,

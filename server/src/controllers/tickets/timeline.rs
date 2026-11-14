@@ -20,6 +20,7 @@ use uuid::Uuid;
 
 use super::{board::project_definitions, lookup, project_paths, summary};
 use crate::{
+    common::i18n,
     controllers::{extractors::ProjectAccess, shell::app_shell},
     models::{
         permission::Permission,
@@ -27,7 +28,6 @@ use crate::{
         sprints::{self, SprintState},
         ticket_links, tickets,
     },
-    common::i18n,
     services::planning::{self, estimates, timeline},
     views::{self, nav, planning as pv, projects::PROJECT_VIEWS_ACTION, tickets::TicketRow},
 };
@@ -423,23 +423,30 @@ pub(super) async fn roadmap(
                 .iter()
                 .filter_map(|c| span_of.get(&c.id).copied())
                 .collect();
-            let span = timeline::merge_spans(&child_spans).or_else(|| span_of.get(&epic.id).copied());
+            let span =
+                timeline::merge_spans(&child_spans).or_else(|| span_of.get(&epic.id).copied());
             let done = children.iter().filter(|c| c.status == "done").count();
             let progress = if epic.status == "done" {
                 100
             } else {
                 timeline::epic_progress(done, children.len())
             };
-            let open = open_all || query.open.iter().any(|c| c.eq_ignore_ascii_case(&epic.code));
+            let open = open_all
+                || query
+                    .open
+                    .iter()
+                    .any(|c| c.eq_ignore_ascii_case(&epic.code));
             let mut tip = span.map_or_else(
                 || format!("{} · {}", epic.code, epic.title),
-                |s| format!(
-                    "{} · {}\n{} – {}",
-                    epic.code,
-                    epic.title,
-                    pv::long_day(s.start),
-                    pv::long_day(s.end)
-                ),
+                |s| {
+                    format!(
+                        "{} · {}\n{} – {}",
+                        epic.code,
+                        epic.title,
+                        pv::long_day(s.start),
+                        pv::long_day(s.end)
+                    )
+                },
             );
             tip.push('\n');
             tip.push_str(&i18n::text(
@@ -512,14 +519,28 @@ pub(super) async fn roadmap(
         let rest: Vec<(&tickets::Model, timeline::Span)> = loose
             .into_iter()
             .filter(|t| matches(t, q))
-            .filter_map(|t| span_of.get(&t.id).copied().filter(|s| in_window(s)).map(|s| (t, s)))
+            .filter_map(|t| {
+                span_of
+                    .get(&t.id)
+                    .copied()
+                    .filter(|s| in_window(s))
+                    .map(|s| (t, s))
+            })
             .collect();
         if !rest.is_empty() {
             group_row(&mut rows, &mut y, String::new());
             for (t, s) in rest {
                 let p = progress_of(t, &stages);
                 shown += 1;
-                ticket_row(&mut rows, &mut y, t, Some(s), p, span_tip(t, &s, p), RowExtra::default());
+                ticket_row(
+                    &mut rows,
+                    &mut y,
+                    t,
+                    Some(s),
+                    p,
+                    span_tip(t, &s, p),
+                    RowExtra::default(),
+                );
             }
         }
     } else {
@@ -531,7 +552,13 @@ pub(super) async fn roadmap(
             let mine: Vec<(&tickets::Model, timeline::Span)> = all
                 .iter()
                 .filter(|t| t.sprint_id == group.map(|s| s.id) && matches(t, q))
-                .filter_map(|t| span_of.get(&t.id).copied().filter(|s| in_window(s)).map(|s| (t, s)))
+                .filter_map(|t| {
+                    span_of
+                        .get(&t.id)
+                        .copied()
+                        .filter(|s| in_window(s))
+                        .map(|s| (t, s))
+                })
                 .collect();
             if mine.is_empty() {
                 continue;
@@ -543,7 +570,15 @@ pub(super) async fn roadmap(
             for (t, s) in mine {
                 let p = progress_of(t, &stages);
                 shown += 1;
-                ticket_row(&mut rows, &mut y, t, Some(s), p, span_tip(t, &s, p), RowExtra::default());
+                ticket_row(
+                    &mut rows,
+                    &mut y,
+                    t,
+                    Some(s),
+                    p,
+                    span_tip(t, &s, p),
+                    RowExtra::default(),
+                );
             }
         }
     }
@@ -665,15 +700,18 @@ pub(super) async fn roadmap(
             serde_json::json!({ "key": k, "label": label, "href": href, "current": *k == zoom })
         })
         .collect();
-    let groups: Vec<serde_json::Value> = [("sprint", "roadmap-group-sprint"), ("epic", "roadmap-group-epic")]
-        .iter()
-        .map(|(k, label)| {
-            serde_json::json!({
-                "key": k, "label": label, "current": *k == group,
-                "href": roadmap_href(&base, zoom, q, k, &[]),
-            })
+    let groups: Vec<serde_json::Value> = [
+        ("sprint", "roadmap-group-sprint"),
+        ("epic", "roadmap-group-epic"),
+    ]
+    .iter()
+    .map(|(k, label)| {
+        serde_json::json!({
+            "key": k, "label": label, "current": *k == group,
+            "href": roadmap_href(&base, zoom, q, k, &[]),
         })
-        .collect();
+    })
+    .collect();
     let expand_all = roadmap_href(&base, zoom, q, "epic", &["all".to_string()]);
     let collapse_all = roadmap_href(&base, zoom, q, "epic", &[]);
     let shell = app_shell(

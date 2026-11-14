@@ -121,7 +121,10 @@ async fn workflow_is_built_from_a_template_edited_and_published() {
         // Kanvas graf (R3) bawaan; daftar vertikal lewat ?view=list.
         let html = page.text();
         assert_css_exists(&html, "[data-wf-canvas] a[data-wf-node='brainstorm']");
-        assert_css_exists(&html, "[data-wf-views] a[aria-current='true'][data-wf-view='canvas']");
+        assert_css_exists(
+            &html,
+            "[data-wf-views] a[aria-current='true'][data-wf-view='canvas']",
+        );
         assert_css_exists(&html, "[data-wf-canvas] template[data-wf-icons]");
         let list = get(&request, c, &format!("{base}?view=list")).await.text();
         assert_css_exists(&list, "ol[data-flow] [data-stage='brainstorm']");
@@ -181,10 +184,18 @@ async fn workflow_is_built_from_a_template_edited_and_published() {
             danger.get("db_migrate"),
             Some(&agentgate_core::persona::Level::Block)
         );
-        let page = get(&request, c, &format!("{base}?stage=brainstorm")).await.text();
-        assert_css_exists(&page, "[data-stage-danger] select[name='danger_db_migrate'] option[value='block'][selected]");
+        let page = get(&request, c, &format!("{base}?stage=brainstorm"))
+            .await
+            .text();
+        assert_css_exists(
+            &page,
+            "[data-stage-danger] select[name='danger_db_migrate'] option[value='block'][selected]",
+        );
         let yaml = get(&request, c, &format!("{base}?tab=yaml")).await.text();
-        assert!(yaml.contains("izin_bahaya:") && yaml.contains("db_migrate: block"), "{yaml}");
+        assert!(
+            yaml.contains("izin_bahaya:") && yaml.contains("db_migrate: block"),
+            "{yaml}"
+        );
         assert_css_exists(&get(&request, c, &base).await.text(), "[data-draft-bar]");
 
         // Persona yang tidak ada di workspace → 422, draf tidak berubah.

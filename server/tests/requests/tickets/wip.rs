@@ -12,8 +12,9 @@ use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde_json::json;
 
 use super::{
-    create_ticket, fixture, ticket,
+    create_ticket, fixture,
     stages::{member, use_workflow},
+    ticket,
 };
 use crate::{
     requests::{
@@ -66,7 +67,10 @@ async fn full_column_rejects_moves_everywhere_and_admin_can_force() {
         assert_eq!(res.status_code(), 303, "{}", res.text());
         let html = request.get(BOARD).add_cookie(f.cookie.clone()).await.text();
         assert_css_exists(&html, "[data-column='dev'][data-wip-full]");
-        assert!(html.contains("Kolom Dev sudah penuh (batas WIP 1 tiket)"), "{html}");
+        assert!(
+            html.contains("Kolom Dev sudah penuh (batas WIP 1 tiket)"),
+            "{html}"
+        );
 
         // Drag/menu dari board: kembali ke board dengan pesan jelas, B tetap di To do.
         let res = move_card(b.clone(), BOARD).await;
@@ -112,7 +116,12 @@ async fn full_column_rejects_moves_everywhere_and_admin_can_force() {
         assert_eq!(res.status_code(), 422, "{}", res.text());
         let body = body_json(&res);
         assert_eq!(body["error"], "ticket-wip-full");
-        assert!(body["message"].as_str().unwrap().contains("Kolom Dev sudah penuh"));
+        assert!(
+            body["message"]
+                .as_str()
+                .unwrap()
+                .contains("Kolom Dev sudah penuh")
+        );
 
         // MCP: tool error berisi alasan.
         let (_, mcp_token, _) =

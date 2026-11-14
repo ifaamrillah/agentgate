@@ -260,12 +260,42 @@ mod tests {
             Uuid::from_u128(5),
         );
         let mut tree = HashMap::new();
-        tree.insert(e, TreeNode { parent: None, epic: true });
-        tree.insert(s, TreeNode { parent: Some(e), epic: false });
-        tree.insert(t, TreeNode { parent: Some(s), epic: false });
-        tree.insert(lone, TreeNode { parent: None, epic: false });
+        tree.insert(
+            e,
+            TreeNode {
+                parent: None,
+                epic: true,
+            },
+        );
+        tree.insert(
+            s,
+            TreeNode {
+                parent: Some(e),
+                epic: false,
+            },
+        );
+        tree.insert(
+            t,
+            TreeNode {
+                parent: Some(s),
+                epic: false,
+            },
+        );
+        tree.insert(
+            lone,
+            TreeNode {
+                parent: None,
+                epic: false,
+            },
+        );
         // Siklus induk tidak membuat loop tak berujung.
-        tree.insert(x, TreeNode { parent: Some(x), epic: false });
+        tree.insert(
+            x,
+            TreeNode {
+                parent: Some(x),
+                epic: false,
+            },
+        );
         assert_eq!(epic_of(s, &tree), Some(e));
         assert_eq!(epic_of(t, &tree), Some(e), "subtask story ikut epic-nya");
         assert_eq!(epic_of(e, &tree), None);
@@ -275,8 +305,18 @@ mod tests {
 
     #[test]
     fn epic_span_covers_children_and_progress_counts_done() {
-        let a = Span { start: d("2026-11-10"), end: d("2026-11-14"), estimated: false, late: false };
-        let b = Span { start: d("2026-11-12"), end: d("2026-11-30"), estimated: true, late: true };
+        let a = Span {
+            start: d("2026-11-10"),
+            end: d("2026-11-14"),
+            estimated: false,
+            late: false,
+        };
+        let b = Span {
+            start: d("2026-11-12"),
+            end: d("2026-11-30"),
+            estimated: true,
+            late: true,
+        };
         let m = merge_spans(&[a, b]).unwrap();
         assert_eq!((m.start, m.end), (d("2026-11-10"), d("2026-11-30")));
         assert!(!m.estimated && m.late);

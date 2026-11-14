@@ -181,7 +181,10 @@ impl Field {
     /// Field berurutan (bisa dibandingkan dengan `<`, `>`).
     #[must_use]
     pub fn ordered(self) -> bool {
-        matches!(self, Self::Points | Self::Due | Self::Created | Self::Updated)
+        matches!(
+            self,
+            Self::Points | Self::Due | Self::Created | Self::Updated
+        )
     }
 }
 
@@ -402,9 +405,7 @@ impl Parser {
                     return Err(JqlError::named(DANGLING, "AND"));
                 }
                 parts.push(self.unary(depth)?);
-            } else if self.at_end()
-                || is_kw(self.peek(), "or")
-                || self.peek() == Some(&Tok::Close)
+            } else if self.at_end() || is_kw(self.peek(), "or") || self.peek() == Some(&Tok::Close)
             {
                 break;
             } else {
@@ -759,10 +760,9 @@ pub fn context(prefix: &str) -> Context {
         };
     };
     // Kata yang belum selesai diketik: token terakhir bila tidak diikuti spasi/tanda baca.
-    let ends_word = prefix
-        .chars()
-        .last()
-        .is_some_and(|c| !c.is_whitespace() && !matches!(c, '(' | ')' | ',' | '=' | '~' | '<' | '>'));
+    let ends_word = prefix.chars().last().is_some_and(|c| {
+        !c.is_whitespace() && !matches!(c, '(' | ')' | ',' | '=' | '~' | '<' | '>')
+    });
     let mut partial = String::new();
     if ends_word {
         match toks.last() {
@@ -940,7 +940,9 @@ mod tests {
         assert!(!run("NOT (project = KSR OR priority = low)"));
         assert!(run("not not project = ksr"));
         assert!(run("((project = KSR))"));
-        assert!(run("label = pembayaran AND (NOT status = done) AND (type = bug OR type = story)"));
+        assert!(run(
+            "label = pembayaran AND (NOT status = done) AND (type = bug OR type = story)"
+        ));
         let q = parse("project = A OR project = B AND label = c").unwrap();
         let Some(Expr::Or(parts)) = q.expr else {
             panic!("OR di puncak")
@@ -999,9 +1001,18 @@ mod tests {
     fn context_tracks_what_comes_next() {
         assert_eq!(ctx(""), (Expect::Field, String::new()));
         assert_eq!(ctx("assig"), (Expect::Field, "assig".into()));
-        assert_eq!(ctx("status "), (Expect::Operator(Field::Status), String::new()));
-        assert_eq!(ctx("status = "), (Expect::Value(Field::Status), String::new()));
-        assert_eq!(ctx("status=do"), (Expect::Value(Field::Status), "do".into()));
+        assert_eq!(
+            ctx("status "),
+            (Expect::Operator(Field::Status), String::new())
+        );
+        assert_eq!(
+            ctx("status = "),
+            (Expect::Value(Field::Status), String::new())
+        );
+        assert_eq!(
+            ctx("status=do"),
+            (Expect::Value(Field::Status), "do".into())
+        );
         assert_eq!(
             ctx("sprint = \"Spr"),
             (Expect::Value(Field::Sprint), "\"Spr".into())
@@ -1010,18 +1021,42 @@ mod tests {
             ctx("status = done "),
             (Expect::Join { open: false }, String::new())
         );
-        assert_eq!(ctx("(status = done "), (Expect::Join { open: true }, String::new()));
-        assert_eq!(ctx("(status = done) "), (Expect::Join { open: false }, String::new()));
+        assert_eq!(
+            ctx("(status = done "),
+            (Expect::Join { open: true }, String::new())
+        );
+        assert_eq!(
+            ctx("(status = done) "),
+            (Expect::Join { open: false }, String::new())
+        );
         assert_eq!(ctx("status = done AND "), (Expect::Field, String::new()));
-        assert_eq!(ctx("status = done or NOT ("), (Expect::Field, String::new()));
-        assert_eq!(ctx("label in "), (Expect::InStart(Field::Label), String::new()));
-        assert_eq!(ctx("label not in "), (Expect::InStart(Field::Label), String::new()));
-        assert_eq!(ctx("label in (a, "), (Expect::Value(Field::Label), String::new()));
+        assert_eq!(
+            ctx("status = done or NOT ("),
+            (Expect::Field, String::new())
+        );
+        assert_eq!(
+            ctx("label in "),
+            (Expect::InStart(Field::Label), String::new())
+        );
+        assert_eq!(
+            ctx("label not in "),
+            (Expect::InStart(Field::Label), String::new())
+        );
+        assert_eq!(
+            ctx("label in (a, "),
+            (Expect::Value(Field::Label), String::new())
+        );
         assert_eq!(ctx("label in (a "), (Expect::ListNext, String::new()));
         assert_eq!(ctx("assignee is "), (Expect::IsValue, String::new()));
         assert_eq!(ctx("label = a ORDER "), (Expect::OrderBy, String::new()));
-        assert_eq!(ctx("label = a ORDER BY "), (Expect::OrderField, String::new()));
-        assert_eq!(ctx("label = a ORDER BY due "), (Expect::OrderDir, String::new()));
+        assert_eq!(
+            ctx("label = a ORDER BY "),
+            (Expect::OrderField, String::new())
+        );
+        assert_eq!(
+            ctx("label = a ORDER BY due "),
+            (Expect::OrderDir, String::new())
+        );
         assert_eq!(ctx("warna "), (Expect::Nothing, String::new()));
     }
 

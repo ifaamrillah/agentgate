@@ -639,7 +639,9 @@ fn stage_from(pairs: &[(String, String)]) -> Stage {
     };
     // `danger_<aksi>`: kosong = ikut persona; nilai tak dikenal diabaikan.
     for (action, _) in agentgate_core::persona::DANGER_ACTIONS {
-        if let Some(level) = agentgate_core::persona::Level::parse(get_one(pairs, &format!("danger_{action}"))) {
+        if let Some(level) =
+            agentgate_core::persona::Level::parse(get_one(pairs, &format!("danger_{action}")))
+        {
             s.danger.insert((*action).to_string(), level);
         }
     }
@@ -837,7 +839,11 @@ pub(super) async fn builder(
     let mut st = state(Some(query.stage));
     st.tab = query.tab;
     st.flash = flash;
-    st.view = if query.view == "list" { "list" } else { "canvas" };
+    st.view = if query.view == "list" {
+        "list"
+    } else {
+        "canvas"
+    };
     let res = render_builder(&ctx, &v, &access.tenant, &workflow, st, StatusCode::OK).await?;
     Ok((session, res).into_response())
 }

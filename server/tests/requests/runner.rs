@@ -251,7 +251,11 @@ async fn runner_executes_stage_job_with_signed_evidence_then_requests_review() {
             .iter()
             .find(|d| d["action"] == "deploy")
             .cloned();
-        assert_eq!(deploy.map(|d| d["level"].clone()), Some(json!("allow")), "{spec}");
+        assert_eq!(
+            deploy.map(|d| d["level"].clone()),
+            Some(json!("allow")),
+            "{spec}"
+        );
 
         // Log dan langkah.
         let (status, _) = post_json(

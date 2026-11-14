@@ -317,7 +317,12 @@ async fn query_autocomplete_suggests_fields_operators_and_values() {
         let v = suggest("assig").await;
         assert_eq!(v["partial"], "assig");
         assert_eq!(inserts(&v)[0], "assignee ");
-        assert!(v["items"][0]["hint"].as_str().unwrap().contains("currentUser()"));
+        assert!(
+            v["items"][0]["hint"]
+                .as_str()
+                .unwrap()
+                .contains("currentUser()")
+        );
         // Operator per field: label tanpa <, points dengan <.
         let ops = inserts(&suggest("label ").await);
         assert!(ops.contains(&"in (".to_string()) && !ops.iter().any(|o| o.starts_with('<')));

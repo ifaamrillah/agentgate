@@ -563,8 +563,7 @@ impl Definition {
             {
                 push(at, "fail_to", FAIL_TO_INVALID);
             }
-            if s
-                .danger
+            if s.danger
                 .keys()
                 .any(|a| !DANGER_ACTIONS.iter().any(|(k, _)| k == a))
             {

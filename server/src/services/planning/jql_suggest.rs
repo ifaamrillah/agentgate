@@ -168,7 +168,10 @@ async fn values<C: ConnectionTrait>(
         }
         Field::Priority => {
             for p in ["urgent", "high", "medium", "low"] {
-                out.push((p.to_string(), i18n::text(&format!("ticket-priority-{p}"), &[])));
+                out.push((
+                    p.to_string(),
+                    i18n::text(&format!("ticket-priority-{p}"), &[]),
+                ));
             }
         }
         Field::Stage => {
@@ -333,7 +336,11 @@ pub async fn suggest<C: ConnectionTrait>(
                     } else {
                         jql::quote(&value)
                     };
-                    let insert = if in_list { insert } else { format!("{insert} ") };
+                    let insert = if in_list {
+                        insert
+                    } else {
+                        format!("{insert} ")
+                    };
                     item(&insert, &value, hint, "value")
                 })
                 .collect();

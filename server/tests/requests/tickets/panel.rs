@@ -41,7 +41,10 @@ async fn panel_partial_shares_summary_with_full_page() {
         assert_css_exists(&html, "[data-ticket-details]");
         assert_css_exists(&html, "dialog#ticket-edit");
         // Induk dibuka di panel juga.
-        assert_css_exists(&html, &format!("a[data-ticket-peek][href='/w/acme/t/{parent}']"));
+        assert_css_exists(
+            &html,
+            &format!("a[data-ticket-peek][href='/w/acme/t/{parent}']"),
+        );
         assert!(!html.contains("<struk>"), "judul di-escape");
 
         // URL sama tanpa header: halaman penuh (dibuka langsung/refresh).
@@ -58,7 +61,10 @@ async fn panel_partial_shares_summary_with_full_page() {
                 .add_cookie(f.cookie.clone())
                 .await
                 .text();
-            assert_css_exists(&html, "dialog#ticket-panel[aria-labelledby='ticket-panel-title']");
+            assert_css_exists(
+                &html,
+                "dialog#ticket-panel[aria-labelledby='ticket-panel-title']",
+            );
             assert_css_exists(&html, &format!("a[data-ticket-peek][href='{path}']"));
         }
 

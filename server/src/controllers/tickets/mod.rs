@@ -339,7 +339,10 @@ pub fn routes() -> Routes {
         .add("/w/{slug}/t/{code}/pr/{id}/merge", post(pulls::merge))
         .add("/w/{slug}/t/{code}/status", post(ticket::status))
         // Admin memaksa pindah ke kolom yang batas WIP-nya penuh (dialog board, R3).
-        .add("/w/{slug}/t/{code}/move-over-wip", post(ticket::move_over_wip))
+        .add(
+            "/w/{slug}/t/{code}/move-over-wip",
+            post(ticket::move_over_wip),
+        )
         .add("/w/{slug}/t/{code}/comments", post(ticket::comment))
         .add(
             "/w/{slug}/t/{code}/comments/{id}",

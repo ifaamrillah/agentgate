@@ -358,15 +358,28 @@ stages:
         assert!(levels.contains(&("network", Level::Block)));
         assert!(levels.contains(&("db_migrate", Level::Ask)));
         let out = emit(&doc, None, |_| None);
-        assert!(out.contains("izin_bahaya:") && out.contains("deploy: allow"), "{out}");
+        assert!(
+            out.contains("izin_bahaya:") && out.contains("deploy: allow"),
+            "{out}"
+        );
         assert_eq!(parse(&out, |_| None).unwrap().0.definition, doc.definition);
         // Tingkat tidak dikenal → error impor; aksi tidak dikenal → error validasi.
-        let bad = SAMPLE.replace("    batas_gagal: 2\n", "    batas_gagal: 2\n    izin_bahaya:\n      deploy: kadang\n");
+        let bad = SAMPLE.replace(
+            "    batas_gagal: 2\n",
+            "    batas_gagal: 2\n    izin_bahaya:\n      deploy: kadang\n",
+        );
         assert_eq!(parse(&bad, |_| None).unwrap_err().code, UNKNOWN_VALUE);
-        let unknown = SAMPLE.replace("    batas_gagal: 2\n", "    batas_gagal: 2\n    izin_bahaya:\n      terbang: allow\n");
+        let unknown = SAMPLE.replace(
+            "    batas_gagal: 2\n",
+            "    batas_gagal: 2\n    izin_bahaya:\n      terbang: allow\n",
+        );
         let (doc, _) = parse(&unknown, |_| None).unwrap();
         let issues = doc.definition.validate().unwrap_err();
-        assert!(issues.iter().any(|i| i.code == crate::workflow::definition::DANGER_INVALID));
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.code == crate::workflow::definition::DANGER_INVALID)
+        );
     }
 
     #[test]
