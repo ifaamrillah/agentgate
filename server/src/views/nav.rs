@@ -465,6 +465,21 @@ fn settings_side(shell: &AppShell) -> Vec<SideGroup> {
         Some("nav-group-account"),
         account.iter().map(|i| SideItem::nav(i, false)).collect(),
     ));
+    if shell.system_admin {
+        let items = mark(
+            vec![NavItem::link(
+                "system",
+                "system-title",
+                "heart-rate-monitor",
+                "/system",
+            )],
+            shell.section,
+        );
+        groups.push(SideGroup::new(
+            Some("nav-group-instance"),
+            items.iter().map(|i| SideItem::nav(i, false)).collect(),
+        ));
+    }
     if let (Some(links), Some(ws)) = (&shell.settings, &shell.current_workspace) {
         let items = mark(settings_nav(&ws.settings_href, links), shell.section);
         let mut group = SideGroup::new(

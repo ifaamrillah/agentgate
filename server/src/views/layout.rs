@@ -214,6 +214,8 @@ pub struct AppShell {
     pub subnav: Vec<NavItem>,
     /// Notifikasi kotak masuk yang belum dibaca (badge sidebar).
     pub inbox_unread: u64,
+    /// Admin instance (`settings.system.admin_emails`): menu Pengaturan memuat Status sistem.
+    pub system_admin: bool,
 }
 
 /// Tautan halaman Pengaturan workspace; `None` bila role tidak membuka halaman itu.
@@ -263,6 +265,7 @@ impl AppShell {
             area: "",
             subnav: Vec::new(),
             inbox_unread: 0,
+            system_admin: false,
         }
     }
 
@@ -340,9 +343,19 @@ impl AppShell {
             }
         } else if nav::PROJECT_SETTINGS_SECTIONS.contains(&section) {
             self.area = "project_settings";
+        } else if section == "system" {
+            // Status sistem (M12): halaman instance di menu Pengaturan, tanpa menu kiri sendiri.
+            self.area = "account";
         } else if section == "home" {
             self.area = "home";
         }
+        self
+    }
+
+    /// Tandai admin instance (menu Status sistem).
+    #[must_use]
+    pub fn system_admin(mut self, yes: bool) -> Self {
+        self.system_admin = yes;
         self
     }
 

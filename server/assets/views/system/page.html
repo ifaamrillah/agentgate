@@ -1,0 +1,111 @@
+{#- Status sistem instance (M12): subpage varian E, satu panel per rute (`/system`, `/system/{panel}`).
+    Hanya admin instance. Variabel: panel, subnav, checked_at, warnings (kunci Fluent), stats, version,
+    build, environment, cli_min_version, workspaces, users, http_total, http_5xx, realtime, queue,
+    oldest_queued, failed, db, storage, storage_total, backups, last_backup_ok, backup_target,
+    backup_schedule, metrics_enabled. -#}
+{% extends "layouts/settings.html" %}
+{% block title %}{{ t(key="system-title", lang="id") }}{% endblock title %}
+{% block crumb_label %}{{ t(key="system-title", lang="id") }}{% endblock crumb_label %}
+{% block page_attrs %}data-system-page="{{ panel }}"{% endblock page_attrs %}
+{% block settings %}
+{% <subpage title={t(key="system-title", lang="id")} description={t(key="system-description", lang="id")} items={subnav}> %}
+{%- if panel == "summary" %}
+{% <card title={t(key="system-panel-summary", lang="id")} description={t(key="system-checked-at", lang="id", at=checked_at)} attrs="data-summary"> %}
+<div class="app-stack-v">
+  {%- if warnings | length == 0 %}
+  <div class="app-sys-hero" data-tone="ok" data-health="ok"><span class="app-tile" data-size="lg" data-tone="success">{{ icon(name="circle-check") }}</span><span><b>{{ t(key="system-health-ok", lang="id") }}</b><br><span class="app-hint">{{ t(key="system-health-ok-description", lang="id") }}</span></span></div>
+  {%- else %}
+  <div class="app-sys-hero" data-tone="warn" data-health="warn"><span class="app-tile" data-size="lg" data-tone="warn">{{ icon(name="alert-triangle") }}</span><span><b>{{ t(key="system-health-warn", lang="id", n=warnings | length) }}</b><br><span class="app-hint">{{ t(key="system-health-warn-description", lang="id") }}</span></span></div>
+  {%- endif %}
+  {{ <stats items={stats}/> }}
+</div>
+{% </card> %}
+{%- if warnings | length > 0 %}
+{% <card title={t(key="system-attention", lang="id")} flush={true} attrs="data-warnings"> %}
+  {%- for w in warnings %}
+  <div class="app-lrow" data-warning="{{ w }}">{{ icon(name="alert-triangle", class="app-text-warn") }}<span class="app-lrow-main"><b>{{ t(key=w, lang="id") }}</b><small>{{ t(key=w ~ "-hint", lang="id") }}</small></span></div>
+  {%- endfor %}
+{% </card> %}
+{%- endif %}
+{% <card title={t(key="system-version", lang="id")} attrs="data-version"> %}
+<dl class="app-props">
+  <dt>{{ t(key="system-version-server", lang="id") }}</dt><dd><span class="app-code">agentgate-server {{ version }}</span></dd>
+  <dt>{{ t(key="system-version-build", lang="id") }}</dt><dd><span class="app-code">{{ build }}</span></dd>
+  <dt>{{ t(key="system-version-env", lang="id") }}</dt><dd>{{ <badge label={environment} variant="neutral" code={true}/> }}</dd>
+  <dt>{{ t(key="system-version-cli-min", lang="id") }}</dt><dd>{% if cli_min_version %}{{ cli_min_version }} · {% endif %}<a class="app-link" href="/install">{{ t(key="system-install-page", lang="id") }}</a></dd>
+  <dt>{{ t(key="system-tenants", lang="id") }}</dt><dd>{{ t(key="system-tenants-value", lang="id", workspaces=workspaces, users=users) }}</dd>
+</dl>
+{% </card> %}
+{%- elif panel == "services" %}
+{% <card title={t(key="system-panel-services", lang="id")} description={t(key="system-services-description", lang="id")} flush={true} attrs="data-services"> %}
+  <div class="app-lrow" data-service="web">{{ icon(name="world") }}<span class="app-lrow-main"><b>{{ t(key="system-service-web", lang="id") }}</b><small>{{ t(key="system-service-web-meta", lang="id", total=http_total, errors=http_5xx) }}</small></span>{% if http_5xx > 0 %}{{ <badge label={t(key="system-state-warn", lang="id")} variant="destructive"/> }}{% else %}{{ <badge label={t(key="system-state-ok", lang="id")} variant="success"/> }}{% endif %}</div>
+  <div class="app-lrow" data-service="realtime">{{ icon(name="activity") }}<span class="app-lrow-main"><b>{{ t(key="system-service-realtime", lang="id") }}</b><small>{{ t(key="system-service-realtime-meta", lang="id", listeners=realtime.listeners, received=realtime.received) }}</small></span>{% if realtime.connected %}{{ <live_dot state="online" label={t(key="system-realtime-connected", lang="id")}/> }}{% else %}{{ <live_dot state="offline" label={t(key="system-realtime-idle", lang="id")}/> }}{% endif %}</div>
+  <div class="app-lrow" data-service="metrics">{{ icon(name="cpu") }}<span class="app-lrow-main"><b>{{ t(key="system-service-metrics", lang="id") }}</b><small>{% if metrics_enabled %}{{ t(key="system-metrics-on", lang="id") }}{% else %}{{ t(key="system-metrics-off", lang="id") }}{% endif %}</small></span>{% if metrics_enabled %}{{ <badge label={t(key="system-state-on", lang="id")} variant="success"/> }}{% else %}{{ <badge label={t(key="system-state-off", lang="id")} variant="neutral"/> }}{% endif %}</div>
+{% </card> %}
+{% <card title={t(key="system-queue", lang="id")} description={t(key="system-queue-description", lang="id", oldest=oldest_queued)} flush={true} attrs="data-queue"> %}
+  {%- if queue | length > 0 %}
+  <div class="table-container"><table class="table">
+    <thead><tr><th>{{ t(key="system-queue-name", lang="id") }}</th><th class="app-num">{{ t(key="system-queue-queued", lang="id") }}</th><th class="app-num">{{ t(key="system-queue-running", lang="id") }}</th><th class="app-num">{{ t(key="system-queue-failed", lang="id") }}</th></tr></thead>
+    <tbody>
+    {%- for q in queue %}
+      <tr data-queue-row="{{ q.name }}"><td class="app-code">{{ q.name }}</td><td class="app-num">{{ q.queued }}</td><td class="app-num">{{ q.running }}</td><td class="app-num">{% if q.failed > 0 %}<span class="app-text-danger">{{ q.failed }}</span>{% else %}<span class="app-hint">0</span>{% endif %}</td></tr>
+    {%- endfor %}
+    </tbody>
+  </table></div>
+  {%- else %}
+  <div class="app-pad">{{ <empty_state title={t(key="system-queue-empty", lang="id")} description={t(key="system-queue-empty-description", lang="id")} icon="hourglass" variant="plain"/> }}</div>
+  {%- endif %}
+{% </card> %}
+{%- elif panel == "database" %}
+{% <card title={t(key="system-postgres", lang="id")} attrs="data-postgres"> %}
+<dl class="app-props">
+  <dt>{{ t(key="system-db-version", lang="id") }}</dt><dd>Postgres {{ db.version }}</dd>
+  <dt>{{ t(key="system-db-size", lang="id") }}</dt><dd>{{ db.size }}</dd>
+  <dt>{{ t(key="system-db-connections", lang="id") }}</dt><dd>{{ t(key="system-db-connections-value", lang="id", used=db.connections, max=db.max_connections, pool=db.pool_in_use, pool_max=db.pool_max) }}</dd>
+  <dt>{{ t(key="system-db-migration", lang="id") }}</dt><dd><span class="app-code">{{ db.last_migration }}</span></dd>
+  <dt>{{ t(key="system-db-extensions", lang="id") }}</dt><dd>{{ db.extensions }}</dd>
+  <dt>{{ t(key="system-db-tables", lang="id") }}</dt><dd>{% for tb in db.tables %}<span class="app-code">{{ tb.name }}</span> {{ tb.size }}{% if not loop.last %} · {% endif %}{% endfor %}</dd>
+</dl>
+{% </card> %}
+{% <card title={t(key="system-storage", lang="id")} description={t(key="system-storage-description", lang="id", files=storage_total.files, size=storage_total.size)} attrs="data-storage"> %}
+<div class="app-sys-bars">
+  {%- for r in storage %}
+  <div class="app-sys-bar" data-storage-row="{{ r.label_key }}"><span>{{ t(key=r.label_key, lang="id") }}</span><div class="app-bar"><i style="width:{{ r.pct }}%"></i></div><span class="app-hint">{{ t(key="system-storage-files", lang="id", n=r.files) }} · {{ r.size }}</span></div>
+  {%- endfor %}
+</div>
+{% </card> %}
+{%- elif panel == "backups" %}
+{%- if "system-warn-backup" in warnings or "system-warn-backup-failed" in warnings %}
+{{ <flash kind="warn" message={t(key="system-backup-alert", lang="id", at=last_backup_ok)} /> }}
+{%- endif %}
+{% <card title={t(key="system-backup-settings", lang="id")} description={t(key="system-backup-settings-description", lang="id")} flush={true} attrs="data-backup-settings"> %}
+  {% <setting_row title={t(key="system-backup-target", lang="id")} description={t(key="system-backup-target-description", lang="id")}> %}<span class="app-code">{% if backup_target %}{{ backup_target }}{% else %}{{ t(key="system-not-set", lang="id") }}{% endif %}</span>{% </setting_row> %}
+  {% <setting_row title={t(key="system-backup-schedule", lang="id")}> %}<span>{% if backup_schedule %}{{ backup_schedule }}{% else %}{{ t(key="system-not-set", lang="id") }}{% endif %}</span>{% </setting_row> %}
+  {% <setting_row title={t(key="system-backup-manual", lang="id")} description={t(key="system-backup-manual-description", lang="id")} wide={true}> %}{{ <copy_value value="docker compose -p agentgate-rs-prod run --rm backup backup-now" label={t(key="system-copy-command", lang="id")}/> }}{% </setting_row> %}
+  {% <setting_row title={t(key="system-backup-restore", lang="id")} description={t(key="system-backup-restore-description", lang="id")} wide={true}> %}{{ <copy_value value="docker compose -p agentgate-rs-prod run --rm backup restore <berkas>" label={t(key="system-copy-command", lang="id")}/> }}{% </setting_row> %}
+{% </card> %}
+{% <card title={t(key="system-backup-history", lang="id")} count={backups | length ~ ""} flush={true} attrs="data-backups"> %}
+  {%- if backups | length > 0 %}
+  <div class="table-container"><table class="table">
+    <thead><tr><th>{{ t(key="system-backup-at", lang="id") }}</th><th>{{ t(key="system-backup-result", lang="id") }}</th><th class="app-num" data-hide="sm">{{ t(key="system-backup-size", lang="id") }}</th><th data-hide="sm">{{ t(key="system-backup-note", lang="id") }}</th></tr></thead>
+    <tbody>
+    {%- for b in backups %}
+      <tr data-backup="{% if b.ok %}ok{% elif b.running %}running{% else %}failed{% endif %}"><td><b>{{ b.at }}</b></td><td>{% if b.ok %}{{ <badge label={t(key="system-backup-ok", lang="id")} variant="success"/> }}{% elif b.running %}{{ <badge label={t(key="system-backup-running", lang="id")} variant="info"/> }}{% else %}{{ <badge label={t(key="system-backup-failed", lang="id")} variant="destructive"/> }}{% endif %}</td><td class="app-num" data-hide="sm"><span class="app-hint">{{ b.size }}</span></td><td data-hide="sm"><span class="{% if b.ok %}app-hint{% else %}app-text-danger{% endif %}">{% if b.ok %}{{ b.duration }}{% else %}{{ b.message }}{% endif %}</span></td></tr>
+    {%- endfor %}
+    </tbody>
+  </table></div>
+  {%- else %}
+  <div class="app-pad">{{ <empty_state title={t(key="system-backup-empty", lang="id")} description={t(key="system-backup-empty-description", lang="id")} icon="cloud" variant="plain"/> }}</div>
+  {%- endif %}
+{% </card> %}
+{%- elif panel == "errors" %}
+{% <card title={t(key="system-panel-errors", lang="id")} description={t(key="system-errors-description", lang="id")} count={failed | length ~ ""} flush={true} attrs="data-errors"> %}
+  {%- for f in failed %}
+  <div class="app-lrow" data-wrap data-failed-job="{{ f.name }}">{{ icon(name="alert-circle", class="app-text-danger") }}<span class="app-lrow-main"><b><span class="app-code">{{ f.name }}</span> · {{ f.at }}</b><small class="app-sys-err">{{ f.error }}</small></span><span class="app-hint">{{ t(key="system-attempts", lang="id", n=f.attempts) }}</span></div>
+  {%- else %}
+  <div class="app-pad">{{ <empty_state title={t(key="system-errors-empty", lang="id")} description={t(key="system-errors-empty-description", lang="id")} icon="circle-check" variant="plain"/> }}</div>
+  {%- endfor %}
+{% </card> %}
+{%- endif %}
+{% </subpage> %}
+{% endblock settings %}

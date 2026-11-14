@@ -66,7 +66,7 @@ pub struct Registry {
 impl Registry {
     #[must_use]
     pub fn new() -> Self {
-        started_at();
+        let _ = started_at();
         Self::default()
     }
 

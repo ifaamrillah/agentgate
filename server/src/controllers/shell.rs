@@ -42,7 +42,12 @@ pub async fn app_shell(
         .iter()
         .map(|(w, _)| WorkspaceLink::new(&w.name, &w.slug))
         .collect();
-    let shell = AppShell::for_user(user).with_workspaces(workspaces);
+    let admin = crate::common::settings::Settings::from_ctx(ctx)?
+        .system
+        .is_admin(&user.email);
+    let shell = AppShell::for_user(user)
+        .with_workspaces(workspaces)
+        .system_admin(admin);
     let Some(tenant) = tenant else {
         return Ok(shell);
     };
