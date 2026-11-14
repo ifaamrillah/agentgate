@@ -70,7 +70,7 @@ age-days = { $n } hari lalu
 
 ## Runner & CLI
 runner-title = Runner & CLI
-runner-description = Job AI selalu berjalan di runner pribadi milik executor, dengan langganan AI executor itu. Runner tidak pernah menyala otomatis.
+runner-description = Job AI berjalan di runner milik executor, dengan langganan AI executor itu. Runner pribadi tidak mengambil job otomatis kecuali Anda menyalakan auto-ambil; runner tim diatur Owner/Admin.
 runner-panel-perm = Permintaan izin
 runner-panel-perm-desc = Job dijeda menunggu jawaban
 runner-panel-queue = Antrean job
