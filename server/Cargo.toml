@@ -96,6 +96,8 @@ zip = { version = "9", default-features = false, features = ["deflate-flate2"] }
 serde_yaml_ng = "0.10"
 # Impor tiket dari CSV (M11): pemisah koma/titik koma, kolom berkutip dan baris ganda.
 csv = "1"
+# Sanitasi logo SVG (R1): parser XML streaming untuk allowlist elemen/atribut SVG.
+quick-xml = "0.42"
 # Feature dependency seragam di seluruh workspace (cargo hakari, .config/hakari.toml).
 workspace-hack = { version = "0.1", path = "../workspace-hack" }
 

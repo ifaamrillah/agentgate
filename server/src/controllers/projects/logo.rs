@@ -25,6 +25,9 @@ use crate::{
     },
 };
 
+/// CSP respons logo (SVG tersanitasi; lapisan kedua setelah sanitasi).
+pub const LOGO_CSP: &str = "default-src 'none'; style-src 'unsafe-inline'";
+
 #[debug_handler]
 pub(super) async fn show(State(ctx): State<AppContext>, access: ProjectAccess) -> Result<Response> {
     access.require(Permission::ViewProject)?;
@@ -43,6 +46,9 @@ pub(super) async fn show(State(ctx): State<AppContext>, access: ProjectAccess) -
                 "private, max-age=31536000, immutable".to_string(),
             ),
             (header::X_CONTENT_TYPE_OPTIONS, "nosniff".to_string()),
+            // Logo SVG (R1) dibuka langsung pun tidak bisa menjalankan skrip atau memuat sumber
+            // luar: hanya gaya inline. Berlaku juga untuk raster (tidak berpengaruh).
+            (header::CONTENT_SECURITY_POLICY, LOGO_CSP.to_string()),
         ],
         data,
     )

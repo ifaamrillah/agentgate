@@ -10,6 +10,7 @@
 pub mod access;
 pub mod logo;
 pub mod repos;
+pub mod svg;
 
 use loco_rs::validation::ModelValidationErrors;
 use sea_orm::{DatabaseConnection, DatabaseTransaction, DbErr, TransactionTrait};
