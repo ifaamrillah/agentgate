@@ -56,7 +56,42 @@ keamanan). Panduan pemakai: `docs/panduan/mulai.md`.
 
 ## 3. Keputusan sementara (perlu disetujui atau diubah)
 
-Format: **keputusan** — default sekarang.
+### 3.0 Keputusan pemilik produk (2026-11-14)
+
+Jawaban pemilik atas keputusan sementara di bawah. Bila bertentangan dengan daftar 3.1 dst., yang berlaku
+adalah tabel ini. Kolom "Kerjakan" menunjukkan batch revisi yang akan menerapkannya.
+
+| Topik | Keputusan | Kerjakan |
+|---|---|---|
+| Gate evidence | Bukti manual (unggah screenshot/log) boleh, berlabel "manual", gate baru terpenuhi setelah approver stage menyetujui | R1 |
+| Merge otomatis | Setting per project, **default mati**: setelah approve + CI hijau muncul tombol Merge; project bisa menyalakan auto-merge dan memilih mode | R1 |
+| Pendaftaran client OAuth/MCP | Tetap terbuka + rate limit; client tanpa persetujuan user tidak dapat akses dan dihapus otomatis setelah 24 jam | R1 |
+| Runner | Semua anggota lihat dan daftarkan runner sendiri; pengaturan tim hanya Owner/Admin. Auto-ambil default mati (pribadi), nyala (runner tim) | R1 |
+| Runner online | 90 detik (heartbeat 30 dtk) | R1 |
+| Izin knowledge | Izin baru `manage_knowledge` (Owner/Admin otomatis; pemilik knowledge tetap bisa approve) | R1 |
+| API & webhook | Default 600/menit dan retry 5× tetap; Owner/Admin bisa menaikkan limit per token dan mengaktifkan ulang webhook | R1 |
+| Backup | Harian 14 hari + 1 salinan bulanan disimpan 6 bulan | R1 |
+| Logo SVG | Didukung dengan sanitasi + CSP ketat | R1 |
+| Error tracking | Sentry (server + JS), nonaktif bila DSN kosong | R1 |
+| Tombol Approve | Hijau (varian `success`), Reject merah | R1 |
+| Koneksi GitHub | GitHub App sebagai cara utama, PAT tetap ada sebagai cadangan (GHES/uji) | R2 |
+| Index code graph | Server boleh clone dangkal (riwayat terbatas, fetch inkremental) untuk statistik git | R2 |
+| Embedding code graph | Lokal fastembed-rs | R2 |
+| Knowledge ke repo | Server boleh membuat commit + PR knowledge (tidak pernah push ke branch utama) | R2 |
+| Rilis | Membuat git tag lewat provider | R2 |
+| Detail tiket | Panel samping dari board + tombol "buka halaman penuh"; URL tetap bisa dibuka langsung | R3 |
+| Builder workflow | Kanvas graf seperti prototype sebagai tampilan utama; daftar vertikal tetap untuk keyboard/mobile | R3 |
+| JQL | Tambah `OR`, kurung, dan autocomplete | R3 |
+| Batas WIP | Ditegakkan: kartu ditolak pindah saat kolom penuh (Admin bisa paksa) | R3 |
+| Roadmap | Tambah pengelompokan per epic | R3 |
+| Client AI | Gemini CLI diganti Antigravity | R4 |
+| AI Office | Tunjukkan dulu kondisi sekarang + 2–3 variasi visual; teknologi diputuskan dari visual yang dipilih | Iterasi terpisah |
+| Notifikasi | Tetap in-app saja | — |
+| Mata uang biaya | Tetap USD | — |
+| Kredensial CLI | Tetap file 0600 | — |
+| Server MCP | Tetap JSON stateless | — |
+
+Format daftar di bawah: **keputusan** — default sekarang.
 
 ### Akun, akses, keamanan
 
