@@ -66,13 +66,22 @@ async fn office_shows_working_agents_idle_personas_and_runner_owner() {
         assert!(html.contains("<span data-k=\"st-working\">"));
         // R5: panggung SVG (bukan kanvas), sakelar Isometrik/Denah, mini-map SVG, kunci mode per
         // user, dan ikon badge status tersedia untuk label.
-        assert_css_exists(&html, "[data-office-stage] svg[data-office-svg][aria-hidden='true']");
+        assert_css_exists(
+            &html,
+            "[data-office-stage] svg[data-office-svg][aria-hidden='true']",
+        );
         assert_css_exists(&html, "[data-office-mode='iso'][aria-pressed='true']");
         assert_css_exists(&html, "[data-office-mode='plan'][aria-pressed='false']");
         assert_css_exists(&html, "svg[data-office-mm]");
         assert!(!html.contains("<canvas"), "kanvas lama sudah dihapus");
         assert_css_exists(&html, &format!("[data-office][data-me='{}']", f.owner.id));
-        for icon in ["eye", "alert-triangle", "player-pause", "terminal-2", "coffee"] {
+        for icon in [
+            "eye",
+            "alert-triangle",
+            "player-pause",
+            "terminal-2",
+            "coffee",
+        ] {
             assert!(html.contains(&format!("data-i=\"{icon}\"")), "ikon {icon}");
         }
 
@@ -120,7 +129,10 @@ async fn office_shows_working_agents_idle_personas_and_runner_owner() {
             &format!("[data-office-char='{job_char}'] [data-office-detail='working']"),
         );
         assert_css_exists(&html, "[data-office-live][hx-get] [data-office-log]");
-        assert_css_exists(&html, &format!("svg.app-of-pv[data-office-pv='{job_char}']"));
+        assert_css_exists(
+            &html,
+            &format!("svg.app-of-pv[data-office-pv='{job_char}']"),
+        );
         assert!(html.contains("ag_context KSR-1"));
         let res = request
             .get("/w/acme/office/panel?c=j-nope")
