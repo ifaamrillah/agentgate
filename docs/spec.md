@@ -242,7 +242,7 @@ Ada setting opsional "auto-ambil" per user: selama runner menyala dan idle, job 
 
 - Satu git worktree per tiket, supaya beberapa job bisa paralel. Tidak ada batas default jumlah job paralel. User boleh membatasinya sendiri lewat setting.
 - Urutan antrean mengikuti prioritas tiket.
-- Job otomatis memakai client secara headless (`claude -p`, `codex exec`, `gemini -p`, `cursor-agent`, `opencode run`, Copilot CLI). Client dipilih user di setting runner.
+- Job otomatis memakai client secara headless (`claude -p`, `codex exec`, `agy -p` (Antigravity CLI), `cursor-agent`, `opencode run`, Copilot CLI). Client dipilih user di setting runner.
 - Stage interaktif: runner membuka jendela terminal berisi sesi client yang sudah memuat konteks tiket. Kalau terminal gagal dibuka, executor mendapat notifikasi untuk menjalankan perintah `/ag-...` sendiri. Program terminal bisa diatur per user dan per OS.
 - Sebelum job mulai, runner menulis aturan terbaru dari server ke worktree, sehingga job tidak tertahan oleh PR sinkronisasi aturan yang belum di-merge.
 - Runner melaporkan progress, log, dan evidence secara realtime. Data ini dipakai oleh AI Office.
@@ -266,14 +266,14 @@ Ada setting opsional "auto-ambil" per user: selama runner menyala dan idle, job 
 
 Aturan di repo dibuat setipis mungkin. Isi aturan disajikan dari server lewat MCP saat dibutuhkan.
 
-**Client yang didukung:** Claude Code, Codex CLI, Gemini CLI, Cursor, OpenCode, dan GitHub Copilot CLI.
+**Client yang didukung:** Claude Code, Codex CLI, Antigravity CLI (pengganti Gemini CLI sejak R4), Cursor, OpenCode, dan GitHub Copilot CLI.
 
 **File aturan di repo:**
 
 - `AGENTS.md` adalah satu-satunya file utama, berisi pembuka singkat: project memakai Agent Gate, dan AI wajib memanggil `ag_context` sebelum mulai kerja. File ini dibaca langsung oleh Codex, OpenCode, Cursor, dan Copilot.
 - `CLAUDE.md` hanya berisi satu baris `@AGENTS.md`.
-- Gemini CLI diarahkan ke `AGENTS.md` lewat setting `context.fileName` (dulu `contextFileName`).
-- Konfigurasi koneksi MCP dan hooks per client tetap diperlukan (`.mcp.json`, `.codex/`, `.gemini/settings.json`, `.cursor/`, dan sejenisnya). Isinya kecil, di-generate otomatis, dan tanpa logika: hooks hanya memanggil `agentgate hook ...` supaya jalan di semua OS.
+- Antigravity CLI membaca `AGENTS.md` secara native (juga `GEMINI.md`, jadi `GEMINI.md` lama ikut di-backup).
+- Konfigurasi koneksi MCP dan hooks per client tetap diperlukan (`.mcp.json`, `.codex/`, `.agents/mcp_config.json` + `.agents/hooks.json`, `.cursor/`, dan sejenisnya). Isinya kecil, di-generate otomatis, dan tanpa logika: hooks hanya memanggil `agentgate hook ...` supaya jalan di semua OS.
 - Instruksi per stage, prompt persona, dan skills diambil dari server lewat MCP, tidak disimpan sebagai file.
 - Di Claude Code, hook `SessionStart` menyuntikkan konteks Agent Gate secara otomatis.
 
@@ -548,7 +548,7 @@ Panah menunjukkan milestone mana yang harus selesai lebih dulu. M8 dan M10 butuh
 | M8 Knowledge base | Scan + estimasi biaya, katalog dokumen, jenis custom, knowledge workspace, pemicu update, usulan diff + approve, sinkron `.agentgate/knowledge/` | M5, M7 | Scan project contoh menghasilkan dokumen, update setelah tiket Done muncul sebagai usulan |
 | M9 Planning & laporan | Backlog, sprint, board Scrum, story point, estimasi AI + kalibrasi, roadmap, kalender, release + release notes AI, components, query ala JQL, saved filter, laporan, bulk edit | M3 | Satu sprint bisa direncanakan, dijalankan, dan dilaporkan |
 | M10 Visual | Graph viewer, kantor isometrik, preview mockup di domain sandbox, halaman Penghemat Token | M5, M7 | Aktivitas runner tampil live di AI Office, graph bisa di-zoom sampai fungsi |
-| M11 Multi-client & integrasi | Adapter Codex, Gemini CLI, Cursor, OpenCode, Copilot CLI, koneksi Jira (3 mode), impor CSV, API publik + webhook, ekspor data | M5 | Alur M5 berjalan di semua client, mirror Jira berjalan |
+| M11 Multi-client & integrasi | Adapter Codex, Gemini CLI (diganti Antigravity CLI di R4), Cursor, OpenCode, Copilot CLI, koneksi Jira (3 mode), impor CSV, API publik + webhook, ekspor data | M5 | Alur M5 berjalan di semua client, mirror Jira berjalan |
 | M12 Rilis | Hardening, uji beban `LISTEN/NOTIFY`, deploy Compose di VPS, backup, observability, pipeline rilis CLI (`dist`), security review | Semua | Production jalan dan CLI bisa di-install dari script resmi |
 
 ## Di luar cakupan & risiko

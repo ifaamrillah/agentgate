@@ -172,6 +172,9 @@ pub async fn doctor(paths: &Paths, out: &mut impl Write) -> Result<bool> {
             ),
         }
     }
+    if let Some(note) = gemini_note(hook::which("gemini").is_some()) {
+        check(false, false, "Gemini CLI", note.into());
+    }
     match hook::which("rtk") {
         Some(p) => check(true, false, "RTK", p.display().to_string()),
         None => check(
@@ -199,4 +202,25 @@ pub async fn doctor(paths: &Paths, out: &mut impl Write) -> Result<bool> {
         _ => check(true, false, "Aturan", "tidak dicek".into()),
     }
     Ok(ok)
+}
+
+/// Catatan bila Gemini CLI masih terpasang: diganti Antigravity CLI sejak aturan v3.
+#[must_use]
+pub fn gemini_note(installed: bool) -> Option<&'static str> {
+    installed.then_some(
+        "tidak didukung lagi; job memakai Antigravity CLI (`agy`). Pasang: \
+         curl -fsSL https://antigravity.google/cli/install.sh | bash",
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn gemini_cli_is_pointed_to_antigravity() {
+        assert_eq!(gemini_note(false), None);
+        let note = gemini_note(true).unwrap();
+        assert!(note.contains("agy") && note.contains("install.sh"));
+    }
 }
