@@ -51,6 +51,14 @@
 </div>
 {%- endif %}
 
+{%- if can_edit %}
+{#- Penolakan batas WIP di sisi browser (board-dnd.js); server tetap menegakkan. -#}
+<div class="alert app-board-reject" data-variant="destructive" role="alert" hidden data-board-reject>
+  {{ icon(name="lock") }}
+  <h2>{{ t(key="board-wip-rejected", lang="id") }}</h2>
+  <section><p data-board-reject-msg></p>{% if can_force %}<p>{{ <button label={t(key="board-wip-force", lang="id")} icon="alert-triangle" variant="outline" size="sm" attrs="data-wip-force-open"/> }}</p>{% endif %}</section>
+</div>
+{%- endif %}
 {%- for lane in lanes %}
 {%- if loop.first %}{% set lid = "" %}{% else %}{% set lid = loop.index ~ "-" %}{% endif %}
 {%- if swim %}<h2 class="app-lane-h" data-lane>{% if lane.title %}{{ lane.title }}{% elif swim == "assignee" %}{{ t(key="ticket-unassigned", lang="id") }}{% else %}{{ t(key="board-no-epic", lang="id") }}{% endif %} <span class="app-bcol-n">{{ lane.count }}</span></h2>{% endif %}
@@ -81,12 +89,6 @@
 <form method="post" hidden data-board-move-form>
   <input type="hidden" name="stage"><input type="hidden" name="before"><input type="hidden" name="return_to" value="{{ return_to }}">
 </form>
-{#- Penolakan batas WIP di sisi browser (board-dnd.js); server tetap menegakkan. -#}
-<div class="alert app-board-reject" data-variant="destructive" role="alert" hidden data-board-reject>
-  {{ icon(name="lock") }}
-  <h2>{{ t(key="board-wip-rejected", lang="id") }}</h2>
-  <section><p data-board-reject-msg></p>{% if can_force %}<p>{{ <button label={t(key="board-wip-force", lang="id")} icon="alert-triangle" variant="outline" size="sm" attrs="data-wip-force-open"/> }}</p>{% endif %}</section>
-</div>
 {%- if can_force %}
 {% <dialog id="wip-force" title={t(key="board-wip-force", lang="id")} description={t(key="board-wip-force-description", lang="id")} icon="alert-triangle" tone="warn"> %}
 <form method="post" data-wip-force-form>

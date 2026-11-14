@@ -59,8 +59,9 @@
     const column = dragged && columnOf(e.target);
     if (!column) return;
     e.preventDefault();
-    const blocked = column.hasAttribute("data-wip-full") && dragged.closest("[data-column]") !== column;
-    e.dataTransfer.dropEffect = blocked ? "none" : "move";
+    // Kolom penuh tetap menerima `drop` (supaya alasan penolakan bisa ditampilkan); isyarat
+    // visualnya garis merah `[data-wip-full][data-drop]`.
+    e.dataTransfer.dropEffect = "move";
     if (!column.hasAttribute("data-drop")) { clear(); column.setAttribute("data-drop", ""); }
   });
   document.addEventListener("drop", (e) => {

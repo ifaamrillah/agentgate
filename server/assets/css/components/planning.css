@@ -135,6 +135,7 @@
   .app-tl-tog:hover { background: var(--ag-hover); color: var(--ag-fg); }
   .app-tl-tog:focus-visible { outline: 2px solid var(--ag-accent); outline-offset: 1px; }
   .app-tl-tog svg { width: 14px; height: 14px; }
+  .app-tl-lab [data-epic-count] { white-space: nowrap; flex: none; }
   .app-tl-nobar { position: absolute; top: 10px; left: 8px; font-size: 11.5px; white-space: nowrap; }
   @media (max-width: 899px) { .app-tl { --tl-lab: 160px; } .app-tl-r[data-level="1"] .app-tl-lab { padding-left: 28px; } }
 
