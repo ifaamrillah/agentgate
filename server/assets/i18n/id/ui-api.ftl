@@ -3,6 +3,7 @@
 ## Audit dan notifikasi
 audit-action-api-token-created = Token API dibuat
 audit-action-api-token-revoked = Token API dicabut
+audit-action-api-token-updated = Rate limit token API diubah
 audit-action-webhook-created = Webhook dibuat
 audit-action-webhook-updated = Webhook diubah
 audit-action-webhook-deleted = Webhook dihapus

@@ -3,6 +3,7 @@
 ## Audit
 audit-action-runner-registered = Runner didaftarkan
 audit-action-runner-revoked = Runner dicabut
+audit-action-runner-updated = Pengaturan runner diubah
 audit-action-job-cancelled = Job dibatalkan
 audit-action-job-permission-decided = Permintaan izin aksi dijawab
 audit-subject-runner = Runner

@@ -13,6 +13,8 @@ ticket-event-transition-forced = memaksa transisi
 ticket-event-workflow-migrated = memigrasi tiket ke workflow baru
 ticket-event-artifact-saved = menyimpan artifact { $detail }
 ticket-event-people-changed = mengubah penugasan stage { $detail }
+ticket-event-evidence-submitted = mengunggah bukti manual { $detail }
+ticket-event-evidence-decided = memutuskan bukti manual { $detail }
 
 ## Notifikasi
 notification-review_requested = meminta review Anda
@@ -368,3 +370,10 @@ flash-artifact-saved = Versi baru disimpan.
 flash-artifact-created = Artifact dibuat.
 workflow-wip = Batas WIP kolom board
 workflow-wip-hint = Jumlah tiket maksimal di stage ini. Melebihi batas hanya diberi tanda di board. Kosongkan bila tanpa batas.
+
+## Bukti gate manual (R1)
+audit-action-evidence-submitted = Bukti manual diunggah
+audit-action-evidence-approved = Bukti manual disetujui
+audit-action-evidence-rejected = Bukti manual ditolak
+audit-subject-evidence = Bukti gate
+notification-evidence_review = Bukti manual menunggu persetujuan Anda

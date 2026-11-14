@@ -15,6 +15,7 @@ pub struct Model {
     pub redirect_uris: Vec<String>,
     #[sea_orm(column_type = "Text", nullable)]
     pub client_uri: Option<String>,
+    pub approved_at: Option<DateTimeWithTimeZone>,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
 }

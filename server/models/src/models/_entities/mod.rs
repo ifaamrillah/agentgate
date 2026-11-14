@@ -20,6 +20,7 @@ pub mod jira_connections;
 pub mod jira_links;
 pub mod jira_sync_logs;
 pub mod job_evidence;
+pub mod manual_evidence;
 pub mod job_logs;
 pub mod job_permissions;
 pub mod job_titles;

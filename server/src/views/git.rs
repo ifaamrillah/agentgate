@@ -351,6 +351,7 @@ mod tests {
             job_id: None,
             merged_at: None,
             closed_at: None,
+            merge_ready_at: None,
             created_at: now,
             updated_at: now,
         }

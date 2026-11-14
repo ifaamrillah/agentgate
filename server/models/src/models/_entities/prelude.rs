@@ -20,6 +20,7 @@ pub use super::jira_connections::Entity as JiraConnections;
 pub use super::jira_links::Entity as JiraLinks;
 pub use super::jira_sync_logs::Entity as JiraSyncLogs;
 pub use super::job_evidence::Entity as JobEvidence;
+pub use super::manual_evidence::Entity as ManualEvidence;
 pub use super::job_logs::Entity as JobLogs;
 pub use super::job_permissions::Entity as JobPermissions;
 pub use super::job_titles::Entity as JobTitles;

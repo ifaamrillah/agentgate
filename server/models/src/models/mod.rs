@@ -70,6 +70,7 @@ pub mod knowledge_settings;
 pub mod knowledge_sources;
 pub mod knowledge_types;
 pub mod knowledge_versions;
+pub mod manual_evidence;
 pub mod login_throttles;
 pub mod notifications;
 pub mod oauth_clients;
