@@ -787,3 +787,62 @@ async fn cleanup_purge_removes_the_workspace_files_from_storage() {
         );
     }
 }
+
+/// R1: client OAuth yatim (tidak pernah disetujui) > 24 jam dihapus; yang disetujui, yang masih
+/// baru, dan client CLI bawaan tetap.
+#[tokio::test]
+async fn cleanup_removes_orphan_oauth_clients_after_24_hours() {
+    use agentgate_server::{
+        models::oauth_clients,
+        services::cleanup::{self as svc, CleanupMode},
+    };
+    let boot = boot_test::<App>().await.unwrap();
+    let ctx = &boot.app_context;
+    let old: chrono::DateTime<chrono::FixedOffset> = (Utc::now() - Duration::hours(25)).into();
+    let fresh: chrono::DateTime<chrono::FixedOffset> = (Utc::now() - Duration::hours(2)).into();
+    let tag = uuid::Uuid::now_v7().simple().to_string();
+    let id = |name: &str| format!("ag_{name}_{tag}");
+    for (client_id, created, approved) in [
+        (id("yatim"), old, None),
+        (id("baru"), fresh, None),
+        (id("disetujui"), old, Some(old)),
+    ] {
+        oauth_clients::ActiveModel {
+            client_id: Set(client_id.clone()),
+            name: Set(client_id),
+            redirect_uris: Set(vec![]),
+            created_at: Set(created),
+            approved_at: Set(approved),
+            ..Default::default()
+        }
+        .insert(&ctx.db)
+        .await
+        .unwrap();
+    }
+    // Client CLI bawaan (dibuat server) dibuat seolah tua dan belum disetujui.
+    let cli = agentgate_server::services::device::cli_client(&ctx.db)
+        .await
+        .unwrap();
+    let mut cli = cli.into_active_model();
+    cli.created_at = Set(old);
+    cli.approved_at = Set(None);
+    cli.update(&ctx.db).await.unwrap();
+    // Tabel oauth_clients bukan milik workspace (tidak dikosongkan per tes): hitung ≥ 1.
+    let dry = svc::run(ctx, CleanupMode::DryRun).await;
+    assert!(dry.count(CleanupStep::OAuthClients) >= 1);
+    let report = svc::run(ctx, CleanupMode::Apply).await;
+    assert!(report.count(CleanupStep::OAuthClients) >= 1);
+    let mut left: Vec<String> = oauth_clients::Entity::find()
+        .all(&ctx.db)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|c| c.client_id)
+        .filter(|c| c.ends_with(&tag) || c == "agentgate-cli")
+        .collect();
+    left.sort();
+    assert_eq!(
+        left,
+        vec![id("baru"), id("disetujui"), "agentgate-cli".to_string()]
+    );
+}

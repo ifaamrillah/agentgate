@@ -1,5 +1,5 @@
 //! Pembersihan harian (job `workers::cleanup`, dijadwalkan scheduler 03:00 UTC; juga task
-//! `bin/loco task cleanup`). Sepuluh langkah, masing-masing berdiri sendiri: langkah atau item
+//! `bin/loco task cleanup`). Sebelas langkah, masing-masing berdiri sendiri: langkah atau item
 //! yang gagal dicatat di log dan dihitung `failed`, lalu pembersihan berlanjut (rules §8).
 //! Idempoten: menjalankannya lagi hanya menemukan yang belum dibersihkan.
 //!
@@ -19,6 +19,8 @@
 //! 8. Ekspor data `ready` yang lewat 7 hari → `expired`, berkas ZIP-nya dihapus (M11).
 //! 9. Laporan baris dilewati impor CSV yang lewat 30 hari dikosongkan (M11).
 //! 10. Draf impor CSV yang ditinggal lebih dari 7 hari dibatalkan, berkas sumbernya dihapus.
+//! 11. Client OAuth dinamis yang tidak pernah disetujui user, lebih dari 24 jam (R1;
+//!     `oauth_clients::ORPHAN_HOURS`). Client CLI bawaan tidak pernah dihapus.
 //!
 //! [`CleanupMode::DryRun`] hanya menghitung (task tanpa `confirm:yes`).
 
@@ -61,6 +63,7 @@ pub enum CleanupStep {
     Exports,
     ImportReports,
     ImportDrafts,
+    OAuthClients,
 }
 
 impl CleanupStep {
@@ -78,6 +81,7 @@ impl CleanupStep {
             Self::Exports => "exports",
             Self::ImportReports => "import_reports",
             Self::ImportDrafts => "import_drafts",
+            Self::OAuthClients => "oauth_clients",
         }
     }
 }
@@ -190,6 +194,14 @@ pub async fn run(ctx: &AppContext, mode: CleanupMode) -> CleanupReport {
     report.push(CleanupStep::ImportReports, reports.map_err(Into::into));
     let drafts = crate::services::imports::expire_drafts(ctx, now, apply).await;
     report.push(CleanupStep::ImportDrafts, drafts.map_err(Into::into));
+    let orphans = crate::models::oauth_clients::Model::purge_orphans(
+        &ctx.db,
+        now,
+        crate::services::device::CLI_CLIENT_ID,
+        !apply,
+    )
+    .await;
+    report.push(CleanupStep::OAuthClients, orphans.map_err(Into::into));
     report
 }
 

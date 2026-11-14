@@ -446,3 +446,46 @@ async fn dynamic_client_registration_is_rate_limited_per_ip() {
     })
     .await;
 }
+
+/// R1: client dinamis baru tidak mendapat token sebelum disetujui user; persetujuan consent
+/// pertama menandainya, dan client yang persetujuannya hilang tidak bisa merotasi token.
+#[tokio::test]
+async fn client_needs_user_approval_before_any_token() {
+    use agentgate_server::models::oauth_clients;
+    use sea_orm::{ActiveModelTrait, ActiveValue::Set, IntoActiveModel};
+    request::<App, _, _>(|request, ctx| async move {
+        let owner = a_user().create(&ctx).await;
+        let ws = a_workspace(&owner).slug("acme").create(&ctx).await;
+        let cookie = sign_in_as(&request, &owner).await;
+        let client_id = register_client(&request, "Klien baru").await;
+        let client = oauth::find_client(&ctx.db, &client_id)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(client.approved_at.is_none());
+
+        let code = approve(&request, &cookie, &client_id, &ws.id.to_string()).await;
+        let client = oauth::find_client(&ctx.db, &client_id)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(client.approved_at.is_some());
+        let t = exchange(&request, &client_id, &code).await;
+
+        // Persetujuan dicabut (mis. baris dipulihkan tanpa approved_at): refresh ditolak.
+        let mut m: oauth_clients::ActiveModel = client.into_active_model();
+        m.approved_at = Set(None);
+        m.update(&ctx.db).await.unwrap();
+        let res = request
+            .post("/oauth/token")
+            .form(&[
+                ("grant_type", "refresh_token"),
+                ("refresh_token", t["refresh_token"].as_str().unwrap()),
+                ("client_id", client_id.as_str()),
+            ])
+            .await;
+        assert_eq!(res.status_code(), 400, "{}", res.text());
+        assert_eq!(res.json::<serde_json::Value>()["error"], "invalid_grant");
+    })
+    .await;
+}

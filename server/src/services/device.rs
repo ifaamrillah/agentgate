@@ -81,6 +81,8 @@ pub async fn cli_client<C: ConnectionTrait>(db: &C) -> Result<oauth_clients::Mod
         client_id: Set(CLI_CLIENT_ID.to_string()),
         name: Set(CLI_CLIENT_NAME.to_string()),
         redirect_uris: Set(Vec::new()),
+        // Client bawaan server, bukan pendaftaran dinamis; grant tetap butuh persetujuan device.
+        approved_at: Set(Some(chrono::Utc::now().into())),
         ..Default::default()
     }
     .insert(db)
