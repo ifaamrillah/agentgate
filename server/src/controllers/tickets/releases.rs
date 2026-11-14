@@ -21,6 +21,7 @@ use crate::{
         tickets,
     },
     services::{
+        git::tags as git_tags,
         planning::{
             self, Failure, estimates,
             releases::{self as service, ReleaseInput},
@@ -45,6 +46,11 @@ pub const FLASH_CREATED: &str = "release-flash-created";
 pub const FLASH_SAVED: &str = "release-flash-saved";
 pub const FLASH_DELETED: &str = "release-flash-deleted";
 pub const FLASH_RELEASED: &str = "release-flash-released";
+/// Rilis + git tag dibuat di semua repo (R2).
+pub const FLASH_RELEASED_TAGGED: &str = "release-flash-released-tagged";
+/// Rilis tersimpan, tetapi tag tidak dibuat (provider tidak tertaut) atau gagal di sebagian repo.
+pub const FLASH_RELEASED_NO_TAG: &str = "release-flash-released-no-tag";
+pub const FLASH_RELEASED_TAG_PARTIAL: &str = "release-flash-released-tag-partial";
 pub const FLASH_ARCHIVED: &str = "release-flash-archived";
 pub const FLASH_REOPENED: &str = "release-flash-reopened";
 pub const FLASH_NOTES_SAVED: &str = "release-flash-notes-saved";
@@ -71,6 +77,9 @@ pub fn label_keys() -> Vec<String> {
         FLASH_SAVED,
         FLASH_DELETED,
         FLASH_RELEASED,
+        FLASH_RELEASED_TAGGED,
+        FLASH_RELEASED_NO_TAG,
+        FLASH_RELEASED_TAG_PARTIAL,
         FLASH_ARCHIVED,
         FLASH_REOPENED,
         FLASH_NOTES_SAVED,
@@ -597,6 +606,25 @@ async fn render_show(
         })
         .collect();
     let left = l.tickets.iter().filter(|t| t.status != "done").count();
+    // Repo project untuk git tag: (nama, tertaut provider).
+    let tag_repos: Vec<serde_json::Value> =
+        crate::models::repos::Model::of_project(db, wid, access.project.id)
+            .await?
+            .into_iter()
+            .map(|x| serde_json::json!({ "name": x.name, "linked": x.connection_id.is_some() && !x.full_name.is_empty() }))
+            .collect();
+    let tag_linked = tag_repos.iter().filter(|x| x["linked"] == true).count();
+    let git_tags: Vec<serde_json::Value> =
+        serde_json::from_value::<Vec<git_tags::TagResult>>(r.git_tags.clone())
+            .unwrap_or_default()
+            .into_iter()
+            .map(|g| {
+                let short: String = g.sha.chars().take(7).collect();
+                let mut v = serde_json::to_value(&g).unwrap_or_default();
+                v["short"] = short.into();
+                v
+            })
+            .collect();
     let status = if failed.is_some() {
         StatusCode::UNPROCESSABLE_ENTITY
     } else {
@@ -625,6 +653,10 @@ async fn render_show(
             "tickets": lines,
             "left": left,
             "targets": targets,
+            "tag_default": crate::services::git::tags::default_tag(&r.name),
+            "git_tags": git_tags,
+            "tag_repos": tag_repos.len(),
+            "tag_linked": tag_linked,
             "paths": l.paths,
             "edit_open": edit_open,
             "edit_input": form,
@@ -733,11 +765,69 @@ pub(super) async fn release_now(
         raw => Some(Uuid::parse_str(raw).map_err(|_| Error::BadRequest("target".into()))?),
     };
     let back = format!("{}/{id}", base(&access));
+    // Git tag (R2): nama + target divalidasi sebelum rilis disimpan.
+    let make_tag = !value(&fields, "make_tag").is_empty();
+    let tag = {
+        let raw = value(&fields, "tag");
+        let raw = raw.trim();
+        if raw.is_empty() {
+            git_tags::default_tag(&r.name)
+        } else {
+            raw.to_string()
+        }
+    };
+    let tag_target = if value(&fields, "tag_target") == "commit" {
+        git_tags::TagTarget::Commit(value(&fields, "tag_sha").trim().to_lowercase())
+    } else {
+        git_tags::TagTarget::Head
+    };
+    if make_tag {
+        let bad = if git_tags::valid_tag(&tag) {
+            match &tag_target {
+                git_tags::TagTarget::Commit(sha) if !git_tags::valid_sha(sha) => {
+                    Some(git_tags::SHA_INVALID)
+                }
+                _ => None,
+            }
+        } else {
+            Some(git_tags::TAG_INVALID)
+        };
+        if let Some(code) = bad {
+            let session = flash::set(session, &Flash::error(code))?;
+            return Ok((session, format::redirect(&back)?).into_response());
+        }
+    }
     let result = service::release_now(&ctx.db, &acting, r.id, target).await;
     if result.is_ok() && !value(&fields, "publish").is_empty() && !r.notes.trim().is_empty() {
         service::publish_notes(&ctx.db, &acting, r.id, true).await?;
     }
-    done(session, result, FLASH_RELEASED, &back)
+    let released = match result {
+        Ok(released) => released,
+        Err(e) => return done(session, Err::<(), _>(e), FLASH_RELEASED, &back),
+    };
+    if !make_tag {
+        return done(session, Ok::<_, Failure>(()), FLASH_RELEASED, &back);
+    }
+    let settings = crate::common::settings::Settings::from_ctx(&ctx)?;
+    let results = git_tags::tag_release(
+        &ctx.db,
+        &settings,
+        access.tenant.workspace_id(),
+        released,
+        &tag,
+        &tag_target,
+    )
+    .await?;
+    let ok = results.iter().filter(|x| x.error.is_empty()).count();
+    let flash = if !results.is_empty() && ok == results.len() {
+        Flash::success(FLASH_RELEASED_TAGGED)
+    } else if ok == 0 {
+        Flash::warn(FLASH_RELEASED_NO_TAG)
+    } else {
+        Flash::warn(FLASH_RELEASED_TAG_PARTIAL)
+    };
+    let session = flash::set(session, &flash)?;
+    Ok((session, format::redirect(&back)?).into_response())
 }
 
 /// Ubah keadaan: `archived` atau `unreleased` (buka arsip / batal rilis).

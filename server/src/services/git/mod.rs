@@ -11,6 +11,7 @@ pub mod connections;
 pub mod provider;
 pub mod pulls;
 pub mod settings;
+pub mod tags;
 pub mod webhook;
 
 use std::time::Duration;
@@ -39,6 +40,9 @@ pub const APP_SUSPENDED: &str = "git-app-suspended";
 /// Repo tidak termasuk repo yang diberi akses ke App.
 pub const APP_REPO_NOT_GRANTED: &str = "git-app-repo-not-granted";
 pub const ERROR_CODES: &[&str] = &[
+    tags::TAG_INVALID,
+    tags::SHA_INVALID,
+    tags::TAG_EXISTS,
     APP_NOT_CONFIGURED,
     APP_INSTALL_INVALID,
     APP_SUSPENDED,

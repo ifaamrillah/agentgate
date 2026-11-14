@@ -27,6 +27,16 @@ pub struct NewPull {
     pub body: String,
 }
 
+/// Satu file yang ditulis lewat Contents API.
+#[derive(Debug, Clone)]
+pub struct PutFile {
+    pub path: String,
+    pub branch: String,
+    pub message: String,
+    pub content: String,
+    pub sha: Option<String>,
+}
+
 /// PR menurut provider.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PullInfo {
@@ -87,6 +97,22 @@ pub trait GitProvider: Send + Sync {
         url: &str,
         secret: &str,
     ) -> Result<i64, ProviderError>;
+    /// SHA commit HEAD `branch`.
+    async fn branch_head(&self, full_name: &str, branch: &str) -> Result<String, ProviderError>;
+    /// Buat ref (`refs/heads/x` atau `refs/tags/x`) di `sha`. Ref yang sudah ada →
+    /// `Rejected("already-exists")`.
+    async fn create_ref(&self, full_name: &str, name: &str, sha: &str)
+    -> Result<(), ProviderError>;
+    /// SHA blob file `path` di `branch` (`None` bila belum ada).
+    async fn file_sha(
+        &self,
+        full_name: &str,
+        path: &str,
+        branch: &str,
+    ) -> Result<Option<String>, ProviderError>;
+    /// Tulis file `path` di `branch` sebagai satu commit (Contents API). `sha` = blob lama bila
+    /// file sudah ada. Tidak pernah dipanggil untuk branch utama (dijaga pemanggil).
+    async fn put_file(&self, full_name: &str, file: &PutFile) -> Result<(), ProviderError>;
     /// Arsip `.tar.gz` isi repo di `git_ref` (index code graph oleh server, M7), maks.
     /// `max_bytes`.
     async fn tarball(
@@ -368,6 +394,97 @@ impl GitProvider for GithubProvider {
                     &format!("/repos/{o}/{r}/pulls/{number}/merge"),
                 )
                 .json(&json!({ "merge_method": method.as_str() })),
+            )
+            .await?;
+        Ok(())
+    }
+
+    async fn branch_head(&self, full_name: &str, branch: &str) -> Result<String, ProviderError> {
+        #[derive(Deserialize)]
+        struct Obj {
+            sha: String,
+        }
+        #[derive(Deserialize)]
+        struct Ref {
+            object: Obj,
+        }
+        let (o, r) = split(full_name)?;
+        let r: Ref = self
+            .send(self.req(
+                reqwest::Method::GET,
+                &format!("/repos/{o}/{r}/git/ref/heads/{branch}"),
+            ))
+            .await?;
+        Ok(r.object.sha)
+    }
+
+    async fn create_ref(
+        &self,
+        full_name: &str,
+        name: &str,
+        sha: &str,
+    ) -> Result<(), ProviderError> {
+        let (o, r) = split(full_name)?;
+        let res: Result<serde_json::Value, _> = self
+            .send(
+                self.req(reqwest::Method::POST, &format!("/repos/{o}/{r}/git/refs"))
+                    .json(&json!({ "ref": name, "sha": sha })),
+            )
+            .await;
+        match res {
+            Ok(_) => Ok(()),
+            Err(ProviderError::Rejected(m)) if m.to_lowercase().contains("already exists") => {
+                Err(ProviderError::Rejected("already-exists".into()))
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    async fn file_sha(
+        &self,
+        full_name: &str,
+        path: &str,
+        branch: &str,
+    ) -> Result<Option<String>, ProviderError> {
+        #[derive(Deserialize)]
+        struct File {
+            sha: String,
+        }
+        let (o, r) = split(full_name)?;
+        match self
+            .send::<File>(
+                self.req(
+                    reqwest::Method::GET,
+                    &format!("/repos/{o}/{r}/contents/{path}"),
+                )
+                .query(&[("ref", branch)]),
+            )
+            .await
+        {
+            Ok(f) => Ok(Some(f.sha)),
+            Err(ProviderError::NotFound) => Ok(None),
+            Err(e) => Err(e),
+        }
+    }
+
+    async fn put_file(&self, full_name: &str, file: &PutFile) -> Result<(), ProviderError> {
+        use base64::Engine;
+        let (o, r) = split(full_name)?;
+        let mut body = json!({
+            "message": file.message,
+            "content": base64::engine::general_purpose::STANDARD.encode(file.content.as_bytes()),
+            "branch": file.branch,
+        });
+        if let Some(sha) = &file.sha {
+            body["sha"] = sha.clone().into();
+        }
+        let _: serde_json::Value = self
+            .send(
+                self.req(
+                    reqwest::Method::PUT,
+                    &format!("/repos/{o}/{r}/contents/{}", file.path),
+                )
+                .json(&body),
             )
             .await?;
         Ok(())

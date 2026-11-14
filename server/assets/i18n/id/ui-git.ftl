@@ -34,6 +34,9 @@ git-app-not-configured = GitHub App belum diatur di server ini atau kunci privat
 git-app-install-invalid = Instalasi GitHub App tidak bisa diverifikasi. Mulai lagi dari tombol Pasang di GitHub.
 git-app-suspended = Instalasi GitHub App ditangguhkan pemilik akun GitHub.
 git-app-repo-not-granted = Repo ini belum diberi akses ke GitHub App. Tambahkan di pengaturan instalasi App di GitHub.
+git-tag-invalid = Nama tag tidak valid. Pakai huruf, angka, titik, garis bawah, minus, atau garis miring, tanpa spasi.
+git-sha-invalid = SHA commit harus 7–40 karakter heksadesimal.
+git-tag-exists = Tag dengan nama itu sudah ada di repo.
 git-repo-not-found = Repo tidak ditemukan di provider atau token tidak punya akses ke repo itu.
 
 ## Status PR dan CI
