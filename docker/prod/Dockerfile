@@ -13,12 +13,20 @@ WORKDIR /workspace
 
 FROM chef AS planner
 COPY . .
+# workspace-hack (cargo hakari, .config/hakari.toml) menyatukan feature dependency untuk build dev
+# dan tes. Image produksi mengosongkannya supaya feature khusus tes (mis. loco-rs `testing`) tidak
+# ikut ter-compile; `cargo metadata` lalu menyesuaikan Cargo.lock (hanya entri workspace-hack).
+RUN sed -i '/^### BEGIN HAKARI SECTION/,/^### END HAKARI SECTION/{//!d}' workspace-hack/Cargo.toml \
+ && cargo metadata --format-version 1 >/dev/null
 RUN cargo chef prepare --recipe-path recipe.json
 
 FROM chef AS builder
 COPY --from=planner /workspace/recipe.json recipe.json
 RUN cargo chef cook --release --locked --recipe-path recipe.json -p agentgate-server
 COPY . .
+# Sama dengan stage planner: workspace-hack dikosongkan.
+RUN sed -i '/^### BEGIN HAKARI SECTION/,/^### END HAKARI SECTION/{//!d}' workspace-hack/Cargo.toml \
+ && cargo metadata --format-version 1 >/dev/null
 # CSS produksi (Tailwind standalone, versi + checksum dipin di bin/tailwind).
 RUN AG_IN_CONTAINER=1 bin/tailwind --minify
 RUN cargo build --release --locked -p agentgate-server \

@@ -15,7 +15,7 @@ dan tool lain berjalan di container `app`; skrip `bin/*` meneruskan perintah ke 
 | Perintah | Fungsi |
 |---|---|
 | `bin/dev` | Server development di <http://localhost:5150> (Tailwind `--watch` + restart otomatis) |
-| `bin/test [filter]` | Semua tes workspace (database test, satu thread) |
+| `bin/test [filter]` | Tes workspace lewat cargo nextest, paralel (database per slot). Saat mengerjakan fitur, beri filter (`bin/test tickets::mockup`); suite penuh sebelum merge |
 | `bin/loco db migrate` | Migrasi database dev |
 | `bin/loco <perintah>` | Perintah Loco lain (`routes`, `doctor`, `g migration ...`) |
 | `bin/ci` | Pemeriksaan lengkap sebelum merge (fmt, clippy, deny, arah layer, CSS, tes) |

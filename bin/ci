@@ -13,11 +13,18 @@ for t in bin/tests/*_test.sh; do bash "$t"; done
 
 step "arah dependensi antar-layer"
 bin/check-layers
+# common/ dan models/ ada di crate agentgate-models: arah common -> models tetap dicek teks;
+# arah models -> layer server dijamin compiler (crate models tidak bergantung pada server).
+bin/check-layers server/models/src
 
-step "cargo fmt / clippy / deny"
+step "cargo fmt / hakari / clippy / deny"
 ag_exec bash -c '
   set -e
   cargo fmt --all --check
+  # workspace-hack harus sesuai dependency terkini (lihat .config/hakari.toml).
+  cargo hakari generate --diff
+  cargo hakari manage-deps --dry-run
+  cargo hakari verify
   cargo clippy --workspace --all-targets --locked -- -D warnings
   cargo deny --log-level error check'
 

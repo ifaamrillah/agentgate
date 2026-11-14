@@ -19,6 +19,8 @@ loco-rs = { workspace = true, features = ["with-db", "db-postgres"] }
 async-trait = "0.1"
 # Data bawaan (persona) untuk backfill, satu sumber dengan seed workspace di server.
 agentgate-core = { path = "../../core" }
+# Feature dependency seragam di seluruh workspace (cargo hakari, .config/hakari.toml).
+workspace-hack = { version = "0.1", path = "../../workspace-hack" }
 
 [dependencies.sea-orm-migration]
 # DSL migrasi SeaORM.

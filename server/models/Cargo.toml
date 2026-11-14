@@ -1,0 +1,61 @@
+[package]
+name = "agentgate-models"
+description = "Lapisan data Agent Gate: entity SeaORM, logika model, dan utilitas common"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+doctest = false
+
+[dependencies]
+# Framework: trait model/entity, Error/Result, konfigurasi. Feature sama dengan crate server.
+loco-rs = { workspace = true, features = ["cli", "with-db", "cache_inmem", "worker", "db-postgres", "compression", "generators", "mailer", "auth_session", "auth_session_encrypted", "auth_oauth", "multi-tenancy", "storage_aws_s3"] }
+# Type dan data bersama dengan CLI (persona, skema API).
+agentgate-core = { path = "../../core" }
+# Tipe code graph (M7) yang disimpan model.
+agentgate-graph = { path = "../../graph" }
+# ORM (entity, query) untuk Postgres. postgres-array: kolom `text[]` (`roles.permissions`).
+sea-orm = { version = "2.0", default-features = false, features = ["sqlx-postgres", "runtime-tokio-rustls", "macros", "with-uuid", "with-chrono", "with-json", "postgres-array"] }
+# Serialisasi model, settings, dan kolom JSON.
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# task_local konteks outbox.
+tokio = { version = "1.45", default-features = false, features = ["rt-multi-thread", "macros", "sync", "time", "net"] }
+# ActiveModelBehavior async.
+async-trait = "0.1"
+# i18n (common::i18n): file Fluent dimuat saat runtime.
+fluent-templates = { version = "0.15", features = ["tera"] }
+unic-langid = { version = "0.9", features = ["macros"] }
+# Error domain bertipe.
+thiserror = "2"
+# Parameter argon2 dari settings.auth (common::settings).
+argon2 = { version = "0.5", features = ["std"] }
+# Digest token dan perbandingan rahasia constant-time.
+sha2 = "0.10"
+subtle = "2"
+# CSPRNG (OsRng).
+rand = { version = "0.9", features = ["os_rng"] }
+# Enkripsi XChaCha20-Poly1305 untuk secret di database (common::crypto, kunci ENCRYPTION_KEY).
+chacha20poly1305 = "0.10"
+# Encoding token dan kunci.
+base64 = "0.22"
+# Validasi form/model bertipe.
+validator = { version = "0.20", features = ["derive"] }
+# Id UUID v7 untuk semua tabel.
+uuid = { version = "1", features = ["v7", "serde"] }
+# Timestamp (timestamptz).
+chrono = "0.4"
+# Validasi URL (webhook, Jira).
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+# Render Markdown (GFM) untuk deskripsi tiket, komentar, artifact, dan knowledge, lalu disanitasi
+# allowlist sebelum tampil (common::markdown).
+pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
+ammonia = "4"
+# Feature dependency seragam di seluruh workspace (cargo hakari, .config/hakari.toml).
+workspace-hack = { version = "0.1", path = "../../workspace-hack" }
+
+[lints]
+workspace = true

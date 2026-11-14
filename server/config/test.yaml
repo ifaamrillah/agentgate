@@ -55,7 +55,10 @@ queue:
   kind: Postgres
   # Database TEST, bukan DATABASE_URL: perintah tes yang lupa wrapper bin/test (mis.
   # `bin/sh cargo test`) tidak boleh menyentuh database dev. Tanpa default.
-  uri: <%= get_env(name="TEST_DATABASE_URL") %>
+  # Tes berjalan paralel lewat cargo nextest (satu proses per tes). Setiap proses memakai database
+  # slot-nya sendiri (`<TEST_DATABASE_URL>_s<slot>`, slot dari nextest), yang dibuat bin/test
+  # sebagai clone database test yang sudah dimigrasi. Dua tes tidak pernah berbagi slot bersamaan.
+  uri: <%= get_env(name="TEST_DATABASE_URL") %>_s<%= get_env(name="NEXTEST_TEST_GLOBAL_SLOT", default="0") %>
   dangerously_flush: false
 
 mailer:
@@ -68,8 +71,8 @@ mailer:
     secure: false
 
 database:
-  # TEST_DATABASE_URL tanpa default (lihat queue di atas).
-  uri: <%= get_env(name="TEST_DATABASE_URL") %>
+  # TEST_DATABASE_URL tanpa default, satu database per slot nextest (lihat queue di atas).
+  uri: <%= get_env(name="TEST_DATABASE_URL") %>_s<%= get_env(name="NEXTEST_TEST_GLOBAL_SLOT", default="0") %>
   enable_logging: false
   # Juga batas tunggu koneksi dari pool: 500ms membuat burst 12 login paralel (tes throttle)
   # sesekali gagal 500 karena pool 10 koneksi habis sementara hash argon berjalan.

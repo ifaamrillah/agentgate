@@ -78,6 +78,10 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 | 2026-11-12 | M3: kolom board = gabungan stage semua workflow di project, urut (kategori, indeks); drag-drop mengirim `stage` | Board satu project bisa berisi beberapa workflow |
 | 2026-11-12 | M3: artifact per stage, setiap simpan = versi baru (draft/pending/approved/rejected); versi yang disimpan saat stage menunggu review langsung `pending`; approve/reject memutuskan versi terbaru stage itu. Diff = LCS baris sederhana | |
 | 2026-11-12 | M3: event `status_changed` M2 diganti `stage_changed`; tiket baru tidak boleh mulai di stage yang didahului stage approval/gate (seed subtask diubah ke Dikerjakan) | |
+| 2026-11-14 | Tes paralel lewat **cargo nextest** dengan database per slot (`<db test>_s<slot>`, slot 0 dimigrasi, slot lain di-clone tiap run); Postgres bersama `max_connections=300` | Suite penuh 806 tes turun dari ~6 menit ke ~72 dtk (tes berurutan 228 dtk untuk 395 tes) |
+| 2026-11-14 | **cargo hakari** (`workspace-hack`) menyeragamkan feature dependency; CLI/core/graph tidak memakainya, image produksi mengosongkannya | Feature tokio/clap/loco berbeda antara `bin/dev`, `bin/test`, dan clippy memaksa compile ulang tiap pindah perintah |
+| 2026-11-14 | `common/` + `models/` dipindah ke crate `agentgate-models` (`server/models`), di-re-export server; `server/src/models` symlink untuk `bin/loco db entities` | Build tes setelah mengubah satu service ~21 dtk (sebelumnya ~3 menit, bersama kenaikan job) |
+| 2026-11-14 | `CARGO_BUILD_JOBS` image dev 4 → 8 (`AG_CARGO_JOBS` untuk menimpa); `sccache` tetap; linker tetap bawaan (`rust-lld`) | Job juga membatasi thread codegen rustc; sccache dibutuhkan worktree baru; rust-lld sudah default sejak Rust 1.90 |
 
 ## Temuan spike yang mengubah rencana
 
@@ -447,6 +451,12 @@ Daftar terkonsolidasi dan berurutan prioritas: `docs/REVIEW-AKHIR.md` §4.
   allowlist nama client).
 
 ## Catatan untuk sesi berikutnya
+
+- **Cara kerja cepat (2026-11-14):** selama mengerjakan fitur jalankan tes yang relevan saja
+  (`bin/test <filter>`, mis. `bin/test tickets::mockup`) atau `bin/sh cargo check -p agentgate-server --tests`.
+  Suite penuh (`bin/test`, ~72 dtk) dan `bin/ci` hanya sebelum commit akhir/merge. Setelah mengubah dependency:
+  `bin/sh cargo hakari generate && bin/sh cargo hakari manage-deps`. Bila `target/` > ~30 GB: `bin/sh cargo clean`.
+  Rincian di `docs/reference/loco-project-rules.md` §9 dan §14.
 
 - **M12 selesai dan di-merge ke `staging` (2026-11-14), `bin/ci` hijau sebelum dan sesudah merge.** Belum di-merge ke
   `main`/`release` dan belum di-push (tanpa remote). Langkah berikutnya menunggu review pemilik produk atas

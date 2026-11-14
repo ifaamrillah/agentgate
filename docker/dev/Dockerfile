@@ -18,6 +18,7 @@ RUN apt-get update \
 RUN curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/v1.26.2/install-from-binstall-release.sh | bash \
  && cargo binstall -y --locked \
       watchexec-cli@2.8.0 sccache@0.19.0 cargo-deny@0.20.2 cargo-insta@1.49.0 cargo-chef@0.1.78 loco@1.3.1 \
+      cargo-nextest@0.9.152 cargo-hakari@0.9.39 \
  && rustup component add rustfmt clippy \
  && chmod -R a+rwX /usr/local/cargo /usr/local/rustup
 
@@ -34,9 +35,12 @@ RUN groupadd -g "${GID}" dev 2>/dev/null || true \
  && chown -R "${UID}:${GID}" /workspace /home/dev /usr/local/cargo/registry /usr/local/cargo/git
 
 USER dev
+# CARGO_BUILD_JOBS juga membatasi thread codegen rustc (jobserver), bukan hanya jumlah crate
+# paralel: 4 membuat compile ulang crate server memakai 4 core saja. 8 menjaga RAM tetap aman di
+# laptop 16 GB (link binary tes ~250 MB); compose meneruskan AG_CARGO_JOBS untuk menimpanya.
 ENV CARGO_HOME=/usr/local/cargo \
     CARGO_TARGET_DIR=/workspace/target \
-    CARGO_BUILD_JOBS=4 \
+    CARGO_BUILD_JOBS=8 \
     RUSTC_WRAPPER=sccache \
     SCCACHE_DIR=/home/dev/.cache/sccache
 WORKDIR /workspace

@@ -1,0 +1,22 @@
+# Konfigurasi `cargo hakari` (crate workspace-hack). Alasannya: tanpa crate ini, feature
+# dependency berbeda antara `cargo loco start` (bin/dev, hanya paket server), `cargo nextest
+# --workspace` (bin/test), dan clippy. Perbedaan itu (mis. feature tokio dari CLI) memaksa
+# compile ulang dependency dan crate aplikasi setiap kali berpindah perintah.
+# Setelah mengubah dependency: `bin/sh cargo hakari generate && bin/sh cargo hakari manage-deps`.
+# `bin/ci` menjalankan `cargo hakari verify`.
+
+hakari-package = "workspace-hack"
+dep-format-version = "4"
+resolver = "2"
+
+# Build berjalan di container Linux (bin/*): x86_64 dan arm64 (Docker di Mac Apple Silicon).
+platforms = [
+    "x86_64-unknown-linux-gnu",
+    "aarch64-unknown-linux-gnu",
+]
+
+[final-excludes]
+# CLI dirilis lintas OS (dist-workspace.toml) dan memakai core + graph; ketiganya tidak
+# bergantung pada workspace-hack supaya build CLI (Windows/macOS di CI) tidak ikut menarik
+# dependency server seperti loco-rs.
+workspace-members = ["agentgate-cli", "agentgate-core", "agentgate-graph"]

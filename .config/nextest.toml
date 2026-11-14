@@ -1,0 +1,11 @@
+# Konfigurasi cargo nextest (dijalankan lewat bin/test). Setiap tes berjalan di prosesnya sendiri;
+# tes database memakai database per slot (config/test.yaml), jadi aman paralel.
+
+[profile.default]
+# Suite penuh melaporkan semua kegagalan sekaligus, bukan berhenti di yang pertama.
+fail-fast = false
+# Tes yang menggantung dilaporkan setelah 60 dtk dan dihentikan setelah 3 periode.
+slow-timeout = { period = "60s", terminate-after = 3 }
+# Ringkasan akhir hanya berisi tes yang gagal; tes lulus tidak membanjiri output.
+status-level = "fail"
+final-status-level = "fail"

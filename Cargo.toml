@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["core", "graph", "cli", "server", "server/migration"]
+members = ["core", "graph", "cli", "server", "server/models", "server/migration", "workspace-hack"]
 
 [workspace.package]
 version = "0.1.0"
@@ -21,6 +21,10 @@ unsafe_code = "deny"
 # panic di request handler = 500 tanpa konteks; di runner = job mati tanpa laporan.
 unwrap_used = "deny"
 expect_used = "deny"
+# `loco_rs::Result` dipakai di seluruh aplikasi dan ukuran Err-nya ditentukan framework: dengan
+# feature yang disatukan workspace-hack (termasuk `testing` milik loco), ukurannya melewati batas
+# 128 byte lint ini di setiap fungsi. Tidak bisa diperbaiki dari kode aplikasi.
+result_large_err = "allow"
 
 [profile.dev]
 # Info debug penuh memperbesar target/ berkali lipat dan memperlambat link.

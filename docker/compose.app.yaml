@@ -13,6 +13,8 @@ services:
       agentgate.port: "${AG_PORT:-5150}"
     environment:
       AG_ID: ${AG_ID:-}
+      # Jumlah job cargo (default image: 8). Mesin dengan RAM lega boleh menaikkannya.
+      CARGO_BUILD_JOBS: ${AG_CARGO_JOBS:-8}
     ports:
       - "127.0.0.1:${AG_PORT:-5150}:${AG_PORT:-5150}"
     volumes:
