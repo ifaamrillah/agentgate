@@ -15,8 +15,8 @@ case "${1:-}" in
 esac
 
 if [ -n "$AG_ID" ]; then
-  ag_compose_app stop app >/dev/null
-  ag_compose_app rm -f app >/dev/null
+  ag_compose_app --progress quiet stop app
+  ag_compose_app --progress quiet rm -f app
   echo "agentgate: container app worktree $AG_ID dimatikan"
   exit 0
 fi
