@@ -95,15 +95,15 @@ aktivitas tiket, connector selain Jira. OAuth Google/GitHub login sudah selesai 
 
 ## Tasks
 
-- [ ] **1. Plan** (dokumen ini).
-- [ ] **2. Race init JS**: `markdown.js`/`md-editor.js` memindai dokumen saat siap + `htmx.onLoad`;
+- [x] **1. Plan** (dokumen ini).
+- [x] **2. Race init JS**: `markdown.js`/`md-editor.js` memindai dokumen saat siap + `htmx.onLoad`;
   tes `node --test` lewat `bin/tests`.
-- [ ] **3. Multi-client** (worktree terpisah): rules v2, hook per client, adapter runner + parser,
+- [x] **3. Multi-client** (worktree terpisah): rules v2, hook per client, adapter runner + parser,
   doctor, halaman Hubungkan client; tes.
-- [ ] **4. API publik + webhook**: migrasi, token + auth + rate limit, REST v1 + OpenAPI, outbox +
+- [x] **4. API publik + webhook**: migrasi, token + auth + rate limit, REST v1 + OpenAPI, outbox +
   worker + retry, UI; tes.
-- [ ] **5. Ekspor data + impor CSV**: migrasi, worker ZIP, wizard CSV, UI; tes.
-- [ ] **6. Connector Jira**: migrasi, klien + server palsu, 3 mode, pemetaan, log, UI; tes.
-- [ ] **7. Seed dev** (`seed_integrations`), `/_dev/ui`, design-system.md.
-- [ ] **8. Visual check** Playwright (desktop, 390px, gelap) vs prototype.
-- [ ] **9. bin/ci**, merge `--no-ff` ke `staging`, `bin/ci`, PROGRESS.md.
+- [x] **5. Ekspor data + impor CSV**: migrasi, worker ZIP, wizard CSV, UI; tes.
+- [x] **6. Connector Jira**: migrasi, klien + server palsu, 3 mode, pemetaan, log, UI; tes.
+- [x] **7. Seed dev** (`seed_integrations`), `/_dev/ui`, design-system.md.
+- [x] **8. Visual check** Playwright (desktop, 390px, gelap) vs prototype.
+- [x] **9. bin/ci**, merge `--no-ff` ke `staging`, `bin/ci`, PROGRESS.md.
