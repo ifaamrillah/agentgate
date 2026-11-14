@@ -118,7 +118,14 @@ async fn workflow_is_built_from_a_template_edited_and_published() {
         // Builder, konfigurasi stage, YAML, riwayat versi.
         let page = get(&request, c, &base).await;
         assert_eq!(page.status_code(), 200);
-        assert_css_exists(&page.text(), "[data-flow] [data-stage='brainstorm']");
+        // Kanvas graf (R3) bawaan; daftar vertikal lewat ?view=list.
+        let html = page.text();
+        assert_css_exists(&html, "[data-wf-canvas] a[data-wf-node='brainstorm']");
+        assert_css_exists(&html, "[data-wf-views] a[aria-current='true'][data-wf-view='canvas']");
+        assert_css_exists(&html, "[data-wf-canvas] template[data-wf-icons]");
+        let list = get(&request, c, &format!("{base}?view=list")).await.text();
+        assert_css_exists(&list, "ol[data-flow] [data-stage='brainstorm']");
+        assert_css_exists(&list, "ol[data-flow] a[href$='view=list']");
         let page = get(&request, c, &format!("{base}?stage=brainstorm")).await;
         assert_css_exists(&page.text(), "[data-stage-form]");
         assert_eq!(

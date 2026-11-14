@@ -519,6 +519,9 @@ pub struct BuilderQuery {
     stage: String,
     #[serde(default)]
     tab: String,
+    /// Tampilan builder: `canvas` (bawaan, kanvas graf R3) atau `list` (daftar vertikal).
+    #[serde(default)]
+    view: String,
 }
 
 /// Isian form stage untuk template.
@@ -650,6 +653,8 @@ struct BuilderState<'a> {
     tab: String,
     yaml: Option<String>,
     flash: Option<Flash>,
+    /// `canvas` atau `list`.
+    view: &'static str,
 }
 
 async fn render_builder(
@@ -688,7 +693,11 @@ async fn render_builder(
             } else {
                 "todo"
             };
-            v.href = format!("{href}?stage={}", s.key);
+            v.href = if state.view == "list" {
+                format!("{href}?stage={}&view=list", s.key)
+            } else {
+                format!("{href}?stage={}", s.key)
+            };
             v
         })
         .collect();
@@ -754,6 +763,11 @@ async fn render_builder(
             },
             "tab": tab,
             "tabs": tabs,
+            "view": state.view,
+            "views": [
+                { "key": "canvas", "label": "workflow-view-canvas", "icon": "sitemap", "href": format!("{href}?stage={selected_key}"), "current": state.view == "canvas" },
+                { "key": "list", "label": "workflow-view-list", "icon": "list", "href": format!("{href}?stage={selected_key}&view=list"), "current": state.view == "list" },
+            ],
             "nodes": nodes,
             "stage": form,
             "earlier": draft.stages.iter().take_while(|s| s.key != selected_key).map(|s| SelectOption { id: s.key.clone(), name: s.name.clone() }).collect::<Vec<_>>(),
@@ -805,6 +819,7 @@ fn state(selected: Option<String>) -> BuilderState<'static> {
         tab: String::new(),
         yaml: None,
         flash: None,
+        view: "canvas",
     }
 }
 
@@ -822,6 +837,7 @@ pub(super) async fn builder(
     let mut st = state(Some(query.stage));
     st.tab = query.tab;
     st.flash = flash;
+    st.view = if query.view == "list" { "list" } else { "canvas" };
     let res = render_builder(&ctx, &v, &access.tenant, &workflow, st, StatusCode::OK).await?;
     Ok((session, res).into_response())
 }

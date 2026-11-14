@@ -424,3 +424,15 @@ manual-evidence-stage-not-active = Tiket dibatalkan; bukti tidak bisa diunggah.
 manual-evidence-flash-submitted = Bukti manual diunggah. Menunggu persetujuan approver stage.
 manual-evidence-flash-approved = Bukti manual disetujui.
 manual-evidence-flash-rejected = Bukti manual ditolak.
+
+## Kanvas builder (R3)
+workflow-view = Tampilan builder
+workflow-view-canvas = Kanvas
+workflow-view-list = Daftar
+workflow-legend-fail = Gagal, kembali ke
+workflow-zoom = Zoom kanvas
+workflow-zoom-in = Perbesar
+workflow-zoom-out = Perkecil
+workflow-fit = Rapikan
+workflow-canvas-label = Kanvas workflow { $name }
+workflow-canvas-help = Seret latar untuk menggeser, Ctrl + gulir atau tombol +/− untuk zoom, Rapikan (tombol 0) untuk menata ulang dan memuat semua stage. Klik stage untuk mengubahnya. Daftar memuat stage yang sama dalam urutan vertikal.

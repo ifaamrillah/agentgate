@@ -37,6 +37,48 @@
 {%- if tab == "builder" %}
 <div class="app-builder">
   {% <card title={t(key="workflow-canvas", lang="id")} description={t(key="workflow-canvas-description", lang="id")} count={nodes | length ~ ""} class="app-builder-canvas"> %}
+    <div class="app-wf-bar">
+      <nav class="app-seg" aria-label="{{ t(key="workflow-view", lang="id") }}" data-wf-views>{% for o in views %}<a href="{{ o.href }}"{% if o.current %} aria-current="true"{% endif %} data-wf-view="{{ o.key }}">{{ icon(name=o.icon) }}{{ t(key=o.label, lang="id") }}</a>{% endfor %}</nav>
+      {%- if view == "canvas" %}
+      <span data-grow></span>
+      <div class="app-wf-legend" data-hide="sm">
+        <span>{{ icon(name="user-check") }}{{ t(key="workflow-exit-approval", lang="id") }}</span>
+        <span data-tone="accent">{{ icon(name="bolt") }}{{ t(key="workflow-exit-auto", lang="id") }}</span>
+        <span>{{ icon(name="hand-stop") }}{{ t(key="workflow-exit-manual", lang="id") }}</span>
+        <span data-tone="danger"><i data-dash></i>{{ t(key="workflow-legend-fail", lang="id") }}</span>
+      </div>
+      <div class="app-wf-zoom" role="group" aria-label="{{ t(key="workflow-zoom", lang="id") }}">
+        {{ <button variant="ghost" size="icon-sm" icon="zoom-out" aria_label={t(key="workflow-zoom-out", lang="id")} attrs="data-wf-zoom-out"/> }}
+        <span class="app-wf-pct" data-wf-pct aria-live="polite">100%</span>
+        {{ <button variant="ghost" size="icon-sm" icon="zoom-in" aria_label={t(key="workflow-zoom-in", lang="id")} attrs="data-wf-zoom-in"/> }}
+        {{ <button label={t(key="workflow-fit", lang="id")} variant="ghost" size="sm" icon="arrows-maximize" attrs="data-wf-fit"/> }}
+      </div>
+      {%- endif %}
+    </div>
+    {%- if view == "canvas" %}
+    {#- Kanvas graf (R3, static/js/workflow-canvas.js + workflow-core.mjs): node = tautan ke panel
+        stage; tanpa JS node tampil berurutan seperti daftar. -#}
+    <div class="app-wf-canvas" tabindex="0" role="group" aria-label="{{ t(key="workflow-canvas-label", lang="id", name=workflow.name) }}" aria-describedby="wf-canvas-help"
+      data-wf-canvas="{{ workflow.id }}" data-parallel-label="{{ t(key="workflow-parallel-note", lang="id") }}" data-flow>
+      <div class="app-wf-world" data-wf-world>
+        <svg class="app-wf-edges" data-wf-edges aria-hidden="true" focusable="false"></svg>
+        {%- for n in nodes %}
+        <a class="app-wf-node" href="{{ n.href }}" data-wf-node="{{ n.key }}" data-stage="{{ n.key }}" data-category="{{ n.category }}" data-exit="{{ n.exit }}"
+          {%- if n.parallel %} data-parallel{% endif %}{% if n.fail_to_key %} data-fail-to="{{ n.fail_to_key }}" data-fail-label="{{ t(key="workflow-fail-note", lang="id", stage=n.fail_to, limit=n.fail_limit) }}"{% endif %}
+          {%- if n.state == "current" %} aria-current="true"{% endif %}>
+          <span class="app-tile">{{ icon(name=n.icon) }}</span>
+          <span class="app-node-text"><b>{{ n.name }}</b><small>{% if n.persona %}{{ n.persona_name }} · {{ t(key=n.mode_key, lang="id") }}{% else %}{{ t(key="workflow-no-agent", lang="id") }}{% endif %}</small></span>
+          <span class="app-node-meta">
+            {%- if n.gates %}<span class="app-hint" title="{{ t(key="workflow-gate-count", lang="id", count=n.gates) }}">{{ icon(name="shield-check") }}{{ n.gates }}<span class="sr-only"> {{ t(key="workflow-gate-count", lang="id", count=n.gates) }}</span></span>{% endif %}
+            <span class="sr-only">· {{ t(key=n.exit_key, lang="id") }}{% if n.parallel %} · {{ t(key="workflow-parallel-note", lang="id") }}{% endif %}{% if n.fail_to_key %} · {{ t(key="workflow-fail-note", lang="id", stage=n.fail_to, limit=n.fail_limit) }}{% endif %}</span>
+          </span>
+        </a>
+        {%- endfor %}
+      </div>
+      <template data-wf-icons><span data-i="approval">{{ icon(name="user-check") }}</span><span data-i="auto">{{ icon(name="bolt") }}</span><span data-i="manual">{{ icon(name="hand-stop") }}</span></template>
+    </div>
+    <p class="app-hint app-wf-help" id="wf-canvas-help">{{ t(key="workflow-canvas-help", lang="id") }}</p>
+    {%- else %}
     <ol class="app-flow" data-flow>
       {%- for n in nodes %}
       <li class="app-node" data-stage="{{ n.key }}" data-category="{{ n.category }}"{% if n.state == "current" %} aria-current="true"{% endif %}{% if n.parallel %} data-parallel{% endif %}>
@@ -53,6 +95,7 @@
       </li>
       {%- endfor %}
     </ol>
+    {%- endif %}
     <form method="post" action="{{ paths.stages }}" class="app-inline-form app-flow-add" data-add-stage>
       <input class="app-input" name="name" required maxlength="60" placeholder="{{ t(key="workflow-stage-name-placeholder", lang="id") }}" aria-label="{{ t(key="workflow-stage-name", lang="id") }}">
       <select class="app-input" name="category" aria-label="{{ t(key="workflow-stage-category", lang="id") }}">
