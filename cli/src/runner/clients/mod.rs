@@ -18,11 +18,11 @@
 //!
 //! Kuota habis dideteksi dari teks log/stderr/hasil ([`is_quota`]) untuk semua client.
 
+pub mod antigravity;
 pub mod claude;
 pub mod codex;
 pub mod copilot;
 pub mod cursor;
-pub mod gemini;
 pub mod opencode;
 
 use std::path::Path;
@@ -45,7 +45,7 @@ const STEPS_MAX: usize = 40;
 pub enum ClientKind {
     Claude,
     Codex,
-    Gemini,
+    Antigravity,
     Cursor,
     Opencode,
     Copilot,
@@ -78,7 +78,7 @@ impl ClientKind {
         match self {
             Self::Claude => "claude",
             Self::Codex => "codex",
-            Self::Gemini => "gemini",
+            Self::Antigravity => "antigravity",
             Self::Cursor => "cursor",
             Self::Opencode => "opencode",
             Self::Copilot => "copilot",
@@ -115,7 +115,7 @@ impl ClientKind {
         match self {
             Self::Claude => &["claude"],
             Self::Codex => &["codex"],
-            Self::Gemini => &["gemini"],
+            Self::Antigravity => &["agy"],
             // Docs Cursor memakai `agent`; alias lama `cursor-agent` belum pasti dihapus.
             Self::Cursor => &["agent", "cursor-agent"],
             Self::Opencode => &["opencode"],
@@ -146,7 +146,7 @@ impl ClientKind {
         match self {
             Self::Claude => Invocation::args(claude::auto_args(spec)),
             Self::Codex => codex::auto(spec, wt),
-            Self::Gemini => gemini::auto(spec),
+            Self::Antigravity => antigravity::auto(spec),
             Self::Cursor => Invocation::args(cursor::auto_args(spec, wt)),
             Self::Opencode => Invocation::args(opencode::auto_args(spec)),
             Self::Copilot => copilot::auto(spec, wt),
@@ -159,7 +159,7 @@ impl ClientKind {
         match self {
             Self::Claude => claude::interactive_args(spec, wt),
             Self::Codex => codex::interactive_args(spec),
-            Self::Gemini => gemini::interactive_args(spec),
+            Self::Antigravity => antigravity::interactive_args(spec),
             Self::Cursor => cursor::interactive_args(spec),
             Self::Opencode => opencode::interactive_args(spec),
             Self::Copilot => copilot::interactive_args(spec),
@@ -172,7 +172,7 @@ impl ClientKind {
         match self {
             Self::Claude => Box::new(claude::Parser::new("Claude Code")),
             Self::Codex => Box::new(codex::Parser::default()),
-            Self::Gemini => Box::new(gemini::Parser::default()),
+            Self::Antigravity => Box::new(antigravity::Parser::default()),
             Self::Cursor => Box::new(cursor::Parser::default()),
             Self::Opencode => Box::new(opencode::Parser::default()),
             Self::Copilot => Box::new(copilot::Parser::default()),
@@ -375,8 +375,9 @@ fn first_u64(v: &Value, keys: &[&str]) -> Option<u64> {
 
 /// Pemakaian token dari objek usage dengan nama field client mana pun:
 /// Claude (`input_tokens`, `cache_read_input_tokens`, …), camelCase (`inputTokens`,
-/// `cacheReadTokens`), Gemini (`prompt`/`candidates`/`cached`), OpenCode (`input`, `output`,
-/// `cache.read`). `cached_input` = token input yang sudah termasuk di `input` (Codex, Gemini):
+/// `cacheReadTokens`), Antigravity (`cache_read_tokens`), Gemini API (`prompt`/`candidates`/
+/// `cached`), OpenCode (`input`, `output`, `cache.read`). `cached_input` = token input yang sudah
+/// termasuk di `input` (Codex, Gemini API):
 /// dikurangkan supaya total tidak dihitung dua kali.
 #[must_use]
 pub fn usage_from(v: &Value) -> Option<TokenUsage> {
@@ -508,7 +509,8 @@ pub fn effort(spec: &JobSpec) -> Option<&str> {
 
 /// Pesan kuota/limit AI habis dari client mana pun:
 /// Claude Code ("Claude AI usage limit reached|<epoch>", "You've hit your limit · resets 3pm"),
-/// Codex/Cursor ("You've hit your usage limit"), Gemini (`RESOURCE_EXHAUSTED`, "Quota exceeded"),
+/// Codex/Cursor ("You've hit your usage limit"), Antigravity/API Gemini (`RESOURCE_EXHAUSTED`,
+/// "Resource has been exhausted (e.g. check quota)", "Quota exceeded"),
 /// Copilot ("exceeded your premium request allowance"), API OpenAI (`insufficient_quota`).
 #[must_use]
 pub fn is_quota(text: &str) -> bool {
@@ -521,6 +523,7 @@ pub fn is_quota(text: &str) -> bool {
         || t.contains("credit balance is too low")
         || t.contains("quota exceeded")
         || t.contains("resource_exhausted")
+        || t.contains("resource has been exhausted")
         || t.contains("insufficient_quota")
         || t.contains("premium request allowance")
 }
@@ -585,6 +588,13 @@ pub(crate) mod tests {
         assert_eq!(ClientKind::parse("vim"), None);
         assert_eq!(ClientKind::Copilot.bin_env(), "AGENTGATE_COPILOT_BIN");
         assert_eq!(ClientKind::Cursor.programs(), ["agent", "cursor-agent"]);
+        assert_eq!(ClientKind::Antigravity.programs(), ["agy"]);
+        assert_eq!(
+            ClientKind::Antigravity.bin_env(),
+            "AGENTGATE_ANTIGRAVITY_BIN"
+        );
+        // Gemini CLI sudah diganti Antigravity CLI.
+        assert_eq!(ClientKind::parse("gemini"), None);
     }
 
     #[test]
@@ -705,6 +715,7 @@ pub(crate) mod tests {
             "Credit balance is too low",
             "You've hit your usage limit. Upgrade to Pro or try again at 3:15 PM.",
             "[API Error: RESOURCE_EXHAUSTED: Quota exceeded for quota metric]",
+            "429 Resource has been exhausted (e.g. check quota).",
             "You have exceeded your premium request allowance.",
             "error: insufficient_quota",
         ] {

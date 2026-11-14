@@ -44,6 +44,7 @@ const ROOT_SCAN_DIRS: &[&str] = &[
     ".gemini",
     ".github",
     ".agents",
+    ".agent",
     ".opencode",
 ];
 const ROOT_SCAN_FILES: &[&str] = &[
@@ -379,10 +380,19 @@ pub struct Drift {
     pub changed: Vec<String>,
 }
 
-/// Bandingkan file aturan di `root` dengan versi server.
+/// File aturan usang milik Agent Gate (mis. `.gemini/settings.json` aturan v2) yang masih ada di
+/// `root`.
+fn obsolete_files(root: &Path) -> Vec<String> {
+    rules::obsolete_own_files(|p| fs::read_to_string(root.join(p)).ok())
+}
+
+/// Bandingkan file aturan di `root` dengan versi server. File usang milik Agent Gate yang masih
+/// ada ikut dilaporkan berubah (dihapus `rules sync`).
 #[must_use]
 pub fn drift(root: &Path, server: &ServerRules) -> Drift {
-    let changed = rules::changed_files(&server.files, |p| fs::read_to_string(root.join(p)).ok());
+    let mut changed =
+        rules::changed_files(&server.files, |p| fs::read_to_string(root.join(p)).ok());
+    changed.extend(obsolete_files(root));
     Drift {
         local_checksum: rules::checksum(&read_local(root, &server.files)),
         server_checksum: server.checksum.clone(),
@@ -422,6 +432,7 @@ pub async fn init(
     }
     let server_rules = fetch_rules(api, &key).await?;
     let legacy = legacy_files(&root, &server_rules.files)?;
+    let obsolete = obsolete_files(&root);
     let _ = writeln!(
         out,
         "Repo: {}\nProject: {} {}\n",
@@ -437,6 +448,15 @@ pub async fn init(
             "File aturan lama yang akan di-backup ke {BACKUP_DIR}/ lalu dihapus:"
         );
         for f in &legacy {
+            let _ = writeln!(out, "  - {f}");
+        }
+    }
+    if !obsolete.is_empty() {
+        let _ = writeln!(
+            out,
+            "\nFile aturan Agent Gate versi lama yang dihapus (tanpa backup):"
+        );
+        for f in &obsolete {
             let _ = writeln!(out, "  - {f}");
         }
     }
@@ -468,6 +488,8 @@ pub async fn init(
         touched.extend(legacy.iter().cloned());
         touched.push(BACKUP_DIR.into());
     }
+    remove_files(&root, &obsolete)?;
+    touched.extend(obsolete);
     write_rules(&root, &server_rules.files)?;
     touched.extend(server_rules.files.iter().map(|f| f.path.clone()));
     let project_file = ProjectFile {
@@ -528,10 +550,12 @@ pub fn uninstall(paths: &Paths, yes: bool, out: &mut impl Write) -> Result<Manif
     if !yes && !ui::confirm("Lanjutkan?") {
         return Err(Error::Aborted);
     }
-    // Path file aturan Agent Gate selalu sama untuk server/project mana pun.
+    // Path file aturan Agent Gate selalu sama untuk server/project mana pun; ditambah file
+    // usang milik Agent Gate dari versi aturan sebelumnya.
     let ours: Vec<String> = rules::agent_gate_files("", "")
         .into_iter()
         .map(|f| f.path)
+        .chain(obsolete_files(&root))
         .filter(|p| !manifest.files.iter().any(|m| m.path == *p))
         .collect();
     remove_files(&root, &ours)?;
@@ -620,6 +644,7 @@ pub async fn sync(api: &Api, out: &mut impl Write) -> Result<()> {
     git::git(&root, &["switch", "-q", "-C", SYNC_BRANCH])?;
     let result = (|| -> Result<bool> {
         write_rules(&root, &server_rules.files)?;
+        remove_files(&root, &obsolete_files(&root))?;
         stage(&root, &d.changed)?;
         Ok(git::commit(&root, "chore: update aturan Agent Gate")?)
     })();
@@ -795,6 +820,40 @@ mod tests {
         let d = drift(&root, &server);
         assert_eq!(d.changed, ["CLAUDE.md", ".mcp.json"]);
         assert_ne!(d.local_checksum, d.server_checksum);
+    }
+
+    #[test]
+    fn old_gemini_settings_of_agent_gate_are_obsolete_not_legacy() {
+        let root = git_repo("gemini-v2");
+        let ours = rules::agent_gate_files("http://x", "KSR");
+        write_rules(&root, &ours).unwrap();
+        fs::create_dir_all(root.join(".gemini")).unwrap();
+        fs::write(
+            root.join(".gemini/settings.json"),
+            rules::v2_gemini_settings_for("http://x"),
+        )
+        .unwrap();
+        // Milik Agent Gate: bukan aturan lama (tidak di-backup), tetapi usang (dihapus).
+        assert!(legacy_files(&root, &ours).unwrap().is_empty());
+        assert_eq!(obsolete_files(&root), [".gemini/settings.json"]);
+        let server = ServerRules {
+            project: "KSR".into(),
+            project_name: String::new(),
+            checksum: rules::checksum(&ours),
+            files: ours.clone(),
+        };
+        assert_eq!(drift(&root, &server).changed, [".gemini/settings.json"]);
+        // Diubah user: aturan lama (di-backup), bukan file usang.
+        fs::write(
+            root.join(".gemini/settings.json"),
+            rules::v2_gemini_settings_for("http://x").replace("AGENTS.md", "TIM.md"),
+        )
+        .unwrap();
+        assert!(obsolete_files(&root).is_empty());
+        assert_eq!(
+            legacy_files(&root, &ours).unwrap(),
+            [".gemini/settings.json"]
+        );
     }
 
     #[test]

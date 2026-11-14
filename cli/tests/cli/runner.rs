@@ -326,7 +326,7 @@ async fn runner_once_runs_a_job_and_reports_signed_evidence() {
 /// Awal skrip client palsu: argumen, stdin (prompt), env job, dan perubahan kode.
 const FAKE_PRELUDE: &str = r#"#!/bin/sh
 for a in "$@"; do printf '%s\n' "$a"; done > "$AGENTGATE_STATE_DIR/client-args.txt"
-printf '%s|%s|%s|%s' "$AGENTGATE_JOB_ID" "$AGENTGATE_JOB_CLIENT" "$GEMINI_CLI_TRUST_WORKSPACE" "$GITHUB_COPILOT_PROMPT_MODE_WORKSPACE_MCP" > "$AGENTGATE_STATE_DIR/client-env.txt"
+printf '%s|%s|%s|%s' "$AGENTGATE_JOB_ID" "$AGENTGATE_JOB_CLIENT" "$AGY_CLI_DISABLE_AUTO_UPDATE" "$GITHUB_COPILOT_PROMPT_MODE_WORKSPACE_MCP" > "$AGENTGATE_STATE_DIR/client-env.txt"
 if [ "$1" = "exec" ]; then cat > "$AGENTGATE_STATE_DIR/client-stdin.txt"; fi
 echo 'pub fn stok() {}' > stok.rs
 "#;
@@ -343,13 +343,12 @@ const CLIENT_STREAMS: &[(&str, &str, &str)] = &[
         "shell: cargo test -p kasir",
     ),
     (
-        "gemini",
-        r#"{"type":"init","model":"gemini-test"}
-{"type":"tool_use","tool_name":"write_todos","tool_id":"t0","parameters":{"todos":[{"description":"Tambah validasi","status":"completed"}]}}
-{"type":"tool_use","tool_name":"run_shell_command","tool_id":"t1","parameters":{"command":"cargo test -p kasir"}}
-{"type":"message","role":"assistant","content":"Validasi stok selesai.","delta":true}
-{"type":"result","status":"success","stats":{"input_tokens":120,"output_tokens":30,"cached":20}}"#,
-        "run_shell_command: cargo test -p kasir",
+        "antigravity",
+        r#"{"event":"init","conversation_id":"c","init":{"cwd":"/wt","tools":["run_command"],"permission_mode":"always-proceed","model":"agy-test"}}
+{"event":"step_update","step_update":{"conversation_id":"c","step_index":2,"state":"DONE","step_type":"tool","tool_name":"run_command","tool_info":{"name":"run_command","parameters":{"CommandLine":"cargo test -p kasir"},"output":"ok"}}}
+{"event":"step_update","step_update":{"conversation_id":"c","step_index":3,"state":"DONE","step_type":"agent_response","text_delta":"Validasi stok selesai.\n"}}
+{"event":"result","result":{"conversation_id":"c","status":"SUCCESS","response":"Validasi stok selesai.\n","num_turns":1,"usage":{"input_tokens":100,"output_tokens":30,"thinking_tokens":5,"cache_read_tokens":20,"total_tokens":130}}}"#,
+        "run_command: cargo test -p kasir",
     ),
     (
         "cursor",
@@ -475,8 +474,10 @@ async fn runner_runs_jobs_with_every_client() {
                 );
                 assert!(has_arg("model_reasoning_effort=\"high\""), "{args:?}");
             }
-            "gemini" => {
-                assert!(has_arg("--skip-trust") && has_arg("yolo"));
+            "antigravity" => {
+                assert_eq!(args[0], "-p");
+                assert!(has_arg("--dangerously-skip-permissions") && has_arg("stream-json"));
+                assert!(has_arg("--effort") && has_arg("high"), "{args:?}");
                 assert!(env_seen.ends_with("|true|"), "{env_seen}");
             }
             "cursor" => {
@@ -505,14 +506,16 @@ async fn runner_runs_jobs_with_every_client() {
         };
         assert!(has("tool", tool), "{client}: {lines:?}");
         assert!(has("ok", "Agent selesai"), "{client}: {lines:?}");
+        // Antigravity tidak punya tool todo: tidak ada langkah rencana.
         assert!(
-            fake.find("POST", "/steps").iter().any(|r| {
-                r.json()["steps"]
-                    .as_array()
-                    .unwrap()
-                    .iter()
-                    .any(|s| s["name"] == "Tambah validasi" && s["state"] == "ok")
-            }),
+            *client == "antigravity"
+                || fake.find("POST", "/steps").iter().any(|r| {
+                    r.json()["steps"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .any(|s| s["name"] == "Tambah validasi" && s["state"] == "ok")
+                }),
             "{client}"
         );
         let finish = fake.find("POST", "/finish");

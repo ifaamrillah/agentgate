@@ -119,11 +119,16 @@ pub const CLIENTS: &[Client] = &[
         headless: "codex exec",
     },
     Client {
-        key: "gemini",
-        name: "Gemini CLI",
-        models: &["gemini-2.5-pro", "gemini-2.5-flash"],
-        efforts: &[],
-        headless: "gemini -p",
+        key: "antigravity",
+        name: "Antigravity CLI",
+        models: &[
+            "gemini-4-carbon-high",
+            "gemini-4-hydrogen-high",
+            "gemini-3.8-flash-medium",
+            "gemini-3.1-pro-high",
+        ],
+        efforts: &["low", "medium", "high", "xhigh", "max"],
+        headless: "agy -p",
     },
     Client {
         key: "cursor",
@@ -432,9 +437,10 @@ mod tests {
             Some("codex")
         );
         assert_eq!(
-            client_from_name("Gemini CLI MCP Client").map(|c| c.key),
-            Some("gemini")
+            client_from_name("Google Antigravity").map(|c| c.key),
+            Some("antigravity")
         );
+        assert!(client_from_name("Gemini CLI MCP Client").is_none());
         assert!(client_from_name("MCP Inspector").is_none());
     }
 

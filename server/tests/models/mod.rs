@@ -1,3 +1,4 @@
+mod clients;
 mod enums;
 mod permission;
 mod project_access;

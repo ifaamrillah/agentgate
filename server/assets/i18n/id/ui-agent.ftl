@@ -318,7 +318,7 @@ oauth-error-back = Kembali ke Agent Gate
 
 ## Akun → Hubungkan client AI
 account-connect = Hubungkan client AI
-connect-description = Hubungkan Claude Code, Codex CLI, Gemini CLI, Cursor, OpenCode, atau Copilot CLI ke Agent Gate lewat MCP. Client membaca konteks tiket, persona, dan skill atas nama Anda.
+connect-description = Hubungkan Claude Code, Codex CLI, Antigravity CLI, Cursor, OpenCode, atau Copilot CLI ke Agent Gate lewat MCP. Client membaca konteks tiket, persona, dan skill atas nama Anda.
 connect-section-steps = Langkah pemasangan
 connect-section-steps-desc = Tambah server, login, coba
 connect-section-clients = Client terhubung
@@ -330,7 +330,7 @@ connect-section-slash = Slash command
 connect-section-slash-desc = Per stage dan utilitas
 connect-steps-description = Sekali per client di setiap perangkat.
 connect-step-init = Pasang aturan Agent Gate di repo
-connect-step-init-hint = Jalankan sekali per repo. Perintah ini menulis config MCP dan hook untuk keenam client sekaligus (AGENTS.md, .mcp.json, .claude, .codex, .gemini, .cursor, opencode.json, .github/hooks), jadi setiap anggota tim bisa memakai client pilihannya.
+connect-step-init-hint = Jalankan sekali per repo. Perintah ini menulis config MCP dan hook untuk keenam client sekaligus (AGENTS.md, .mcp.json, .claude, .codex, .agents, .cursor, opencode.json, .github/hooks), jadi setiap anggota tim bisa memakai client pilihannya.
 connect-step-add = Tambahkan server MCP di luar repo (opsional)
 connect-step-add-hint = Untuk memakai Agent Gate di folder lain, tambahkan server MCP ke config global client Anda.
 connect-step-add-file = isi file { $file }
@@ -338,7 +338,7 @@ connect-step-login = Login lewat browser
 connect-step-login-hint = Saat pertama login, client membuka halaman persetujuan Agent Gate. Pilih workspace lalu klik Izinkan akses. Lakukan sekali per client di setiap perangkat, sebelum runner menjalankan job.
 connect-login-claude = buka /mcp di Claude Code lalu pilih Authenticate.
 connect-login-codex = jalankan perintah berikut.
-connect-login-gemini = jalankan /mcp auth agentgate di sesi Gemini CLI.
+connect-login-antigravity = buka /mcp di sesi Antigravity CLI (agy), pilih agentgate, lalu selesaikan login di browser.
 connect-login-cursor = jalankan perintah berikut.
 connect-login-opencode = jalankan perintah berikut.
 connect-login-copilot = browser terbuka otomatis saat tool Agent Gate pertama kali dipakai.

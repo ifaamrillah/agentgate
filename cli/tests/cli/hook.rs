@@ -138,8 +138,8 @@ async fn each_client_gets_its_own_decision_format() {
     write_job_state(&env);
     let cases = [
         (
-            "gemini",
-            json!({"hook_event_name":"BeforeTool","tool_name":"run_shell_command","tool_input":{"command":"vercel --prod"}}),
+            "antigravity",
+            json!({"toolCall":{"name":"run_command","args":{"CommandLine":"vercel --prod","Cwd":"/wt"}},"stepIdx":1,"workspacePaths":["/wt"]}),
             "/decision",
         ),
         (

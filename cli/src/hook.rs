@@ -7,7 +7,7 @@
 //! | Client | Payload tool | Jawaban `pre-tool` |
 //! | --- | --- | --- |
 //! | Claude Code, Codex | `tool_name` `Bash`, `tool_input` | `hookSpecificOutput.permissionDecision` + `updatedInput` |
-//! | Gemini CLI | `tool_name` `run_shell_command` | `decision` + `hookSpecificOutput.tool_input` |
+//! | Antigravity CLI | `toolCall.name` `run_command`, `toolCall.args.CommandLine` | `decision` (`auto_approve`/`deny`) + `overwrite` |
 //! | Cursor | `tool_name` `Shell` | `permission` + `updated_input` |
 //! | Copilot CLI | `toolName` `bash`/`powershell`, `toolArgs` (string JSON) | `permissionDecision` + `modifiedArgs` |
 //! | OpenCode (plugin) | `tool_name` `bash`, `tool_input` | `decision`, `reason`, `command` |
@@ -61,6 +61,7 @@ pub const JOB_CLIENT_ENV: &str = "AGENTGATE_JOB_CLIENT";
 const SHELL_TOOLS: &[&str] = &[
     "bash",
     "shell",
+    "run_command",
     "run_shell_command",
     "powershell",
     "run_terminal_cmd",
@@ -91,13 +92,27 @@ impl HookInput {
                 other => other,
             };
         }
-        if input.cwd.is_empty() {
-            // Cursor: `workspace_roots`; Gemini/Copilot kadang tanpa `cwd`.
-            input.cwd = v
-                .pointer("/workspace_roots/0")
+        if client == ClientKind::Antigravity && input.tool_name.is_empty() {
+            // `{toolCall: {name, args: {CommandLine, Cwd}}, workspacePaths: [...]}`.
+            input.tool_name = v
+                .pointer("/toolCall/name")
                 .and_then(Value::as_str)
                 .unwrap_or_default()
                 .to_string();
+            input.tool_input = v.pointer("/toolCall/args").cloned().unwrap_or(Value::Null);
+        }
+        if input.cwd.is_empty() {
+            // Cursor: `workspace_roots`; Antigravity: `toolCall.args.Cwd`/`workspacePaths`;
+            // Copilot kadang tanpa `cwd`.
+            input.cwd = [
+                "/workspace_roots/0",
+                "/toolCall/args/Cwd",
+                "/workspacePaths/0",
+            ]
+            .iter()
+            .find_map(|p| v.pointer(p).and_then(Value::as_str))
+            .unwrap_or_default()
+            .to_string();
         }
         input
     }
@@ -107,7 +122,11 @@ impl HookInput {
             .iter()
             .any(|t| t.eq_ignore_ascii_case(&self.tool_name));
         shell
-            .then(|| self.tool_input.get("command").and_then(Value::as_str))
+            .then(|| {
+                ["command", "CommandLine"]
+                    .iter()
+                    .find_map(|k| self.tool_input.get(k).and_then(Value::as_str))
+            })
             .flatten()
             .filter(|c| !c.trim().is_empty())
     }
@@ -200,7 +219,12 @@ pub fn output(
             "permissionDecision": decision,
             "permissionDecisionReason": reason,
         }}),
-        ClientKind::Gemini => json!({ "decision": decision, "reason": reason }),
+        // `allow` Antigravity hanya meneruskan ke kebijakan bawaan (bisa tetap bertanya);
+        // `auto_approve` setara `allow` Claude Code.
+        ClientKind::Antigravity => json!({
+            "decision": if decision == "allow" { "auto_approve" } else { decision },
+            "reason": reason,
+        }),
         ClientKind::Cursor => json!({
             "permission": decision,
             "user_message": reason,
@@ -217,10 +241,8 @@ pub fn output(
             ClientKind::Claude | ClientKind::Codex => {
                 v["hookSpecificOutput"]["updatedInput"] = updated;
             }
-            ClientKind::Gemini => {
-                v["hookSpecificOutput"] =
-                    json!({ "hookEventName": "BeforeTool", "tool_input": updated });
-            }
+            // `overwrite` di-merge dangkal ke `toolCall.args`.
+            ClientKind::Antigravity => v["overwrite"] = json!({ "CommandLine": rewritten }),
             ClientKind::Cursor => v["updated_input"] = updated,
             ClientKind::Copilot => v["modifiedArgs"] = updated,
             ClientKind::Opencode => v["command"] = Value::from(rewritten),
@@ -235,10 +257,13 @@ pub fn output(
 pub fn session_output(client: ClientKind, text: &str) -> String {
     let v = match client {
         ClientKind::Claude | ClientKind::Opencode => return text.to_string(),
-        ClientKind::Codex | ClientKind::Gemini => json!({ "hookSpecificOutput": {
+        ClientKind::Codex => json!({ "hookSpecificOutput": {
             "hookEventName": "SessionStart",
             "additionalContext": text,
         }}),
+        ClientKind::Antigravity => json!({
+            "injectSteps": [{ "systemMessage": { "systemMessage": text } }],
+        }),
         ClientKind::Cursor => json!({ "additional_context": text }),
         ClientKind::Copilot => json!({ "additionalContext": text }),
     };
@@ -563,8 +588,8 @@ mod tests {
                 json!({"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"curl x"},"cwd":"/wt"}),
             ),
             (
-                ClientKind::Gemini,
-                json!({"hook_event_name":"BeforeTool","tool_name":"run_shell_command","tool_input":{"command":"curl x","description":"d"},"cwd":"/wt"}),
+                ClientKind::Antigravity,
+                json!({"toolCall":{"name":"run_command","args":{"CommandLine":"curl x","Cwd":"/wt","WaitMsBeforeAsync":5000}},"stepIdx":3,"conversationId":"c","workspacePaths":["/wt"]}),
             ),
             (
                 ClientKind::Cursor,
@@ -598,31 +623,30 @@ mod tests {
         );
         assert_eq!(edit.command(), None);
         assert_eq!(
-            HookInput::parse(ClientKind::Gemini, "rusak").command(),
+            HookInput::parse(ClientKind::Antigravity, "rusak").command(),
             None
         );
     }
 
     #[test]
     fn decisions_use_each_client_dialect() {
-        let i = HookInput::parse(
-            ClientKind::Gemini,
-            &json!({"tool_name":"run_shell_command","tool_input":{"command":"git status","description":"d"}}).to_string(),
+        let a = HookInput::parse(
+            ClientKind::Antigravity,
+            &json!({"toolCall":{"name":"run_command","args":{"CommandLine":"git status","Cwd":"/wt"}}}).to_string(),
         );
         let rtk = Some("rtk git status");
-        let g = output(ClientKind::Gemini, &i, "allow", "ok", rtk);
-        assert_eq!(g["decision"], "allow");
-        assert_eq!(
-            g["hookSpecificOutput"]["tool_input"]["command"],
-            "rtk git status"
-        );
-        assert_eq!(g["hookSpecificOutput"]["tool_input"]["description"], "d");
-        let g = output(ClientKind::Gemini, &i, "deny", "tidak", None);
+        let g = output(ClientKind::Antigravity, &a, "allow", "ok", rtk);
+        assert_eq!(g["decision"], "auto_approve");
+        assert_eq!(g["reason"], "ok");
+        // Hanya kunci yang diganti; `Cwd` dkk. tetap dari argumen asli (merge dangkal).
+        assert_eq!(g["overwrite"], json!({ "CommandLine": "rtk git status" }));
+        let g = output(ClientKind::Antigravity, &a, "deny", "tidak", None);
         assert_eq!(
             (g["decision"].as_str(), g["reason"].as_str()),
             (Some("deny"), Some("tidak"))
         );
-        assert!(g.get("hookSpecificOutput").is_none());
+        assert!(g.get("overwrite").is_none());
+        let i = input("git status");
 
         let c = output(ClientKind::Cursor, &i, "deny", "tidak", None);
         assert_eq!(c["permission"], "deny");
@@ -652,11 +676,15 @@ mod tests {
     fn session_context_uses_each_client_dialect() {
         assert_eq!(session_output(ClientKind::Claude, "halo"), "halo");
         assert_eq!(session_output(ClientKind::Opencode, "halo"), "halo");
-        for c in [ClientKind::Codex, ClientKind::Gemini] {
-            let v: Value = serde_json::from_str(&session_output(c, "halo")).unwrap();
-            assert_eq!(v["hookSpecificOutput"]["hookEventName"], "SessionStart");
-            assert_eq!(v["hookSpecificOutput"]["additionalContext"], "halo");
-        }
+        let v: Value = serde_json::from_str(&session_output(ClientKind::Codex, "halo")).unwrap();
+        assert_eq!(v["hookSpecificOutput"]["hookEventName"], "SessionStart");
+        assert_eq!(v["hookSpecificOutput"]["additionalContext"], "halo");
+        let v: Value =
+            serde_json::from_str(&session_output(ClientKind::Antigravity, "halo")).unwrap();
+        assert_eq!(
+            v["injectSteps"][0]["systemMessage"]["systemMessage"],
+            "halo"
+        );
         let v: Value = serde_json::from_str(&session_output(ClientKind::Cursor, "halo")).unwrap();
         assert_eq!(v["additional_context"], "halo");
         let v: Value = serde_json::from_str(&session_output(ClientKind::Copilot, "halo")).unwrap();

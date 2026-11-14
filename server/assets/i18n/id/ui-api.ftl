@@ -163,7 +163,7 @@ api-limit-hint = { $n } request per menit per token · header
 api-signature = Tanda tangan webhook
 api-signature-hint = Verifikasi di penerima:
 api-clients = Client AI dan runner
-api-clients-hint = Codex, Gemini CLI, Cursor, OpenCode, dan Copilot CLI memakai MCP dan runner, bukan token API.
+api-clients-hint = Codex, Antigravity CLI, Cursor, OpenCode, dan Copilot CLI memakai MCP dan runner, bukan token API.
 api-clients-link = Hubungkan client
 api-example = Contoh request
 
