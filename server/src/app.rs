@@ -677,8 +677,18 @@ async fn seed_integrations(ctx: &AppContext) -> Result<()> {
     };
     let fail = |e: &dyn std::fmt::Debug| loco_rs::Error::string(&format!("seed integrasi: {e:?}"));
     for (name, scopes, expiry, project) in [
-        ("Dashboard BI toko", vec!["tiket:baca", "laporan:baca"], "365", ""),
-        ("Script migrasi stok", vec!["tiket:baca", "tiket:tulis"], "30", SEED_PROJECT.0),
+        (
+            "Dashboard BI toko",
+            vec!["tiket:baca", "laporan:baca"],
+            "365",
+            "",
+        ),
+        (
+            "Script migrasi stok",
+            vec!["tiket:baca", "tiket:tulis"],
+            "30",
+            SEED_PROJECT.0,
+        ),
     ] {
         let input = tokens_svc::TokenInput {
             name: name.into(),
@@ -715,7 +725,9 @@ async fn seed_integrations(ctx: &AppContext) -> Result<()> {
         let (hook, _) = webhooks::create(&ctx.db, &acting, &settings, &input)
             .await
             .map_err(|e| fail(&e))?;
-        let last = sends.first().map(|(m, c)| (now - chrono::Duration::minutes(*m), *c));
+        let last = sends
+            .first()
+            .map(|(m, c)| (now - chrono::Duration::minutes(*m), *c));
         let failures = i32::try_from(sends.iter().filter(|(_, c)| *c >= 300).count()).unwrap_or(0);
         let mut summary: crate::models::webhooks::ActiveModel = hook.clone().into();
         summary.last_delivery_at = Set(last.map(|(at, _)| at.into()));
