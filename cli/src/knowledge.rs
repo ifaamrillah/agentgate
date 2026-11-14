@@ -22,7 +22,7 @@ use crate::{
     git, install,
 };
 
-pub const DIR: &str = ".agentgate/knowledge";
+pub const DIR: &str = agentgate_core::knowledge::DIR;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ServerDoc {
@@ -79,13 +79,12 @@ struct ImportResponse {
 /// Isi file `.md` untuk dokumen server.
 #[must_use]
 pub fn render(doc: &ServerDoc) -> String {
-    format!(
-        "---\ntitle: {}\ntype: {}\ngroup: {}\nversion: {}\n---\n\n{}\n",
-        doc.title.replace('\n', " "),
-        doc.type_key,
-        doc.group,
+    agentgate_core::knowledge::render(
+        &doc.title,
+        &doc.type_key,
+        &doc.group,
         doc.version,
-        doc.body.trim_end()
+        &doc.body,
     )
 }
 

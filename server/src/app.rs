@@ -219,6 +219,10 @@ impl Hooks for App {
         queue
             .register(crate::workers::graph_index::GraphIndexWorker::build(ctx))
             .await?;
+        // PR knowledge setelah usulan di-approve (R2).
+        queue
+            .register(crate::workers::knowledge_pr::KnowledgePrWorker::build(ctx))
+            .await?;
         // Pengiriman webhook keluar (M11).
         queue
             .register(crate::workers::webhook_delivery::WebhookDeliveryWorker::build(ctx))

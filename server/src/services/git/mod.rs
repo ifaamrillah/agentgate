@@ -43,6 +43,7 @@ pub const ERROR_CODES: &[&str] = &[
     tags::TAG_INVALID,
     tags::SHA_INVALID,
     tags::TAG_EXISTS,
+    crate::services::knowledge::pr::UNSAFE_BRANCH,
     APP_NOT_CONFIGURED,
     APP_INSTALL_INVALID,
     APP_SUSPENDED,

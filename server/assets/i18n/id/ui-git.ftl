@@ -37,6 +37,7 @@ git-app-repo-not-granted = Repo ini belum diberi akses ke GitHub App. Tambahkan 
 git-tag-invalid = Nama tag tidak valid. Pakai huruf, angka, titik, garis bawah, minus, atau garis miring, tanpa spasi.
 git-sha-invalid = SHA commit harus 7–40 karakter heksadesimal.
 git-tag-exists = Tag dengan nama itu sudah ada di repo.
+git-unsafe-branch = Branch tujuan tidak aman; Agent Gate hanya menulis ke branch agentgate/knowledge-*.
 git-repo-not-found = Repo tidak ditemukan di provider atau token tidak punya akses ke repo itu.
 
 ## Status PR dan CI

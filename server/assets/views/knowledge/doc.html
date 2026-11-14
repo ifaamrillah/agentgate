@@ -72,6 +72,21 @@
       {%- else %}<div class="app-blk"><span class="app-hint">{{ t(key="kb-sources-none", lang="id") }}</span></div>{% endfor %}
       {%- for tk in tickets %}<a class="app-lrow" href="{{ tk.href }}"><span class="app-code app-hint">{{ tk.code }}</span><span class="app-lrow-main"><b>{{ tk.title }}</b></span></a>{% endfor %}
     {% </card> %}
+    {%- if repo_prs | length > 0 %}
+    {% <card title={t(key="kb-repo-pr", lang="id")} description={t(key="kb-repo-pr-description", lang="id")} flush={true} attrs="data-kb-repo-prs"> %}
+      {%- for p in repo_prs %}
+      <div class="app-lrow" data-kb-pr="{{ p.status }}">
+        <span class="app-code app-hint">v{{ p.version }}</span>
+        <span class="app-lrow-main"><b>{% if p.repo %}{{ p.repo }}{% else %}{{ t(key="kb-repo-pr-no-repo", lang="id") }}{% endif %}</b><small>
+          {%- if p.status == "open" %}<span class="app-code">{{ p.branch }}</span>
+          {%- elif p.status == "queued" %}{{ t(key="kb-repo-pr-queued", lang="id") }}
+          {%- elif p.status == "skipped" %}{{ t(key="kb-repo-pr-skipped", lang="id") }}
+          {%- else %}{% if p.error %}{{ t(key=p.error, lang="id") }}{% else %}{{ t(key="kb-repo-pr-failed", lang="id") }}{% endif %}{% endif %}</small></span>
+        {%- if p.state %}{{ <pr_state state={p.state} number={p.number} href={p.url}/> }}{% elif p.status == "failed" %}{{ <badge label={t(key="kb-repo-pr-failed", lang="id")} variant="destructive"/> }}{% endif %}
+      </div>
+      {%- endfor %}
+    {% </card> %}
+    {%- endif %}
     {% <card title={t(key="kb-history", lang="id")} count={version_count ~ ""} flush={true} link_label={t(key="kb-history-all", lang="id")} link_href={href ~ "/versions"} attrs="data-kb-history"> %}
       {%- for v in versions %}<a class="app-lrow" href="{{ v.href }}"><span class="app-code app-hint">v{{ v.number }}</span><span class="app-lrow-main"><b>{% if v.message %}{{ v.message }}{% else %}{{ t(key=v.source_key, lang="id") }}{% endif %}</b><small>{% if v.author %}{{ v.author.name }}{% else %}{{ v.persona }}{% endif %} · {{ v.created }}</small></span></a>{% endfor %}
     {% </card> %}
