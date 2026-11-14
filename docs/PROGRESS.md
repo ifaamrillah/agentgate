@@ -448,6 +448,14 @@ Daftar terkonsolidasi dan berurutan prioritas: `docs/REVIEW-AKHIR.md` §4.
 
 ## Catatan untuk sesi berikutnya
 
+- **M12 selesai dan di-merge ke `staging` (2026-11-14), `bin/ci` hijau sebelum dan sesudah merge.** Belum di-merge ke
+  `main`/`release` dan belum di-push (tanpa remote). Langkah berikutnya menunggu review pemilik produk atas
+  `docs/REVIEW-AKHIR.md` (keputusan sementara §3, kebutuhan §4).
+- Image production: `docker build -f docker/prod/Dockerfile -t agentgate-rs-server:<sha> .` (±287 MB; build pertama
+  ±15 menit). Smoke test M12: migrate + web + worker + backup/list/restore terhadap database `agentgate_smoke`
+  sementara di Postgres bersama (sudah dihapus). Screenshot sweep M12 di scratchpad sesi (`shots-m12/`, 113 file).
+- Seed dev M12 (`seed_system`): 6 baris riwayat backup (satu gagal) untuk `/system/backups`; dilewati bila tabel berisi.
+
 - Seed dev M9 (`seed_planning`): Sprint 4 aktif (5 tiket berpoin, Fix version v1.4, component Pembayaran), Sprint 5
   (rencana), component "Struk & printer". Dilewati bila KSR sudah punya sprint. Buka `/w/pt-contoh/p/KSR/backlog`,
   `/reports`, `/roadmap`, `/calendar`, `/releases`, dan `/w/pt-contoh/search/advanced`.
