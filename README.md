@@ -20,10 +20,13 @@ dan tool lain berjalan di container `app`; skrip `bin/*` meneruskan perintah ke 
 | `bin/loco <perintah>` | Perintah Loco lain (`routes`, `doctor`, `g migration ...`) |
 | `bin/ci` | Pemeriksaan lengkap sebelum merge (fmt, clippy, deny, arah layer, CSS, tes) |
 | `bin/sh [perintah]` | Shell atau satu perintah di container `app` |
+| `bin/down [--force]` | Matikan container dev (data tidak dihapus); di checkout utama ditolak selagi ada worktree yang jalan |
 | `bin/worktree new <branch>` | Mulai kerja paralel di worktree sendiri (lihat di bawah) |
 
-Pertama kali, `bin/*` membangun image `agentgate-rs-dev` dan menyalakan layanan bersama
-(project Compose `agentgate-rs-shared`):
+Pertama kali, `bin/*` membangun image `agentgate-rs-dev` dan menyalakan layanan bersama. Di Docker
+semuanya ada di satu grup Compose `agentgate-rs` (db, s3, mailpit, dan `app` checkout utama); setiap
+worktree mendapat grup app sendiri `agentgate-rs-<id>` yang memakai layanan bersama yang sama. Volume
+data dibuat di luar Compose, jadi `docker compose down --volumes` tidak bisa menghapus data dev.
 
 | Layanan | Alamat dari host | Keterangan |
 |---|---|---|

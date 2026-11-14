@@ -1,6 +1,9 @@
-# Layanan bersama untuk semua checkout dan worktree (project: agentgate-rs-shared).
-# Nama berawalan agentgate-rs supaya tidak bentrok dengan volume agentgate_* lama di host.
-name: agentgate-rs-shared
+# Layanan bersama untuk semua checkout dan worktree. Satu project compose dengan app checkout
+# utama (`agentgate-rs`, lihat bin/_lib.sh); worktree punya project app sendiri yang menumpang
+# ke network ini. Nama berawalan agentgate-rs supaya tidak bentrok dengan volume agentgate_* lama.
+#
+# Volume data dan network sengaja `external`: dibuat bin/_lib.sh (ag_ensure_shared), bukan oleh
+# compose, supaya `docker compose down --volumes` tidak pernah bisa menghapus data dev.
 
 services:
   db:
@@ -45,9 +48,12 @@ services:
 volumes:
   pg-data:
     name: agentgate-rs-pg-data
+    external: true
   s3-data:
     name: agentgate-rs-s3-data
+    external: true
 
 networks:
   agentgate-rs:
     name: agentgate-rs
+    external: true

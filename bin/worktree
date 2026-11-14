@@ -127,7 +127,10 @@ app_down() {
   local path="$1" id="$2"
   AG_ROOT="$path" AG_ID="$id" AG_ID_OR_MAIN="$id" \
     docker compose -p "agentgate-rs-$(printf '%s' "$id" | tr '_' '-')" -f "$MAIN_DIR/docker/compose.app.yaml" \
-    down --volumes >/dev/null 2>&1 || true
+    down >/dev/null 2>&1 || true
+  # Volume target external (lihat compose.app.yaml), jadi dihapus eksplisit. Hanya volume target
+  # worktree ini; data dev dan cache bersama tidak pernah ikut.
+  docker volume rm "agentgate-rs-target-$id" >/dev/null 2>&1 || true
 }
 
 write_worktree_file() {
