@@ -9,7 +9,8 @@
 //! 4. Undangan yang selesai lebih dari [`INVITATION_RETENTION_DAYS`] hari lalu (riwayatnya
 //!    tetap di audit log).
 //! 5. Workspace yang terjadwal hapus lebih dari masa tenggang: satu transaksi per workspace;
-//!    seluruh datanya, termasuk audit log-nya, ikut terhapus (FK `ON DELETE CASCADE`).
+//!    seluruh datanya, termasuk audit log-nya, ikut terhapus (FK `ON DELETE CASCADE`), lalu
+//!    berkasnya di storage dihapus setelah commit (M12).
 //! 6. Tiket yang di sampah lebih dari [`tickets::trash::RETENTION_DAYS`] hari, beserta file
 //!    lampirannya (`services::tickets::trash::purge_expired`).
 //! 7. Log webhook (M11): delivery selesai dan event outbox lebih dari 30 hari, serta baris
@@ -282,13 +283,43 @@ async fn purge_workspaces(
     outcome
 }
 
+/// Key storage semua berkas milik workspace: lampiran tiket, evidence runner, backup aturan,
+/// arsip ekspor, sumber impor CSV, dan logo project. Tabel baru yang menyimpan key storage wajib
+/// ditambahkan di sini.
+const WORKSPACE_FILES_SQL: &str = "
+    SELECT storage_key AS k FROM ticket_attachments WHERE workspace_id = $1
+    UNION ALL SELECT storage_key FROM job_evidence WHERE workspace_id = $1
+    UNION ALL SELECT storage_key FROM rule_backups WHERE workspace_id = $1
+    UNION ALL SELECT storage_key FROM data_exports WHERE workspace_id = $1 AND storage_key IS NOT NULL
+    UNION ALL SELECT source_key FROM ticket_imports WHERE workspace_id = $1 AND source_key IS NOT NULL
+    UNION ALL SELECT logo_key FROM projects WHERE workspace_id = $1 AND logo_key IS NOT NULL";
+
+/// Hapus workspace lalu berkasnya. Key dibaca di transaksi yang sama dengan `DELETE` (keadaan
+/// yang sama yang dihapus), berkas dihapus setelah commit: database gagal = berkas tetap utuh;
+/// berkas gagal dihapus hanya dicatat (yatim di storage, tidak bisa diakses lewat aplikasi).
 async fn purge_one(
     ctx: &AppContext,
     id: uuid::Uuid,
     now: chrono::DateTime<Utc>,
 ) -> Result<bool, DbErr> {
     let txn = ctx.db.begin().await?;
+    let keys: Vec<String> = txn
+        .query_all_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            WORKSPACE_FILES_SQL,
+            [id.into()],
+        ))
+        .await?
+        .iter()
+        .filter_map(|row| row.try_get::<String>("", "k").ok())
+        .collect();
     let purged = workspaces::Model::purge_if_due(&txn, id, now).await?;
     txn.commit().await?;
+    if purged {
+        for key in &keys {
+            tickets::attachments::remove_file_quietly(&ctx.storage, key).await;
+        }
+        tracing::info!(workspace_id = %id, files = keys.len(), "workspace files removed");
+    }
     Ok(purged)
 }

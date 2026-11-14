@@ -166,11 +166,19 @@ auth:
       # <% endif %>
     # <% endif %>
 
-# File upload (logo project). Sementara disk lokal di volume STORAGE_DIR; pindah ke S3
-# (feature storage_aws_s3, bucket per environment) tercatat sebagai utang teknis di PROGRESS.
+# Berkas user (lampiran, logo, evidence, ekspor, impor, backup aturan) di storage S3-compatible
+# (rules §8, §12): container web/worker tidak menyimpan file sehingga bisa diganti kapan saja.
+# SeaweedFS di Compose (deploy/compose.yaml) atau layanan S3 eksternal; satu bucket per environment.
+# Kredensial tanpa default. S3_ENDPOINT kosong = AWS S3 asli (endpoint dari region).
 storage:
-  kind: Local
-  path: <%= get_env(name="STORAGE_DIR") %>
+  kind: Aws
+  bucket: <%= get_env(name="S3_BUCKET") %>
+  region: <%= get_env(name="S3_REGION", default="us-east-1") %>
+  # <% if get_env(name="S3_ENDPOINT", default="") != "" %>
+  endpoint: <%= get_env(name="S3_ENDPOINT") %>
+  # <% endif %>
+  access_key_id: <%= get_env(name="S3_ACCESS_KEY_ID") %>
+  secret_access_key: <%= get_env(name="S3_SECRET_ACCESS_KEY") %>
 
 settings:
   app_name: Agent Gate
