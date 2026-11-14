@@ -14,6 +14,9 @@ x-app: &app
     DATABASE_URL: postgres://agentgate:${POSTGRES_PASSWORD:?isi POSTGRES_PASSWORD}@db:5432/agentgate
     S3_ENDPOINT: ${S3_ENDPOINT:-http://s3:8333}
   networks: [internal]
+  # Clone repo code graph + model embedding (R2). Bersama web & worker.
+  volumes:
+    - cache:/var/cache/agentgate
   depends_on:
     db: { condition: service_healthy }
     migrate: { condition: service_completed_successfully }
@@ -128,6 +131,8 @@ services:
     networks: [internal]
 
 volumes:
+  cache:
+    name: agentgate-rs-prod-cache
   pg-data:
     name: agentgate-rs-prod-pg-data
   s3-data:

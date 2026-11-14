@@ -209,6 +209,25 @@ settings:
     # tidak berubah). Server juga membaca SENTRY_DSN langsung saat proses mulai.
     sentry_dsn: "<%= get_env(name="SENTRY_DSN", default="") %>"
     sentry_environment: "<%= get_env(name="SENTRY_ENVIRONMENT", default="") %>"
+  # GitHub App (R2, cara utama menautkan GitHub; PAT tetap jalan). Semua kosong = App mati.
+  # Kunci privat: isi PEM satu baris dengan `\n` (lihat docs/admin/github-app.md).
+  git:
+    app:
+      app_id: "<%= get_env(name="GITHUB_APP_ID", default="") %>"
+      slug: "<%= get_env(name="GITHUB_APP_SLUG", default="") %>"
+      client_id: "<%= get_env(name="GITHUB_APP_CLIENT_ID", default="") %>"
+      client_secret: "<%= get_env(name="GITHUB_APP_CLIENT_SECRET", default="") %>"
+      private_key: "<%= get_env(name="GITHUB_APP_PRIVATE_KEY", default="") %>"
+      webhook_secret: "<%= get_env(name="GITHUB_APP_WEBHOOK_SECRET", default="") %>"
+  # Code graph (R2): clone dangkal + model embedding di volume cache (deploy/compose.yaml).
+  graph:
+    clone:
+      cache_dir: "<%= get_env(name="AGENTGATE_CACHE_DIR", default="/var/cache/agentgate") %>/repos"
+      history_months: <%= get_env(name="GRAPH_CLONE_HISTORY_MONTHS", default="12") %>
+      max_size_mb: <%= get_env(name="GRAPH_CLONE_MAX_MB", default="1024") %>
+    embedding:
+      enabled: <%= get_env(name="GRAPH_EMBEDDING_ENABLED", default="true") %>
+      cache_dir: "<%= get_env(name="AGENTGATE_CACHE_DIR", default="/var/cache/agentgate") %>/models"
   auth:
     # argon2id m = 19 MiB, t = 2, p = 1: baseline OWASP argon2id.
     argon2_memory_kib: 19456

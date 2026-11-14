@@ -38,7 +38,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # Runtime async; sync (Semaphore) dan time (timeout) membatasi hash password bersamaan; net
 # (lookup_host) memeriksa alamat tujuan webhook keluar sebelum dikirim (cegah SSRF, M11).
-tokio = { version = "1.45", default-features = false, features = ["rt-multi-thread", "macros", "sync", "time", "net"] }
+tokio = { version = "1.45", default-features = false, features = ["rt-multi-thread", "macros", "sync", "time", "net", "process", "fs"] }
 # Trait async untuk Hooks dan Initializer Loco.
 async-trait = "0.1"
 # Router, extractor, dan middleware HTTP.

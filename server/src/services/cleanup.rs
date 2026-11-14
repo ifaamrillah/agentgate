@@ -1,5 +1,5 @@
 //! Pembersihan harian (job `workers::cleanup`, dijadwalkan scheduler 03:00 UTC; juga task
-//! `bin/loco task cleanup`). Sebelas langkah, masing-masing berdiri sendiri: langkah atau item
+//! `bin/loco task cleanup`). Dua belas langkah, masing-masing berdiri sendiri: langkah atau item
 //! yang gagal dicatat di log dan dihitung `failed`, lalu pembersihan berlanjut (rules §8).
 //! Idempoten: menjalankannya lagi hanya menemukan yang belum dibersihkan.
 //!
@@ -21,6 +21,8 @@
 //! 10. Draf impor CSV yang ditinggal lebih dari 7 hari dibatalkan, berkas sumbernya dihapus.
 //! 11. Client OAuth dinamis yang tidak pernah disetujui user, lebih dari 24 jam (R1;
 //!     `oauth_clients::ORPHAN_HOURS`). Client CLI bawaan tidak pernah dihapus.
+//! 12. Clone repo di cache code graph yang repo-nya sudah dihapus (R2;
+//!     `services::graph::clone::purge_orphans`).
 //!
 //! [`CleanupMode::DryRun`] hanya menghitung (task tanpa `confirm:yes`).
 
@@ -64,6 +66,7 @@ pub enum CleanupStep {
     ImportReports,
     ImportDrafts,
     OAuthClients,
+    RepoClones,
 }
 
 impl CleanupStep {
@@ -82,6 +85,7 @@ impl CleanupStep {
             Self::ImportReports => "import_reports",
             Self::ImportDrafts => "import_drafts",
             Self::OAuthClients => "oauth_clients",
+            Self::RepoClones => "repo_clones",
         }
     }
 }
@@ -202,7 +206,29 @@ pub async fn run(ctx: &AppContext, mode: CleanupMode) -> CleanupReport {
     )
     .await;
     report.push(CleanupStep::OAuthClients, orphans.map_err(Into::into));
+    report.push(CleanupStep::RepoClones, repo_clones(ctx, apply).await);
     report
+}
+
+/// Clone code graph yatim: direktori cache yang repo-nya sudah tidak ada di database.
+async fn repo_clones(ctx: &AppContext, apply: bool) -> Result<u64, loco_rs::Error> {
+    use sea_orm::{EntityTrait, QuerySelect};
+    let settings = Settings::from_ctx(ctx)?;
+    let keep: std::collections::HashSet<uuid::Uuid> = crate::models::repos::Entity::find()
+        .select_only()
+        .column(crate::models::repos::Column::Id)
+        .into_tuple::<uuid::Uuid>()
+        .all(&ctx.db)
+        .await?
+        .into_iter()
+        .collect();
+    let clone = settings.graph.clone;
+    tokio::task::spawn_blocking(move || {
+        crate::services::graph::clone::purge_orphans(&clone, &keep, apply)
+    })
+    .await
+    .map_err(|e| loco_rs::Error::string(&e.to_string()))?
+    .map_err(|e| loco_rs::Error::string(&e.to_string()))
 }
 
 /// Sesi kedaluwarsa. Store Loco menghapus per batch, jadi dipanggil sampai habis. Dry run

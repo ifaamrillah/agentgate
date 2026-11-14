@@ -167,3 +167,8 @@ settings:
   jira:
     timeout_seconds: 5
     allow_loopback: true
+  # Code graph (R2): tes default memakai tarball dari GitHub palsu; tes clone menyalakannya
+  # dengan repo bare lokal (`base_url: file://...`).
+  graph:
+    clone:
+      enabled: false

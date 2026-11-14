@@ -35,15 +35,19 @@ RUN cargo build --release --locked -p agentgate-server \
 FROM debian:bookworm-slim AS runtime
 ARG BUILD_SHA=unknown
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates curl tini \
+ && apt-get install -y --no-install-recommends ca-certificates curl tini git \
  && rm -rf /var/lib/apt/lists/* \
- && useradd --system --uid 10001 --home-dir /app --shell /usr/sbin/nologin agentgate
+ && useradd --system --uid 10001 --home-dir /app --shell /usr/sbin/nologin agentgate \
+ && mkdir -p /var/cache/agentgate \
+ && chown agentgate /var/cache/agentgate
 WORKDIR /app
 # Aplikasi membaca config/ dan assets/ (view, i18n, ikon, statis) relatif dari working directory.
 COPY --from=builder /usr/local/bin/agentgate-server /usr/local/bin/agentgate-server
 COPY --from=builder /workspace/server/config ./config
 COPY --from=builder /workspace/server/assets ./assets
 USER agentgate
+# Cache clone repo code graph + model embedding (R2); dipasang sebagai volume di deploy/.
+VOLUME ["/var/cache/agentgate"]
 ENV LOCO_ENV=production \
     PORT=5150 \
     BUILD_SHA=${BUILD_SHA}

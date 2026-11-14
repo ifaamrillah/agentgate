@@ -275,3 +275,147 @@ async fn approved_knowledge_opens_a_pr_on_an_agentgate_branch() {
     )
     .await;
 }
+
+fn git(dir: &std::path::Path, args: &[&str]) -> String {
+    let out = std::process::Command::new("git")
+        .arg("-C")
+        .arg(dir)
+        .args(["-c", "user.name=Rina", "-c", "user.email=rina@contoh.test"])
+        .args(args)
+        .env("GIT_CONFIG_GLOBAL", "/dev/null")
+        .output()
+        .expect("git tersedia");
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    String::from_utf8_lossy(&out.stdout).trim().to_string()
+}
+
+fn commit(work: &std::path::Path, files: &[(&str, &str)], message: &str) -> String {
+    for (path, body) in files {
+        let p = work.join(path);
+        std::fs::create_dir_all(p.parent().unwrap()).unwrap();
+        std::fs::write(p, body).unwrap();
+    }
+    git(work, &["add", "-A"]);
+    git(work, &["commit", "-q", "-m", message]);
+    git(work, &["push", "-q", "origin", "HEAD:main"]);
+    git(work, &["rev-parse", "HEAD"])
+}
+
+#[tokio::test]
+async fn server_index_uses_a_cached_shallow_clone_with_git_stats() {
+    use agentgate_server::{
+        models::graph_repos,
+        services::cleanup::{self, CleanupMode, CleanupStep},
+    };
+
+    use super::graph::{API_TS, STOCK_TS};
+    let tmp = std::env::temp_dir().join(format!("ag-clone-{}", uuid::Uuid::now_v7()));
+    let remote = tmp.join("remote/pt-contoh/kasir-api.git");
+    let work = tmp.join("work");
+    let cache = tmp.join("cache");
+    std::fs::create_dir_all(&remote).unwrap();
+    std::fs::create_dir_all(&work).unwrap();
+    git(&remote, &["init", "-q", "--bare", "-b", "main"]);
+    git(&work, &["init", "-q", "-b", "main"]);
+    git(
+        &work,
+        &["remote", "add", "origin", remote.to_str().unwrap()],
+    );
+    commit(&work, &[("src/stock.ts", STOCK_TS)], "stok");
+    let sha1 = commit(&work, &[("src/api.ts", API_TS)], "api");
+
+    let gh = fake_github::start().await;
+    let base = gh.base_url.clone();
+    let clone_base = format!("file://{}", tmp.join("remote").display());
+    let cache_dir = cache.display().to_string();
+    request_with_settings(
+        move |s| {
+            settings_for(base)(s);
+            s["graph"] = json!({ "clone": {
+                "enabled": true, "base_url": clone_base, "cache_dir": cache_dir, "min_free_mb": 0,
+            }});
+        },
+        |request, ctx| async move {
+            let f = fixture(&request, &ctx).await;
+            add_repo(&request, &f).await;
+            connect(&request, &f, &gh).await;
+            let reindex = || async {
+                let res = request
+                    .post("/w/acme/p/KSR/graph/reindex")
+                    .add_cookie(f.cookie.clone())
+                    .form(&[("scope", "all"), ("mode", "incremental")])
+                    .await;
+                assert_eq!(res.status_code(), 303, "{}", res.text());
+                graph_repos::Entity::find()
+                    .one(&ctx.db)
+                    .await
+                    .unwrap()
+                    .unwrap()
+            };
+
+            let row = reindex().await;
+            assert_eq!(row.status, "ready", "{} / {}", row.error, row.fetch_note);
+            assert_eq!(row.fetch_via, "clone", "{}", row.fetch_note);
+            assert!(row.fetch_note.contains("clone baru"), "{}", row.fetch_note);
+            assert_eq!(row.commit_sha, sha1);
+            assert_eq!(row.files_indexed, 2);
+            assert_eq!(row.git_stats["commits"], 2, "statistik git dari server");
+            assert!(!row.git_stats["hotspots"].as_array().unwrap().is_empty());
+            assert!(
+                gh.requests().iter().all(|r| !r.contains("tarball")),
+                "tanpa tarball"
+            );
+
+            let page = request
+                .get("/w/acme/p/KSR/graph/index/repo")
+                .add_cookie(f.cookie.clone())
+                .await
+                .text();
+            assert!(page.contains("data-fetch-via=\"clone\""), "{page}");
+
+            // Kredensial tidak pernah tertulis di config clone.
+            let clone_dir = cache
+                .join(f.workspace.id.to_string())
+                .join(row.repo_id.to_string());
+            let config = std::fs::read_to_string(clone_dir.join(".git/config")).unwrap();
+            assert!(!config.contains(fake_github::TOKEN) && !config.contains("extraHeader"));
+            assert_eq!(
+                git(&clone_dir, &["rev-parse", "--is-shallow-repository"]),
+                "false"
+            );
+
+            // Commit baru → fetch inkremental.
+            let sha2 = commit(
+                &work,
+                &[("src/refund.ts", "export function refundOrder() {}\n")],
+                "refund",
+            );
+            let row = reindex().await;
+            assert_eq!(row.fetch_via, "clone");
+            assert!(
+                row.fetch_note.contains("fetch inkremental"),
+                "{}",
+                row.fetch_note
+            );
+            assert_eq!(row.commit_sha, sha2);
+            assert_eq!(row.files_indexed, 3);
+            assert_eq!(row.git_stats["commits"], 3);
+
+            // Clone yatim dibersihkan job cleanup; clone repo yang masih ada tetap.
+            let orphan = cache
+                .join(f.workspace.id.to_string())
+                .join(uuid::Uuid::now_v7().to_string());
+            std::fs::create_dir_all(orphan.join(".git")).unwrap();
+            let report = cleanup::run(&ctx, CleanupMode::Apply).await;
+            assert_eq!(report.count(CleanupStep::RepoClones), 1);
+            assert!(!orphan.exists());
+            assert!(clone_dir.join(".git").is_dir());
+        },
+    )
+    .await;
+    let _ = std::fs::remove_dir_all(&tmp);
+}
