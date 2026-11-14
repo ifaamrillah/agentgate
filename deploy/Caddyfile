@@ -1,0 +1,30 @@
+# Reverse proxy + TLS otomatis (Let's Encrypt) untuk domain aplikasi dan domain pratinjau mockup.
+# Keduanya ke container web; aplikasi membedakan host (pratinjau hanya melayani /preview/...).
+# WebSocket runner (/api/runner/ws) diteruskan Caddy tanpa konfigurasi tambahan.
+{
+	email {$ACME_EMAIL}
+	servers {
+		# Aplikasi membaca IP klien dari X-Forwarded-For paling kanan (RightmostXForwardedFor).
+		trusted_proxies static private_ranges
+	}
+}
+
+{$APP_DOMAIN} {
+	encode zstd gzip
+	# Metrik hanya untuk Prometheus di jaringan internal (token tetap wajib).
+	@metrics path /_metrics
+	respond @metrics 404
+	reverse_proxy web:5150 {
+		health_uri /_readiness
+		health_interval 10s
+	}
+	log {
+		output stdout
+		format json
+	}
+}
+
+{$PREVIEW_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy web:5150
+}

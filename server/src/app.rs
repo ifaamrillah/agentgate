@@ -277,8 +277,46 @@ impl Hooks for App {
         seed_planning(ctx).await?;
         seed_visual(ctx).await?;
         seed_jira(ctx).await?;
-        seed_integrations(ctx).await
+        seed_integrations(ctx).await?;
+        seed_system(ctx).await
     }
+}
+
+/// Riwayat backup contoh (M12) untuk halaman Status sistem → Backup: 6 hari terakhir pukul
+/// 02.00 WIB, satu gagal (kredensial storage). Di production baris ini ditulis container backup
+/// (`deploy/backup/backup.sh`). Dilewati bila tabel sudah berisi.
+async fn seed_system(ctx: &AppContext) -> Result<()> {
+    use sea_orm::{ConnectionTrait, DbBackend, Statement};
+
+    let existing = ctx
+        .db
+        .query_one_raw(Statement::from_string(
+            DbBackend::Postgres,
+            "SELECT count(*) AS n FROM system_backups",
+        ))
+        .await?
+        .and_then(|r| r.try_get::<i64>("", "n").ok())
+        .unwrap_or(0);
+    if existing > 0 {
+        return Ok(());
+    }
+    ctx.db
+        .execute_unprepared(
+            "INSERT INTO system_backups (started_at, finished_at, status, size_bytes, location, message)
+             SELECT date_trunc('day', now()) - make_interval(days => d) + interval '19 hours',
+                    date_trunc('day', now()) - make_interval(days => d) + interval '19 hours'
+                        + make_interval(secs => 40 + d * 3),
+                    CASE WHEN d = 3 THEN 'failed' ELSE 'ok' END,
+                    CASE WHEN d = 3 THEN NULL ELSE 48000000 - d * 250000 END,
+                    CASE WHEN d = 3 THEN ''
+                         ELSE 's3://agentgate-backup/agentgate/postgres/agentgate-'
+                              || to_char(now() - make_interval(days => d), 'YYYYMMDD') || 'T190000Z.dump' END,
+                    CASE WHEN d = 3 THEN 'rclone: AccessDenied: kunci akses ditolak oleh storage backup'
+                         ELSE '' END
+             FROM generate_series(1, 6) AS d",
+        )
+        .await?;
+    Ok(())
 }
 
 /// Connector Jira contoh (M11) di PT Contoh: Jira Cloud `sevima-retail.atlassian.net` (token

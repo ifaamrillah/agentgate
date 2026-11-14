@@ -10,7 +10,10 @@ members = ["cargo:."]
 [dist]
 cargo-dist-version = "0.30.2"
 ci = "github"
-installers = ["shell", "powershell"]
+# Homebrew: formula ikut dibuat sebagai artefak rilis. Publikasi ke tap butuh repo tap + token
+# (keputusan sementara M12): isi `tap = "ORG/homebrew-tap"` dan `publish-jobs = ["homebrew"]`
+# setelah repo GitHub ada, lalu tambahkan job publish di release.yml.
+installers = ["shell", "powershell", "homebrew"]
 targets = [
   "aarch64-apple-darwin",
   "x86_64-apple-darwin",
