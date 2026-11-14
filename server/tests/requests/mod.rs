@@ -9,6 +9,7 @@ mod device;
 mod error_tracking;
 mod errors;
 mod git;
+mod git_app;
 mod graph;
 mod graph_viewer;
 mod health;

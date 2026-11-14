@@ -11,7 +11,7 @@ use sea_orm::{
 };
 use uuid::Uuid;
 
-use super::{TOKEN_INVALID, URL_INVALID, invalid, key, provider_code, provider_for};
+use super::{TOKEN_INVALID, URL_INVALID, app, app_code, invalid, key, provider_code, provider_for};
 use crate::{
     common::{crypto, settings::Settings},
     models::{
@@ -158,6 +158,12 @@ pub async fn connect(
         m.web_base = Set(web_base);
         m.account = Set(account.clone());
         m.token_encrypted = Set(token_encrypted);
+        m.auth = Set("token".into());
+        m.installation_id = Set(None);
+        m.app_permissions = Set(serde_json::json!({}));
+        m.app_repo_selection = Set(String::new());
+        m.app_repos = Set(serde_json::json!([]));
+        m.suspended_at = Set(None);
         (m.update(&txn).await?, AuditAction::GitUpdated)
     } else {
         let secret = crypto::random_token();
@@ -290,13 +296,22 @@ pub async fn link_repo(
     }
     m.connection_id = Set(conn.as_ref().map(|c| c.id));
     m.full_name = Set(full_name.clone());
-    if let Some(conn) = &conn
+    if let Some(conn) = conn.as_ref().filter(|c| c.is_app()) {
+        // GitHub App: satu webhook App untuk semua repo, tidak dipasang per repo. Repo yang
+        // tidak diberi akses ke instalasi ditandai supaya admin menambahkannya di GitHub.
+        m.webhook_id = Set(None);
+        m.webhook_error = Set(if conn.grants(&full_name) {
+            String::new()
+        } else {
+            super::APP_REPO_NOT_GRANTED.to_string()
+        });
+    } else if let Some(conn) = &conn
         && (repo.webhook_id.is_none() || !same)
     {
         let secret = conn
             .webhook_secret(&key(settings)?)
             .map_err(|_| invalid("token", TOKEN_INVALID))?;
-        let hook = match provider_for(conn, settings) {
+        let hook = match provider_for(conn, settings).await {
             Ok(p) => p
                 .create_webhook(&full_name, &webhook_url(settings, conn), &secret)
                 .await
@@ -317,7 +332,9 @@ pub async fn link_repo(
     let txn = db.begin().await?;
     let updated = m.update(&txn).await?;
     if let (Some(acting), Some(conn)) = (acting, &conn)
-        && (!same || updated.webhook_id != repo.webhook_id)
+        && (!same
+            || updated.webhook_id != repo.webhook_id
+            || updated.webhook_error != repo.webhook_error)
     {
         audit::record(
             &txn,
@@ -336,6 +353,212 @@ pub async fn link_repo(
     }
     txn.commit().await?;
     Ok(updated)
+}
+
+/// Data instalasi App yang disimpan di koneksi.
+struct AppSnapshot {
+    account: String,
+    account_type: String,
+    permissions: serde_json::Value,
+    selection: String,
+    repos: Vec<String>,
+    suspended: bool,
+}
+
+/// Ambil instalasi + repo yang dapat diakses dari GitHub.
+async fn snapshot(
+    client: &app::AppClient<'_>,
+    installation_id: i64,
+) -> Result<AppSnapshot, TicketFailure> {
+    let inst = client
+        .installation(installation_id)
+        .await
+        .map_err(|e| invalid("app", app_code(&e)))?;
+    let repos = if inst.suspended {
+        Vec::new()
+    } else {
+        let token = app::installation_token(client, installation_id)
+            .await
+            .map_err(|e| invalid("app", app_code(&e)))?;
+        client
+            .repositories(&token)
+            .await
+            .map_err(|e| invalid("app", provider_code(&e)))?
+    };
+    Ok(AppSnapshot {
+        account: inst.account,
+        account_type: inst.account_type,
+        permissions: inst.permissions,
+        selection: inst.repository_selection,
+        repos,
+        suspended: inst.suspended,
+    })
+}
+
+fn apply_snapshot(m: &mut git_connections::ActiveModel, snap: &AppSnapshot) {
+    m.account = Set(snap.account.clone());
+    m.app_account_type = Set(snap.account_type.clone());
+    m.app_permissions = Set(snap.permissions.clone());
+    m.app_repo_selection = Set(snap.selection.clone());
+    m.app_repos = Set(serde_json::json!(snap.repos));
+    m.suspended_at = Set(snap.suspended.then(|| chrono::Utc::now().into()));
+}
+
+/// Hubungkan github.com lewat GitHub App setelah callback instalasi. `code` OAuth membuktikan
+/// user yang memasang punya akses ke instalasi (`GET /user/installations`). Koneksi PAT yang
+/// sudah ada untuk github.com diganti menjadi App.
+///
+/// # Errors
+///
+/// `NotFound` (izin), `git-app-not-configured`, `git-app-install-invalid`, kode provider,
+/// error database.
+pub async fn connect_app(
+    db: &DatabaseConnection,
+    acting: &Acting<'_>,
+    settings: &Settings,
+    installation_id: i64,
+    code: &str,
+) -> Result<git_connections::Model, TicketFailure> {
+    if !acting.role.has(Permission::ManageIntegrations) {
+        return Err(TicketFailure::NotFound);
+    }
+    if !settings.git.app.enabled() || !app::key_ok(&settings.git.app) {
+        return Err(invalid("app", super::APP_NOT_CONFIGURED));
+    }
+    let (host, api_base, web_base) = endpoints(settings, GitProviderKind::Github, "")?;
+    let client = app::AppClient {
+        api_base: &api_base,
+        web_base: &web_base,
+        app: &settings.git.app,
+        timeout: std::time::Duration::from_secs(settings.git.timeout_seconds.max(1)),
+    };
+    let code = code.trim();
+    if code.is_empty() || code.len() > 200 {
+        return Err(invalid("app", super::APP_INSTALL_INVALID));
+    }
+    let user_token = client
+        .exchange_code(code)
+        .await
+        .map_err(|_| invalid("app", super::APP_INSTALL_INVALID))?;
+    let mine = client
+        .user_installations(&user_token)
+        .await
+        .map_err(|_| invalid("app", super::APP_INSTALL_INVALID))?;
+    if !mine.contains(&installation_id) {
+        return Err(invalid("app", super::APP_INSTALL_INVALID));
+    }
+    let snap = snapshot(&client, installation_id).await?;
+    let key = key(settings)?;
+    // Koneksi App tidak menyimpan token (token instalasi diminta saat dipakai); kolom wajib diisi
+    // blob kosong terenkripsi.
+    let empty = crypto::encrypt(&key, b"").map_err(|_| invalid("token", TOKEN_INVALID))?;
+    let wid = acting.workspace_id();
+    let txn = db.begin().await?;
+    lock_as(&txn, acting, |r| r.has(Permission::ManageIntegrations))
+        .await?
+        .ok_or(TicketFailure::NotFound)?;
+    let existing = git_connections::Model::for_host(&txn, wid, &host).await?;
+    let (conn, action) = if let Some(old) = existing {
+        let mut m = old.into_active_model();
+        m.provider = Set(sea_orm::ActiveEnum::to_value(&GitProviderKind::Github));
+        m.api_base = Set(api_base.clone());
+        m.web_base = Set(web_base.clone());
+        m.token_encrypted = Set(empty);
+        m.auth = Set("app".into());
+        m.installation_id = Set(Some(installation_id));
+        apply_snapshot(&mut m, &snap);
+        (m.update(&txn).await?, AuditAction::GitUpdated)
+    } else {
+        let secret = crypto::random_token();
+        let webhook_secret_encrypted = crypto::encrypt(&key, secret.as_bytes())
+            .map_err(|_| invalid("token", TOKEN_INVALID))?;
+        let mut m = git_connections::ActiveModel {
+            workspace_id: Set(wid.get()),
+            provider: Set(sea_orm::ActiveEnum::to_value(&GitProviderKind::Github)),
+            host: Set(host.clone()),
+            api_base: Set(api_base.clone()),
+            web_base: Set(web_base.clone()),
+            token_encrypted: Set(empty),
+            webhook_secret_encrypted: Set(webhook_secret_encrypted),
+            created_by: Set(Some(acting.user.id)),
+            auth: Set("app".into()),
+            installation_id: Set(Some(installation_id)),
+            ..Default::default()
+        };
+        apply_snapshot(&mut m, &snap);
+        (m.insert(&txn).await?, AuditAction::GitConnected)
+    };
+    audit::record(
+        &txn,
+        acting.actor().audit(
+            action,
+            (AuditSubject::GitConnection, conn.id),
+            serde_json::json!({
+                "provider": conn.provider,
+                "host": conn.host,
+                "account": conn.account,
+                "auth": "app",
+                "installation": installation_id,
+                "repos": snap.repos.len(),
+            }),
+        ),
+    )
+    .await?;
+    txn.commit().await?;
+    for repo in repos_on_host(db, wid, &host).await? {
+        let _ = link_repo(db, settings, wid, repo, Some(acting)).await;
+    }
+    Ok(conn)
+}
+
+/// Perbarui data instalasi App koneksi (tombol Segarkan, webhook `installation*`), lalu
+/// tautkan ulang repo di host-nya (status akses repo).
+///
+/// # Errors
+///
+/// Kode provider/App, error database.
+pub async fn refresh_app(
+    db: &DatabaseConnection,
+    settings: &Settings,
+    conn: git_connections::Model,
+) -> Result<git_connections::Model, TicketFailure> {
+    let Some(id) = conn.installation_id.filter(|_| conn.is_app()) else {
+        return Ok(conn);
+    };
+    app::forget(&conn.api_base, id);
+    let snap = snapshot(&super::app_client(&conn, settings), id).await?;
+    let wid = crate::models::workspaces::Model::find_by_id(db, conn.workspace_id)
+        .await?
+        .ok_or(TicketFailure::NotFound)?
+        .workspace_id();
+    let host = conn.host.clone();
+    let mut m = conn.into_active_model();
+    apply_snapshot(&mut m, &snap);
+    let conn = m.update(db).await?;
+    for repo in repos_on_host(db, wid, &host).await? {
+        let _ = link_repo(db, settings, wid, repo, None).await;
+    }
+    Ok(conn)
+}
+
+/// Segarkan koneksi App dari halaman Git provider (`ManageIntegrations`).
+///
+/// # Errors
+///
+/// `NotFound`, kode provider/App, error database.
+pub async fn refresh(
+    db: &DatabaseConnection,
+    acting: &Acting<'_>,
+    settings: &Settings,
+    id: Uuid,
+) -> Result<git_connections::Model, TicketFailure> {
+    if !acting.role.has(Permission::ManageIntegrations) {
+        return Err(TicketFailure::NotFound);
+    }
+    let conn = git_connections::Model::find_in(db, acting.workspace_id(), id)
+        .await?
+        .ok_or(TicketFailure::NotFound)?;
+    refresh_app(db, settings, conn).await
 }
 
 /// Pasang ulang webhook repo `repo_id` (tombol di halaman Git provider).

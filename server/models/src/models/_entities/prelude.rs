@@ -26,6 +26,7 @@ pub use super::job_titles::Entity as JobTitles;
 pub use super::jobs::Entity as Jobs;
 pub use super::knowledge_docs::Entity as KnowledgeDocs;
 pub use super::knowledge_proposals::Entity as KnowledgeProposals;
+pub use super::knowledge_prs::Entity as KnowledgePrs;
 pub use super::knowledge_runs::Entity as KnowledgeRuns;
 pub use super::knowledge_settings::Entity as KnowledgeSettings;
 pub use super::knowledge_sources::Entity as KnowledgeSources;

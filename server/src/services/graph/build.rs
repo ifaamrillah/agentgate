@@ -144,6 +144,7 @@ fn symbol_rows(b: &Built, wid: WorkspaceId, repo: Uuid) -> Vec<graph_symbols::Ac
                     .map(|f| f.doc.chars().take(2000).collect())
                     .unwrap_or_default()),
                 words: Set(w),
+                embed_hash: Set(String::new()),
             }
         })
         .collect()

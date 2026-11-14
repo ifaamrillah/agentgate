@@ -216,7 +216,10 @@ async fn render_provider_page(
             )
         })
         .collect();
-    let active = repo_views.iter().filter(|r| r.webhook == "active").count();
+    let active = repo_views
+        .iter()
+        .filter(|r| matches!(r.webhook, "active" | "app"))
+        .count();
     let broken = repo_views.iter().filter(|r| r.webhook == "error").count();
     let enterprise = conns
         .iter()
@@ -252,6 +255,8 @@ async fn render_provider_page(
         "flash": flash,
         "base": base,
         "connect_action": format!("{base}/connect"),
+        "app_install_action": format!("{base}/app/install"),
+        "app_enabled": settings.git.app.enabled() && svc::app::key_ok(&settings.git.app),
         "failed": failed,
     });
     if panel == "repos" {
@@ -483,6 +488,144 @@ async fn relink(
         Err(TicketFailure::Db(e)) => Err(e.into()),
         Err(_) => Err(Error::NotFound),
     }
+}
+
+// ---------------------------------------------------------------------------------------------
+// GitHub App (R2)
+// ---------------------------------------------------------------------------------------------
+
+/// Mulai instalasi App: redirect ke GitHub dengan state bertanda tangan (workspace + user).
+#[debug_handler]
+async fn app_install(
+    State(ctx): State<AppContext>,
+    tenant: Tenant,
+    session: Session,
+) -> Result<Response> {
+    require_integrations(&tenant)?;
+    let settings = Settings::from_ctx(&ctx)?;
+    if !settings.git.app.enabled() || !svc::app::key_ok(&settings.git.app) {
+        let session = flash::set(session, &Flash::error(svc::APP_NOT_CONFIGURED))?;
+        let to = format!("{}/cloud", base(&tenant.workspace.slug));
+        return Ok((session, format::redirect(&to)?).into_response());
+    }
+    let key = svc::key(&settings).map_err(|_| Error::InternalServerError)?;
+    let state = svc::app::sign_state(
+        &key,
+        tenant.workspace.id,
+        tenant.user.id,
+        chrono::Utc::now().timestamp(),
+    );
+    format::redirect(&svc::app::install_url(
+        &settings.git.github_web_base,
+        &settings.git.app,
+        &state,
+    ))
+}
+
+#[derive(Debug, Deserialize)]
+struct AppCallbackQuery {
+    #[serde(default)]
+    installation_id: String,
+    #[serde(default)]
+    setup_action: String,
+    #[serde(default)]
+    code: String,
+    #[serde(default)]
+    state: String,
+}
+
+/// Setup URL App (global, satu per App): state menunjuk workspace tujuan, lalu diteruskan ke
+/// callback di bawah workspace itu (keanggotaan dan izin diperiksa extractor `Tenant`).
+#[debug_handler]
+async fn app_callback_global(
+    State(ctx): State<AppContext>,
+    Query(q): Query<AppCallbackQuery>,
+) -> Result<Response> {
+    let settings = Settings::from_ctx(&ctx)?;
+    let key = svc::key(&settings).map_err(|_| Error::InternalServerError)?;
+    let Some(state) = svc::app::verify_state(&key, &q.state, chrono::Utc::now().timestamp()) else {
+        return Err(Error::NotFound);
+    };
+    let Some(ws) = crate::models::workspaces::Model::find_by_id(&ctx.db, state.w).await? else {
+        return Err(Error::NotFound);
+    };
+    let query = serde_urlencoded::to_string([
+        ("installation_id", q.installation_id.as_str()),
+        ("setup_action", q.setup_action.as_str()),
+        ("code", q.code.as_str()),
+        ("state", q.state.as_str()),
+    ])
+    .map_err(|_| Error::NotFound)?;
+    format::redirect(&format!("{}/app/callback?{query}", base(&ws.slug)))
+}
+
+/// Callback instalasi App di workspace: state harus milik workspace + user ini.
+#[debug_handler]
+async fn app_callback(
+    State(ctx): State<AppContext>,
+    tenant: Tenant,
+    session: Session,
+    RequestId(request_id): RequestId,
+    Query(q): Query<AppCallbackQuery>,
+) -> Result<Response> {
+    require_integrations(&tenant)?;
+    let settings = Settings::from_ctx(&ctx)?;
+    let key = svc::key(&settings).map_err(|_| Error::InternalServerError)?;
+    let to = format!("{}/cloud", base(&tenant.workspace.slug));
+    let state = svc::app::verify_state(&key, &q.state, chrono::Utc::now().timestamp())
+        .filter(|s| s.w == tenant.workspace.id && s.u == tenant.user.id);
+    let installation = q.installation_id.trim().parse::<i64>().ok();
+    let (Some(_), Some(installation)) = (state, installation) else {
+        let session = flash::set(session, &Flash::error(svc::APP_INSTALL_INVALID))?;
+        return Ok((session, format::redirect(&to)?).into_response());
+    };
+    let result = svc::connections::connect_app(
+        &ctx.db,
+        &acting(&tenant, request_id),
+        &settings,
+        installation,
+        &q.code,
+    )
+    .await;
+    let msg = match result {
+        Ok(_) => Flash::success(views::git::FLASH_APP_CONNECTED),
+        Err(TicketFailure::Invalid(errors)) => {
+            let code = first_code(&errors).map_or_else(|| svc::APP_INSTALL_INVALID.into(), |c| c.1);
+            Flash::error(&code)
+        }
+        Err(TicketFailure::NotFound) => return Err(Error::NotFound),
+        Err(TicketFailure::Db(e)) => return Err(e.into()),
+    };
+    let session = flash::set(session, &msg)?;
+    Ok((session, format::redirect(&to)?).into_response())
+}
+
+/// Segarkan izin dan daftar repo instalasi App.
+#[debug_handler]
+async fn app_refresh(
+    State(ctx): State<AppContext>,
+    tenant: Tenant,
+    session: Session,
+    RequestId(request_id): RequestId,
+    id: IdOr404<git_connections::Entity>,
+) -> Result<Response> {
+    require_integrations(&tenant)?;
+    let settings = Settings::from_ctx(&ctx)?;
+    let to = format!("{}/cloud", base(&tenant.workspace.slug));
+    let msg =
+        match svc::connections::refresh(&ctx.db, &acting(&tenant, request_id), &settings, id.id)
+            .await
+        {
+            Ok(_) => Flash::success(views::git::FLASH_APP_REFRESHED),
+            Err(TicketFailure::Invalid(errors)) => {
+                let code = first_code(&errors).map_or_else(|| svc::UNREACHABLE.into(), |c| c.1);
+                Flash::error(&code)
+            }
+            Err(TicketFailure::NotFound) => return Err(Error::NotFound),
+            Err(TicketFailure::Db(e)) => return Err(e.into()),
+        };
+    let session = flash::set(session, &msg)?;
+    Ok((session, format::redirect(&to)?).into_response())
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -980,6 +1123,10 @@ pub fn routes() -> Routes {
     Routes::new()
         .add("/w/{slug}/settings/git", get(providers_index))
         .add("/w/{slug}/settings/git/connect", post(connect))
+        .add("/w/{slug}/settings/git/app/install", post(app_install))
+        .add("/w/{slug}/settings/git/app/callback", get(app_callback))
+        .add("/w/{slug}/settings/git/{id}/refresh", post(app_refresh))
+        .add("/git/github-app/callback", get(app_callback_global))
         .add("/w/{slug}/settings/git/{id}/disconnect", post(disconnect))
         .add("/w/{slug}/settings/git/repos/{id}/relink", post(relink))
         .add("/w/{slug}/settings/git/{panel}", get(providers_page))

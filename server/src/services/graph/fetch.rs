@@ -135,7 +135,9 @@ pub async fn fetch_and_index(
     let conn = git::pulls::connection_of(db, wid, repo)
         .await?
         .ok_or(FetchError::Code("git-not-connected"))?;
-    let provider = git::provider_for(&conn, settings).map_err(|_| FetchError::Code("token"))?;
+    let provider = git::provider_for(&conn, settings)
+        .await
+        .map_err(|_| FetchError::Code("token"))?;
     let bytes = provider
         .tarball(&repo.full_name, &repo.default_branch, MAX_ARCHIVE_BYTES)
         .await

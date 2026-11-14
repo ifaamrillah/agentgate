@@ -17,6 +17,8 @@ pub const FLASH_CONNECTED: &str = "git-flash-connected";
 pub const FLASH_DISCONNECTED: &str = "git-flash-disconnected";
 pub const FLASH_RELINKED: &str = "git-flash-relinked";
 pub const FLASH_SAVED: &str = "git-flash-saved";
+pub const FLASH_APP_CONNECTED: &str = "git-flash-app-connected";
+pub const FLASH_APP_REFRESHED: &str = "git-flash-app-refreshed";
 
 /// Kunci teks yang dipakai dari Rust (kontrak i18n).
 pub const MESSAGE_KEYS: &[&str] = &[
@@ -24,6 +26,8 @@ pub const MESSAGE_KEYS: &[&str] = &[
     FLASH_DISCONNECTED,
     FLASH_RELINKED,
     FLASH_SAVED,
+    FLASH_APP_CONNECTED,
+    FLASH_APP_REFRESHED,
     "pr-state-open",
     "pr-state-draft",
     "pr-state-closed",
@@ -247,6 +251,29 @@ pub struct ConnectionView {
     pub last_event: Option<Age>,
     /// Aksi form (ganti token, putuskan).
     pub disconnect_action: String,
+    /// Terhubung lewat GitHub App (R2).
+    pub app: Option<AppConnView>,
+}
+
+/// Satu izin instalasi App (`contents` → `write`).
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+pub struct AppPermView {
+    pub name: String,
+    pub access: String,
+}
+
+/// Rincian koneksi GitHub App.
+#[derive(Debug, Clone, Serialize)]
+pub struct AppConnView {
+    pub installation_id: i64,
+    /// `all` atau `selected`.
+    pub selection: String,
+    pub repos: usize,
+    /// Izin instalasi (`contents: write`, …), urut nama.
+    pub permissions: Vec<AppPermView>,
+    pub suspended: bool,
+    pub manage_url: String,
+    pub refresh_action: String,
 }
 
 impl ConnectionView {
@@ -271,7 +298,47 @@ impl ConnectionView {
             repos,
             last_event: c.last_event_at.map(|at| age(&at, chrono::Utc::now())),
             disconnect_action: format!("{base}/{}/disconnect", c.id),
+            app: c.installation_id.filter(|_| c.is_app()).map(|id| {
+                let mut permissions: Vec<AppPermView> = c
+                    .app_permissions
+                    .as_object()
+                    .map(|o| {
+                        o.iter()
+                            .map(|(k, v)| AppPermView {
+                                name: k.clone(),
+                                access: v.as_str().unwrap_or_default().to_string(),
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                permissions.sort();
+                AppConnView {
+                    installation_id: id,
+                    selection: c.app_repo_selection.clone(),
+                    repos: c.app_repos().len(),
+                    permissions,
+                    suspended: c.suspended_at.is_some(),
+                    manage_url: manage_url(
+                        &c.web_base,
+                        &c.account,
+                        c.app_account_type == "Organization",
+                        id,
+                    ),
+                    refresh_action: format!("{base}/{}/refresh", c.id),
+                }
+            }),
         }
+    }
+}
+
+/// Halaman pengaturan instalasi App di GitHub (Kelola di GitHub).
+#[must_use]
+pub fn manage_url(web_base: &str, account: &str, org: bool, installation_id: i64) -> String {
+    let web = web_base.trim_end_matches('/');
+    if org {
+        format!("{web}/organizations/{account}/settings/installations/{installation_id}")
+    } else {
+        format!("{web}/settings/installations/{installation_id}")
     }
 }
 
@@ -303,6 +370,13 @@ impl RepoLinkView {
     ) -> Self {
         let webhook = match (conn, r.webhook_id) {
             (None, _) => "none",
+            (Some(c), _) if c.is_app() => {
+                if r.webhook_error.is_empty() {
+                    "app"
+                } else {
+                    "error"
+                }
+            }
             (Some(_), Some(_)) => "active",
             (Some(_), None) => "error",
         };

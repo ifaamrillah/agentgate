@@ -30,6 +30,10 @@ git-unreachable = Provider git tidak bisa dihubungi. Coba lagi beberapa saat lag
 git-url-invalid = URL server harus https dan berisi host, misalnya https://github.perusahaan.local.
 git-not-connected = Repo ini belum terhubung ke provider git. Hubungkan provider di Pengaturan → Git provider.
 git-provider-rejected = Provider menolak permintaan. Periksa izin token dan pengaturan repo.
+git-app-not-configured = GitHub App belum diatur di server ini atau kunci privatnya tidak valid.
+git-app-install-invalid = Instalasi GitHub App tidak bisa diverifikasi. Mulai lagi dari tombol Pasang di GitHub.
+git-app-suspended = Instalasi GitHub App ditangguhkan pemilik akun GitHub.
+git-app-repo-not-granted = Repo ini belum diberi akses ke GitHub App. Tambahkan di pengaturan instalasi App di GitHub.
 git-repo-not-found = Repo tidak ditemukan di provider atau token tidak punya akses ke repo itu.
 
 ## Status PR dan CI
@@ -76,7 +80,7 @@ git-relink = Pasang ulang
 git-connected = Terhubung
 git-connected-detail = Akun { $account } · { $host } · { $n } repo
 git-last-event = event terakhir
-git-provider-github-hint = github.com, memakai personal access token
+git-provider-github-hint = github.com, lewat GitHub App (disarankan) atau personal access token
 git-provider-github_enterprise-hint = GitHub Enterprise Server di jaringan perusahaan
 git-connect = Hubungkan
 git-connect-title = Hubungkan { $provider }
@@ -106,6 +110,31 @@ git-flash-connected = Provider git terhubung. Webhook dipasang untuk repo yang c
 git-flash-disconnected = Provider git diputus.
 git-flash-relinked = Webhook terpasang.
 git-flash-saved = Konvensi git disimpan. Berlaku untuk job berikutnya.
+git-flash-app-connected = GitHub App terpasang. Repo yang diberi akses langsung terhubung.
+git-flash-app-refreshed = Izin dan daftar repo GitHub App diperbarui.
+
+## GitHub App (R2)
+git-connect-ways = Pilih cara menghubungkan. GitHub App disarankan: token berumur pendek, izin per repo, dan satu webhook untuk semua repo.
+git-way-app = GitHub App
+git-way-recommended = Disarankan
+git-way-app-desc = Pasang App Agent Gate di akun atau organisasi GitHub Anda, lalu pilih repo yang boleh diakses. Tidak ada token yang perlu disimpan.
+git-way-token = Personal access token
+git-way-token-desc = Cadangan bila App tidak bisa dipasang. Token disimpan terenkripsi dan webhook dipasang per repo.
+git-app-install = Pasang di GitHub
+git-app-unavailable = GitHub App belum diatur di server ini. Minta admin instance mengikuti panduan "GitHub App" di dokumentasi admin, atau pakai personal access token.
+git-app-connected-detail = Akun { $account } · { $n } repo dapat diakses
+git-via-app = GitHub App
+git-via-token = Token
+git-app-manage = Kelola di GitHub
+git-app-refresh = Segarkan
+git-app-installation = Instalasi
+git-app-repos = Repo
+git-app-repos-all = Semua repo akun ({ $n })
+git-app-repos-selected = { $n } repo dipilih
+git-app-permissions = Izin
+git-app-suspended-badge = Ditangguhkan
+git-app-suspended-note = Instalasi GitHub App ditangguhkan pemilik akun GitHub. Agent Gate tidak bisa membaca repo sampai instalasi diaktifkan lagi.
+git-webhook-app = Lewat App
 
 ## Pengaturan project → Konvensi git
 project-git-title = Konvensi git

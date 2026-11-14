@@ -135,6 +135,132 @@ pub async fn handle(
     }
     let payload: serde_json::Value =
         serde_json::from_slice(body).map_err(|_| WebhookError::BadPayload)?;
+    dispatch(db, &conn, event, &payload).await
+}
+
+/// Webhook GitHub App `POST /webhooks/github-app` (satu endpoint, secret App instance). Event
+/// `installation`/`installation_repositories` memperbarui koneksi; event repo (PR, CI, push)
+/// diteruskan ke setiap koneksi workspace yang memakai instalasi itu.
+///
+/// # Errors
+///
+/// App tidak dikonfigurasi (`UnknownConnection`), tanda tangan salah, payload rusak, error
+/// database.
+pub async fn handle_app(
+    db: &DatabaseConnection,
+    settings: &Settings,
+    event: &str,
+    signature: Option<&str>,
+    body: &[u8],
+) -> Result<Handled, WebhookError> {
+    let secret = settings.git.app.webhook_secret.trim();
+    if secret.is_empty() {
+        return Err(WebhookError::UnknownConnection);
+    }
+    if !verify(secret, body, signature) {
+        return Err(WebhookError::BadSignature);
+    }
+    let payload: serde_json::Value =
+        serde_json::from_slice(body).map_err(|_| WebhookError::BadPayload)?;
+    if event == "ping" {
+        return Ok(Handled::Applied {
+            reindex: Vec::new(),
+        });
+    }
+    let Some(id) = payload["installation"]["id"].as_i64() else {
+        return Ok(Handled::Ignored);
+    };
+    let conns = git_connections::Model::for_installation(db, id).await?;
+    if conns.is_empty() {
+        return Ok(Handled::Ignored);
+    }
+    let action = payload["action"].as_str().unwrap_or_default();
+    match event {
+        "installation" => {
+            for conn in conns {
+                super::app::forget(&conn.api_base, id);
+                match action {
+                    "deleted" => {
+                        repos::Entity::update_many()
+                            .col_expr(
+                                repos::Column::WebhookError,
+                                sea_orm::sea_query::Expr::value(String::new()),
+                            )
+                            .filter(repos::Column::ConnectionId.eq(conn.id))
+                            .exec(db)
+                            .await?;
+                        git_connections::Entity::delete_by_id(conn.id)
+                            .exec(db)
+                            .await?;
+                    }
+                    "suspend" => {
+                        let mut m = conn.into_active_model();
+                        m.suspended_at = Set(Some(now()));
+                        m.last_event_at = Set(Some(now()));
+                        m.update(db).await?;
+                    }
+                    _ => {
+                        if let Err(e) = super::connections::refresh_app(db, settings, conn).await {
+                            tracing::warn!(error = ?e, installation = id, "app refresh failed");
+                        }
+                    }
+                }
+            }
+            Ok(Handled::Applied {
+                reindex: Vec::new(),
+            })
+        }
+        "installation_repositories" => {
+            for conn in conns {
+                if let Err(e) = super::connections::refresh_app(db, settings, conn).await {
+                    tracing::warn!(error = ?e, installation = id, "app refresh failed");
+                }
+            }
+            Ok(Handled::Applied {
+                reindex: Vec::new(),
+            })
+        }
+        _ => {
+            let mut all = Vec::new();
+            let mut applied = false;
+            for conn in conns {
+                if let Handled::Applied { reindex } = dispatch(db, &conn, event, &payload).await? {
+                    applied = true;
+                    all.extend(reindex);
+                }
+            }
+            Ok(if applied {
+                Handled::Applied { reindex: all }
+            } else {
+                Handled::Ignored
+            })
+        }
+    }
+}
+
+/// Graph repo sudah pernah di-index dan belum antre → antrekan index ulang.
+async fn queue_reindex(
+    db: &DatabaseConnection,
+    wid: workspaces::WorkspaceId,
+    repo: &repos::Model,
+) -> Result<bool, DbErr> {
+    let Some(g) = crate::models::graph_repos::Model::of_repo(db, wid, repo.id).await? else {
+        return Ok(false);
+    };
+    if g.indexed_at.is_none() || g.status() == crate::models::graph_repos::IndexStatus::Queued {
+        return Ok(false);
+    }
+    crate::services::graph::ingest::queue(db, wid, repo, None).await?;
+    Ok(true)
+}
+
+/// Terapkan satu event repo (PR, CI, push) untuk koneksi `conn` (PAT atau App).
+async fn dispatch(
+    db: &DatabaseConnection,
+    conn: &git_connections::Model,
+    event: &str,
+    payload: &serde_json::Value,
+) -> Result<Handled, WebhookError> {
     let mut m = conn.clone().into_active_model();
     m.last_event_at = Set(Some(now()));
     m.update(db).await?;
@@ -147,7 +273,11 @@ pub async fn handle(
         .all(db)
         .await?
         .into_iter()
-        .filter(|r| !full_name.is_empty() && r.full_name.eq_ignore_ascii_case(&full_name))
+        .filter(|r| {
+            !full_name.is_empty()
+                && r.full_name.eq_ignore_ascii_case(&full_name)
+                && conn.grants(&r.full_name)
+        })
         .collect::<Vec<_>>();
     for r in &repos {
         let mut m = r.clone().into_active_model();
@@ -176,11 +306,8 @@ pub async fn handle(
                 if pr.state() == PrState::Merged
                     && !was_merged
                     && info.base_branch == repo.default_branch
-                    && crate::models::graph_repos::Model::of_repo(db, wid, repo.id)
-                        .await?
-                        .is_some_and(|g| g.indexed_at.is_some())
+                    && queue_reindex(db, wid, repo).await?
                 {
-                    crate::services::graph::ingest::queue(db, wid, repo, None).await?;
                     reindex.push(repo.clone());
                 }
                 if let Some(t) = pr.ticket_id {
@@ -188,6 +315,18 @@ pub async fn handle(
                         pulls::notify_ticket(db, wid, None, t, NotificationKind::PrMerged).await?;
                     }
                     touched.push(t);
+                }
+            }
+        }
+        // Push langsung ke branch utama (R2): code graph yang sudah pernah di-index ikut
+        // diperbarui. Merge PR juga menghasilkan push; antrean ganda dicegah `queue_reindex`.
+        "push" => {
+            let r = payload["ref"].as_str().unwrap_or_default();
+            for repo in &repos {
+                if r == format!("refs/heads/{}", repo.default_branch)
+                    && queue_reindex(db, wid, repo).await?
+                {
+                    reindex.push(repo.clone());
                 }
             }
         }

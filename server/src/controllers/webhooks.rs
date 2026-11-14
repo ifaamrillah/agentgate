@@ -1,4 +1,5 @@
-//! Webhook provider git (M6): `POST /webhooks/github/{connection}`. Tanpa sesi dan tanpa
+//! Webhook provider git (M6): `POST /webhooks/github/{connection}` (PAT, secret per koneksi) dan
+//! `POST /webhooks/github-app` (GitHub App R2, secret App instance). Tanpa sesi dan tanpa
 //! cookie (gate dan CSRF tidak berlaku: path API, tanpa `Origin`). Autentikasi = tanda tangan
 //! HMAC `X-Hub-Signature-256` dengan secret koneksi; logika di `services::git::webhook`.
 //!
@@ -36,7 +37,7 @@ async fn github(
     let settings = Settings::from_ctx(&ctx)?;
     let header = |name: &str| headers.get(name).and_then(|v| v.to_str().ok());
     let event = header("x-github-event").unwrap_or_default();
-    match webhook::handle(
+    let res = webhook::handle(
         &ctx.db,
         &settings,
         id,
@@ -44,11 +45,36 @@ async fn github(
         header("x-hub-signature-256"),
         &body,
     )
-    .await
-    {
+    .await;
+    respond(&ctx, res).await
+}
+
+/// Webhook GitHub App (R2): satu endpoint untuk semua instalasi, secret App instance.
+#[debug_handler]
+async fn github_app(
+    State(ctx): State<AppContext>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Result<Response> {
+    let settings = Settings::from_ctx(&ctx)?;
+    let header = |name: &str| headers.get(name).and_then(|v| v.to_str().ok());
+    let event = header("x-github-event").unwrap_or_default();
+    let res = webhook::handle_app(
+        &ctx.db,
+        &settings,
+        event,
+        header("x-hub-signature-256"),
+        &body,
+    )
+    .await;
+    respond(&ctx, res).await
+}
+
+async fn respond(ctx: &AppContext, res: Result<Handled, WebhookError>) -> Result<Response> {
+    match res {
         Ok(Handled::Applied { reindex }) => {
             for repo in reindex {
-                crate::services::graph::enqueue(&ctx, &repo, None, false).await?;
+                crate::services::graph::enqueue(ctx, &repo, None, false).await?;
             }
             Ok(StatusCode::NO_CONTENT.into_response())
         }
@@ -64,6 +90,7 @@ async fn github(
 
 pub fn routes() -> Routes {
     Routes::new()
+        .add("/webhooks/github-app", post(github_app))
         .add("/webhooks/github/{id}", post(github))
         .layer(DefaultBodyLimit::max(BODY_MAX))
 }

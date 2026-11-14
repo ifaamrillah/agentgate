@@ -441,7 +441,7 @@ impl GitProvider for GithubProvider {
         let body = json!({
             "name": "web",
             "active": true,
-            "events": ["pull_request", "check_run", "check_suite", "status"],
+            "events": ["pull_request", "check_run", "check_suite", "status", "push"],
             "config": {
                 "url": url,
                 "content_type": "json",

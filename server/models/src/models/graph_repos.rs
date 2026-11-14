@@ -159,6 +159,12 @@ impl Model {
             indexed_at: None,
             created_at: t,
             updated_at: t,
+            fetch_via: String::new(),
+            fetch_note: String::new(),
+            embed_symbols: 0,
+            embed_ms: 0,
+            embedded_at: None,
+            embed_error: String::new(),
         }
     }
 

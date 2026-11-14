@@ -29,6 +29,18 @@ pub struct Model {
     pub last_event_at: Option<DateTimeWithTimeZone>,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
+    #[sea_orm(column_type = "Text")]
+    pub auth: String,
+    pub installation_id: Option<i64>,
+    #[sea_orm(column_type = "Text")]
+    pub app_account_type: String,
+    #[sea_orm(column_type = "JsonBinary")]
+    pub app_permissions: Json,
+    #[sea_orm(column_type = "Text")]
+    pub app_repo_selection: String,
+    #[sea_orm(column_type = "JsonBinary")]
+    pub app_repos: Json,
+    pub suspended_at: Option<DateTimeWithTimeZone>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

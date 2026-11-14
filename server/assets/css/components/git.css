@@ -48,4 +48,19 @@
   .app-pr-link:hover .badge { filter: brightness(0.96); }
   .app-tcard-pr { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; }
   .app-tcard-pr .badge { height: 20px; padding: 0 6px; }
+
+  /* GitHub App (R2): dua cara menghubungkan di dialog, rincian instalasi di bawah baris provider. */
+  .app-git-ways { display: grid; gap: 12px; }
+  .app-git-way { display: grid; gap: 8px; padding: 14px; border: 1px solid var(--ag-line); border-radius: 10px; background: var(--ag-bg); }
+  .app-git-way[data-way='app'] { border-color: var(--ag-accent); background: var(--ag-accent-soft); }
+  .app-git-way[data-way='app'][aria-disabled='true'] { border-color: var(--ag-line); background: var(--ag-muted-bg); }
+  .app-git-way-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .app-git-way-head b { font-weight: 600; }
+  .app-git-way > p { margin: 0; }
+  .app-git-way > p[data-app-unavailable] { display: flex; gap: 6px; align-items: flex-start; }
+  .app-git-way > p[data-app-unavailable] svg { width: 14px; height: 14px; flex-shrink: 0; margin-top: 2px; }
+  .app-git-way form { margin: 0; }
+  .app-git-app { display: grid; gap: 10px; padding: 0 16px 14px 62px; }
+  .app-git-perms { display: flex; flex-wrap: wrap; gap: 6px; }
+  @media (max-width: 640px) { .app-git-app { padding-left: 16px; } }
 }
