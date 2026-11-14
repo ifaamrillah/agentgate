@@ -51,17 +51,22 @@ pub(super) async fn index(
         title: t.title.clone(),
         href: views::tickets::ticket_href(slug, &t.code),
     };
+    let git = access.access.project.git_settings();
+    let can_edit = access.can(Permission::EditProject);
+    let paths = TicketPaths::new(slug, &t.code);
     let pulls: Vec<PrView> = prs
         .iter()
         .map(|p| {
             let repo = repo_rows.iter().find(|r| r.id == p.repo_id);
-            PrView::of(slug, p, repo, Some(reference.clone()))
+            let mut view = PrView::of(slug, p, repo, Some(reference.clone()));
+            if can_edit && crate::services::git::pulls::can_merge_now(&git, p) {
+                view.merge_href = Some(format!("{}/pr/{}/merge", paths.show, p.id));
+            }
+            view
         })
         .collect();
     let events = ticket_events::Model::of_ticket(&ctx.db, wid, t.id).await?;
     let lookup = lookup(&ctx.db, tenant, std::slice::from_ref(t), &[]).await?;
-    let paths = TicketPaths::new(slug, &t.code);
-    let git = access.access.project.git_settings();
     let shell = app_shell(&ctx, &tenant.user, Some(tenant), Some(&access.access))
         .await?
         .at("project_ticket");
@@ -95,4 +100,52 @@ pub(super) async fn index(
                 .contains(&tenant.user.id),
         }),
     )
+}
+
+/// Tombol Merge (mode merge manual, R1): merge PR lewat provider, kembali ke tab PR & CI.
+#[debug_handler]
+pub(super) async fn merge(
+    State(ctx): State<AppContext>,
+    access: TicketAccess,
+    session: Session,
+    crate::controllers::extractors::RequestId(request_id): crate::controllers::extractors::RequestId,
+    Path((_, _, pr_id)): Path<(String, String, uuid::Uuid)>,
+) -> Result<Response> {
+    use crate::{controllers::flash, views::flash::Flash};
+    let tenant = &access.access.tenant;
+    let settings = crate::common::settings::Settings::from_ctx(&ctx)?;
+    let acting = crate::services::workspaces::Acting {
+        workspace: &tenant.workspace,
+        user: &tenant.user,
+        role: &tenant.role,
+        request_id,
+    };
+    // Hanya PR milik tiket ini.
+    let belongs = pull_requests::Model::of_ticket(&ctx.db, tenant.workspace_id(), access.ticket.id)
+        .await?
+        .iter()
+        .any(|p| p.id == pr_id);
+    if !belongs {
+        return Err(Error::NotFound);
+    }
+    let message =
+        match crate::services::git::pulls::merge_now(&ctx.db, &settings, &acting, pr_id).await {
+            Ok(_) => Flash::success("pr-flash-merged"),
+            Err(crate::services::tickets::TicketFailure::Invalid(errors)) => {
+                let code = errors
+                    .errors
+                    .values()
+                    .flat_map(|es| es.iter().map(|e| e.code.to_string()))
+                    .next()
+                    .unwrap_or_else(|| "error-generic-title".into());
+                Flash::error(&code)
+            }
+            Err(e) => return Err(e.into()),
+        };
+    let session = flash::set(session, &message)?;
+    let to = format!(
+        "{}/pr",
+        TicketPaths::new(&tenant.workspace.slug, &access.ticket.code).show
+    );
+    Ok((session, format::redirect(&to)?).into_response())
 }

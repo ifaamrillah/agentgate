@@ -60,6 +60,8 @@ pub struct Inner {
     pub hooks: Vec<Hook>,
     pub pulls: Vec<Pull>,
     pub merges: Vec<(String, i64)>,
+    /// `merge_method` setiap permintaan merge (urutan sama dengan `merges`).
+    pub merge_methods: Vec<String>,
     /// Merge berikutnya ditolak 405.
     pub refuse_merge: bool,
     pub requests: Vec<String>,
@@ -98,6 +100,11 @@ impl FakeGithub {
 
     pub fn merges(&self) -> Vec<(String, i64)> {
         self.state.lock().unwrap().merges.clone()
+    }
+
+    #[must_use]
+    pub fn merge_methods(&self) -> Vec<String> {
+        self.state.lock().unwrap().merge_methods.clone()
     }
 }
 
@@ -257,6 +264,7 @@ async fn merge_pull(
     State(s): State<Shared>,
     headers: HeaderMap,
     Path((o, r, n)): Path<(String, String, i64)>,
+    Json(body): Json<Value>,
 ) -> Response {
     if !authorized(&headers) {
         return unauthorized();
@@ -279,6 +287,12 @@ async fn merge_pull(
     };
     p.merged = true;
     st.merges.push((full, n));
+    st.merge_methods.push(
+        body["merge_method"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string(),
+    );
     Json(json!({ "merged": true, "sha": "mergedsha" })).into_response()
 }
 

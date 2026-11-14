@@ -49,6 +49,13 @@
         {%- endfor %}
       </div>
     </div>
+    <div class="app-blk"><b class="app-blk-t">{{ t(key="git-merge-method", lang="id") }}</b><p class="app-hint">{{ t(key="git-merge-method-hint", lang="id") }}</p>
+      <div class="app-choices" role="radiogroup" aria-label="{{ t(key="git-merge-method", lang="id") }}">
+        {%- for o in merge_methods %}
+        <label class="app-choice"><input type="radio" class="app-radio" name="merge_method" value="{{ o.value }}"{% if form.merge_method == o.value %} checked{% endif %}> <span><b>{{ t(key=o.label_key, lang="id") }}</b><small class="app-hint">{{ t(key=o.label_key ~ "-hint", lang="id") }}</small></span></label>
+        {%- endfor %}
+      </div>
+    </div>
   </div>
 {% </card> %}
 {%- else %}

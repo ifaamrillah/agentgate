@@ -12,7 +12,7 @@
 use std::collections::HashMap;
 
 use agentgate_core::git::{
-    CiState, CodeOutput, CommitStyle, GitSettings, Language, MergeMode, PrState,
+    CiState, CodeOutput, CommitStyle, GitSettings, Language, MergeMethod, MergeMode, PrState,
 };
 use axum::http::StatusCode;
 use loco_rs::prelude::*;
@@ -622,6 +622,7 @@ async fn render_project_git(
             "languages": options(Language::ALL, Language::as_str, "git-language"),
             "outputs": options(CodeOutput::ALL, CodeOutput::as_str, "git-code-output"),
             "merges": options(MergeMode::ALL, MergeMode::as_str, "git-merge-mode"),
+            "merge_methods": options(MergeMethod::ALL, MergeMethod::as_str, "git-merge-method"),
         }),
     )
 }
@@ -685,6 +686,9 @@ fn merge_form(current: &GitSettings, panel: &str, pairs: &[(String, String)]) ->
             }
             if let Some(v) = pick(pairs, "merge_mode").and_then(|v| MergeMode::parse(&v)) {
                 s.merge_mode = v;
+            }
+            if let Some(v) = pick(pairs, "merge_method").and_then(|v| MergeMethod::parse(&v)) {
+                s.merge_method = v;
             }
         }
         "ci" => {

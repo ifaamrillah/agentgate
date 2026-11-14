@@ -335,6 +335,7 @@ pub fn routes() -> Routes {
         .add("/w/{slug}/t/{code}", get(ticket::show).post(ticket::update))
         .add("/w/{slug}/t/{code}/activity", get(ticket::activity))
         .add("/w/{slug}/t/{code}/pr", get(pulls::index))
+        .add("/w/{slug}/t/{code}/pr/{id}/merge", post(pulls::merge))
         .add("/w/{slug}/t/{code}/status", post(ticket::status))
         .add("/w/{slug}/t/{code}/comments", post(ticket::comment))
         .add(
