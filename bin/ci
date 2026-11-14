@@ -17,6 +17,9 @@ bin/check-layers
 # arah models -> layer server dijamin compiler (crate models tidak bergantung pada server).
 bin/check-layers server/models/src
 
+step "bersihkan cache incremental lama"
+bin/prune || true
+
 step "cargo fmt / hakari / clippy / deny"
 ag_exec bash -c '
   set -e

@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+# Bersihkan cache incremental target/ yang menumpuk di container app checkout ini.
+# Cargo tidak pernah menghapus folder incremental milik hash lama (ganti feature/dependency,
+# bin/ci dengan --features semantic, pindah branch), sehingga volume target bisa tumbuh puluhan GB.
+#
+#   bin/prune            -> hapus yang tidak tersentuh > AG_PRUNE_MIN_AGE menit (default 180),
+#                           lalu bila total masih > AG_PRUNE_MAX_GB (default 20), hapus yang
+#                           terlama sampai di bawah batas. Tidak pernah menyentuh yang aktif.
+#   bin/prune --dry-run  -> hanya tampilkan yang akan dihapus.
+#
+# Aman dijalankan saat bin/dev atau cargo sedang jalan: folder yang file-nya diubah dalam
+# AG_PRUNE_ACTIVE menit terakhir (default 30) dan folder dengan proses cargo/rustc aktif dilewati.
+# Ini hanya cache; kehilangannya cuma membuat compile berikutnya sekali lebih lama.
+set -euo pipefail
+. "$(dirname "$0")/_lib.sh"
+ag_load_env
+
+dry=0
+[ "${1:-}" = "--dry-run" ] && dry=1
+min_age="${AG_PRUNE_MIN_AGE:-180}"
+max_gb="${AG_PRUNE_MAX_GB:-20}"
+active="${AG_PRUNE_ACTIVE:-30}"
+for v in "$min_age" "$max_gb" "$active"; do
+  case "$v" in '' | *[!0-9]*) ag_die "AG_PRUNE_* harus angka" ;; esac
+done
+
+AG_WORKDIR=/workspace ag_exec bash -c '
+  set -u
+  dry="$1"; min_age="$2"; max_gb="$3"; active="$4"
+  inc=/workspace/target/debug/incremental
+  [ -d "$inc" ] || { echo "prune: tidak ada $inc, tidak ada yang dibersihkan"; exit 0; }
+
+  before=$(du -sm "$inc" | cut -f1)
+  freed=0
+  removed=" "
+  remove() {
+    local d="$1" mb
+    case "$removed" in *" $(basename "$d") "*) return 0 ;; esac
+    removed="$removed$(basename "$d") "
+    mb=$(du -sm "$d" | cut -f1)
+    if [ "$dry" = 1 ]; then echo "  [dry-run] hapus $(basename "$d") (${mb} MB)"; else rm -rf "$d"; fi
+    freed=$((freed + mb))
+  }
+  # Folder yang file-nya diubah baru-baru ini = sedang/baru dipakai rustc.
+  is_active() { [ -n "$(find "$1" -mmin -"$active" -print -quit 2>/dev/null)" ]; }
+
+  # Tahap 1: terlalu tua.
+  for d in "$inc"/*/; do
+    d="${d%/}"
+    is_active "$d" && continue
+    [ -z "$(find "$d" -mmin -"$min_age" -print -quit 2>/dev/null)" ] && remove "$d"
+  done
+
+  # Tahap 2: masih di atas batas -> hapus terlama dulu (selain yang aktif).
+  limit=$((max_gb * 1024))
+  if [ $((before - freed)) -gt "$limit" ]; then
+    # Urut dari yang paling lama diubah. `removed` mencegah folder tahap 1 terhitung dua kali
+    # saat dry-run (folder belum benar-benar terhapus).
+    for d in $(ls -1tr "$inc"); do
+      [ $((before - freed)) -le "$limit" ] && break
+      d="$inc/$d"
+      [ -d "$d" ] || continue
+      case "$removed" in *" $(basename "$d") "*) continue ;; esac
+      is_active "$d" && continue
+      remove "$d"
+    done
+  fi
+
+  after=$((before - freed))
+  verb="dihapus"; [ "$dry" = 1 ] && verb="akan dihapus"
+  echo "prune: incremental ${before} MB -> ${after} MB (${freed} MB ${verb}, batas ${max_gb} GB)"
+' bash "$dry" "$min_age" "$max_gb" "$active"
