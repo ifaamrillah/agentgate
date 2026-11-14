@@ -9,6 +9,7 @@ pub mod components;
 pub mod estimates;
 pub mod filters;
 pub mod jql;
+pub mod jql_suggest;
 pub mod refs;
 pub mod releases;
 pub mod reports;

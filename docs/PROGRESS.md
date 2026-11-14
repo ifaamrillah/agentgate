@@ -23,6 +23,7 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 | R1 Revisi keputusan pemilik | selesai (2026-11-14) | Semua baris R1 di `REVIEW-AKHIR.md` §3.0: bukti gate manual (screenshot/log/teks berlabel Manual, gate terpenuhi setelah approver stage setuju, audit + riwayat + notifikasi), merge otomatis default mati + tombol Merge + cara merge squash/merge/rebase (project `auto_on_review` dimigrasi ke manual), client OAuth wajib disetujui user sebelum dapat token + cleanup client yatim 24 jam, runner tim khusus Owner/Admin (auto-ambil pribadi mati/tim nyala, batas paralel per runner), online 90 dtk/heartbeat 30 dtk (konstanta bersama core), izin `manage_knowledge`, rate limit per token API (60–6.000) + aktifkan ulang webhook, retensi backup harian 14 hari + bulanan 6 bulan (diuji), logo SVG tersanitasi + CSP ketat (uji XSS), Sentry server + browser (mati tanpa DSN, data sensitif dibuang), varian tombol `success` (Approve hijau, Reject merah); 826 tes Rust + 8 tes JS + 6 tes skrip bin |
 | R5 AI Office baru | selesai (2026-11-14) | Kanvas Canvas 2D diganti panggung SVG + vanilla JS sesuai prototype `office-v1`: Isometrik Studio (V1) sebagai tampilan utama + sakelar Denah (V2) yang disimpan per user di localStorage, kolam cahaya hangat V3 (multiply terang/screen gelap), chibi dengan aksesori/gaya rambut/hijab dari `look`, tema gelap lewat token CSS tanpa gambar ulang, label HTML yang menghindari tumpukan (geser naik/samping, jangkar cadangan, hindari HUD), zoom jauh = badge ikon saja, label karakter berupa tombol berurutan logis (Tab/Enter/Escape, `aria-label`), animasi hanya tanpa `prefers-reduced-motion`; semua fungsi M10 tetap (ruangan per project + Ruang rapat/Pantry, karakter job/persona/tiket/runner online, geser/zoom/pinch/keyboard, mini-map, tab ruangan, panel log live + Approve/Reject + Kustom teraudit, polling 3 dtk); 826 tes Rust + 26 tes JS (18 baru untuk logika murni `office-core.mjs`) |
 | R2 Revisi git & code graph | selesai (2026-11-14) | Semua baris R2 di `REVIEW-AKHIR.md` §3.0: GitHub App sebagai cara utama (alur pasang + verifikasi OAuth `/user/installations`, state HMAC, token instalasi dari JWT RS256 di-cache, izin/repo dari instalasi, satu webhook `/webhooks/github-app` untuk installation/installation_repositories/PR/check/push, Segarkan, ditangguhkan), PAT + GHES tetap; clone dangkal `--shallow-since` 12 bulan di volume cache + fetch inkremental, statistik git dihitung server, kredensial lewat header env git (tidak di URL/config/log), batas waktu/ukuran/disk (`df`), tarball cadangan, clone yatim dibersihkan cleanup; embedding lokal fastembed (feature `semantic`, `multilingual-e5-small`, ONNX Runtime dinamis) inkremental per hash teks simbol ke pgvector, pencarian hibrid RRF di Cari simbol + MCP `ag_search mode`, bisa dimatikan; PR knowledge otomatis setelah approve (branch `agentgate/knowledge-*`, commit tambahan selama PR terbuka, status di halaman dokumen); git tag saat Rilis sekarang (HEAD branch utama atau commit, peringatan bila provider tidak tertaut); 844 tes Rust (18 baru; GitHub palsu + kunci RSA tes, repo bare lokal untuk clone, provider embedding `fake`) + 26 tes JS |
+| R3 Revisi tiket, workflow, planning | selesai (2026-11-14) | Semua baris R3 di `REVIEW-AKHIR.md` §3.0: panel samping detail tiket dari board/daftar/backlog/roadmap (`<dialog>` modal native di kanan, fokus terkunci, `pushState` ke URL tiket sehingga Back menutup/Forward membuka, Esc/tutup/klik latar, "Buka halaman penuh", 390px layar penuh; partial `_summary.html` dipakai bersama halaman penuh; header `X-Ticket-Panel`), builder workflow sebagai kanvas graf (`workflow-core.mjs` murni + `workflow-canvas.js`: tata letak otomatis, panah maju + lencana transisi, panah `gagal_ke` merah putus-putus berlabel, kotak paralel, geser/zoom/pinch/keyboard, kamera per workflow; sakelar Kanvas/Daftar diingat), izin aksi berbahaya per stage (utang M3; `Stage.danger`, YAML `izin_bahaya`, menimpa persona di JobSpec), JQL `OR`/`NOT`/kurung dengan presedensi Jira + error Fluent (utang M9) + autocomplete field/operator/nilai (endpoint saran, combobox ARIA), batas WIP ditegakkan di semua jalur pindah kartu (board drag/menu, form detail, "tandai selesai", API, MCP, sinkron Jira) dengan paksa Admin beralasan (audit `ticket.wip_overridden`) dan penolakan di browser tanpa memindah kartu, roadmap per epic (batang rentang anak + progres, buka/tutup, grup Tanpa epic, panah blocks dari epic yang tertutup; tooltip roadmap ke Fluent); 855 tes Rust (11 baru + kasus baru di tes lama: parser/konteks JQL, saran, WIP semua jalur, panel, roadmap epic, izin stage) + 38 tes JS (12 baru: `jql-core`, `workflow-core`) |
 
 ## Keputusan teknis (di luar spec)
 
@@ -97,6 +98,13 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
 | 2026-11-14 | R5: AI Office dipecah `office-core.mjs` (logika murni, diuji node), `office-svg.mjs` (gambar), `office-engine.mjs` (kamera/input/label); denah tetap mengikuti kolom server (2 project per kolom, Ruang rapat + Pantry di kolom terakhir, Lounge pengisi slot) | Server dan JSON `/office/state` tidak berubah; logika label/penempatan bisa diuji tanpa browser |
 | 2026-11-14 | R5: Isometrik dan Denah memakai satu daftar kursi (satuan ubin); Denah = tampak atas dari tata letak yang sama | Karakter berada di tempat yang sama saat beralih mode |
 | 2026-11-14 | R5: label karakter = tombol HTML (urutan Tab per ruangan), SVG `aria-hidden`; label yang disembunyikan LOD/declutter tetap bisa difokus (`.clip`) | Karakter terbaca screen reader tanpa elemen SVG yang bisa difokus |
+| 2026-11-14 | R3: panel tiket = `<dialog>` modal native + `fetch` dengan header `X-Ticket-Panel: 1` (bukan swap HTMX); `history.pushState({agPanel})` sendiri | HTMX 4 hanya memulihkan entri history bertanda `htmx`; dialog modal memberi fokus terkunci + latar inert tanpa skrip trap; URL tiket yang dibuka langsung tetap halaman penuh |
+| 2026-11-14 | R3: aksi di dalam panel (komentar, ubah detail, pindah stage) berjalan seperti di halaman penuh (redirect ke halaman tiket) | Satu partial dan satu set handler; panel tidak bercabang dari halaman penuh |
+| 2026-11-14 | R3: batas WIP dihitung atas beban project per stage (tiket aktif, bukan sampah/dibatalkan), bukan kartu yang tampil di filter/sprint/lajur; kepala kolom menampilkan angka yang sama | Penegakan konsisten di board, API, MCP, dan Jira |
+| 2026-11-14 | R3: WIP dicek di jalur pindah kartu (`move_in`, form detail, "tandai selesai"); approve, keputusan, lompat/paksa Admin tidak dicek | Alur gate tidak boleh macet karena kolom penuh; Admin punya jalur paksa sendiri |
+| 2026-11-14 | R3: kanvas builder memakai node HTML (tautan ke panel stage) + SVG garis, tata letak otomatis dari urutan definisi; posisi tidak disimpan | Tanpa kolom posisi di definisi; node tetap tautan biasa (keyboard, screen reader, tanpa JS) |
+| 2026-11-14 | R3: autocomplete JQL — konteks kursor dihitung server (`jql::context`, tokenizer yang sama dengan parser), JS hanya menyisipkan | Satu tata bahasa; nilai saran dari data yang boleh dilihat pelaku |
+| 2026-11-14 | R3: roadmap epic = epic terdekat di rantai induk (maks. 5 tingkat); anak epic yang tertutup diwakili baris epic untuk panah blocks | Subtask story ikut epic-nya; panah tidak hilang saat epic ditutup |
 
 ## Temuan spike yang mengubah rencana
 
@@ -142,9 +150,8 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
   paralel dijalani berurutan (flag `paralel` hanya disimpan dan ditampilkan). Persona agent tetap 9 bawaan
   sampai M4; prompt/skill/tooling belum dipakai. Migrasi tiket saat terbitkan berjalan dalam satu transaksi
   (pindahkan ke job bila ribuan tiket). Artifact tampil teks pre-wrap (belum render Markdown) dan editor
-  artifact memakai textarea `md_editor` tanpa unggah gambar. Builder berupa daftar vertikal, belum kanvas graf
-  dengan panah gagal dan kelompok paralel seperti prototype; belum ada "Izin aksi berbahaya" per stage dan
-  belum ada perkiraan "N tiket ikut dimigrasi" di bar simpan. Impor YAML lewat textarea (belum unggah berkas).
+  artifact memakai textarea `md_editor` tanpa unggah gambar. ~~Builder berupa daftar vertikal~~ (R3: kanvas graf +
+  izin aksi berbahaya per stage); belum ada perkiraan "N tiket ikut dimigrasi" di bar simpan. Impor YAML lewat textarea (belum unggah berkas).
   Notifikasi review/keputusan hanya in-app.
 - **M4 MCP & persona (2026-11-13)**: DCR (`/oauth/register`) terbuka tanpa rate limit dan tanpa CORS
   (cukup untuk client CLI; perlu rate limit sebelum produksi). Kode otorisasi tidak dibatalkan setelah percobaan
@@ -213,11 +220,11 @@ Sumber kebenaran status milestone. Diperbarui setiap milestone selesai atau ada 
   screenshot QA terbaru. ~~`markdown.js` dan `md-editor.js` masih memakai pola `htmx.onLoad` saja~~ (selesai di M11, juga
   `combobox.js`/`dialog.js`; tes `bin/tests/js_test.sh`).
 
-- **M9 Planning & laporan (2026-11-13)**: teks tooltip grafik, roadmap, dan kalender serta pesan error JQL ditulis
-  bahasa Indonesia langsung di Rust (belum Fluent). Query JQL hanya `AND` (tanpa `OR`/kurung) dan tanpa autocomplete
-  di kotak query (prototype punya saran field/nilai); evaluasi di memori atas maks. 5.000 tiket terbaru, tampil 200.
+- **M9 Planning & laporan (2026-11-13)**: teks tooltip grafik dan kalender ditulis bahasa Indonesia langsung di Rust
+  (belum Fluent; roadmap dan error JQL sudah Fluent sejak R3). ~~Query JQL hanya `AND`~~ (R3: `OR`/`NOT`/kurung +
+  autocomplete); evaluasi di memori atas maks. 5.000 tiket terbaru, tampil 200.
   Edit massal belum bisa memindah stage, menghapus, atau menaruh di menu per kolom seperti prototype (satu dialog).
-  Batas WIP hanya ditandai (kolom merah + `n / wip`), tidak ditegakkan. Label kode di batang roadmap yang sangat
+  ~~Batas WIP hanya ditandai~~ (R3: ditegakkan, paksa Admin). Label kode di batang roadmap yang sangat
   pendek terpotong. Event planning (sprint, rilis, component, saved filter) belum masuk audit log. Burnup memakai
   poin tiket saat ini, bukan poin historis. Komitmen sprint menghitung poin tiket yang sudah selesai sebelum mulai.
 
@@ -466,6 +473,15 @@ Daftar terkonsolidasi dan berurutan prioritas: `docs/REVIEW-AKHIR.md` §4.
   allowlist nama client).
 
 ## Catatan untuk sesi berikutnya
+
+- **R3 selesai dan di-merge ke `staging` (2026-11-14)**, `bin/ci` hijau sebelum dan sesudah merge. Rencana:
+  `docs/superpowers/plans/2026-11-14-r3-revisi.md`. Database dev perlu `bin/loco db migrate`
+  (`m20261128_000001_r3_revisi`, aksi audit `ticket.wip_overridden`). Screenshot cek visual (desktop, 390px, gelap:
+  panel tiket, kanvas + paralel disuntik lewat `page.route`, autocomplete JQL, penolakan WIP disimulasikan dengan
+  menandai kolom penuh di DOM karena seed tidak punya batas WIP, roadmap epic) di scratchpad sesi (`shots-r3/`).
+  Utang R3: posisi node kanvas tidak bisa diseret/disimpan; aksi di dalam panel tiket berlanjut ke halaman penuh;
+  label panah gagal kanvas bisa bertumpuk bila banyak `gagal_ke` ke stage yang berdekatan; nilai saran JQL `stage`
+  menampilkan kunci sebagai keterangan (bukan nama kategori); pinch kanvas belum diuji otomatis.
 
 - **R2 selesai (2026-11-14)**. Rencana: `docs/superpowers/plans/2026-11-14-r2-revisi.md`. Panduan GitHub App:
   `docs/admin/github-app.md`; benchmark embedding: `docs/benchmarks/2026-11-14-embedding.md`. Screenshot cek visual

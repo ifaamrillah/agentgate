@@ -126,6 +126,7 @@ const ERROR_FIELDS: &[&str] = &[
     "stages",
     "stage",
     "people",
+    "danger",
     "mapping",
     "draft",
     "workflow_name",
@@ -518,6 +519,9 @@ pub struct BuilderQuery {
     stage: String,
     #[serde(default)]
     tab: String,
+    /// Tampilan builder: `canvas` (bawaan, kanvas graf R3) atau `list` (daftar vertikal).
+    #[serde(default)]
+    view: String,
 }
 
 /// Isian form stage untuk template.
@@ -544,6 +548,16 @@ struct StageForm {
     executors: Vec<String>,
     approvers: Vec<String>,
     watchers: Vec<String>,
+    /// Izin aksi berbahaya stage (R3); `level` kosong = ikut persona.
+    danger: Vec<DangerField>,
+}
+
+#[derive(Debug, Serialize)]
+struct DangerField {
+    action: &'static str,
+    label_key: String,
+    hint_key: String,
+    level: &'static str,
 }
 
 impl StageForm {
@@ -570,6 +584,15 @@ impl StageForm {
             executors: ids(&s.people.executors),
             approvers: ids(&s.people.approvers),
             watchers: ids(&s.people.watchers),
+            danger: agentgate_core::persona::DANGER_ACTIONS
+                .iter()
+                .map(|(action, _)| DangerField {
+                    action,
+                    label_key: format!("persona-danger-{}", action.replace('_', "-")),
+                    hint_key: format!("persona-danger-{}-hint", action.replace('_', "-")),
+                    level: s.danger.get(*action).map_or("", |l| l.as_str()),
+                })
+                .collect(),
         }
     }
 }
@@ -614,6 +637,14 @@ fn stage_from(pairs: &[(String, String)]) -> Stage {
         approvers: uuids(pairs, "approvers"),
         watchers: uuids(pairs, "watchers"),
     };
+    // `danger_<aksi>`: kosong = ikut persona; nilai tak dikenal diabaikan.
+    for (action, _) in agentgate_core::persona::DANGER_ACTIONS {
+        if let Some(level) =
+            agentgate_core::persona::Level::parse(get_one(pairs, &format!("danger_{action}")))
+        {
+            s.danger.insert((*action).to_string(), level);
+        }
+    }
     s
 }
 
@@ -624,6 +655,8 @@ struct BuilderState<'a> {
     tab: String,
     yaml: Option<String>,
     flash: Option<Flash>,
+    /// `canvas` atau `list`.
+    view: &'static str,
 }
 
 async fn render_builder(
@@ -662,7 +695,11 @@ async fn render_builder(
             } else {
                 "todo"
             };
-            v.href = format!("{href}?stage={}", s.key);
+            v.href = if state.view == "list" {
+                format!("{href}?stage={}&view=list", s.key)
+            } else {
+                format!("{href}?stage={}", s.key)
+            };
             v
         })
         .collect();
@@ -728,6 +765,11 @@ async fn render_builder(
             },
             "tab": tab,
             "tabs": tabs,
+            "view": state.view,
+            "views": [
+                { "key": "canvas", "label": "workflow-view-canvas", "icon": "sitemap", "href": format!("{href}?stage={selected_key}"), "current": state.view == "canvas" },
+                { "key": "list", "label": "workflow-view-list", "icon": "list", "href": format!("{href}?stage={selected_key}&view=list"), "current": state.view == "list" },
+            ],
             "nodes": nodes,
             "stage": form,
             "earlier": draft.stages.iter().take_while(|s| s.key != selected_key).map(|s| SelectOption { id: s.key.clone(), name: s.name.clone() }).collect::<Vec<_>>(),
@@ -779,6 +821,7 @@ fn state(selected: Option<String>) -> BuilderState<'static> {
         tab: String::new(),
         yaml: None,
         flash: None,
+        view: "canvas",
     }
 }
 
@@ -796,6 +839,11 @@ pub(super) async fn builder(
     let mut st = state(Some(query.stage));
     st.tab = query.tab;
     st.flash = flash;
+    st.view = if query.view == "list" {
+        "list"
+    } else {
+        "canvas"
+    };
     let res = render_builder(&ctx, &v, &access.tenant, &workflow, st, StatusCode::OK).await?;
     Ok((session, res).into_response())
 }

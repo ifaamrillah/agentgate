@@ -20,6 +20,7 @@ use uuid::Uuid;
 
 use super::{board::project_definitions, lookup, project_paths, summary};
 use crate::{
+    common::i18n,
     controllers::{extractors::ProjectAccess, shell::app_shell},
     models::{
         permission::Permission,
@@ -57,7 +58,17 @@ pub fn label_keys() -> Vec<String> {
         .iter()
         .map(|z| z.1)
         .chain(KINDS.iter().map(|k| k.1))
-        .chain(["roadmap-no-sprint"])
+        .chain([
+            "roadmap-no-sprint",
+            "roadmap-no-epic",
+            "roadmap-group-sprint",
+            "roadmap-group-epic",
+            "roadmap-tip-estimated",
+            "roadmap-tip-progress",
+            "roadmap-tip-late",
+            "roadmap-tip-epic",
+            "roadmap-tip-blocks",
+        ])
         .map(str::to_string)
         .collect()
 }
@@ -69,6 +80,10 @@ struct TimelineQuery {
     zoom: String,
     month: String,
     kind: Vec<String>,
+    /// Roadmap: `sprint` (bawaan) atau `epic` (R3).
+    group: String,
+    /// Roadmap per epic: kode epic yang dibuka (`?open=KSR-1,KSR-5`; `all` = semua).
+    open: Vec<String>,
 }
 
 impl TimelineQuery {
@@ -80,6 +95,13 @@ impl TimelineQuery {
                 "zoom" => out.zoom = v,
                 "month" => out.month = v,
                 "kind" => out.kind.push(v),
+                "group" => out.group = v,
+                "open" => out.open.extend(
+                    v.split(',')
+                        .map(|c| c.trim().to_string())
+                        .filter(|c| !c.is_empty())
+                        .take(200),
+                ),
                 _ => {}
             }
         }
@@ -159,11 +181,87 @@ struct TlRow {
     ticket: Option<TicketRow>,
     left: i64,
     width: i64,
+    /// Batang tampil (rentang ada dan masuk jendela).
+    bar: bool,
     progress: u32,
     estimated: bool,
     late: bool,
     epic: bool,
     tip: String,
+    /// 0 = baris utama, 1 = anak epic (menjorok).
+    level: u8,
+    /// Tautan buka/tutup anak epic (kosong = tanpa tombol).
+    toggle: String,
+    open: bool,
+    /// Jumlah anak epic.
+    count: usize,
+}
+
+/// Atribut tambahan baris roadmap per epic.
+#[derive(Debug, Default)]
+struct RowExtra {
+    level: u8,
+    toggle: String,
+    open: bool,
+    count: usize,
+}
+
+impl TlRow {
+    fn group(title: String) -> Self {
+        Self {
+            group: Some(title),
+            ticket: None,
+            left: 0,
+            width: 0,
+            bar: false,
+            progress: 0,
+            estimated: false,
+            late: false,
+            epic: false,
+            tip: String::new(),
+            level: 0,
+            toggle: String::new(),
+            open: false,
+            count: 0,
+        }
+    }
+
+    fn ticket(row: TicketRow, epic: bool, progress: u32, tip: String, extra: RowExtra) -> Self {
+        Self {
+            group: None,
+            ticket: Some(row),
+            left: 0,
+            width: 0,
+            bar: false,
+            progress,
+            estimated: false,
+            late: false,
+            epic,
+            tip,
+            level: extra.level,
+            toggle: extra.toggle,
+            open: extra.open,
+            count: extra.count,
+        }
+    }
+}
+
+/// Tautan roadmap dengan zoom, cari, pengelompokan, dan epic yang dibuka.
+fn roadmap_href(base: &str, zoom: &str, q: &str, group: &str, open: &[String]) -> String {
+    let mut pairs: Vec<(&str, String)> = vec![("zoom", zoom.to_string())];
+    if !q.is_empty() {
+        pairs.push(("q", q.to_string()));
+    }
+    if group == "epic" {
+        pairs.push(("group", "epic".into()));
+        if !open.is_empty() {
+            pairs.push(("open", open.join(",")));
+        }
+    }
+    format!(
+        "{base}?{}",
+        serde_urlencoded::to_string(&pairs).unwrap_or_default()
+    )
 }
 
 #[derive(Debug, Serialize)]
@@ -177,7 +275,7 @@ struct Mark {
 }
 
 /// Posisi stage di workflow (0–100).
-fn progress(t: &tickets::Model, stages: &[Vec<String>]) -> u32 {
+fn progress_of(t: &tickets::Model, stages: &[Vec<String>]) -> u32 {
     if t.status == "done" {
         return 100;
     }
@@ -218,96 +316,270 @@ pub(super) async fn roadmap(
     let days = (end - start).num_days() + 1;
     let x = |d: NaiveDate| (d - start).num_days().clamp(0, days) * px;
 
+    let base_path = format!("{}/roadmap", project_paths(&access).home);
     let all = project_tickets(&ctx, &access).await?;
     let sprint_list = sprints::Model::of_project(db, wid, access.project.id).await?;
     let hours = remaining(&ctx, &access, &all).await?;
     let q = query.q.trim();
-    let mut spans: Vec<(tickets::Model, timeline::Span)> = Vec::new();
-    for t in &all {
-        if !matches(t, q) {
-            continue;
-        }
-        let sprint = t
-            .sprint_id
-            .and_then(|id| sprint_list.iter().find(|s| s.id == id));
-        if let Some(s) = timeline::span(t, sprint, hours.get(&t.id).copied(), today)
-            && s.end >= start
-            && s.start <= end
-        {
-            spans.push((t.clone(), s));
-        }
-    }
-    let shown: Vec<tickets::Model> = spans.iter().map(|(t, _)| t.clone()).collect();
-    let lookup = lookup(db, &access.tenant, &shown, &[]).await?;
-    let stages: Vec<Vec<String>> = project_definitions(&ctx, &access, &shown)
+    let by_epic = query.group == "epic";
+    let open_all = query.open.iter().any(|c| c == "all");
+    // Rentang semua tiket (tanpa filter cari/jendela): batang epic memakai rentang anak.
+    let span_of: HashMap<Uuid, timeline::Span> = all
+        .iter()
+        .filter_map(|t| {
+            let sprint = t
+                .sprint_id
+                .and_then(|id| sprint_list.iter().find(|s| s.id == id));
+            timeline::span(t, sprint, hours.get(&t.id).copied(), today).map(|s| (t.id, s))
+        })
+        .collect();
+    let in_window = |s: &timeline::Span| s.end >= start && s.start <= end;
+    let lookup = lookup(db, &access.tenant, &all, &[]).await?;
+    let stages: Vec<Vec<String>> = project_definitions(&ctx, &access, &all)
         .await?
         .iter()
         .map(|d| d.stages.iter().map(|s| s.key.clone()).collect())
         .collect();
+    let is_epic = |t: &tickets::Model| lookup.ticket_type(t.type_id).key == "epic";
+    let span_tip = |t: &tickets::Model, s: &timeline::Span, p: u32| {
+        let mut tip = format!(
+            "{} · {}\n{} – {}",
+            t.code,
+            t.title,
+            pv::long_day(s.start),
+            pv::long_day(s.end)
+        );
+        let line = if s.estimated {
+            i18n::text("roadmap-tip-estimated", &[])
+        } else {
+            i18n::text("roadmap-tip-progress", &[("progress", &p.to_string())])
+        };
+        tip.push('\n');
+        tip.push_str(&line);
+        if s.late {
+            tip.push('\n');
+            tip.push_str(&i18n::text("roadmap-tip-late", &[]));
+        }
+        tip
+    };
 
-    // Grup: sprint (urut tanggal mulai), lalu tanpa sprint.
-    let mut order: Vec<Option<&sprints::Model>> = sprint_list.iter().map(Some).collect();
-    order.sort_by_key(|s| s.map(|s| (s.starts_on, s.id)));
-    order.push(None);
     let mut rows: Vec<TlRow> = Vec::new();
     let mut y = HEAD_H;
     let mut centers: HashMap<Uuid, (i64, i64, i64)> = HashMap::new();
-    for group in order {
-        let mine: Vec<&(tickets::Model, timeline::Span)> = spans
-            .iter()
-            .filter(|(t, _)| t.sprint_id == group.map(|s| s.id))
-            .collect();
-        if mine.is_empty() {
-            continue;
+    // Anak epic yang tertutup → baris epic-nya (panah blocks tetap terlihat).
+    let mut alias: HashMap<Uuid, Uuid> = HashMap::new();
+    let mut shown = 0usize;
+    let group_row = |rows: &mut Vec<TlRow>, y: &mut i64, title: String| {
+        rows.push(TlRow::group(title));
+        *y += GROUP_H;
+    };
+    let mut ticket_row = |rows: &mut Vec<TlRow>,
+                          y: &mut i64,
+                          t: &tickets::Model,
+                          span: Option<timeline::Span>,
+                          progress: u32,
+                          tip: String,
+                          extra: RowExtra| {
+        let mut row = TlRow::ticket(lookup.row(t), is_epic(t), progress, tip, extra);
+        if let Some(s) = span.filter(|s| in_window(s)) {
+            row.left = x(s.start);
+            row.width = (x(s.end + Duration::days(1)) - row.left).max(px);
+            row.estimated = s.estimated;
+            row.late = s.late;
+            row.bar = true;
+            centers.insert(t.id, (*y + ROW_H / 2, row.left, row.left + row.width));
         }
-        let title = group.map_or_else(String::new, |s| {
-            format!("{} · {}", s.name, pv::range(s.starts_on, s.ends_on))
-        });
-        rows.push(TlRow {
-            group: Some(title),
-            ticket: None,
-            left: 0,
-            width: 0,
-            progress: 0,
-            estimated: false,
-            late: false,
-            epic: false,
-            tip: String::new(),
-        });
-        y += GROUP_H;
-        for (t, s) in mine {
-            let row = lookup.row(t);
-            let left = x(s.start);
-            let width = (x(s.end + Duration::days(1)) - left).max(px);
-            centers.insert(t.id, (y + ROW_H / 2, left, left + width));
-            y += ROW_H;
-            let p = progress(t, &stages);
-            let mut tip = format!(
-                "{} · {}\n{} – {}",
-                t.code,
-                t.title,
-                pv::long_day(s.start),
-                pv::long_day(s.end)
-            );
-            if s.estimated {
-                tip.push_str("\nBelum mulai · tanggal dari estimasi");
+        *y += ROW_H;
+        rows.push(row);
+    };
+
+    if by_epic {
+        let tree: HashMap<Uuid, timeline::TreeNode> = all
+            .iter()
+            .map(|t| {
+                (
+                    t.id,
+                    timeline::TreeNode {
+                        parent: t.parent_id,
+                        epic: is_epic(t),
+                    },
+                )
+            })
+            .collect();
+        let mut kids: HashMap<Uuid, Vec<&tickets::Model>> = HashMap::new();
+        let mut loose: Vec<&tickets::Model> = Vec::new();
+        for t in all.iter().filter(|t| !is_epic(t)) {
+            match timeline::epic_of(t.id, &tree) {
+                Some(e) => kids.entry(e).or_default().push(t),
+                None => loose.push(t),
+            }
+        }
+        for epic in all.iter().filter(|t| is_epic(t)) {
+            let children = kids.get(&epic.id).cloned().unwrap_or_default();
+            if !matches(epic, q) && !children.iter().any(|c| matches(c, q)) {
+                continue;
+            }
+            let child_spans: Vec<timeline::Span> = children
+                .iter()
+                .filter_map(|c| span_of.get(&c.id).copied())
+                .collect();
+            let span =
+                timeline::merge_spans(&child_spans).or_else(|| span_of.get(&epic.id).copied());
+            let done = children.iter().filter(|c| c.status == "done").count();
+            let progress = if epic.status == "done" {
+                100
             } else {
-                tip.push_str(&format!("\nProgres {p}%"));
-            }
-            if s.late {
-                tip.push_str("\nPerkiraan selesai melewati tenggat");
-            }
-            rows.push(TlRow {
-                epic: row.ticket_type.key == "epic",
-                group: None,
-                ticket: Some(row),
-                left,
-                width,
-                progress: p,
-                estimated: s.estimated,
-                late: s.late,
+                timeline::epic_progress(done, children.len())
+            };
+            let open = open_all
+                || query
+                    .open
+                    .iter()
+                    .any(|c| c.eq_ignore_ascii_case(&epic.code));
+            let mut tip = span.map_or_else(
+                || format!("{} · {}", epic.code, epic.title),
+                |s| {
+                    format!(
+                        "{} · {}\n{} – {}",
+                        epic.code,
+                        epic.title,
+                        pv::long_day(s.start),
+                        pv::long_day(s.end)
+                    )
+                },
+            );
+            tip.push('\n');
+            tip.push_str(&i18n::text(
+                "roadmap-tip-epic",
+                &[
+                    ("count", &children.len().to_string()),
+                    ("done", &done.to_string()),
+                    ("progress", &progress.to_string()),
+                ],
+            ));
+            let toggled: Vec<String> = if open {
+                query
+                    .open
+                    .iter()
+                    .filter(|c| !c.eq_ignore_ascii_case(&epic.code) && *c != "all")
+                    .cloned()
+                    .collect()
+            } else {
+                let mut v = query.open.clone();
+                v.push(epic.code.clone());
+                v
+            };
+            shown += 1;
+            ticket_row(
+                &mut rows,
+                &mut y,
+                epic,
+                span,
+                progress,
                 tip,
+                RowExtra {
+                    level: 0,
+                    toggle: if children.is_empty() {
+                        String::new()
+                    } else {
+                        roadmap_href(&base_path, zoom, q, "epic", &toggled)
+                    },
+                    open,
+                    count: children.len(),
+                },
+            );
+            for c in &children {
+                if !open {
+                    alias.insert(c.id, epic.id);
+                    continue;
+                }
+                if !matches(c, q) {
+                    continue;
+                }
+                let Some(s) = span_of.get(&c.id).copied().filter(|s| in_window(s)) else {
+                    alias.insert(c.id, epic.id);
+                    continue;
+                };
+                let p = progress_of(c, &stages);
+                shown += 1;
+                ticket_row(
+                    &mut rows,
+                    &mut y,
+                    c,
+                    Some(s),
+                    p,
+                    span_tip(c, &s, p),
+                    RowExtra {
+                        level: 1,
+                        ..RowExtra::default()
+                    },
+                );
+            }
+        }
+        let rest: Vec<(&tickets::Model, timeline::Span)> = loose
+            .into_iter()
+            .filter(|t| matches(t, q))
+            .filter_map(|t| {
+                span_of
+                    .get(&t.id)
+                    .copied()
+                    .filter(|s| in_window(s))
+                    .map(|s| (t, s))
+            })
+            .collect();
+        if !rest.is_empty() {
+            group_row(&mut rows, &mut y, String::new());
+            for (t, s) in rest {
+                let p = progress_of(t, &stages);
+                shown += 1;
+                ticket_row(
+                    &mut rows,
+                    &mut y,
+                    t,
+                    Some(s),
+                    p,
+                    span_tip(t, &s, p),
+                    RowExtra::default(),
+                );
+            }
+        }
+    } else {
+        // Grup: sprint (urut tanggal mulai), lalu tanpa sprint.
+        let mut order: Vec<Option<&sprints::Model>> = sprint_list.iter().map(Some).collect();
+        order.sort_by_key(|s| s.map(|s| (s.starts_on, s.id)));
+        order.push(None);
+        for group in order {
+            let mine: Vec<(&tickets::Model, timeline::Span)> = all
+                .iter()
+                .filter(|t| t.sprint_id == group.map(|s| s.id) && matches(t, q))
+                .filter_map(|t| {
+                    span_of
+                        .get(&t.id)
+                        .copied()
+                        .filter(|s| in_window(s))
+                        .map(|s| (t, s))
+                })
+                .collect();
+            if mine.is_empty() {
+                continue;
+            }
+            let title = group.map_or_else(String::new, |s| {
+                format!("{} · {}", s.name, pv::range(s.starts_on, s.ends_on))
             });
+            group_row(&mut rows, &mut y, title);
+            for (t, s) in mine {
+                let p = progress_of(t, &stages);
+                shown += 1;
+                ticket_row(
+                    &mut rows,
+                    &mut y,
+                    t,
+                    Some(s),
+                    p,
+                    span_tip(t, &s, p),
+                    RowExtra::default(),
+                );
+            }
         }
     }
     let height = y;
@@ -371,8 +643,8 @@ pub(super) async fn roadmap(
         .collect();
     let today_x = x(today) + px / 2;
 
-    // Panah "blocks" di antara bar yang tampil.
-    let ids: Vec<Uuid> = centers.keys().copied().collect();
+    // Panah "blocks" di antara bar yang tampil; anak epic yang tertutup diwakili baris epic-nya.
+    let ids: Vec<Uuid> = all.iter().map(|t| t.id).collect();
     let links = ticket_links::Entity::find()
         .filter(ticket_links::Column::WorkspaceId.eq(wid.get()))
         .filter(ticket_links::Column::Kind.eq("blocks"))
@@ -386,11 +658,18 @@ pub(super) async fn roadmap(
             .map(|t| t.code.clone())
             .unwrap_or_default()
     };
+    let mut drawn: Vec<(Uuid, Uuid)> = Vec::new();
     let arrows: Vec<serde_json::Value> = links
         .iter()
         .filter_map(|l| {
-            let (y1, _, x1) = *centers.get(&l.from_id)?;
-            let (y2, x2, _) = *centers.get(&l.to_id)?;
+            let from = alias.get(&l.from_id).copied().unwrap_or(l.from_id);
+            let to = alias.get(&l.to_id).copied().unwrap_or(l.to_id);
+            if from == to || drawn.contains(&(from, to)) {
+                return None;
+            }
+            let (y1, _, x1) = *centers.get(&from)?;
+            let (y2, x2, _) = *centers.get(&to)?;
+            drawn.push((from, to));
             let path = if x2 > x1 + 16 {
                 let mx = (x1 + 8).max(x2 - 8);
                 format!("M{x1},{y1} H{mx} V{y2} H{}", x2 - 2)
@@ -404,22 +683,37 @@ pub(super) async fn roadmap(
             };
             Some(serde_json::json!({
                 "d": path,
-                "tip": format!("{} blocks {}", code_of(l.from_id), code_of(l.to_id)),
+                "tip": i18n::text(
+                    "roadmap-tip-blocks",
+                    &[("from", &code_of(l.from_id)), ("to", &code_of(l.to_id))],
+                ),
             }))
         })
         .collect();
 
-    let base = format!("{home}/roadmap");
+    let base = base_path.clone();
+    let group = if by_epic { "epic" } else { "sprint" };
     let zooms: Vec<serde_json::Value> = ZOOMS
         .iter()
         .map(|(k, label, ..)| {
-            let mut href = format!("{base}?zoom={k}");
-            if !q.is_empty() {
-                href.push_str(&format!("&q={}", urlencoding(q)));
-            }
+            let href = roadmap_href(&base, k, q, group, &query.open);
             serde_json::json!({ "key": k, "label": label, "href": href, "current": *k == zoom })
         })
         .collect();
+    let groups: Vec<serde_json::Value> = [
+        ("sprint", "roadmap-group-sprint"),
+        ("epic", "roadmap-group-epic"),
+    ]
+    .iter()
+    .map(|(k, label)| {
+        serde_json::json!({
+            "key": k, "label": label, "current": *k == group,
+            "href": roadmap_href(&base, zoom, q, k, &[]),
+        })
+    })
+    .collect();
+    let expand_all = roadmap_href(&base, zoom, q, "epic", &["all".to_string()]);
+    let collapse_all = roadmap_href(&base, zoom, q, "epic", &[]);
     let shell = app_shell(
         &ctx,
         &access.tenant.user,
@@ -434,8 +728,13 @@ pub(super) async fn roadmap(
             "q": q,
             "zoom": zoom,
             "zooms": zooms,
+            "group": group,
+            "groups": groups,
+            "open": query.open.join(","),
+            "expand_all": expand_all,
+            "collapse_all": collapse_all,
             "total": all.len(),
-            "shown": shown.len(),
+            "shown": shown,
             "rows": rows,
             "track": days * px,
             "height": height,
@@ -448,13 +747,6 @@ pub(super) async fn roadmap(
         }),
     );
     views::tickets::render(&v, &shell, "tickets/roadmap.html", StatusCode::OK, data)
-}
-
-fn urlencoding(s: &str) -> String {
-    serde_urlencoded::to_string([("", s)])
-        .unwrap_or_default()
-        .trim_start_matches('=')
-        .to_string()
 }
 
 // ---------------------------------------------------------------------------------------------

@@ -118,7 +118,17 @@ async fn workflow_is_built_from_a_template_edited_and_published() {
         // Builder, konfigurasi stage, YAML, riwayat versi.
         let page = get(&request, c, &base).await;
         assert_eq!(page.status_code(), 200);
-        assert_css_exists(&page.text(), "[data-flow] [data-stage='brainstorm']");
+        // Kanvas graf (R3) bawaan; daftar vertikal lewat ?view=list.
+        let html = page.text();
+        assert_css_exists(&html, "[data-wf-canvas] a[data-wf-node='brainstorm']");
+        assert_css_exists(
+            &html,
+            "[data-wf-views] a[aria-current='true'][data-wf-view='canvas']",
+        );
+        assert_css_exists(&html, "[data-wf-canvas] template[data-wf-icons]");
+        let list = get(&request, c, &format!("{base}?view=list")).await.text();
+        assert_css_exists(&list, "ol[data-flow] [data-stage='brainstorm']");
+        assert_css_exists(&list, "ol[data-flow] a[href$='view=list']");
         let page = get(&request, c, &format!("{base}?stage=brainstorm")).await;
         assert_css_exists(&page.text(), "[data-stage-form]");
         assert_eq!(
@@ -151,6 +161,9 @@ async fn workflow_is_built_from_a_template_edited_and_published() {
                 ("fail_limit", "3"),
                 ("fail_to", ""),
                 ("wip", "4"),
+                ("danger_db_migrate", "block"),
+                ("danger_deploy", ""),
+                ("danger_network", "nonsense"),
             ],
         )
         .await;
@@ -163,6 +176,25 @@ async fn workflow_is_built_from_a_template_edited_and_published() {
             draft.stage("brainstorm").unwrap().wip,
             Some(4),
             "batas WIP tersimpan"
+        );
+        // Izin aksi berbahaya stage (R3): kosong/tak dikenal = ikut persona.
+        let danger = &draft.stage("brainstorm").unwrap().danger;
+        assert_eq!(danger.len(), 1);
+        assert_eq!(
+            danger.get("db_migrate"),
+            Some(&agentgate_core::persona::Level::Block)
+        );
+        let page = get(&request, c, &format!("{base}?stage=brainstorm"))
+            .await
+            .text();
+        assert_css_exists(
+            &page,
+            "[data-stage-danger] select[name='danger_db_migrate'] option[value='block'][selected]",
+        );
+        let yaml = get(&request, c, &format!("{base}?tab=yaml")).await.text();
+        assert!(
+            yaml.contains("izin_bahaya:") && yaml.contains("db_migrate: block"),
+            "{yaml}"
         );
         assert_css_exists(&get(&request, c, &base).await.text(), "[data-draft-bar]");
 

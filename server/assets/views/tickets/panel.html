@@ -1,0 +1,22 @@
+{#- Panel samping detail tiket (R3, acuan prototype `.drawer`): dimuat static/js/ticket-panel.js
+    ke <dialog id="ticket-panel"> di layouts/project.html saat kartu board/daftar/backlog diklik
+    (header `X-Ticket-Panel: 1`). Bukan halaman lengkap: tanpa layout. Kepala: tipe, kode + status,
+    judul, "Buka halaman penuh", tutup; isi = tickets/_summary.html yang sama dengan halaman penuh.
+    Variabel: sama dengan tickets/show.html (controllers::tickets::ticket::render_show). -#}
+<div class="app-tpanel-in" data-ticket-panel-content="{{ ticket.code }}">
+  <header class="app-tpanel-h">
+    {{ <type_icon icon={ticket.ticket_type.icon} color={ticket.ticket_type.color} label={ticket.ticket_type.name} tile={true}/> }}
+    <div class="app-tpanel-t">
+      <p><span class="app-code" data-ticket-code>{{ ticket.code }}</span> · <span class="app-status-pill" data-status="{{ ticket.status.value }}">{{ icon(name=ticket.status.icon) }}{{ t(key=ticket.status.label_key, lang="id") }}</span>
+        {%- if ticket.pr %} {{ <pr_state state={ticket.pr.state} number={ticket.pr.number} compact={true}/> }}{% endif %}</p>
+      <h2 id="ticket-panel-title">{{ ticket.title }}</h2>
+    </div>
+    <div class="app-tpanel-acts">
+      <a class="btn" data-variant="outline" data-size="sm" href="{{ paths.show }}" data-ticket-panel-full>{{ icon(name="arrows-maximize") }}<span>{{ t(key="ticket-panel-full", lang="id") }}</span></a>
+      <button type="button" class="btn" data-variant="ghost" data-size="icon-sm" data-ticket-panel-close aria-label="{{ t(key="ticket-panel-close", lang="id") }}">{{ icon(name="x") }}</button>
+    </div>
+  </header>
+  <div class="app-tpanel-b">
+    {% include "tickets/_summary.html" %}
+  </div>
+</div>

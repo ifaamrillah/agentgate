@@ -129,6 +129,8 @@ pub struct StageView {
     pub gates: usize,
     pub parallel: bool,
     pub fail_to: String,
+    /// Kunci stage `gagal_ke` (panah gagal kanvas builder, R3); kosong = tetap.
+    pub fail_to_key: String,
     pub fail_limit: u8,
     /// `done` (sudah dilewati), `current`, `todo`.
     pub state: &'static str,
@@ -157,6 +159,11 @@ impl StageView {
                 .as_deref()
                 .and_then(|k| definition.stage(k))
                 .map(|t| t.name.clone())
+                .unwrap_or_default(),
+            fail_to_key: s
+                .fail_to
+                .clone()
+                .filter(|k| definition.stage(k).is_some())
                 .unwrap_or_default(),
             fail_limit: s.fail_limit,
             state: "todo",
@@ -253,6 +260,10 @@ pub const MESSAGE_KEYS: &[&str] = &[
     "flash-project-workflow-saved",
     "flash-workflow-imported",
     "flash-stage-moved",
+    "ticket-flash-wip-forced",
+    "workflow-view-canvas",
+    "workflow-view-list",
+    "ticket-wip-full-detail",
     "flash-stage-approved",
     "flash-stage-rejected",
     "flash-stage-decided",

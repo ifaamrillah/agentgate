@@ -9,6 +9,7 @@
       actions   aksi di kanan pbar; pbar disembunyikan bila tabs dan actions kosong
       width     narrow (760px) | mid (1040px, default) | wide (penuh)
       content   isi halaman
+      overlay   elemen di atas shell (dialog panel), di luar <main>
     Variabel: shell (views::layout::AppShell), side ([views::nav::SideGroup], dari app_page),
       flash (opsional {kind, key}: success → toast, lainnya → alert di atas konten).
     Mobile (< 900px): sidebar menjadi laci yang dibuka [data-nav-toggle] (static/js/nav-toggle.js). -#}
@@ -127,7 +128,7 @@
       </div>
       {%- endif %}
       {%- if flash is defined and flash and flash.kind != "success" %}
-      {{ <flash kind={flash.kind} message={t(key=flash.key, lang="id")}/> }}
+      {% if flash.text %}{% set flash_msg = flash.text %}{% else %}{% set flash_msg = t(key=flash.key, lang="id") %}{% endif %}<div data-flash-key="{{ flash.key }}">{{ <flash kind={flash.kind} message={flash_msg}/> }}</div>
       {%- endif %}
       {% block content %}{% endblock content %}
     </div>
@@ -142,4 +143,6 @@
   </div>
   {%- endif %}
 </div>
+{#- Lapisan di atas shell (mis. panel samping tiket di layouts/project.html, R3). -#}
+{% block overlay %}{% endblock overlay %}
 {% endblock body %}

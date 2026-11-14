@@ -548,6 +548,31 @@ impl Model {
             .await
     }
 
+    /// Jumlah tiket aktif (bukan sampah, bukan dibatalkan) per stage di project ini: beban kolom
+    /// board untuk batas WIP (R3).
+    ///
+    /// # Errors
+    ///
+    /// Error database.
+    pub async fn count_by_stage<C: ConnectionTrait>(
+        db: &C,
+        workspace_id: WorkspaceId,
+        project_id: Uuid,
+    ) -> Result<Vec<(String, i64)>, DbErr> {
+        Entity::find()
+            .select_only()
+            .column(Column::StageKey)
+            .column_as(Column::Id.count(), "n")
+            .in_tenant(workspace_id)
+            .filter(Column::ProjectId.eq(project_id))
+            .filter(active())
+            .filter(Column::CancelledAt.is_null())
+            .group_by(Column::StageKey)
+            .into_tuple()
+            .all(db)
+            .await
+    }
+
     /// Ubah status (posisi baru di kolom). `done_at` diisi saat masuk `done`, dikosongkan saat
     /// keluar.
     ///

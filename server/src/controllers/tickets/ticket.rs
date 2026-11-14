@@ -145,6 +145,20 @@ async fn render_show(
     errors: PageErrors,
     status: StatusCode,
 ) -> Result<Response> {
+    render_summary(ctx, v, access, form, errors, status, "tickets/show.html").await
+}
+
+/// Isi Ringkasan sebagai halaman penuh (`tickets/show.html`) atau panel samping
+/// (`tickets/panel.html`, R3): data sama, partial `_summary.html` sama.
+async fn render_summary(
+    ctx: &AppContext,
+    v: &TeraView,
+    access: &TicketAccess,
+    form: Option<&TicketForm>,
+    errors: PageErrors,
+    status: StatusCode,
+    template: &str,
+) -> Result<Response> {
     let tenant = &access.access.tenant;
     let wid = tenant.workspace_id();
     let t = &access.ticket;
@@ -332,7 +346,7 @@ async fn render_show(
     let res = views::tickets::render(
         v,
         &shell,
-        "tickets/show.html",
+        template,
         status,
         data!({
             "project": summary(&access.access),
@@ -381,13 +395,37 @@ async fn render_show(
     Ok(res)
 }
 
+/// Permintaan isi panel samping (static/js/ticket-panel.js) membawa header ini. Tanpa header
+/// (dibuka langsung, refresh, link luar, navigasi boosted) = halaman penuh.
+pub const PANEL_HEADER: &str = "x-ticket-panel";
+
 #[debug_handler]
 pub(super) async fn show(
     State(ctx): State<AppContext>,
     ViewEngine(v): ViewEngine<TeraView>,
     access: TicketAccess,
     session: Session,
+    headers: axum::http::HeaderMap,
 ) -> Result<Response> {
+    if headers.get(PANEL_HEADER).is_some_and(|h| h == "1") {
+        // Panel tidak mengambil flash: pesan tetap untuk halaman berikutnya.
+        let mut res = render_summary(
+            &ctx,
+            &v,
+            &access,
+            None,
+            PageErrors::default(),
+            StatusCode::OK,
+            "tickets/panel.html",
+        )
+        .await?;
+        // Isi panel berbeda dengan halaman penuh di URL yang sama: jangan dipakai ulang cache.
+        res.headers_mut().insert(
+            axum::http::header::VARY,
+            axum::http::HeaderValue::from_static("X-Ticket-Panel"),
+        );
+        return Ok(res);
+    }
     let (session, flash) = flash::take(session);
     let res = render_show(
         &ctx,
@@ -645,11 +683,45 @@ pub struct StatusForm {
     return_to: Option<String>,
 }
 
+/// Pindah ditolak saat dikirim dari board/daftar (`return_to`): kembali ke halaman itu dengan
+/// flash berisi alasannya (kartu tampil lagi di posisi semula), bukan ke halaman tiket.
+fn rejected_back(
+    session: Session,
+    slug: &str,
+    return_to: Option<&str>,
+    failure: &TicketFailure,
+) -> Option<Result<Response>> {
+    let to = return_to.map(str::trim).filter(|r| !r.is_empty())?;
+    let fallback = format!("/w/{slug}");
+    let to = safe_return(slug, Some(to), &fallback);
+    let TicketFailure::Invalid(errors) = failure else {
+        return None;
+    };
+    let code = super::stage::stage_error(errors);
+    let code = if code.is_empty() {
+        errors
+            .errors
+            .values()
+            .flatten()
+            .next()
+            .map(|e| e.code.to_string())
+            .unwrap_or_default()
+    } else {
+        code
+    };
+    let text = failure.message().unwrap_or_default();
+    Some(
+        flash::set(session, &Flash::error_text(&code, text))
+            .and_then(|session| Ok((session, format::redirect(&to)?).into_response())),
+    )
+}
+
 #[debug_handler]
 pub(super) async fn status(
     State(ctx): State<AppContext>,
     ViewEngine(v): ViewEngine<TeraView>,
     access: TicketAccess,
+    session: Session,
     RequestId(request_id): RequestId,
     Form(form): Form<StatusForm>,
 ) -> Result<Response> {
@@ -689,6 +761,20 @@ pub(super) async fn status(
             let fallback = ticket_href(slug, &ticket.code);
             format::redirect(&safe_return(slug, form.return_to.as_deref(), &fallback))
         }
+        Err(failure @ TicketFailure::Invalid(_))
+            if form
+                .return_to
+                .as_deref()
+                .is_some_and(|r| !r.trim().is_empty()) =>
+        {
+            rejected_back(
+                session,
+                &tenant.workspace.slug,
+                form.return_to.as_deref(),
+                &failure,
+            )
+            .unwrap_or_else(|| Err(failure.into()))
+        }
         Err(TicketFailure::Invalid(errors)) => {
             render_show(
                 &ctx,
@@ -703,6 +789,54 @@ pub(super) async fn status(
                 StatusCode::UNPROCESSABLE_ENTITY,
             )
             .await
+        }
+        Err(e) => Err(e.into()),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct WipForceForm {
+    #[serde(default)]
+    stage: String,
+    #[serde(default)]
+    reason: String,
+    #[serde(default)]
+    return_to: Option<String>,
+}
+
+pub const FLASH_WIP_FORCED: &str = "ticket-flash-wip-forced";
+
+/// Admin project memindah tiket ke kolom yang batas WIP-nya penuh (R3), alasan wajib, audit.
+/// Sukses atau ditolak sama-sama kembali ke `return_to` (board) dengan flash.
+#[debug_handler]
+pub(super) async fn move_over_wip(
+    State(ctx): State<AppContext>,
+    access: TicketAccess,
+    session: Session,
+    RequestId(request_id): RequestId,
+    Form(form): Form<WipForceForm>,
+) -> Result<Response> {
+    access.require(Permission::AdministerProject)?;
+    let tenant = &access.access.tenant;
+    let slug = &tenant.workspace.slug;
+    let fallback = ticket_href(slug, &access.ticket.code);
+    let back = safe_return(slug, form.return_to.as_deref(), &fallback);
+    match service::stages::move_over_wip(
+        &ctx.db,
+        &acting(tenant, request_id),
+        access.ticket.id,
+        &form.stage,
+        &form.reason,
+    )
+    .await
+    {
+        Ok(_) => {
+            let session = flash::set(session, &Flash::success(FLASH_WIP_FORCED))?;
+            Ok((session, format::redirect(&back)?).into_response())
+        }
+        Err(failure @ TicketFailure::Invalid(_)) => {
+            rejected_back(session, slug, Some(&back), &failure)
+                .unwrap_or_else(|| Err(failure.into()))
         }
         Err(e) => Err(e.into()),
     }

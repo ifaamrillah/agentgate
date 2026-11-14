@@ -25,6 +25,7 @@ use crate::{
             BULK_EMPTY,
             filters::{self, FilterInput},
             jql::{self, Facts, Field},
+            jql_suggest,
         },
         tickets::{TicketFailure, update},
     },
@@ -51,6 +52,8 @@ pub fn label_keys() -> Vec<String> {
     ]
     .iter()
     .map(|k| (*k).to_string())
+    .chain(jql::ERROR_CODES.iter().map(|k| (*k).to_string()))
+    .chain(jql::FIELDS.iter().map(|(k, _)| jql::field_hint_key(k)))
     .collect()
 }
 
@@ -307,7 +310,7 @@ async fn render(
         .collect();
     let fields: Vec<serde_json::Value> = jql::FIELDS
         .iter()
-        .map(|(k, _, hint)| serde_json::json!({ "name": k, "hint": hint }))
+        .map(|(k, _)| serde_json::json!({ "name": k, "hint": jql::field_hint_key(k) }))
         .collect();
     let priorities: Vec<Opt> = ["urgent", "high", "medium", "low"]
         .iter()
@@ -333,7 +336,7 @@ async fn render(
             "base": base,
             "basic": format!("/w/{}/search", tenant.workspace.slug),
             "q": q,
-            "error": parsed.as_ref().err(),
+            "error": parsed.as_ref().err().map(jql::JqlError::message),
             "rows": rows,
             "total": total,
             "limited": total > SHOW_LIMIT,
@@ -381,6 +384,30 @@ pub(super) async fn index(
         .collect();
     let res = render(&ctx, &v, &tenant, &q, query.filter, flash, None).await?;
     Ok((session, res).into_response())
+}
+
+#[derive(Debug, serde::Deserialize, Default)]
+pub(super) struct SuggestQuery {
+    /// Teks query sebelum kursor.
+    #[serde(default)]
+    q: String,
+}
+
+/// Saran autocomplete kotak query (JSON `{partial, items}`), atas project yang boleh dibuka.
+#[debug_handler]
+pub(super) async fn suggest(
+    State(ctx): State<AppContext>,
+    tenant: Tenant,
+    Query(query): Query<SuggestQuery>,
+) -> Result<Response> {
+    let prefix: String = query.q.chars().take(saved_filters::QUERY_MAX_LEN).collect();
+    let pids: Vec<Uuid> = projects::Model::accessible_for(&ctx.db, &tenant.accessor())
+        .await?
+        .iter()
+        .map(|p| p.id)
+        .collect();
+    let out = jql_suggest::suggest(&ctx.db, tenant.workspace_id(), &pids, &prefix).await?;
+    format::json(out)
 }
 
 /// Simpan saved filter: `name`, `query`, `visibility` (`private`/`team`/`workspace`), `team`.

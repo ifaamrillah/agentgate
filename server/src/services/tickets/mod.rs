@@ -68,6 +68,30 @@ impl TicketFailure {
     pub fn errors(errors: ValidationErrors) -> Self {
         Self::Invalid(errors.into())
     }
+
+    /// Kalimat (Fluent `id`) untuk error validasi pertama beserta parameternya, untuk jalur yang
+    /// tidak merender template: API `/api/v1`, tool MCP, flash board. `None` selain `Invalid`.
+    #[must_use]
+    pub fn message(&self) -> Option<String> {
+        let Self::Invalid(errors) = self else {
+            return None;
+        };
+        let e = errors.errors.values().flatten().next()?;
+        if let Some(m) = &e.message {
+            return Some(m.to_string());
+        }
+        let args: Vec<(String, String)> = e
+            .params
+            .iter()
+            .filter(|(k, _)| *k != "value")
+            .map(|(k, v)| {
+                let v = v.as_str().map_or_else(|| v.to_string(), str::to_string);
+                (k.to_string(), v)
+            })
+            .collect();
+        let refs: Vec<(&str, &str)> = args.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
+        Some(crate::common::i18n::text(&e.code, &refs))
+    }
 }
 
 impl From<TicketFailure> for loco_rs::Error {

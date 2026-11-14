@@ -20,6 +20,10 @@ pub enum FlashKind {
 pub struct Flash {
     pub kind: FlashKind,
     pub key: String,
+    /// Kalimat yang sudah diterjemahkan dengan argumen (mis. nama kolom dan batas WIP, R3);
+    /// bila ada, layout memakainya menggantikan `key`.
+    #[serde(default)]
+    pub text: Option<String>,
 }
 
 impl Flash {
@@ -28,6 +32,7 @@ impl Flash {
         Self {
             kind: FlashKind::Success,
             key: key.to_string(),
+            text: None,
         }
     }
 
@@ -36,6 +41,7 @@ impl Flash {
         Self {
             kind: FlashKind::Warn,
             key: key.to_string(),
+            text: None,
         }
     }
 
@@ -44,6 +50,17 @@ impl Flash {
         Self {
             kind: FlashKind::Error,
             key: key.to_string(),
+            text: None,
+        }
+    }
+
+    /// Error dengan kalimat jadi (`key` tetap disimpan sebagai kode untuk tes/penanda).
+    #[must_use]
+    pub fn error_text(key: &str, text: String) -> Self {
+        Self {
+            kind: FlashKind::Error,
+            key: key.to_string(),
+            text: Some(text),
         }
     }
 }

@@ -79,11 +79,11 @@ adalah tabel ini. Kolom "Kerjakan" menunjukkan batch revisi yang akan menerapkan
 | Embedding code graph | Lokal fastembed-rs | | R2 ✅ selesai (2026-11-14) |
 | Knowledge ke repo | Server boleh membuat commit + PR knowledge (tidak pernah push ke branch utama) | | R2 ✅ selesai (2026-11-14) |
 | Rilis | Membuat git tag lewat provider | | R2 ✅ selesai (2026-11-14) |
-| Detail tiket | Panel samping dari board + tombol "buka halaman penuh"; URL tetap bisa dibuka langsung | R3 |
-| Builder workflow | Kanvas graf seperti prototype sebagai tampilan utama; daftar vertikal tetap untuk keyboard/mobile | R3 |
-| JQL | Tambah `OR`, kurung, dan autocomplete | R3 |
-| Batas WIP | Ditegakkan: kartu ditolak pindah saat kolom penuh (Admin bisa paksa) | R3 |
-| Roadmap | Tambah pengelompokan per epic | R3 |
+| Detail tiket | Panel samping dari board + tombol "buka halaman penuh"; URL tetap bisa dibuka langsung | R3 ✅ selesai (2026-11-14) |
+| Builder workflow | Kanvas graf seperti prototype sebagai tampilan utama; daftar vertikal tetap untuk keyboard/mobile | R3 ✅ selesai (2026-11-14) |
+| JQL | Tambah `OR`, kurung, dan autocomplete | R3 ✅ selesai (2026-11-14) |
+| Batas WIP | Ditegakkan: kartu ditolak pindah saat kolom penuh (Admin bisa paksa) | R3 ✅ selesai (2026-11-14) |
+| Roadmap | Tambah pengelompokan per epic | R3 ✅ selesai (2026-11-14) |
 | Client AI | Gemini CLI diganti Antigravity | R4 |
 | AI Office | Pemilik memilih **V1 Isometrik Studio** + mode **Denah V2** + **pencahayaan hangat V3**; dibangun dengan SVG + vanilla JS | R5 ✅ selesai (2026-11-14) |
 | Notifikasi | Tetap in-app saja | — |
@@ -112,15 +112,15 @@ Format daftar di bawah: **keputusan** — default sekarang.
 
 ### Tiket, workflow, planning
 
-- Detail tiket — halaman sendiri, bukan panel samping board.
+- Detail tiket — panel samping dari board/daftar/backlog/roadmap (R3) + halaman penuh; aksi di panel (komentar, ubah) berlanjut di halaman penuh.
 - Tombol Approve — varian primer (aksen), bukan hijau.
-- Builder workflow — daftar vertikal + panel, bukan kanvas graf.
+- Builder workflow — kanvas graf (R3) dengan tata letak otomatis dari urutan stage (posisi node tidak bisa diseret bebas); daftar vertikal lewat sakelar.
 - Workflow Subtask — "Subtask ringkas" (Dev → Review → Selesai).
 - Gate evidence — hanya lewat runner/git atau lompat/paksa Admin (tidak bisa dicentang manual).
 - Estimasi AI — lewat komentar `@agent` atau MCP; kalibrasi = rasio aktual/estimasi per stage.
 - Rilis — tidak membuat git tag; satu component per tiket.
-- Roadmap — dikelompokkan per sprint (bukan per epic); board Scrum default sprint aktif.
-- Batas WIP — hanya penanda (tidak menolak pindah kartu). JQL hanya `AND`.
+- Roadmap — per sprint atau per epic (R3, epic = induk terdekat bertipe `epic`); board Scrum default sprint aktif.
+- Batas WIP — ditegakkan (R3) atas beban project per stage, bukan kartu yang tampil di filter/sprint; approve/keputusan/lompat Admin tidak dicek. JQL: `AND`/`OR`/`NOT`/kurung (presedensi Jira) + autocomplete.
 
 ### Agent, MCP, runner, git
 
@@ -186,7 +186,7 @@ Paling penting dulu:
     `docs/admin/operasi.md`); DSN Sentry bila ingin error tracking.
 13. Konfirmasi kebijakan: merge otomatis, retry webhook, rate limit API 600/mnt, DCR 20/IP/jam, auto-ambil runner
     default mati, batas job paralel default, online runner 60 dtk.
-14. Konfirmasi fitur: JQL `OR`/kurung, WIP ditegakkan, roadmap per epic, izin `manage_knowledge`, GitLab/Bitbucket sebelum rilis.
+14. Konfirmasi fitur: GitLab/Bitbucket sebelum rilis (JQL, WIP, roadmap epic, `manage_knowledge` sudah diputuskan dan dibangun di R1/R3).
 15. Lain-lain: GHES untuk uji nyata (bila ada pelanggan), Graphify + repo pelanggan untuk benchmark code graph,
     dan uji kualitas pencarian semantik di repo pelanggan (model default `multilingual-e5-small`, bisa diganti;
     lihat `docs/benchmarks/2026-11-14-embedding.md`).
@@ -220,9 +220,10 @@ Paling penting dulu:
 **Rendah**
 
 - Komentar belum punya balasan/reaksi; field custom belum multi-pilih; label tanpa warna.
-- Teks tooltip grafik/roadmap dan error JQL masih di Rust (belum Fluent).
+- Teks tooltip grafik (burndown/CFD) dan kalender masih di Rust (roadmap dan error JQL sudah Fluent sejak R3).
 - Tabel datatable di 390px digulir horizontal.
 - Antrean job dan daftar token/webhook disortir di memori (cukup sampai ratusan/ribuan baris).
 - Event knowledge dan planning belum masuk audit log.
-- Builder workflow belum kanvas graf; AI Office tanpa animasi berjalan antar-kursi (R5); graph viewer layout sederhana.
+- Kanvas builder: posisi node otomatis (belum bisa diseret/disimpan manual), tambah/hapus stage tetap lewat form; AI Office tanpa animasi berjalan antar-kursi (R5); graph viewer layout sederhana.
+- Panel tiket: aksi di dalam panel (komentar, ubah detail, pindah stage) memuat halaman penuh tiket setelah disimpan; Back kembali ke board yang dimuat ulang.
 - Kredensial CLI di file 0600, belum keychain OS.

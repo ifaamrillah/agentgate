@@ -45,6 +45,7 @@
 @import "./components/api.css";
 @import "./components/jira.css";
 @import "./components/system.css";
+@import "./components/ticket-panel.css";
 
 @source "../views";
 @source "../../src";

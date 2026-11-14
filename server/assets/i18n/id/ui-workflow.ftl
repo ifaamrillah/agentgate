@@ -30,6 +30,7 @@ audit-action-workflow-migrated = Tiket dimigrasi ke versi workflow baru
 audit-action-project-workflows-changed = Workflow project diubah
 audit-action-ticket-stage-jumped = Stage tiket dilompati
 audit-action-ticket-transition-forced = Transisi tiket dipaksa
+audit-action-ticket-wip-overridden = Batas WIP dilewati Admin
 audit-subject-workflow = Workflow
 
 ## Error gate
@@ -38,6 +39,9 @@ ticket-needs-approval = Stage ini harus di-approve dulu. Minta review.
 ticket-jump-admin-only = Melewati stage yang punya gate atau approval hanya untuk Admin project.
 ticket-gates-unmet = Gate stage ini belum terpenuhi.
 ticket-stage-busy = Stage ini sedang menunggu review atau keputusan.
+ticket-wip-full = Kolom tujuan sudah mencapai batas WIP. Selesaikan atau pindahkan tiket lain dari kolom itu dulu.
+ticket-wip-full-detail = Kolom { $stage } sudah penuh (batas WIP { $wip } tiket). Selesaikan atau pindahkan tiket lain dari kolom itu dulu.
+ticket-flash-wip-forced = Tiket dipindah melewati batas WIP. Alasan tercatat di audit log.
 ticket-not-approver = Anda bukan approver stage ini.
 ticket-not-in-review = Stage ini tidak sedang menunggu review.
 ticket-not-in-decision = Tiket ini tidak sedang menunggu keputusan.
@@ -369,7 +373,12 @@ flash-stage-people-saved = Penugasan stage disimpan.
 flash-artifact-saved = Versi baru disimpan.
 flash-artifact-created = Artifact dibuat.
 workflow-wip = Batas WIP kolom board
-workflow-wip-hint = Jumlah tiket maksimal di stage ini. Melebihi batas hanya diberi tanda di board. Kosongkan bila tanpa batas.
+workflow-wip-hint = Jumlah tiket maksimal di stage ini. Kartu ditolak masuk kolom yang penuh; Admin project bisa memaksa dengan alasan. Kosongkan bila tanpa batas.
+workflow-section-danger = Izin aksi berbahaya
+workflow-danger-hint = Berlaku untuk job agent di stage ini dan menimpa izin persona. Aksi yang selalu diblokir (force push ke branch utama, hapus database production) tetap diblokir.
+workflow-danger-hint-manual = Stage ini dikerjakan manusia. Izin dipakai bila stage diberi persona agent atau job dipicu @agent.
+workflow-danger-inherit = Ikuti persona
+workflow-danger-invalid = Aksi berbahaya tidak dikenal.
 
 ## Bukti gate manual (R1)
 audit-action-evidence-submitted = Bukti manual diunggah
@@ -415,3 +424,15 @@ manual-evidence-stage-not-active = Tiket dibatalkan; bukti tidak bisa diunggah.
 manual-evidence-flash-submitted = Bukti manual diunggah. Menunggu persetujuan approver stage.
 manual-evidence-flash-approved = Bukti manual disetujui.
 manual-evidence-flash-rejected = Bukti manual ditolak.
+
+## Kanvas builder (R3)
+workflow-view = Tampilan builder
+workflow-view-canvas = Kanvas
+workflow-view-list = Daftar
+workflow-legend-fail = Gagal, kembali ke
+workflow-zoom = Zoom kanvas
+workflow-zoom-in = Perbesar
+workflow-zoom-out = Perkecil
+workflow-fit = Rapikan
+workflow-canvas-label = Kanvas workflow { $name }
+workflow-canvas-help = Seret latar untuk menggeser, Ctrl + gulir atau tombol +/− untuk zoom, Rapikan (tombol 0) untuk menata ulang dan memuat semua stage. Klik stage untuk mengubahnya. Daftar memuat stage yang sama dalam urutan vertikal.

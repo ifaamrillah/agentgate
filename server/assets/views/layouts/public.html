@@ -7,7 +7,7 @@
   <a href="/" class="app-brandmark"><span>{{ icon(name="robot") }}</span>{{ t(key="app-name", lang="id") }}</a>
   <div class="app-solo-inner">
     {%- if flash is defined and flash %}
-    {{ <flash kind={flash.kind} message={t(key=flash.key, lang="id")}/> }}
+    {% if flash.text %}{% set flash_msg = flash.text %}{% else %}{% set flash_msg = t(key=flash.key, lang="id") %}{% endif %}<div data-flash-key="{{ flash.key }}">{{ <flash kind={flash.kind} message={flash_msg}/> }}</div>
     {%- endif %}
     {% block content %}{% endblock content %}
     <p class="app-solo-foot">{% block foot %}{% endblock foot %}</p>

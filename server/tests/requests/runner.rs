@@ -43,6 +43,8 @@ stages:
     mode: otomatis
     gate: [tests_passed, screenshot_exists]
     transisi: tunggu_approve
+    izin_bahaya:
+      deploy: allow
     penugasan:
       executor: [{executor}]
   - id: done
@@ -241,6 +243,18 @@ async fn runner_executes_stage_job_with_signed_evidence_then_requests_review() {
                 .unwrap()
                 .iter()
                 .any(|d| d["level"] == "block")
+        );
+        // Izin aksi berbahaya stage (R3) menimpa persona Developer (deploy = block).
+        let deploy = spec["danger"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|d| d["action"] == "deploy")
+            .cloned();
+        assert_eq!(
+            deploy.map(|d| d["level"].clone()),
+            Some(json!("allow")),
+            "{spec}"
         );
 
         // Log dan langkah.

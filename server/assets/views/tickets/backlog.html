@@ -70,7 +70,7 @@
     {{ <prio rank={r.priority.rank} label={t(key=r.priority.label_key, lang="id")}/> }}
     {{ <type_icon icon={r.ticket_type.icon} color={r.ticket_type.color} label={r.ticket_type.name}/> }}
     <span class="app-code">{{ r.code }}</span>
-    <a class="app-tr-title" href="{{ r.href }}" title="{{ r.title }}">{{ r.title }}</a>
+    <a class="app-tr-title" href="{{ r.href }}" title="{{ r.title }}" data-ticket-peek>{{ r.title }}</a>
     <span class="app-tr-labels" data-hide-sm>{% for l in r.labels %}{% if loop.index <= 2 %}<span class="app-label-pill">{{ l }}</span>{% endif %}{% endfor %}</span>
     <span class="app-tr-stage" data-hide-sm title="{{ r.stage }}">{{ r.stage }}</span>
     <span data-hide-sm>

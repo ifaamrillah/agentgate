@@ -468,18 +468,26 @@ pub struct StageColumn {
     pub cards: Vec<TicketRow>,
     /// Batas WIP (M9); `None` = tanpa batas.
     pub wip: Option<u16>,
-    /// Kartu melebihi batas WIP.
+    /// Beban kolom: tiket aktif project di stage ini (yang ditegakkan batas WIP, R3), bukan hanya
+    /// kartu yang tampil di filter/sprint/lajur ini.
+    pub load: usize,
+    /// Beban melebihi batas WIP (data lama sebelum R3 menegakkan batas).
     pub over: bool,
+    /// Beban sudah mencapai batas: kartu dari kolom lain ditolak masuk (R3).
+    pub full: bool,
 }
 
 /// Kolom board dari gabungan stage semua workflow yang dipakai project: kunci sama = satu kolom
 /// (nama dari workflow pertama), urut kategori lalu posisi di workflow-nya. Tiket masuk kolom
 /// kunci stage-nya; stage yang sudah dihapus (belum dimigrasi) masuk kolom pertama kategorinya.
+/// `loads` = jumlah tiket aktif project per kunci stage (`tickets::Model::count_by_stage`);
+/// kosong = beban dihitung dari kartu.
 #[must_use]
 pub fn stage_columns(
     lookup: &Lookup,
     definitions: &[agentgate_core::workflow::Definition],
     tickets: &[tickets::Model],
+    loads: &[(String, i64)],
 ) -> Vec<StageColumn> {
     let mut seen: Vec<(
         String,
@@ -506,7 +514,9 @@ pub fn stage_columns(
             ),
             cards: Vec::new(),
             wip,
+            load: 0,
             over: false,
+            full: false,
         })
         .collect();
     for t in tickets {
@@ -522,12 +532,23 @@ pub fn stage_columns(
                 status: status_view(t.status().unwrap_or(TicketStatus::Todo)),
                 cards: vec![lookup.row(t)],
                 wip: None,
+                load: 0,
                 over: false,
+                full: false,
             }),
         }
     }
     for c in &mut columns {
-        c.over = c.wip.is_some_and(|w| c.cards.len() > usize::from(w));
+        c.load = if loads.is_empty() {
+            c.cards.len()
+        } else {
+            loads
+                .iter()
+                .find(|(k, _)| *k == c.key)
+                .map_or(0, |(_, n)| usize::try_from(*n).unwrap_or_default())
+        };
+        c.over = c.wip.is_some_and(|w| c.load > usize::from(w));
+        c.full = c.wip.is_some_and(|w| w > 0 && c.load >= usize::from(w));
     }
     columns
 }
